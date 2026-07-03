@@ -1,0 +1,39 @@
+import { cn } from "@/lib/utils";
+
+// Simple deterministic colored monogram — no external icon libraries per ticker.
+const palette = [
+  "var(--color-info)",
+  "var(--color-bullish)",
+  "var(--color-warning)",
+  "var(--color-bearish)",
+  "var(--chart-5)",
+];
+
+function hashColor(ticker: string) {
+  let h = 0;
+  for (let i = 0; i < ticker.length; i++) h = (h * 31 + ticker.charCodeAt(i)) >>> 0;
+  return palette[h % palette.length];
+}
+
+export function AssetIcon({
+  ticker,
+  className,
+}: {
+  ticker: string;
+  className?: string;
+}) {
+  const color = hashColor(ticker);
+  const initial = ticker.slice(0, 1);
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center justify-center rounded-full text-[10px] font-bold text-background",
+        className,
+      )}
+      style={{ backgroundColor: color, width: "1.25em", height: "1.25em" }}
+      aria-hidden
+    >
+      {initial}
+    </span>
+  );
+}
