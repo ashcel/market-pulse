@@ -9,8 +9,50 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TechnicalRouteImport } from './routes/technical'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as RotationRouteImport } from './routes/rotation'
+import { Route as RegimeRouteImport } from './routes/regime'
+import { Route as RankingsRouteImport } from './routes/rankings'
+import { Route as NewsRouteImport } from './routes/news'
+import { Route as MarketsRouteImport } from './routes/markets'
 import { Route as IndexRouteImport } from './routes/index'
 
+const TechnicalRoute = TechnicalRouteImport.update({
+  id: '/technical',
+  path: '/technical',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RotationRoute = RotationRouteImport.update({
+  id: '/rotation',
+  path: '/rotation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegimeRoute = RegimeRouteImport.update({
+  id: '/regime',
+  path: '/regime',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RankingsRoute = RankingsRouteImport.update({
+  id: '/rankings',
+  path: '/rankings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NewsRoute = NewsRouteImport.update({
+  id: '/news',
+  path: '/news',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MarketsRoute = MarketsRouteImport.update({
+  id: '/markets',
+  path: '/markets',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +61,130 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/markets': typeof MarketsRoute
+  '/news': typeof NewsRoute
+  '/rankings': typeof RankingsRoute
+  '/regime': typeof RegimeRoute
+  '/rotation': typeof RotationRoute
+  '/settings': typeof SettingsRoute
+  '/technical': typeof TechnicalRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/markets': typeof MarketsRoute
+  '/news': typeof NewsRoute
+  '/rankings': typeof RankingsRoute
+  '/regime': typeof RegimeRoute
+  '/rotation': typeof RotationRoute
+  '/settings': typeof SettingsRoute
+  '/technical': typeof TechnicalRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/markets': typeof MarketsRoute
+  '/news': typeof NewsRoute
+  '/rankings': typeof RankingsRoute
+  '/regime': typeof RegimeRoute
+  '/rotation': typeof RotationRoute
+  '/settings': typeof SettingsRoute
+  '/technical': typeof TechnicalRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/markets'
+    | '/news'
+    | '/rankings'
+    | '/regime'
+    | '/rotation'
+    | '/settings'
+    | '/technical'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/markets'
+    | '/news'
+    | '/rankings'
+    | '/regime'
+    | '/rotation'
+    | '/settings'
+    | '/technical'
+  id:
+    | '__root__'
+    | '/'
+    | '/markets'
+    | '/news'
+    | '/rankings'
+    | '/regime'
+    | '/rotation'
+    | '/settings'
+    | '/technical'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  MarketsRoute: typeof MarketsRoute
+  NewsRoute: typeof NewsRoute
+  RankingsRoute: typeof RankingsRoute
+  RegimeRoute: typeof RegimeRoute
+  RotationRoute: typeof RotationRoute
+  SettingsRoute: typeof SettingsRoute
+  TechnicalRoute: typeof TechnicalRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/technical': {
+      id: '/technical'
+      path: '/technical'
+      fullPath: '/technical'
+      preLoaderRoute: typeof TechnicalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rotation': {
+      id: '/rotation'
+      path: '/rotation'
+      fullPath: '/rotation'
+      preLoaderRoute: typeof RotationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/regime': {
+      id: '/regime'
+      path: '/regime'
+      fullPath: '/regime'
+      preLoaderRoute: typeof RegimeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rankings': {
+      id: '/rankings'
+      path: '/rankings'
+      fullPath: '/rankings'
+      preLoaderRoute: typeof RankingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/news': {
+      id: '/news'
+      path: '/news'
+      fullPath: '/news'
+      preLoaderRoute: typeof NewsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/markets': {
+      id: '/markets'
+      path: '/markets'
+      fullPath: '/markets'
+      preLoaderRoute: typeof MarketsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,17 +197,14 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  MarketsRoute: MarketsRoute,
+  NewsRoute: NewsRoute,
+  RankingsRoute: RankingsRoute,
+  RegimeRoute: RegimeRoute,
+  RotationRoute: RotationRoute,
+  SettingsRoute: SettingsRoute,
+  TechnicalRoute: TechnicalRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
