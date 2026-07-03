@@ -1,0 +1,225 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useAssets } from "@/hooks/queries";
+import { PageHeader } from "@/components/iq/page-header";
+import { IqCard } from "@/components/iq/iq-card";
+import { AssetIcon } from "@/components/iq/asset-icon";
+import { Change } from "@/components/iq/change";
+import { formatPrice } from "@/components/iq/market-card";
+import { MiniChart } from "@/components/iq/mini-chart";
+import { SkeletonCard } from "@/components/iq/skeletons";
+import { Star, Search, ArrowUpDown } from "lucide-react";
+import { useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
+import { useWatchlistStore } from "@/stores/watchlist";
+import type { Asset, AssetCategory } from "@/lib/types";
+
+export const Route = createFileRoute("/rankings")({
+  head: () => ({
+    meta: [
+      { title: "Rankings — IQ" },
+      { name: "description", content: "Sortable, filterable rankings across every asset IQ tracks." },
+      { property: "og:title", content: "Rankings — IQ" },
+      { property: "og:description", content: "IQ score, momentum, strength, and technical rank." },
+    ],
+  }),
+  component: RankingsPage,
+});
+
+type Filter = "all" | AssetCategory | "favorites";
+type SortKey = "score" | "momentum" | "strength" | "volume" | "technical" | "confidence" | "change";
+
+const FILTERS: { label: string; value: Filter }[] = [
+  { label: "All", value: "all" },
+  { label: "Crypto", value: "crypto" },
+  { label: "Stocks", value: "stocks" },
+  { label: "ETF", value: "etf" },
+  { label: "Favorites", value: "favorites" },
+];
+
+function RankingsPage() {
+  const { data } = useAssets();
+  const [filter, setFilter] = useState<Filter>("all");
+  const [q, setQ] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("score");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const watchlist = useWatchlistStore();
+
+  const rows = useMemo(() => {
+    if (!data) return [];
+    const filtered = data.filter((a) => {
+      if (filter === "favorites" && !watchlist.tickers.includes(a.ticker)) return false;
+      if (filter !== "all" && filter !== "favorites" && a.category !== filter) return false;
+      if (q && !`${a.ticker} ${a.name}`.toLowerCase().includes(q.toLowerCase())) return false;
+      return true;
+    });
+    return filtered.sort((a, b) => {
+      const av = sortVal(a, sortKey);
+      const bv = sortVal(b, sortKey);
+      return sortDir === "desc" ? bv - av : av - bv;
+    });
+  }, [data, filter, q, sortKey, sortDir, watchlist.tickers]);
+
+  const cycleSort = (k: SortKey) => {
+    if (sortKey === k) setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    else {
+      setSortKey(k);
+      setSortDir("desc");
+    }
+  };
+
+  return (
+    <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
+      <PageHeader eyebrow="Rankings" title="Asset Rankings" subtitle="IQ's proprietary scoring across every asset." />
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex flex-1 items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search ticker or name"
+            className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+          />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {FILTERS.map((f) => (
+            <button
+              key={f.value}
+              onClick={() => setFilter(f.value)}
+              className={cn(
+                "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+                filter === f.value
+                  ? "border-info bg-info-soft text-info"
+                  : "border-border bg-surface text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!data ? (
+        <SkeletonCard height={400} />
+      ) : (
+        <IqCard padded={false}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <Th className="pl-5">#</Th>
+                  <Th>Asset</Th>
+                  <Th>Category</Th>
+                  <Th align="right" sortable active={sortKey === "score"} dir={sortDir} onClick={() => cycleSort("score")}>Score</Th>
+                  <Th align="right" sortable active={sortKey === "change"} dir={sortDir} onClick={() => cycleSort("change")}>Change</Th>
+                  <Th align="right" sortable active={sortKey === "momentum"} dir={sortDir} onClick={() => cycleSort("momentum")}>Momentum</Th>
+                  <Th align="right" sortable active={sortKey === "strength"} dir={sortDir} onClick={() => cycleSort("strength")}>Strength</Th>
+                  <Th align="right" sortable active={sortKey === "volume"} dir={sortDir} onClick={() => cycleSort("volume")}>Volume</Th>
+                  <Th align="right" sortable active={sortKey === "technical"} dir={sortDir} onClick={() => cycleSort("technical")}>Technical</Th>
+                  <Th align="right" sortable active={sortKey === "confidence"} dir={sortDir} onClick={() => cycleSort("confidence")}>Confidence</Th>
+                  <Th align="right" className="pr-5">Trend</Th>
+                  <Th></Th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((a, i) => {
+                  const fav = watchlist.tickers.includes(a.ticker);
+                  return (
+                    <tr key={a.id} className="border-b border-border last:border-0 hover:bg-surface/50">
+                      <td className="pl-5 py-3 text-xs text-muted-foreground">{i + 1}</td>
+                      <td className="py-3 pr-2">
+                        <div className="flex items-center gap-2">
+                          <AssetIcon ticker={a.ticker} className="h-6 w-6" />
+                          <div className="leading-tight">
+                            <div className="font-semibold">{a.ticker}</div>
+                            <div className="text-[11px] text-muted-foreground">{a.name}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 pr-2 text-xs uppercase tracking-wider text-muted-foreground">{a.category}</td>
+                      <td className="py-3 pr-2 text-right num font-semibold">{a.score}</td>
+                      <td className="py-3 pr-2 text-right"><Change value={a.change24h} /></td>
+                      <td className="py-3 pr-2 text-right num">{a.momentum}</td>
+                      <td className="py-3 pr-2 text-right num">{a.strength}</td>
+                      <td className="py-3 pr-2 text-right num">{a.volume}</td>
+                      <td className="py-3 pr-2 text-right num">{a.technical}</td>
+                      <td className="py-3 pr-2 text-right num">{a.confidence}</td>
+                      <td className="py-3 pr-5">
+                        <div className="ml-auto max-w-[100px]">
+                          <MiniChart data={a.spark} tone={a.change24h >= 0 ? "bullish" : "bearish"} height={24} />
+                        </div>
+                      </td>
+                      <td className="py-3 pr-3">
+                        <button
+                          onClick={() => watchlist.toggle(a.ticker)}
+                          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-surface hover:text-warning"
+                          aria-label="Toggle favorite"
+                        >
+                          <Star className={cn("h-4 w-4", fav && "fill-warning text-warning")} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {rows.length === 0 && (
+            <div className="p-10 text-center text-sm text-muted-foreground">
+              No assets match your filters.
+            </div>
+          )}
+        </IqCard>
+      )}
+    </div>
+  );
+}
+
+function sortVal(a: Asset, k: SortKey) {
+  if (k === "change") return a.change24h;
+  return (a[k] as number | undefined) ?? 0;
+}
+
+function Th({
+  children,
+  align = "left",
+  className,
+  sortable,
+  active,
+  dir,
+  onClick,
+}: {
+  children?: React.ReactNode;
+  align?: "left" | "right";
+  className?: string;
+  sortable?: boolean;
+  active?: boolean;
+  dir?: "asc" | "desc";
+  onClick?: () => void;
+}) {
+  return (
+    <th
+      className={cn(
+        "py-2 pr-2 font-semibold",
+        align === "right" && "text-right",
+        align === "left" && "text-left",
+        className,
+      )}
+    >
+      {sortable ? (
+        <button
+          onClick={onClick}
+          className={cn(
+            "inline-flex items-center gap-1 hover:text-foreground",
+            active && "text-foreground",
+          )}
+        >
+          {children}
+          <ArrowUpDown className={cn("h-3 w-3", active && dir === "asc" && "rotate-180")} />
+        </button>
+      ) : (
+        children
+      )}
+    </th>
+  );
+}
