@@ -326,7 +326,9 @@ export function buildRiskPlan(
         : entry;
   const rewardPerUnit1 = Math.abs(target1 - entry);
   const rewardPerUnit2 = Math.abs(target2 - entry);
-  const positionSize = riskPerUnit > 0 ? Math.floor(maxDollarRisk / riskPerUnit) : 0;
+  // Crypto positions are fractional — sizing must not floor to whole units or
+  // high-priced assets (BTC) resolve to zero for small accounts.
+  const positionSize = riskPerUnit > 0 ? round(maxDollarRisk / riskPerUnit, 6) : 0;
 
   return {
     direction,

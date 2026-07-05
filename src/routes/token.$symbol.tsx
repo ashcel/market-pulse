@@ -39,6 +39,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { useLivePrice } from "@/hooks/useLivePrice";
 import { useTokenSignal, type TokenSignalData } from "@/hooks/useTokenSignal";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
 import type { SignalEvaluation, SignalStatus } from "@/lib/engine/quant";
@@ -65,8 +66,10 @@ function TokenDetailPage() {
   const [timeframe, setTimeframe] = useState<TokenTimeframe>("4H");
   const signal = useTokenSignal(symbol, timeframe);
   const data = signal.data;
-  const lastClose = data?.candles.at(-1)?.close ?? data?.evaluation.analytics.lastClose ?? 0;
-  const change24h = data ? computeChange24h(data.candles) : 0;
+  const live = useLivePrice(symbol, data?.source === "live");
+  const lastClose =
+    live?.price ?? data?.candles.at(-1)?.close ?? data?.evaluation.analytics.lastClose ?? 0;
+  const change24h = live?.change24h ?? (data ? computeChange24h(data.candles) : 0);
 
   return (
     <div className="mx-auto flex max-w-[1500px] flex-col gap-4 sm:gap-5">
@@ -90,7 +93,19 @@ function TokenDetailPage() {
                       : "border-warning/30 bg-warning-soft text-warning",
                   )}
                 >
-                  {data?.source === "live" ? "Live" : "Demo"}
+                  {live ? (
+                    <span className="flex items-center gap-1.5">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-bullish opacity-75" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-bullish" />
+                      </span>
+                      Streaming
+                    </span>
+                  ) : data?.source === "live" ? (
+                    "Live"
+                  ) : (
+                    "Demo"
+                  )}
                 </Badge>
               </>
             )}
@@ -393,10 +408,23 @@ function SignalPanel({ evaluation }: { evaluation: SignalEvaluation }) {
             value={formatMoney(evaluation.risk.target2)}
             tone="bullish"
           />
-          <RiskMetric label="Position" value={evaluation.risk.positionSize.toLocaleString()} />
+          <RiskMetric
+            label="Position"
+            value={`${formatUnits(evaluation.risk.positionSize)} ≈ ${formatMoney(evaluation.risk.positionSize * evaluation.risk.entry)}`}
+          />
           <RiskMetric
             label="R/R"
             value={`${evaluation.risk.rewardRisk1}R / ${evaluation.risk.rewardRisk2}R`}
+          />
+          <RiskMetric
+            label="Max loss"
+            value={formatMoney(evaluation.risk.maxDollarLoss)}
+            tone="bearish"
+          />
+          <RiskMetric
+            label="Gain @ T1"
+            value={formatMoney(evaluation.risk.estimatedGain1)}
+            tone="bullish"
           />
         </div>
       )}
@@ -815,6 +843,13 @@ function StatusIcon({ status }: { status: SignalStatus }) {
   if (status === "fail") return <CircleX className="h-4 w-4 shrink-0 text-bearish" />;
   if (status === "warning") return <CircleAlert className="h-4 w-4 shrink-0 text-warning" />;
   return <CircleAlert className="h-4 w-4 shrink-0 text-muted-foreground" />;
+}
+
+function formatUnits(value: number) {
+  if (!Number.isFinite(value)) return "n/a";
+  if (value >= 100) return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (value >= 1) return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return value.toLocaleString(undefined, { maximumFractionDigits: 6 });
 }
 
 function formatMoney(value: number | null | undefined) {

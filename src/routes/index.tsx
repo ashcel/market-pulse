@@ -74,6 +74,7 @@ function Dashboard() {
       </header>
 
       <HeroMetrics />
+      <TopSetups />
       <MarketOverviewStrip />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
@@ -262,6 +263,73 @@ function FearGreed({ value }: { value: number }) {
         <span>Greed</span>
       </div>
     </div>
+  );
+}
+
+function TopSetups() {
+  const { data } = useAssets();
+  if (!data) return null;
+
+  const setups = data
+    .filter((a) => a.decision === "buy-candidate" || a.decision === "short-candidate")
+    .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0))
+    .slice(0, 4);
+
+  return (
+    <IqCard>
+      <div className="flex items-center justify-between">
+        <CardEyebrow>Actionable Setups</CardEyebrow>
+        <span className="text-xs text-muted-foreground">Engine decisions · 1H bars</span>
+      </div>
+      {setups.length === 0 ? (
+        <p className="mt-3 text-sm text-muted-foreground">
+          No actionable setups right now — the engine says{" "}
+          <span className="font-semibold text-foreground">wait</span>. Sitting out is a position;
+          check back after the next refresh.
+        </p>
+      ) : (
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {setups.map((a) => {
+            const long = a.decision === "buy-candidate";
+            return (
+              <Link
+                key={a.id}
+                to="/token/$symbol"
+                params={{ symbol: a.ticker }}
+                className={cn(
+                  "flex flex-col gap-2 rounded-lg border p-3 transition-colors",
+                  long
+                    ? "border-bullish/30 bg-bullish-soft hover:border-bullish/60"
+                    : "border-bearish/30 bg-bearish-soft hover:border-bearish/60",
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AssetIcon ticker={a.ticker} className="h-5 w-5" />
+                    <span className="text-sm font-semibold">{a.ticker}</span>
+                  </div>
+                  <span
+                    className={cn(
+                      "text-[10px] font-bold uppercase tracking-wider",
+                      long ? "text-bullish" : "text-bearish",
+                    )}
+                  >
+                    {long ? "Long" : "Short"}
+                  </span>
+                </div>
+                <div className="text-xs capitalize text-muted-foreground">
+                  {a.setupType?.replaceAll("-", " ")}
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="num">{formatPrice(a.price)}</span>
+                  <span className="num font-semibold">{a.confidence}/100</span>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </IqCard>
   );
 }
 

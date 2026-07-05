@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { fetchMarketSnapshot, type MarketSnapshot } from "@/lib/engine/market";
-import { news } from "@/lib/mock/news";
+import { fetchNews } from "@/lib/engine/news";
 import { usePreferencesStore } from "@/stores/preferences";
 
 /**
@@ -44,6 +44,7 @@ export const useVolatility = () => useMarketSnapshot((s) => s.volatility);
 export const useSignals = (ticker = "BTC") =>
   useMarketSnapshot((s) => s.assetSignals[ticker.toUpperCase()] ?? s.assetSignals.BTC);
 
-// News stays a curated sample until a real feed is wired in.
+// Live crypto headlines (Cointelegraph RSS via server fn) with tagged
+// impact/direction/assets; falls back to the curated sample offline.
 export const useNews = () =>
-  useQuery({ queryKey: ["news"], queryFn: async () => news, staleTime: Infinity });
+  useQuery({ queryKey: ["news"], queryFn: fetchNews, staleTime: 5 * 60_000 });

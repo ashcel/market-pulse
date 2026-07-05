@@ -4,8 +4,9 @@ import { IqCard, CardEyebrow } from "@/components/iq/iq-card";
 import { useUiStore } from "@/stores/ui";
 import { useWatchlistStore } from "@/stores/watchlist";
 import { usePreferencesStore } from "@/stores/preferences";
-import { Sun, Moon, Star, X, Check } from "lucide-react";
+import { Sun, Moon, Star, X, Check, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { StopMethod } from "@/lib/engine/quant";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -81,6 +82,8 @@ function SettingsPage() {
         </div>
       </IqCard>
 
+      <TradeRiskCard />
+
       <IqCard className="flex flex-col gap-4">
         <CardEyebrow>Notifications</CardEyebrow>
         {(
@@ -150,5 +153,139 @@ function SettingsPage() {
         </span>
       </IqCard>
     </div>
+  );
+}
+
+const ACCOUNT_SIZES = [1_000, 5_000, 10_000, 25_000, 50_000, 100_000];
+const RISK_PER_TRADE = [0.25, 0.5, 1, 2];
+const MIN_RR = [1.2, 1.6, 2, 3];
+const STOP_METHODS: { label: string; value: StopMethod; hint: string }[] = [
+  { label: "Swing", value: "swing", hint: "Below the last structural low/high" },
+  { label: "ATR", value: "atr", hint: "Volatility-scaled distance" },
+  { label: "Fixed %", value: "fixed-percent", hint: "Flat percentage from entry" },
+];
+
+function TradeRiskCard() {
+  const { risk, setRisk } = usePreferencesStore();
+  const dollarRisk = (risk.accountSize * risk.maxRiskPerTradePercent) / 100;
+
+  return (
+    <IqCard className="flex flex-col gap-5">
+      <div className="flex items-center justify-between">
+        <CardEyebrow>Trade Risk</CardEyebrow>
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-warning">
+          <ShieldAlert className="h-3.5 w-3.5" />
+          Sizes every trade plan
+        </span>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-medium text-muted-foreground">Account size</span>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+          {ACCOUNT_SIZES.map((v) => (
+            <OptionButton
+              key={v}
+              active={risk.accountSize === v}
+              onClick={() => setRisk({ accountSize: v })}
+            >
+              ${v >= 1000 ? `${v / 1000}k` : v}
+            </OptionButton>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Max risk per trade</span>
+          <div className="grid grid-cols-4 gap-2">
+            {RISK_PER_TRADE.map((v) => (
+              <OptionButton
+                key={v}
+                active={risk.maxRiskPerTradePercent === v}
+                onClick={() => setRisk({ maxRiskPerTradePercent: v })}
+              >
+                {v}%
+              </OptionButton>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Minimum reward/risk</span>
+          <div className="grid grid-cols-4 gap-2">
+            {MIN_RR.map((v) => (
+              <OptionButton
+                key={v}
+                active={risk.minimumRewardRisk === v}
+                onClick={() => setRisk({ minimumRewardRisk: v })}
+              >
+                {v}R
+              </OptionButton>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-medium text-muted-foreground">Stop placement</span>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {STOP_METHODS.map((m) => (
+            <button
+              key={m.value}
+              onClick={() => setRisk({ stopMethod: m.value })}
+              className={cn(
+                "rounded-lg border px-3 py-2 text-left transition-colors",
+                risk.stopMethod === m.value
+                  ? "border-info bg-info-soft"
+                  : "border-border bg-surface hover:border-muted-foreground/40",
+              )}
+            >
+              <div
+                className={cn(
+                  "text-sm font-semibold",
+                  risk.stopMethod === m.value ? "text-info" : "text-foreground",
+                )}
+              >
+                {m.label}
+              </div>
+              <div className="text-[11px] text-muted-foreground">{m.hint}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-surface px-4 py-3 text-sm">
+        With these settings, every plan risks at most{" "}
+        <span className="num font-semibold text-foreground">
+          ${dollarRisk.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+        </span>{" "}
+        per trade and only setups offering{" "}
+        <span className="num font-semibold text-foreground">≥{risk.minimumRewardRisk}R</span> pass
+        the reward/risk check.
+      </div>
+    </IqCard>
+  );
+}
+
+function OptionButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+        active
+          ? "border-info bg-info-soft text-info"
+          : "border-border bg-surface text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
   );
 }
