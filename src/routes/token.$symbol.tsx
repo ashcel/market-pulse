@@ -88,19 +88,19 @@ const TOUR_STEPS: TourStep[] = [
     body: "Each candle is one period of price movement (green = closed up, red = closed down). Small arrows mark swing highs/lows, dashed lines are support and resistance, and when a trade plan is active you'll see entry (blue), stop (red) and target (green) lines.",
   },
   {
+    target: "insight",
+    title: "Key insight & components",
+    body: "The market's condition in plain words — trend, momentum, volume, volatility — plus every check the engine ran. Green passed, amber is a caution, red failed.",
+  },
+  {
     target: "decision",
     title: "The engine's verdict",
-    body: "Start here. The engine reads the chart and answers one question: buy candidate, short candidate, wait, or no trade — with the most important reason in plain words.",
+    body: "The engine reads the chart and answers one question: buy candidate, short candidate, wait, or no trade — with the most important reason in plain words.",
   },
   {
     target: "risk",
     title: "Your trade plan",
     body: "Where to enter, where to exit if it goes wrong (stop), profit targets, and exactly how much to buy so you never lose more than your limit. Sized from your own account settings.",
-  },
-  {
-    target: "insight",
-    title: "Key insight & components",
-    body: "The market's condition in plain words — trend, momentum, volume, volatility — plus every check the engine ran. Green passed, amber is a caution, red failed.",
   },
   {
     target: "backtest",
@@ -276,8 +276,8 @@ function TokenDetailPage() {
                 </div>
               </IqCard>
 
-              <IqCard padded={false} data-tour="backtest" className="shrink-0 p-3">
-                <BacktestEvidence backtest={data.evaluation.backtest} />
+              <IqCard padded={false} data-tour="insight" className="shrink-0 p-3">
+                <InsightStrip evaluation={data.evaluation} />
               </IqCard>
             </div>
 
@@ -714,47 +714,6 @@ function SignalPanel({
         </div>
       </div>
 
-      <div data-tour="insight" className="grid gap-3 min-[420px]:grid-cols-2">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5">
-            <CardEyebrow>Key Insight</CardEyebrow>
-            <InfoHint text="The market's current condition translated into plain words — no jargon. This is the context every trade decision should start from." />
-          </div>
-          <div className="space-y-1">
-            {keyInsights(evaluation).map((row) => (
-              <KeyInsightRow key={row.label} {...row} />
-            ))}
-          </div>
-        </div>
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5">
-            <CardEyebrow>Components</CardEyebrow>
-            <InfoHint text="Every check the engine ran, with its score contribution. Hover a row to read what the check found. Green passed, amber is a caution, red failed." />
-          </div>
-          <div className="space-y-1">
-            {evaluation.components.map((component) => (
-              <Tooltip key={component.name}>
-                <TooltipTrigger asChild>
-                  <div className="flex cursor-default items-center gap-2 rounded-md border border-border bg-surface px-2 py-1.5">
-                    <StatusIcon status={component.status} />
-                    <span className="min-w-0 flex-1 truncate text-[11px] font-semibold">
-                      {component.name}
-                    </span>
-                    <StatusBadge status={component.status} score={component.score} />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="left"
-                  className="max-w-[260px] bg-popover text-xs leading-relaxed text-popover-foreground shadow-lg"
-                >
-                  {component.explanation}
-                </TooltipContent>
-              </Tooltip>
-            ))}
-          </div>
-        </div>
-      </div>
-
       {evaluation.noTradeReasons.length > 0 && (
         <div className="rounded-lg border border-warning/30 bg-warning-soft p-3 text-xs">
           <div className="mb-1.5 flex items-center gap-2 font-semibold text-warning">
@@ -768,7 +727,56 @@ function SignalPanel({
           </ul>
         </div>
       )}
+
+      <div data-tour="backtest">
+        <BacktestEvidence backtest={evaluation.backtest} />
+      </div>
     </IqCard>
+  );
+}
+
+function InsightStrip({ evaluation }: { evaluation: SignalEvaluation }) {
+  return (
+    <div className="space-y-2.5">
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-1.5">
+          <CardEyebrow>Key Insight</CardEyebrow>
+          <InfoHint text="The market's current condition translated into plain words — no jargon. This is the context every trade decision should start from." />
+        </div>
+        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+          {keyInsights(evaluation).map((row) => (
+            <KeyInsightBox key={row.label} {...row} />
+          ))}
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-1.5">
+          <CardEyebrow>Components</CardEyebrow>
+          <InfoHint text="Every check the engine ran, with its score contribution. Hover a row to read what the check found. Green passed, amber is a caution, red failed." />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {evaluation.components.map((component) => (
+            <Tooltip key={component.name}>
+              <TooltipTrigger asChild>
+                <div className="flex cursor-default items-center gap-2 rounded-md border border-border bg-surface px-2 py-1.5">
+                  <StatusIcon status={component.status} />
+                  <span className="whitespace-nowrap text-[11px] font-semibold">
+                    {component.name}
+                  </span>
+                  <StatusBadge status={component.status} score={component.score} />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent
+                side="top"
+                className="max-w-[260px] bg-popover text-xs leading-relaxed text-popover-foreground shadow-lg"
+              >
+                {component.explanation}
+              </TooltipContent>
+            </Tooltip>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -809,9 +817,9 @@ function keyInsights(evaluation: SignalEvaluation): InsightRow[] {
   const ratio = a.volumeRatio ?? 1;
   const volume: InsightRow =
     ratio >= 1.15
-      ? { label: "Volume", value: "Above average", tone: "bullish", dir: "up" }
+      ? { label: "Volume", value: "Above avg", tone: "bullish", dir: "up" }
       : ratio <= 0.85
-        ? { label: "Volume", value: "Below average", tone: "warning", dir: "down" }
+        ? { label: "Volume", value: "Below avg", tone: "warning", dir: "down" }
         : { label: "Volume", value: "Average", tone: "neutral", dir: "flat" };
 
   const atr = a.atrPercent ?? 0;
@@ -825,22 +833,24 @@ function keyInsights(evaluation: SignalEvaluation): InsightRow[] {
   return [trend, momentum, volume, volatility];
 }
 
-function KeyInsightRow({ label, value, tone, dir }: InsightRow) {
+function KeyInsightBox({ label, value, tone, dir }: InsightRow) {
   const DirIcon = dir === "up" ? TrendingUp : dir === "down" ? TrendingDown : MoveRight;
   return (
-    <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-2 py-1.5">
-      <span className="text-[11px] text-muted-foreground">{label}</span>
-      <span
+    <div className="rounded-lg border border-border bg-surface p-2">
+      <div className="text-[9px] font-semibold uppercase leading-tight tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div
         className={cn(
-          "flex items-center gap-1 text-[11px] font-semibold",
+          "mt-0.5 flex items-center gap-1 truncate text-xs font-semibold",
           tone === "bullish" && "text-bullish",
           tone === "bearish" && "text-bearish",
           tone === "warning" && "text-warning",
         )}
       >
         {value}
-        <DirIcon className="h-3 w-3" />
-      </span>
+        <DirIcon className="h-3 w-3 shrink-0" />
+      </div>
     </div>
   );
 }
@@ -865,7 +875,7 @@ function BacktestEvidence({ backtest }: { backtest: SignalEvaluation["backtest"]
           {backtest.strategyName} · this token, this timeframe
         </span>
       </div>
-      <div className="grid grid-cols-3 gap-1.5 xl:grid-cols-6">
+      <div className="grid grid-cols-3 gap-1.5">
         <RiskMetric label="Trades" value={String(backtest.totalTrades)} compact />
         <RiskMetric
           label="Win rate"
