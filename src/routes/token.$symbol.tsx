@@ -614,7 +614,7 @@ function SignalPanel({
             {evaluation.regime.replaceAll("-", " ")} · {evaluation.direction}
           </p>
         </div>
-        <ConfidenceGauge value={evaluation.confidence} size={60} label="Score" />
+        <ConfidenceGauge value={evaluation.confidence} size={60} />
       </div>
 
       <div data-tour="decision" className={cn("rounded-lg border p-3", decisionTone)}>

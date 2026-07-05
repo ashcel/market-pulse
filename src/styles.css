@@ -162,8 +162,40 @@
 }
 
 @layer base {
+  :root {
+    /* Solid theme-following scrollbar thumb, readable on both themes */
+    --scrollbar-thumb: color-mix(in oklab, var(--muted-foreground) 45%, var(--surface));
+    --scrollbar-thumb-hover: color-mix(in oklab, var(--muted-foreground) 70%, var(--surface));
+  }
+
   * {
     border-color: var(--color-border);
+    /* Standards (Chrome 121+, Firefox): slim, solid, theme-colored scrollbars */
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+
+  /* WebKit fallback (Safari): same solid theme colors */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
   }
 
   html {
