@@ -52,7 +52,12 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLivePrice } from "@/hooks/useLivePrice";
-import { useTokenSignal, type TokenSignalData } from "@/hooks/useTokenSignal";
+import {
+  useTimeframeAlignment,
+  useTokenSignal,
+  type TokenSignalData,
+} from "@/hooks/useTokenSignal";
+import type { TradeDirection } from "@/lib/engine/quant";
 import { computeEmaSeries } from "@/lib/engine/analysis";
 import { UNIVERSE } from "@/lib/engine/market";
 import { TOKEN_TIMEFRAMES } from "@/lib/engine/mock-candles";
@@ -85,7 +90,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     target: "header",
     title: "Token overview",
-    body: "Live price, 24-hour change and key stats for this token. Use the timeframe buttons (15M up to 1W) to change the chart — everything on this page recalculates for the timeframe you pick.",
+    body: "Live price, 24-hour change and key stats for this token. Use the timeframe buttons (15M up to 1W) to change the chart — everything on this page recalculates for the timeframe you pick. The tiny dot above each button is that timeframe's bias (green = leans long, red = leans short, grey = neutral), so you can spot when a short-term bounce is fighting the bigger trend.",
   },
   {
     target: "chart",
@@ -126,6 +131,10 @@ function TokenDetailPage() {
   const [aiOpen, setAiOpen] = useState(true);
   const [tourOpen, setTourOpen] = useState(false);
   const signal = useTokenSignal(symbol, timeframe);
+  const alignment = useTimeframeAlignment(symbol);
+  const biasByTimeframe = new Map(
+    alignment.data?.map((entry) => [entry.timeframe, entry.direction]) ?? [],
+  );
   const data = signal.data;
   const live = useLivePrice(symbol, data?.source === "live");
   const lastClose =
@@ -210,13 +219,15 @@ function TokenDetailPage() {
                 key={item}
                 type="button"
                 onClick={() => setTimeframe(item)}
+                title={biasLabel(item, biasByTimeframe.get(item))}
                 className={cn(
-                  "h-7 rounded px-2.5 font-semibold transition-colors",
+                  "flex h-9 flex-col items-center justify-center gap-1 rounded px-2.5 font-semibold transition-colors",
                   timeframe === item
                     ? "bg-card text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
+                <BiasDot direction={biasByTimeframe.get(item)} />
                 {item}
               </button>
             ))}
@@ -358,6 +369,25 @@ function TokenDetailPage() {
         }}
       />
     </div>
+  );
+}
+
+function biasLabel(timeframe: TokenTimeframe, direction: TradeDirection | undefined): string {
+  if (direction === "long") return `${timeframe}: engine leans long`;
+  if (direction === "short") return `${timeframe}: engine leans short`;
+  return `${timeframe}: no directional bias`;
+}
+
+function BiasDot({ direction }: { direction: TradeDirection | undefined }) {
+  return (
+    <span
+      className={cn(
+        "h-1 w-1 rounded-full",
+        direction === "long" && "bg-bullish",
+        direction === "short" && "bg-bearish",
+        (direction === "none" || direction === undefined) && "bg-muted-foreground/30",
+      )}
+    />
   );
 }
 

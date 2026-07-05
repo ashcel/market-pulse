@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { fetchTimeframeAlignment } from "@/lib/engine/alignment";
 import { computePivots, computeTrendLines } from "@/lib/engine/analysis";
 import { fetchBinanceKlines } from "@/lib/engine/binance";
 import { CRYPTO_RISK_SETTINGS } from "@/lib/engine/crypto-config";
@@ -64,5 +65,16 @@ export function useTokenSignal(symbol: string, timeframe: TokenTimeframe) {
 
       return buildSignalData(symbol, generateMockCandles(symbol, timeframe), "demo", settings);
     },
+  });
+}
+
+// Engine bias per timeframe for the alignment dots above the timeframe
+// buttons. One server round trip evaluates all timeframes.
+export function useTimeframeAlignment(symbol: string) {
+  return useQuery({
+    queryKey: ["tf-alignment", symbol.toUpperCase()],
+    queryFn: () => fetchTimeframeAlignment(symbol),
+    staleTime: 60_000,
+    refetchInterval: 120_000,
   });
 }
