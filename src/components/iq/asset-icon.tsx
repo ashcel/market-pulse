@@ -15,13 +15,7 @@ function hashColor(ticker: string) {
   return palette[h % palette.length];
 }
 
-export function AssetIcon({
-  ticker,
-  className,
-}: {
-  ticker: string;
-  className?: string;
-}) {
+export function AssetIcon({ ticker, className }: { ticker: string; className?: string }) {
   const color = hashColor(ticker);
   const initial = ticker.slice(0, 1);
   return (

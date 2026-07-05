@@ -4,7 +4,10 @@ import type { Signal } from "@/lib/types";
 import { StatusBadge } from "./status-badge";
 import { CheckCircle2, AlertTriangle, XCircle, MinusCircle } from "lucide-react";
 
-const toneMap: Record<Signal["status"], { badge: "bullish" | "bearish" | "warning" | "neutral"; Icon: typeof CheckCircle2 }> = {
+const toneMap: Record<
+  Signal["status"],
+  { badge: "bullish" | "bearish" | "warning" | "neutral"; Icon: typeof CheckCircle2 }
+> = {
   bullish: { badge: "bullish", Icon: CheckCircle2 },
   bearish: { badge: "bearish", Icon: XCircle },
   warning: { badge: "warning", Icon: AlertTriangle },

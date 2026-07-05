@@ -5,13 +5,24 @@ import { ConfidenceGauge } from "@/components/iq/confidence-gauge";
 import { IqCard, CardEyebrow } from "@/components/iq/iq-card";
 import { SkeletonCard } from "@/components/iq/skeletons";
 import { StatusBadge } from "@/components/iq/status-badge";
-import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, ReferenceLine } from "recharts";
+import {
+  AreaChart,
+  Area,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ReferenceLine,
+} from "recharts";
 
 export const Route = createFileRoute("/regime")({
   head: () => ({
     meta: [
       { title: "Market Regime — IQ" },
-      { name: "description", content: "Today's market regime: trend, breadth, volatility, liquidity, and macro." },
+      {
+        name: "description",
+        content: "Today's market regime: trend, breadth, volatility, liquidity, and macro.",
+      },
       { property: "og:title", content: "Market Regime — IQ" },
       { property: "og:description", content: "Is it Risk On, Risk Off, or Neutral today?" },
     ],
@@ -21,17 +32,33 @@ export const Route = createFileRoute("/regime")({
 
 function RegimePage() {
   const { data } = useRegime();
+  const tone =
+    data?.regime === "Risk On" ? "bullish" : data?.regime === "Risk Off" ? "bearish" : "warning";
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-6">
-      <PageHeader eyebrow="Regime" title="Market Regime" subtitle="How the market is behaving right now." />
+      <PageHeader
+        eyebrow="Regime"
+        title="Market Regime"
+        subtitle="How the market is behaving right now."
+      />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
         {data ? (
           <IqCard className="flex flex-col items-center gap-4 text-center">
             <CardEyebrow>Current Regime</CardEyebrow>
             <ConfidenceGauge value={data.confidence} size={200} label="Confidence" />
-            <div className="text-3xl font-semibold tracking-tight text-bullish">{data.regime}</div>
-            <StatusBadge tone="bullish">Trend Strength · {data.trendStrength}</StatusBadge>
+            <div
+              className={
+                tone === "bullish"
+                  ? "text-3xl font-semibold tracking-tight text-bullish"
+                  : tone === "bearish"
+                    ? "text-3xl font-semibold tracking-tight text-bearish"
+                    : "text-3xl font-semibold tracking-tight text-warning"
+              }
+            >
+              {data.regime}
+            </div>
+            <StatusBadge tone={tone}>Trend Strength · {data.trendStrength}</StatusBadge>
           </IqCard>
         ) : (
           <SkeletonCard height={340} />
@@ -93,14 +120,28 @@ function RegimePage() {
             <IqCard key={p.label} interactive className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold">{p.label}</span>
-                <StatusBadge tone={p.status === "bullish" ? "bullish" : p.status === "bearish" ? "bearish" : "warning"}>
+                <StatusBadge
+                  tone={
+                    p.status === "bullish"
+                      ? "bullish"
+                      : p.status === "bearish"
+                        ? "bearish"
+                        : "warning"
+                  }
+                >
                   {p.status}
                 </StatusBadge>
               </div>
               <div className="num text-2xl font-semibold tracking-tight">{p.score}</div>
               <div className="h-1 overflow-hidden rounded-full bg-muted">
                 <div
-                  className="h-full rounded-full bg-bullish"
+                  className={
+                    p.status === "bullish"
+                      ? "h-full rounded-full bg-bullish"
+                      : p.status === "bearish"
+                        ? "h-full rounded-full bg-bearish"
+                        : "h-full rounded-full bg-warning"
+                  }
                   style={{ width: `${p.score}%` }}
                 />
               </div>

@@ -10,7 +10,7 @@ interface WatchlistState {
 export const useWatchlistStore = create<WatchlistState>()(
   persist(
     (set, get) => ({
-      tickers: ["BTC", "ETH", "NVDA", "SPY"],
+      tickers: ["BTC", "ETH", "SOL"],
       toggle: (ticker) =>
         set((s) => ({
           tickers: s.tickers.includes(ticker)

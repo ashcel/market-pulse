@@ -6,7 +6,11 @@ import { ArrowRight } from "lucide-react";
 
 export function RotationFlow({ data, className }: { data: RotationData; className?: string }) {
   return (
-    <IqCard className={cn("flex flex-col gap-6", className)}>
+    <IqCard className={cn("flex flex-col gap-4", className)}>
+      <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <span>Capital exiting</span>
+        <span>Capital entering</span>
+      </div>
       <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
         {data.flow.map((node, i) => (
           <div key={node} className="flex items-center gap-2 sm:gap-3">
@@ -27,9 +31,7 @@ export function RotationFlow({ data, className }: { data: RotationData; classNam
                 </div>
               )}
             </motion.div>
-            {i < data.flow.length - 1 && (
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
-            )}
+            {i < data.flow.length - 1 && <ArrowRight className="h-4 w-4 text-muted-foreground" />}
           </div>
         ))}
       </div>

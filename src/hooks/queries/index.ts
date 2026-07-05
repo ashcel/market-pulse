@@ -1,45 +1,49 @@
 import { useQuery } from "@tanstack/react-query";
-import { assets } from "@/lib/mock/assets";
-import { regime } from "@/lib/mock/regime";
-import { rotation, sectors } from "@/lib/mock/rotation";
+
+import { fetchMarketSnapshot, type MarketSnapshot } from "@/lib/engine/market";
 import { news } from "@/lib/mock/news";
-import { signals, sentiment, technical, volatility, technicalConfidence } from "@/lib/mock/signals";
+import { usePreferencesStore } from "@/stores/preferences";
 
-const fake = <T>(data: T, delay = 350) =>
-  new Promise<T>((resolve) => setTimeout(() => resolve(data), delay));
+/**
+ * One live snapshot feeds every dashboard surface: assets, regime, rotation,
+ * sectors, sentiment, volatility, and per-asset signals. All page-level hooks
+ * below are selectors over this single query so the whole app stays in sync
+ * and refreshes together.
+ */
+function useMarketSnapshot<T = MarketSnapshot>(select?: (snapshot: MarketSnapshot) => T) {
+  const refreshIntervalMs = usePreferencesStore((s) => s.refreshIntervalMs);
+  return useQuery({
+    queryKey: ["market-snapshot"],
+    queryFn: fetchMarketSnapshot,
+    staleTime: 30_000,
+    refetchInterval: refreshIntervalMs > 0 ? refreshIntervalMs : false,
+    select,
+  });
+}
 
-export const useAssets = () =>
-  useQuery({ queryKey: ["assets"], queryFn: () => fake(assets) });
+export const useSnapshotMeta = () =>
+  useMarketSnapshot((s) => ({ source: s.source, updatedAt: s.updatedAt }));
+
+export const useAssets = () => useMarketSnapshot((s) => s.assets);
 
 export const useTopAssets = (n = 5) =>
-  useQuery({
-    queryKey: ["assets", "top", n],
-    queryFn: () => fake([...assets].sort((a, b) => b.score - a.score).slice(0, n)),
-  });
+  useMarketSnapshot((s) => [...s.assets].sort((a, b) => b.score - a.score).slice(0, n));
 
-export const useRegime = () =>
-  useQuery({ queryKey: ["regime"], queryFn: () => fake(regime) });
+export const useRegime = () => useMarketSnapshot((s) => s.regime);
 
-export const useRotation = () =>
-  useQuery({ queryKey: ["rotation"], queryFn: () => fake(rotation) });
+export const useRotation = () => useMarketSnapshot((s) => s.rotation);
 
-export const useSectors = () =>
-  useQuery({ queryKey: ["sectors"], queryFn: () => fake(sectors) });
+export const useSectors = () => useMarketSnapshot((s) => s.sectors);
 
+export const useSentiment = () => useMarketSnapshot((s) => s.sentiment);
+
+export const useTechnicalQuality = () => useMarketSnapshot((s) => s.technical);
+
+export const useVolatility = () => useMarketSnapshot((s) => s.volatility);
+
+export const useSignals = (ticker = "BTC") =>
+  useMarketSnapshot((s) => s.assetSignals[ticker.toUpperCase()] ?? s.assetSignals.BTC);
+
+// News stays a curated sample until a real feed is wired in.
 export const useNews = () =>
-  useQuery({ queryKey: ["news"], queryFn: () => fake(news) });
-
-export const useSignals = () =>
-  useQuery({
-    queryKey: ["signals"],
-    queryFn: () => fake({ signals, confidence: technicalConfidence }),
-  });
-
-export const useSentiment = () =>
-  useQuery({ queryKey: ["sentiment"], queryFn: () => fake(sentiment, 250) });
-
-export const useTechnicalQuality = () =>
-  useQuery({ queryKey: ["technical-quality"], queryFn: () => fake(technical, 250) });
-
-export const useVolatility = () =>
-  useQuery({ queryKey: ["volatility"], queryFn: () => fake(volatility, 250) });
+  useQuery({ queryKey: ["news"], queryFn: async () => news, staleTime: Infinity });

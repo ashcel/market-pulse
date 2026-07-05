@@ -32,7 +32,11 @@ export function ConfidenceGauge({
           barSize={8}
         >
           <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
-          <RadialBar dataKey="value" cornerRadius={20} background={{ fill: "var(--color-muted)" }} />
+          <RadialBar
+            dataKey="value"
+            cornerRadius={20}
+            background={{ fill: "var(--color-muted)" }}
+          />
         </RadialBarChart>
       </ResponsiveContainer>
       {showValue && (
@@ -40,7 +44,11 @@ export function ConfidenceGauge({
           <div className="num text-lg font-semibold tracking-tight" style={{ color: tone }}>
             {value}%
           </div>
-          {label && <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>}
+          {label && (
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              {label}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -17,6 +17,8 @@ import { Route as RankingsRouteImport } from './routes/rankings'
 import { Route as NewsRouteImport } from './routes/news'
 import { Route as MarketsRouteImport } from './routes/markets'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TokenSymbolRouteImport } from './routes/token.$symbol'
+import { Route as ApiKlinesRouteImport } from './routes/api/klines'
 
 const TechnicalRoute = TechnicalRouteImport.update({
   id: '/technical',
@@ -58,6 +60,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TokenSymbolRoute = TokenSymbolRouteImport.update({
+  id: '/token/$symbol',
+  path: '/token/$symbol',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiKlinesRoute = ApiKlinesRouteImport.update({
+  id: '/api/klines',
+  path: '/api/klines',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -68,6 +80,8 @@ export interface FileRoutesByFullPath {
   '/rotation': typeof RotationRoute
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
+  '/api/klines': typeof ApiKlinesRoute
+  '/token/$symbol': typeof TokenSymbolRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +92,8 @@ export interface FileRoutesByTo {
   '/rotation': typeof RotationRoute
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
+  '/api/klines': typeof ApiKlinesRoute
+  '/token/$symbol': typeof TokenSymbolRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +105,8 @@ export interface FileRoutesById {
   '/rotation': typeof RotationRoute
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
+  '/api/klines': typeof ApiKlinesRoute
+  '/token/$symbol': typeof TokenSymbolRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +119,8 @@ export interface FileRouteTypes {
     | '/rotation'
     | '/settings'
     | '/technical'
+    | '/api/klines'
+    | '/token/$symbol'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +131,8 @@ export interface FileRouteTypes {
     | '/rotation'
     | '/settings'
     | '/technical'
+    | '/api/klines'
+    | '/token/$symbol'
   id:
     | '__root__'
     | '/'
@@ -121,6 +143,8 @@ export interface FileRouteTypes {
     | '/rotation'
     | '/settings'
     | '/technical'
+    | '/api/klines'
+    | '/token/$symbol'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,6 +156,8 @@ export interface RootRouteChildren {
   RotationRoute: typeof RotationRoute
   SettingsRoute: typeof SettingsRoute
   TechnicalRoute: typeof TechnicalRoute
+  ApiKlinesRoute: typeof ApiKlinesRoute
+  TokenSymbolRoute: typeof TokenSymbolRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -192,6 +218,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/token/$symbol': {
+      id: '/token/$symbol'
+      path: '/token/$symbol'
+      fullPath: '/token/$symbol'
+      preLoaderRoute: typeof TokenSymbolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/klines': {
+      id: '/api/klines'
+      path: '/api/klines'
+      fullPath: '/api/klines'
+      preLoaderRoute: typeof ApiKlinesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -204,7 +244,19 @@ const rootRouteChildren: RootRouteChildren = {
   RotationRoute: RotationRoute,
   SettingsRoute: SettingsRoute,
   TechnicalRoute: TechnicalRoute,
+  ApiKlinesRoute: ApiKlinesRoute,
+  TokenSymbolRoute: TokenSymbolRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

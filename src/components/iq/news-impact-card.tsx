@@ -25,9 +25,7 @@ export function NewsImpactCard({ item, className }: { item: NewsItem; className?
             <span className="text-[11px] text-muted-foreground">{timeAgo(item.minutesAgo)}</span>
             <span className="text-[11px] text-muted-foreground">· {item.source}</span>
           </div>
-          <h3 className="mt-2 text-sm font-semibold leading-snug sm:text-base">
-            {item.headline}
-          </h3>
+          <h3 className="mt-2 text-sm font-semibold leading-snug sm:text-base">{item.headline}</h3>
         </div>
         <div
           className={cn(

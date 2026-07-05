@@ -11,9 +11,15 @@ export const Route = createFileRoute("/news")({
   head: () => ({
     meta: [
       { title: "News Impact — IQ" },
-      { name: "description", content: "Only news that moves markets — filtered by impact and affected assets." },
+      {
+        name: "description",
+        content: "Only news that moves markets — filtered by impact and affected assets.",
+      },
       { property: "og:title", content: "News Impact — IQ" },
-      { property: "og:description", content: "Signal-first news with expected direction and affected assets." },
+      {
+        property: "og:description",
+        content: "Signal-first news with expected direction and affected assets.",
+      },
     ],
   }),
   component: NewsPage,
@@ -33,7 +39,11 @@ function NewsPage() {
 
   return (
     <div className="mx-auto flex max-w-[1000px] flex-col gap-6">
-      <PageHeader eyebrow="News" title="News Impact" subtitle="Only the news that moves markets today." />
+      <PageHeader
+        eyebrow="News"
+        title="News Impact"
+        subtitle="Only the news that moves markets today."
+      />
 
       <div className="flex flex-wrap gap-1.5">
         {FILTERS.map((f) => (

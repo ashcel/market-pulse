@@ -8,6 +8,7 @@ import { ConfidenceGauge } from "@/components/iq/confidence-gauge";
 import { TradingViewWidget } from "@/components/iq/tradingview-widget";
 import { usePreferencesStore } from "@/stores/preferences";
 import { AssetIcon } from "@/components/iq/asset-icon";
+import { tradingViewSymbol } from "@/lib/engine/market";
 
 export const Route = createFileRoute("/technical")({
   head: () => ({
@@ -15,36 +16,25 @@ export const Route = createFileRoute("/technical")({
       { title: "Technical — IQ" },
       { name: "description", content: "Chart + smart-money signals per asset." },
       { property: "og:title", content: "Technical — IQ" },
-      { property: "og:description", content: "Structure, order blocks, EMAs, volume, and ATR at a glance." },
+      {
+        property: "og:description",
+        content: "Structure, order blocks, EMAs, volume, and ATR at a glance.",
+      },
     ],
   }),
   component: TechnicalPage,
 });
 
-const SYMBOL_MAP: Record<string, string> = {
-  BTC: "BINANCE:BTCUSDT",
-  ETH: "BINANCE:ETHUSDT",
-  SOL: "BINANCE:SOLUSDT",
-  NVDA: "NASDAQ:NVDA",
-  SPY: "AMEX:SPY",
-  QQQ: "NASDAQ:QQQ",
-  MSFT: "NASDAQ:MSFT",
-  AAPL: "NASDAQ:AAPL",
-  TSLA: "NASDAQ:TSLA",
-  META: "NASDAQ:META",
-  GOLD: "TVC:GOLD",
-  DXY: "TVC:DXY",
-  VIX: "CBOE:VIX",
-  AVAX: "BINANCE:AVAXUSDT",
-  MUU: "BINANCE:BTCUSDT",
-};
-
 function TechnicalPage() {
   const { activeAsset, setActiveAsset } = usePreferencesStore();
-  const { data: signalsData } = useSignals();
   const { data: assets } = useAssets();
 
-  const symbol = SYMBOL_MAP[activeAsset] ?? "BINANCE:BTCUSDT";
+  // Fall back to BTC if a previously persisted selection is no longer tracked.
+  const ticker = assets?.some((a) => a.ticker === activeAsset) ? activeAsset : "BTC";
+  const { data: signalsData } = useSignals(ticker);
+  const asset = assets?.find((a) => a.ticker === ticker);
+
+  const symbol = tradingViewSymbol(ticker);
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
@@ -56,7 +46,7 @@ function TechnicalPage() {
           <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-2 py-1.5">
             <span className="text-xs text-muted-foreground">Asset</span>
             <select
-              value={activeAsset}
+              value={ticker}
               onChange={(e) => setActiveAsset(e.target.value)}
               className="bg-transparent text-sm font-semibold outline-none"
             >
@@ -78,12 +68,15 @@ function TechnicalPage() {
             <CardEyebrow>Confidence Score</CardEyebrow>
             <ConfidenceGauge value={signalsData.confidence} size={200} label="Overall" />
             <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2">
-              <AssetIcon ticker={activeAsset} className="h-5 w-5" />
-              <span className="font-semibold">{activeAsset}</span>
-              <span className="text-xs text-muted-foreground">— Bullish setup</span>
+              <AssetIcon ticker={ticker} className="h-5 w-5" />
+              <span className="font-semibold">{ticker}</span>
+              <span className="text-xs capitalize text-muted-foreground">
+                — {asset?.setupType?.replaceAll("-", " ") ?? "analyzing"}
+              </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Composite of structure, momentum, volume, and volatility signals across the last 3 sessions.
+              Composite of trend, structure, volume, and risk checks computed by the signal engine
+              on live 1H bars.
             </p>
           </IqCard>
         ) : (
@@ -96,7 +89,7 @@ function TechnicalPage() {
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {signalsData
             ? signalsData.signals.map((s) => <SignalCard key={s.label} signal={s} />)
-            : Array.from({ length: 7 }).map((_, i) => <SkeletonCard key={i} height={130} />)}
+            : Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={i} height={130} />)}
         </div>
       </div>
     </div>

@@ -21,6 +21,11 @@ export interface Asset {
   volume?: number;
   technical?: number;
   confidence?: number;
+  sector?: string;
+  change7d?: number;
+  quoteVolume24h?: number;
+  decision?: string;
+  setupType?: string;
 }
 
 export interface MarketRegimeData {
@@ -49,11 +54,13 @@ export interface RotationData {
   confidence: number;
   winning: string;
   losing: string;
+  winningChange?: number;
+  losingChange?: number;
 }
 
 export interface Sector {
   name: string;
-  group: "EQUITIES" | "CRYPTO" | "SECTORS" | "COMMODITIES" | "CURRENCIES";
+  group: string;
   ticker: string;
   change: number;
 }

@@ -26,7 +26,11 @@ function SettingsPage() {
 
   return (
     <div className="mx-auto flex max-w-[900px] flex-col gap-6">
-      <PageHeader eyebrow="Settings" title="Settings" subtitle="Preferences, watchlist, and notifications." />
+      <PageHeader
+        eyebrow="Settings"
+        title="Settings"
+        subtitle="Preferences, watchlist, and notifications."
+      />
 
       <IqCard className="flex flex-col gap-4">
         <CardEyebrow>Theme</CardEyebrow>
@@ -72,9 +76,7 @@ function SettingsPage() {
             </span>
           ))}
           {watchlist.tickers.length === 0 && (
-            <p className="text-xs text-muted-foreground">
-              Add favorites from the Rankings page.
-            </p>
+            <p className="text-xs text-muted-foreground">Add favorites from the Rankings page.</p>
           )}
         </div>
       </IqCard>

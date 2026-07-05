@@ -13,13 +13,15 @@ function toneClass(change: number) {
   return "bg-bearish/25 text-bearish border-bearish/30";
 }
 
-const GROUPS: Sector["group"][] = ["EQUITIES", "CRYPTO", "SECTORS", "COMMODITIES", "CURRENCIES"];
-
 export function Heatmap({ sectors, className }: { sectors: Sector[]; className?: string }) {
+  const groups = sectors.reduce<string[]>(
+    (acc, s) => (acc.includes(s.group) ? acc : [...acc, s.group]),
+    [],
+  );
   return (
     <IqCard className={cn("flex flex-col gap-4", className)}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        {GROUPS.map((group) => {
+        {groups.map((group) => {
           const items = sectors.filter((s) => s.group === group);
           if (!items.length) return null;
           return (

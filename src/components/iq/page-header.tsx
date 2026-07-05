@@ -16,9 +16,7 @@ export function PageHeader({ eyebrow, title, subtitle, action, className }: Page
         <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
           {title}
         </h1>
-        {subtitle && (
-          <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
-        )}
+        {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
       </div>
       {action}
     </div>
