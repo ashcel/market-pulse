@@ -53,7 +53,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLivePrice } from "@/hooks/useLivePrice";
 import { useTokenSignal, type TokenSignalData } from "@/hooks/useTokenSignal";
+import { computeEmaSeries } from "@/lib/engine/analysis";
 import { UNIVERSE } from "@/lib/engine/market";
+import { TOKEN_TIMEFRAMES } from "@/lib/engine/mock-candles";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
 import type { SignalEvaluation, SignalStatus } from "@/lib/engine/quant";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -72,7 +74,10 @@ export const Route = createFileRoute("/token/$symbol")({
   component: TokenDetailPage,
 });
 
-const TIMEFRAMES: TokenTimeframe[] = ["1H", "4H", "1D", "1W"];
+const TIMEFRAMES: readonly TokenTimeframe[] = TOKEN_TIMEFRAMES;
+
+const EMA_FAST = { length: 13, color: "#38bdf8" };
+const EMA_SLOW = { length: 21, color: "#a78bfa" };
 
 const TOUR_SEEN_KEY = "iq-token-tour-v1";
 
@@ -80,12 +85,12 @@ const TOUR_STEPS: TourStep[] = [
   {
     target: "header",
     title: "Token overview",
-    body: "Live price, 24-hour change and key stats for this token. Use the 1H / 4H / 1D / 1W buttons to change the chart timeframe — everything on this page recalculates for the timeframe you pick.",
+    body: "Live price, 24-hour change and key stats for this token. Use the timeframe buttons (15M up to 1W) to change the chart — everything on this page recalculates for the timeframe you pick.",
   },
   {
     target: "chart",
     title: "Price chart",
-    body: "Each candle is one period of price movement (green = closed up, red = closed down). Small arrows mark swing highs/lows, dashed lines are support and resistance, and when a trade plan is active you'll see entry (blue), stop (red) and target (green) lines.",
+    body: "Each candle is one period of price movement (green = closed up, red = closed down). The two curves are EMA 13 (sky) and EMA 21 (violet) — when the fast one crosses above the slow one, momentum favors buyers. Arrows mark swing highs/lows, dashed lines are support/resistance, and solid lines show the trade plan when one is active.",
   },
   {
     target: "insight",
@@ -199,7 +204,7 @@ function TokenDetailPage() {
         )}
 
         <div className="ml-auto flex items-center gap-4">
-          <div className="grid grid-cols-4 rounded-md border border-border bg-surface p-0.5 text-xs">
+          <div className="grid grid-cols-6 rounded-md border border-border bg-surface p-0.5 text-xs">
             {TIMEFRAMES.map((item) => (
               <button
                 key={item}
@@ -260,11 +265,27 @@ function TokenDetailPage() {
                   <div className="flex items-baseline gap-3">
                     <div className="flex items-center gap-1.5">
                       <CardEyebrow>Price Structure</CardEyebrow>
-                      <InfoHint text="Candlestick chart of the selected timeframe. Arrows mark swing highs and lows, dashed lines are support/resistance, and solid lines show the trade plan levels when one is active." />
+                      <InfoHint text="Candlestick chart of the selected timeframe. The EMA 13/21 pair tracks momentum — price riding above both with the fast one on top is a healthy trend. Arrows mark swing highs and lows, dashed lines are support/resistance, and solid lines show the trade plan levels when one is active." />
                     </div>
                     <span className="text-xs text-muted-foreground">
                       {data.candles.length} {data.source === "live" ? "Binance" : "synthetic"} bars
                       · {data.pivots.length} pivots
+                    </span>
+                    <span className="hidden items-center gap-2.5 text-[10px] font-medium text-muted-foreground sm:flex">
+                      <span className="flex items-center gap-1">
+                        <span
+                          className="h-[2px] w-3 rounded-full"
+                          style={{ backgroundColor: EMA_FAST.color }}
+                        />
+                        EMA {EMA_FAST.length}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span
+                          className="h-[2px] w-3 rounded-full"
+                          style={{ backgroundColor: EMA_SLOW.color }}
+                        />
+                        EMA {EMA_SLOW.length}
+                      </span>
                     </span>
                   </div>
                   <Badge variant="outline" className="border-info/30 bg-info-soft text-info">
@@ -400,6 +421,8 @@ function TokenChart({ candles, pivots, trendLines, evaluation }: TokenSignalData
   const stopSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const target1SeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const target2SeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const emaFastSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+  const emaSlowSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const markerRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
 
   useEffect(() => {
@@ -455,6 +478,13 @@ function TokenChart({ candles, pivots, trendLines, evaluation }: TokenSignalData
       lastValueVisible: true,
       crosshairMarkerVisible: false,
     });
+    const emaOptions = (color: string) => ({
+      color,
+      lineWidth: 1 as const,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+    });
 
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
@@ -468,6 +498,8 @@ function TokenChart({ candles, pivots, trendLines, evaluation }: TokenSignalData
       LineSeries,
       levelOptions("#22c55e", LineStyle.Dashed),
     );
+    emaFastSeriesRef.current = chart.addSeries(LineSeries, emaOptions(EMA_FAST.color));
+    emaSlowSeriesRef.current = chart.addSeries(LineSeries, emaOptions(EMA_SLOW.color));
     markerRef.current = createSeriesMarkers(candleSeries);
 
     const observer = new ResizeObserver((entries) => {
@@ -490,6 +522,8 @@ function TokenChart({ candles, pivots, trendLines, evaluation }: TokenSignalData
       stopSeriesRef.current = null;
       target1SeriesRef.current = null;
       target2SeriesRef.current = null;
+      emaFastSeriesRef.current = null;
+      emaSlowSeriesRef.current = null;
       markerRef.current = null;
     };
   }, []);
@@ -520,6 +554,8 @@ function TokenChart({ candles, pivots, trendLines, evaluation }: TokenSignalData
         }),
       ),
     );
+    emaFastSeriesRef.current?.setData(toLineData(computeEmaSeries(candles, EMA_FAST.length)));
+    emaSlowSeriesRef.current?.setData(toLineData(computeEmaSeries(candles, EMA_SLOW.length)));
     chart.timeScale().fitContent();
   }, [candles]);
 

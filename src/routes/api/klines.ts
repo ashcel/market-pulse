@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { fetchBinanceKlinesDirect } from "@/lib/engine/binance";
+import { isTokenTimeframe } from "@/lib/engine/mock-candles";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
 
 export const Route = createFileRoute("/api/klines")({
@@ -20,6 +21,5 @@ export const Route = createFileRoute("/api/klines")({
 });
 
 function toTimeframe(value: string | null): TokenTimeframe {
-  if (value === "1H" || value === "4H" || value === "1D" || value === "1W") return value;
-  return "4H";
+  return isTokenTimeframe(value) ? value : "4H";
 }

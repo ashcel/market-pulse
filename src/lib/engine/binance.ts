@@ -1,9 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 
+import { isTokenTimeframe } from "./mock-candles";
 import type { TokenTimeframe } from "./mock-candles";
 import type { Candle } from "./types";
 
 const BINANCE_INTERVALS: Record<TokenTimeframe, string> = {
+  "15M": "15m",
+  "30M": "30m",
   "1H": "1h",
   "4H": "4h",
   "1D": "1d",
@@ -20,10 +23,6 @@ type BinanceKlineRow = [number, string, string, string, string, string, number, 
 
 function normalizeSymbol(symbol: string): string {
   return symbol.replace(/[^a-z0-9]/gi, "").toUpperCase();
-}
-
-function isTokenTimeframe(value: unknown): value is TokenTimeframe {
-  return value === "1H" || value === "4H" || value === "1D" || value === "1W";
 }
 
 function normalizeLimit(limit: unknown): number {

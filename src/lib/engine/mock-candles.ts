@@ -1,6 +1,12 @@
 import type { Candle } from "./types";
 
-export type TokenTimeframe = "1H" | "4H" | "1D" | "1W";
+export const TOKEN_TIMEFRAMES = ["15M", "30M", "1H", "4H", "1D", "1W"] as const;
+
+export type TokenTimeframe = (typeof TOKEN_TIMEFRAMES)[number];
+
+export function isTokenTimeframe(value: unknown): value is TokenTimeframe {
+  return TOKEN_TIMEFRAMES.includes(value as TokenTimeframe);
+}
 
 const BASE_PRICE: Record<string, number> = {
   BTC: 108_000,
@@ -13,10 +19,21 @@ const BASE_PRICE: Record<string, number> = {
 };
 
 const STEP_SECONDS: Record<TokenTimeframe, number> = {
+  "15M": 15 * 60,
+  "30M": 30 * 60,
   "1H": 60 * 60,
   "4H": 4 * 60 * 60,
   "1D": 24 * 60 * 60,
   "1W": 7 * 24 * 60 * 60,
+};
+
+const TIMEFRAME_VOLATILITY: Record<TokenTimeframe, number> = {
+  "15M": 0.005,
+  "30M": 0.007,
+  "1H": 0.012,
+  "4H": 0.018,
+  "1D": 0.035,
+  "1W": 0.07,
 };
 
 function hashSeed(input: string): number {
@@ -53,8 +70,7 @@ export function generateMockCandles(
   const step = STEP_SECONDS[timeframe];
   const end = Math.floor(Date.UTC(2026, 6, 5, 0, 0, 0) / 1000);
   const base = BASE_PRICE[ticker] ?? 25 + (hashSeed(ticker) % 500);
-  const volatility =
-    timeframe === "1H" ? 0.012 : timeframe === "4H" ? 0.018 : timeframe === "1D" ? 0.035 : 0.07;
+  const volatility = TIMEFRAME_VOLATILITY[timeframe];
   const drift = (rand() - 0.46) * volatility * 0.35;
   const phase = rand() * Math.PI * 2;
   let close = base * (0.86 + rand() * 0.28);

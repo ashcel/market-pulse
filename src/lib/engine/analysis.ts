@@ -112,3 +112,18 @@ export function computeTrendLines(candles: Candle[], pivots: PivotPoint[]): Tren
     ),
   };
 }
+
+export function computeEmaSeries(candles: Candle[], length: number): TrendLinePoint[] {
+  if (length <= 0 || candles.length < length) return [];
+
+  // Seed with the SMA of the first `length` closes, then roll the EMA forward.
+  const k = 2 / (length + 1);
+  let ema = candles.slice(0, length).reduce((sum, c) => sum + c.close, 0) / length;
+  const points: TrendLinePoint[] = [{ time: candles[length - 1].time, value: ema }];
+
+  for (let i = length; i < candles.length; i++) {
+    ema = candles[i].close * k + ema * (1 - k);
+    points.push({ time: candles[i].time, value: ema });
+  }
+  return points;
+}
