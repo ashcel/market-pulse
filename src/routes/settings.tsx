@@ -192,6 +192,11 @@ function TradeRiskCard() {
             </OptionButton>
           ))}
         </div>
+        <CustomBalanceInput
+          value={risk.accountSize}
+          isCustom={!ACCOUNT_SIZES.includes(risk.accountSize)}
+          onCommit={(accountSize) => setRisk({ accountSize })}
+        />
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2">
@@ -263,6 +268,68 @@ function TradeRiskCard() {
         the reward/risk check.
       </div>
     </IqCard>
+  );
+}
+
+const MIN_BALANCE = 1;
+const MAX_BALANCE = 1_000_000_000;
+
+function parseBalance(raw: string): number | null {
+  const value = Number.parseFloat(raw.replace(/[^0-9.]/g, ""));
+  if (!Number.isFinite(value) || value < MIN_BALANCE) return null;
+  return Math.round(Math.min(value, MAX_BALANCE) * 100) / 100;
+}
+
+function CustomBalanceInput({
+  value,
+  isCustom,
+  onCommit,
+}: {
+  value: number;
+  isCustom: boolean;
+  onCommit: (value: number) => void;
+}) {
+  const commit = (input: HTMLInputElement) => {
+    const parsed = parseBalance(input.value);
+    if (parsed === null) {
+      input.value = value.toLocaleString();
+    } else {
+      onCommit(parsed);
+      input.value = parsed.toLocaleString();
+    }
+  };
+
+  return (
+    <label
+      className={cn(
+        "flex items-center gap-2 rounded-lg border px-3 py-2 transition-colors",
+        isCustom ? "border-info bg-info-soft" : "border-border bg-surface",
+      )}
+    >
+      <span className="whitespace-nowrap text-xs font-medium text-muted-foreground">
+        Or exact balance
+      </span>
+      <span className={cn("text-sm font-medium", isCustom ? "text-info" : "text-foreground")}>
+        $
+      </span>
+      {/* Uncontrolled + keyed remount: preset clicks refresh the field, while
+          typing stays free of store round-trips until blur/Enter commits. */}
+      <input
+        key={value}
+        type="text"
+        inputMode="decimal"
+        defaultValue={value.toLocaleString()}
+        onBlur={(event) => commit(event.currentTarget)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") commit(event.currentTarget);
+        }}
+        aria-label="Custom account balance in dollars"
+        className={cn(
+          "num w-full min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none",
+          isCustom ? "text-info" : "text-foreground",
+        )}
+      />
+    </label>
   );
 }
 
