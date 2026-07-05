@@ -19,7 +19,40 @@ interface Rect {
 }
 
 const CARD_WIDTH = 330;
+const CARD_HEIGHT = 250; // upper-bound estimate for placement math; actual height is content-driven
 const CARD_GAP = 12;
+
+/**
+ * Pick a card position that stays fully on screen: below the target,
+ * else above, else beside it (left/right, vertically centred), else
+ * overlapping inside it — the spotlight ring still marks the target.
+ */
+function placeCard(rect: Rect | null, viewportW: number, viewportH: number) {
+  const clampX = (left: number) => Math.min(Math.max(12, left), viewportW - CARD_WIDTH - 12);
+  const clampY = (top: number) => Math.min(Math.max(12, top), viewportH - CARD_HEIGHT - 12);
+
+  if (!rect) {
+    return { top: clampY(viewportH / 2 - CARD_HEIGHT / 2), left: clampX(viewportW / 2 - CARD_WIDTH / 2) };
+  }
+
+  const bottomEdge = rect.top + rect.height;
+  const centeredY = clampY(rect.top + rect.height / 2 - CARD_HEIGHT / 2);
+
+  if (bottomEdge + CARD_GAP + CARD_HEIGHT <= viewportH) {
+    return { top: bottomEdge + CARD_GAP, left: clampX(rect.left) };
+  }
+  if (rect.top - CARD_GAP - CARD_HEIGHT >= 0) {
+    return { top: rect.top - CARD_GAP - CARD_HEIGHT, left: clampX(rect.left) };
+  }
+  if (rect.left - CARD_GAP - CARD_WIDTH >= 12) {
+    return { top: centeredY, left: rect.left - CARD_GAP - CARD_WIDTH };
+  }
+  if (rect.left + rect.width + CARD_GAP + CARD_WIDTH <= viewportW - 12) {
+    return { top: centeredY, left: rect.left + rect.width + CARD_GAP };
+  }
+  // Target dominates the viewport: overlap it, roughly centred.
+  return { top: centeredY, left: clampX(rect.left + rect.width / 2 - CARD_WIDTH / 2) };
+}
 
 /**
  * Dependency-free spotlight tour: dims the page, cuts a hole over the
@@ -78,14 +111,7 @@ export function ProductTour({
 
   const viewportW = typeof window !== "undefined" ? window.innerWidth : 1280;
   const viewportH = typeof window !== "undefined" ? window.innerHeight : 800;
-  const below = rect ? rect.top + rect.height + CARD_GAP : viewportH / 2 - 90;
-  const placeBelow = rect ? below + 220 < viewportH || rect.top < 240 : true;
-  const cardTop = rect ? (placeBelow ? below : undefined) : viewportH / 2 - 90;
-  const cardBottom = rect && !placeBelow ? viewportH - rect.top + CARD_GAP : undefined;
-  const cardLeft = Math.min(
-    Math.max(12, rect ? rect.left : viewportW / 2 - CARD_WIDTH / 2),
-    viewportW - CARD_WIDTH - 12,
-  );
+  const { top: cardTop, left: cardLeft } = placeCard(rect, viewportW, viewportH);
 
   return (
     <div className="fixed inset-0 z-[70]" role="dialog" aria-label="Product tour">
@@ -107,7 +133,7 @@ export function ProductTour({
 
       <div
         className="absolute flex flex-col gap-2.5 rounded-xl border border-border bg-card p-4 shadow-2xl"
-        style={{ top: cardTop, bottom: cardBottom, left: cardLeft, width: CARD_WIDTH }}
+        style={{ top: cardTop, left: cardLeft, width: CARD_WIDTH }}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-info">
