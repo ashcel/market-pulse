@@ -431,21 +431,16 @@ export function evaluateSignal(
       : "Volume is not yet meaningfully above the 20-bar average.",
   );
 
-  const closeOk = current
-    ? current.close > Math.max(current.open, (current.high + current.low) / 2)
-    : false;
+  const midpoint = current ? (current.high + current.low) / 2 : 0;
+  const bullishClose = current ? current.close > Math.max(current.open, midpoint) : false;
+  const bearishClose = current ? current.close < Math.min(current.open, midpoint) : false;
+  const closeConfirmed = direction === "short" ? bearishClose : bullishClose;
   add(
     "Candle close confirmation",
-    direction === "short"
-      ? current && current.close < Math.min(current.open, (current.high + current.low) / 2)
-        ? "pass"
-        : "warning"
-      : closeOk
-        ? "pass"
-        : "warning",
-    statusScore(closeOk || direction === "short" ? "pass" : "warning", 12, -5),
-    closeOk
-      ? "The latest candle closed in the upper half of its range."
+    closeConfirmed ? "pass" : "warning",
+    statusScore(closeConfirmed ? "pass" : "warning", 12, -5),
+    closeConfirmed
+      ? `The latest candle closed decisively in the ${direction === "short" ? "lower" : "upper"} half of its range.`
       : "The latest candle has not confirmed with a decisive close.",
   );
 
