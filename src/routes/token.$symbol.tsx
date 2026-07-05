@@ -32,17 +32,23 @@ import {
   ShieldAlert,
 } from "lucide-react";
 
+import { Link } from "@tanstack/react-router";
+
+import { AssetIcon } from "@/components/iq/asset-icon";
 import { Change } from "@/components/iq/change";
 import { ConfidenceGauge } from "@/components/iq/confidence-gauge";
 import { IqCard, CardEyebrow } from "@/components/iq/iq-card";
+import { MiniChart } from "@/components/iq/mini-chart";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useLivePrice } from "@/hooks/useLivePrice";
 import { useTokenSignal, type TokenSignalData } from "@/hooks/useTokenSignal";
+import { UNIVERSE } from "@/lib/engine/market";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
 import type { SignalEvaluation, SignalStatus } from "@/lib/engine/quant";
+import { usePreferencesStore } from "@/stores/preferences";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/token/$symbol")({
@@ -70,105 +76,173 @@ function TokenDetailPage() {
   const lastClose =
     live?.price ?? data?.candles.at(-1)?.close ?? data?.evaluation.analytics.lastClose ?? 0;
   const change24h = live?.change24h ?? (data ? computeChange24h(data.candles) : 0);
+  const name = UNIVERSE.find((u) => u.ticker === symbol)?.name ?? symbol;
+  const stats = useMemo(() => (data ? compute24hStats(data.candles) : null), [data]);
+  const spark = useMemo(
+    () => data?.candles.slice(-32).map((c, i) => ({ t: i, v: c.close })) ?? [],
+    [data],
+  );
 
   return (
-    <div className="mx-auto flex max-w-[1500px] flex-col gap-4 sm:gap-5">
-      <header className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">
-        <div className="min-w-0">
-          <CardEyebrow>Token Detail</CardEyebrow>
-          <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h1 className="text-3xl font-semibold tracking-tight">{symbol}</h1>
-            {signal.isLoading ? (
-              <span className="h-6 w-28 animate-pulse rounded bg-muted" />
-            ) : (
-              <>
-                <span className="num text-xl text-muted-foreground">{formatMoney(lastClose)}</span>
-                <Change value={change24h} showIcon />
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "uppercase",
-                    data?.source === "live"
-                      ? "border-bullish/30 bg-bullish-soft text-bullish"
-                      : "border-warning/30 bg-warning-soft text-warning",
-                  )}
-                >
-                  {live ? (
-                    <span className="flex items-center gap-1.5">
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-bullish opacity-75" />
-                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-bullish" />
-                      </span>
-                      Streaming
-                    </span>
-                  ) : data?.source === "live" ? (
-                    "Live"
-                  ) : (
-                    "Demo"
-                  )}
-                </Badge>
-              </>
-            )}
+    // Locked to the viewport on desktop: only the right panel and chat scroll.
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-3 lg:h-[calc(100dvh-7rem)] lg:min-h-0">
+      <IqCard
+        padded={false}
+        className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5"
+      >
+        <div className="flex min-w-0 items-center gap-2.5">
+          <AssetIcon ticker={symbol} className="h-8 w-8 text-sm" />
+          <div className="leading-tight">
+            <h1 className="text-lg font-bold tracking-tight">{symbol}</h1>
+            <div className="text-[11px] text-muted-foreground">{name} / USDT</div>
           </div>
         </div>
-        <div className="grid grid-cols-4 rounded-md border border-border bg-surface p-1 text-xs">
-          {TIMEFRAMES.map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setTimeframe(item)}
+
+        {signal.isLoading ? (
+          <span className="h-7 w-40 animate-pulse rounded bg-muted" />
+        ) : (
+          <div className="flex items-center gap-2.5">
+            <span className="num text-xl font-semibold tracking-tight">
+              {formatMoney(lastClose)}
+            </span>
+            <Change value={change24h} showIcon />
+            <div className="hidden w-24 sm:block">
+              <MiniChart data={spark} tone={change24h >= 0 ? "bullish" : "bearish"} height={26} />
+            </div>
+            <Badge
+              variant="outline"
               className={cn(
-                "h-8 rounded px-3 font-semibold transition-colors",
-                timeframe === item
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
+                "uppercase",
+                data?.source === "live"
+                  ? "border-bullish/30 bg-bullish-soft text-bullish"
+                  : "border-warning/30 bg-warning-soft text-warning",
               )}
             >
-              {item}
-            </button>
-          ))}
+              {live ? (
+                <span className="flex items-center gap-1.5">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-bullish opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-bullish" />
+                  </span>
+                  Live
+                </span>
+              ) : data?.source === "live" ? (
+                "Live"
+              ) : (
+                "Demo"
+              )}
+            </Badge>
+          </div>
+        )}
+
+        <div className="ml-auto flex items-center gap-4">
+          <div className="grid grid-cols-4 rounded-md border border-border bg-surface p-0.5 text-xs">
+            {TIMEFRAMES.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setTimeframe(item)}
+                className={cn(
+                  "h-7 rounded px-2.5 font-semibold transition-colors",
+                  timeframe === item
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+          {stats && (
+            <div className="hidden items-center gap-5 border-l border-border pl-4 xl:flex">
+              <HeaderStat label="24h High" value={formatMoney(stats.high)} />
+              <HeaderStat label="24h Low" value={formatMoney(stats.low)} />
+              <HeaderStat label="24h Volume" value={`${formatCompact(stats.volume)} ${symbol}`} />
+              <HeaderStat label="24h Turnover" value={`$${formatCompact(stats.turnover)}`} />
+            </div>
+          )}
         </div>
-      </header>
+      </IqCard>
 
       {signal.isLoading || !data ? (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(360px,2fr)] lg:items-start">
-          <IqCard padded={false} className="overflow-hidden">
-            <div className="border-b border-border px-4 py-3">
-              <div className="h-3 w-28 animate-pulse rounded bg-muted" />
-              <div className="mt-3 h-4 w-44 animate-pulse rounded bg-muted" />
-            </div>
-            <div className="h-[360px] animate-pulse bg-surface sm:h-[400px] lg:h-[520px]" />
-          </IqCard>
-          <div className="flex flex-col gap-4">
-            <IqCard className="h-72 animate-pulse bg-surface" />
-            <IqCard className="h-96 animate-pulse bg-surface" />
+        <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(340px,25rem)]">
+          <div className="flex min-h-0 flex-col gap-3">
+            <IqCard padded={false} className="overflow-hidden lg:min-h-0 lg:flex-[13]">
+              <div className="h-[360px] animate-pulse bg-surface lg:h-full" />
+            </IqCard>
+            <IqCard className="h-64 animate-pulse bg-surface lg:h-auto lg:min-h-0 lg:flex-[10]" />
           </div>
+          <IqCard className="h-96 animate-pulse bg-surface lg:h-full" />
         </div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(360px,2fr)] lg:items-start">
-          <IqCard padded={false} className="overflow-hidden">
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <div>
-                <CardEyebrow>Price Structure</CardEyebrow>
-                <div className="mt-1 text-sm text-muted-foreground">
-                  {data.candles.length} {data.source === "live" ? "Binance" : "synthetic"} bars ·{" "}
-                  {data.pivots.length} pivots
+        <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(340px,25rem)]">
+          <div className="flex min-h-0 flex-col gap-3">
+            <IqCard
+              padded={false}
+              className="flex flex-col overflow-hidden lg:min-h-0 lg:flex-[13]"
+            >
+              <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2">
+                <div className="flex items-baseline gap-3">
+                  <CardEyebrow>Price Structure</CardEyebrow>
+                  <span className="text-xs text-muted-foreground">
+                    {data.candles.length} {data.source === "live" ? "Binance" : "synthetic"} bars ·{" "}
+                    {data.pivots.length} pivots
+                  </span>
                 </div>
+                <Badge variant="outline" className="border-info/30 bg-info-soft text-info">
+                  {data.evaluation.decision.replaceAll("-", " ")}
+                </Badge>
               </div>
-              <Badge variant="outline" className="border-info/30 bg-info-soft text-info">
-                {data.evaluation.decision.replaceAll("-", " ")}
-              </Badge>
-            </div>
-            <TokenChart {...data} />
-          </IqCard>
+              <div className="min-h-0 flex-1 lg:min-h-[240px]">
+                <TokenChart {...data} />
+              </div>
+            </IqCard>
 
-          <div className="flex flex-col gap-4">
-            <SignalPanel evaluation={data.evaluation} />
-            <QuantAiPanel symbol={symbol} timeframe={timeframe} evaluation={data.evaluation} />
+            <QuantAiPanel
+              symbol={symbol}
+              timeframe={timeframe}
+              evaluation={data.evaluation}
+              className="lg:min-h-0 lg:flex-[10]"
+            />
           </div>
+
+          <SignalPanel
+            evaluation={data.evaluation}
+            className="lg:h-full lg:min-h-0 lg:overflow-y-auto"
+          />
         </div>
       )}
     </div>
+  );
+}
+
+function HeaderStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="leading-tight">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div className="num mt-0.5 text-sm font-semibold">{value}</div>
+    </div>
+  );
+}
+
+function compute24hStats(candles: TokenSignalData["candles"]) {
+  const lastCandle = candles.at(-1);
+  if (!lastCandle) return null;
+  const window = candles.filter((c) => c.time >= lastCandle.time - 24 * 60 * 60);
+  if (window.length === 0) return null;
+  return {
+    high: Math.max(...window.map((c) => c.high)),
+    low: Math.min(...window.map((c) => c.low)),
+    volume: window.reduce((sum, c) => sum + c.volume, 0),
+    turnover: window.reduce((sum, c) => sum + c.volume * c.close, 0),
+  };
+}
+
+function formatCompact(value: number): string {
+  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 2 }).format(
+    value,
   );
 }
 
@@ -344,7 +418,7 @@ function TokenChart({ candles, pivots, trendLines, evaluation }: TokenSignalData
     markerRef.current?.setMarkers(markers);
   }, [pivots]);
 
-  return <div ref={hostRef} className="h-[360px] w-full sm:h-[400px] lg:h-[520px]" />;
+  return <div ref={hostRef} className="h-[360px] w-full sm:h-[400px] lg:h-full" />;
 }
 
 function toLineData(points: Array<{ time: number; value: number }>): LineData<Time>[] {
@@ -368,34 +442,47 @@ function computeChange24h(candles: TokenSignalData["candles"]): number {
   return Number((((lastCandle.close - base.close) / base.close) * 100).toFixed(2));
 }
 
-function SignalPanel({ evaluation }: { evaluation: SignalEvaluation }) {
+function SignalPanel({
+  evaluation,
+  className,
+}: {
+  evaluation: SignalEvaluation;
+  className?: string;
+}) {
+  const decisionTone =
+    evaluation.decision === "buy-candidate"
+      ? "border-bullish/30 bg-bullish-soft"
+      : evaluation.decision === "short-candidate" || evaluation.decision === "invalidated"
+        ? "border-bearish/30 bg-bearish-soft"
+        : "border-warning/30 bg-warning-soft";
+
   return (
-    <IqCard className="flex flex-col gap-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
+    <IqCard padded={false} className={cn("flex flex-col gap-3.5 p-4", className)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
           <CardEyebrow>Signal Engine</CardEyebrow>
-          <h2 className="mt-2 text-xl font-semibold capitalize tracking-tight">
+          <h2 className="mt-1.5 text-lg font-semibold capitalize leading-tight tracking-tight">
             {evaluation.setupType.replaceAll("-", " ")}
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground capitalize">
+          <p className="mt-0.5 text-xs text-muted-foreground capitalize">
             {evaluation.regime.replaceAll("-", " ")} · {evaluation.direction}
           </p>
         </div>
-        <ConfidenceGauge value={evaluation.confidence} size={82} label="Score" />
+        <ConfidenceGauge value={evaluation.confidence} size={60} label="Score" />
       </div>
 
-      <div className="rounded-lg border border-border bg-surface p-3">
+      <div className={cn("rounded-lg border p-3", decisionTone)}>
         <div className="flex items-center justify-between gap-3">
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Decision
           </span>
           <DecisionBadge decision={evaluation.decision} />
         </div>
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{evaluation.reason}</p>
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{evaluation.reason}</p>
       </div>
 
       {evaluation.direction !== "none" && (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-1.5">
           <RiskMetric label="Entry" value={formatMoney(evaluation.risk.entry)} />
           <RiskMetric label="Stop" value={formatMoney(evaluation.risk.stop)} tone="bearish" />
           <RiskMetric
@@ -429,18 +516,20 @@ function SignalPanel({ evaluation }: { evaluation: SignalEvaluation }) {
         </div>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <CardEyebrow>Key Levels</CardEyebrow>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-1.5 xl:grid-cols-4">
           <RiskMetric
             label="Support"
             value={formatMoney(evaluation.analytics.support)}
             tone="bullish"
+            compact
           />
           <RiskMetric
             label="Resistance"
             value={formatMoney(evaluation.analytics.resistance)}
             tone="bearish"
+            compact
           />
           <RiskMetric
             label="ATR (14)"
@@ -449,45 +538,47 @@ function SignalPanel({ evaluation }: { evaluation: SignalEvaluation }) {
                 ? `${evaluation.analytics.atrPercent}%`
                 : "n/a"
             }
+            compact
           />
           <RiskMetric
-            label="Volume vs 20-bar"
+            label="Vol vs 20-bar"
             value={
               evaluation.analytics.volumeRatio !== null
                 ? `${evaluation.analytics.volumeRatio}×`
                 : "n/a"
             }
+            compact
           />
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <CardEyebrow>Components</CardEyebrow>
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {evaluation.components.map((component) => (
-            <div key={component.name} className="rounded-lg border border-border bg-surface p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2">
-                  <StatusIcon status={component.status} />
-                  <span className="truncate text-sm font-semibold">{component.name}</span>
-                </div>
-                <StatusBadge status={component.status} score={component.score} />
-              </div>
-              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+            <div
+              key={component.name}
+              className="flex items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-1.5"
+              title={component.explanation}
+            >
+              <StatusIcon status={component.status} />
+              <span className="whitespace-nowrap text-xs font-semibold">{component.name}</span>
+              <span className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground">
                 {component.explanation}
-              </p>
+              </span>
+              <StatusBadge status={component.status} score={component.score} />
             </div>
           ))}
         </div>
       </div>
 
       {evaluation.noTradeReasons.length > 0 && (
-        <div className="rounded-lg border border-warning/30 bg-warning-soft p-3 text-sm">
-          <div className="mb-2 flex items-center gap-2 font-semibold text-warning">
-            <ShieldAlert className="h-4 w-4" />
+        <div className="rounded-lg border border-warning/30 bg-warning-soft p-3 text-xs">
+          <div className="mb-1.5 flex items-center gap-2 font-semibold text-warning">
+            <ShieldAlert className="h-3.5 w-3.5" />
             No-trade blockers
           </div>
-          <ul className="space-y-1 text-muted-foreground">
+          <ul className="space-y-0.5 text-muted-foreground">
             {evaluation.noTradeReasons.slice(0, 4).map((reason) => (
               <li key={reason}>{reason}</li>
             ))}
@@ -510,30 +601,32 @@ function BacktestEvidence({ backtest }: { backtest: SignalEvaluation["backtest"]
   }
   const positive = backtest.expectancy > 0;
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
         <CardEyebrow>Backtest Evidence</CardEyebrow>
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        <span className="truncate text-[9px] uppercase tracking-wider text-muted-foreground">
           {backtest.strategyName} · this token, this timeframe
         </span>
       </div>
-      <div className="grid grid-cols-3 gap-2">
-        <RiskMetric label="Trades" value={String(backtest.totalTrades)} />
+      <div className="grid grid-cols-3 gap-1.5 xl:grid-cols-6">
+        <RiskMetric label="Trades" value={String(backtest.totalTrades)} compact />
         <RiskMetric
           label="Win rate"
           value={`${backtest.winRate}%`}
           tone={backtest.winRate >= 50 ? "bullish" : "bearish"}
+          compact
         />
         <RiskMetric
           label="Expectancy"
           value={`${backtest.expectancy >= 0 ? "+" : ""}${backtest.expectancy}R`}
           tone={positive ? "bullish" : "bearish"}
+          compact
         />
-        <RiskMetric label="Profit factor" value={String(backtest.profitFactor)} />
-        <RiskMetric label="Avg R" value={`${backtest.averageR}R`} />
-        <RiskMetric label="Max DD" value={`${backtest.maxDrawdown}R`} tone="bearish" />
+        <RiskMetric label="Profit factor" value={String(backtest.profitFactor)} compact />
+        <RiskMetric label="Avg R" value={`${backtest.averageR}R`} compact />
+        <RiskMetric label="Max DD" value={`${backtest.maxDrawdown}R`} tone="bearish" compact />
       </div>
-      <p className="text-xs leading-relaxed text-muted-foreground">
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
         {positive
           ? "Similar breakout signals on this chart carried positive expectancy — historical support for acting when the engine confirms."
           : "Similar breakout signals on this chart lost money historically — demand extra confirmation before acting."}
@@ -542,15 +635,26 @@ function BacktestEvidence({ backtest }: { backtest: SignalEvaluation["backtest"]
   );
 }
 
+type PanelTab = "analyst" | "backtest" | "risk";
+
+const PANEL_TABS: { id: PanelTab; label: string }[] = [
+  { id: "analyst", label: "Analyst Panel" },
+  { id: "backtest", label: "Backtest" },
+  { id: "risk", label: "Risk Check" },
+];
+
 function QuantAiPanel({
   symbol,
   timeframe,
   evaluation,
+  className,
 }: {
   symbol: string;
   timeframe: TokenTimeframe;
   evaluation: SignalEvaluation;
+  className?: string;
 }) {
+  const [tab, setTab] = useState<PanelTab>("analyst");
   const [thinkingMode, setThinkingMode] = useState(true);
   const [question, setQuestion] = useState("");
   const [chat, setChat] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
@@ -572,19 +676,30 @@ function QuantAiPanel({
         ].slice(-10),
       );
       setQuestion("");
+      setTab("analyst");
     },
     [evaluation, symbol, timeframe, thinkingMode],
   );
 
   return (
-    <IqCard className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <CardEyebrow>Quant AI</CardEyebrow>
-          <h2 className="mt-2 flex items-center gap-2 text-xl font-semibold tracking-tight">
-            <Bot className="h-5 w-5 text-info" />
-            Analyst Panel
-          </h2>
+    <IqCard padded={false} className={cn("flex flex-col overflow-hidden", className)}>
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-3">
+        <div className="flex items-center">
+          {PANEL_TABS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setTab(item.id)}
+              className={cn(
+                "-mb-px border-b-2 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider transition-colors",
+                tab === item.id
+                  ? "border-info text-info"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
         <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
           <Brain className="h-4 w-4" />
@@ -593,82 +708,210 @@ function QuantAiPanel({
         </label>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        <ContextPill label="Signal" value={`${evaluation.confidence}/100`} />
-        <ContextPill label="Regime" value={evaluation.regime.replaceAll("-", " ")} />
-        <ContextPill label="Source" value="fallback" />
-      </div>
-
-      <div className="max-h-[360px] min-h-[220px] overflow-y-auto rounded-lg border border-border bg-surface p-3">
-        {chat.length === 0 ? (
-          <div className="flex h-full min-h-[190px] items-center justify-center text-sm text-muted-foreground">
-            No memo generated yet.
+      {tab === "analyst" && (
+        <div className="flex min-h-0 flex-1 flex-col gap-2.5 p-3">
+          <div className="grid shrink-0 grid-cols-3 gap-1.5">
+            <ContextPill label="Signal" value={`${evaluation.confidence}/100`} />
+            <ContextPill label="Regime" value={evaluation.regime.replaceAll("-", " ")} />
+            <ContextPill label="Source" value="fallback" />
           </div>
-        ) : (
-          <div className="space-y-3">
-            {chat.map((item, index) => (
-              <div
-                key={`${item.role}-${index}`}
-                className={cn(
-                  "rounded-lg border p-3 text-sm",
-                  item.role === "assistant"
-                    ? "border-info/20 bg-background"
-                    : "ml-8 border-border bg-card text-muted-foreground",
-                )}
-              >
-                <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {item.role === "assistant" ? "deterministic fallback" : "you"}
-                </div>
-                {item.role === "assistant" ? <MarkdownText text={item.text} /> : <p>{item.text}</p>}
+
+          <div className="min-h-[160px] flex-1 overflow-y-auto rounded-lg border border-border bg-surface p-3 lg:min-h-0">
+            {chat.length === 0 ? (
+              <div className="flex h-full min-h-[130px] items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Bot className="h-4 w-4" />
+                No memo generated yet.
               </div>
-            ))}
+            ) : (
+              <div className="space-y-3">
+                {chat.map((item, index) => (
+                  <div
+                    key={`${item.role}-${index}`}
+                    className={cn(
+                      "rounded-lg border p-3 text-sm",
+                      item.role === "assistant"
+                        ? "border-info/20 bg-background"
+                        : "ml-8 border-border bg-card text-muted-foreground",
+                    )}
+                  >
+                    <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {item.role === "assistant" ? "deterministic fallback" : "you"}
+                    </div>
+                    {item.role === "assistant" ? (
+                      <MarkdownText text={item.text} />
+                    ) : (
+                      <p>{item.text}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <Button type="button" size="sm" onClick={() => runAnalysis()}>
-          <Play className="h-4 w-4" />
-          Run analysis
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={() => runAnalysis("What would invalidate this setup?")}
-        >
-          Invalidation
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={() => runAnalysis("Critique the risk/reward and position sizing.")}
-        >
-          Risk check
-        </Button>
-      </div>
+          <div className="grid shrink-0 grid-cols-3 gap-1.5">
+            <Button type="button" size="sm" className="h-8" onClick={() => runAnalysis()}>
+              <Play className="h-3.5 w-3.5" />
+              Run analysis
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8"
+              onClick={() => runAnalysis("What would invalidate this setup?")}
+            >
+              Invalidation
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8"
+              onClick={() => runAnalysis("Critique the risk/reward and position sizing.")}
+            >
+              Risk check
+            </Button>
+          </div>
 
-      <form
-        className="flex gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const ask = question.trim();
-          if (ask) runAnalysis(ask);
-        }}
-      >
-        <Textarea
-          value={question}
-          onChange={(event) => setQuestion(event.currentTarget.value)}
-          placeholder="Ask about this setup..."
-          className="min-h-10 flex-1 resize-none text-sm"
-          rows={2}
-        />
-        <Button type="submit" size="icon" disabled={question.trim().length === 0} aria-label="Send">
-          <Send className="h-4 w-4" />
-        </Button>
-      </form>
+          <form
+            className="flex shrink-0 gap-1.5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const ask = question.trim();
+              if (ask) runAnalysis(ask);
+            }}
+          >
+            <Textarea
+              value={question}
+              onChange={(event) => setQuestion(event.currentTarget.value)}
+              placeholder="Ask about this setup..."
+              className="min-h-9 flex-1 resize-none text-sm"
+              rows={1}
+            />
+            <Button
+              type="submit"
+              size="icon"
+              className="h-9 w-9 shrink-0"
+              disabled={question.trim().length === 0}
+              aria-label="Send"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </form>
+        </div>
+      )}
+
+      {tab === "backtest" && <BacktestTab backtest={evaluation.backtest} />}
+      {tab === "risk" && <RiskTab evaluation={evaluation} />}
     </IqCard>
+  );
+}
+
+function BacktestTab({ backtest }: { backtest: SignalEvaluation["backtest"] }) {
+  return (
+    <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="text-sm font-semibold">{backtest.strategyName}</div>
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          {backtest.strategyVersion} · this token, this timeframe
+        </span>
+      </div>
+      {backtest.totalTrades === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No historical signals fired in this window — no backtest evidence either way.
+        </p>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+            <RiskMetric label="Trades" value={String(backtest.totalTrades)} compact />
+            <RiskMetric
+              label="Win rate"
+              value={`${backtest.winRate}%`}
+              tone={backtest.winRate >= 50 ? "bullish" : "bearish"}
+              compact
+            />
+            <RiskMetric
+              label="Expectancy"
+              value={`${backtest.expectancy >= 0 ? "+" : ""}${backtest.expectancy}R`}
+              tone={backtest.expectancy > 0 ? "bullish" : "bearish"}
+              compact
+            />
+            <RiskMetric label="Profit factor" value={String(backtest.profitFactor)} compact />
+            <RiskMetric label="Avg win" value={`${backtest.averageWin}R`} tone="bullish" compact />
+            <RiskMetric
+              label="Avg loss"
+              value={`${backtest.averageLoss}R`}
+              tone="bearish"
+              compact
+            />
+            <RiskMetric label="Avg R" value={`${backtest.averageR}R`} compact />
+            <RiskMetric label="Max DD" value={`${backtest.maxDrawdown}R`} tone="bearish" compact />
+            <RiskMetric
+              label="Best trade"
+              value={`${backtest.bestTradeR}R`}
+              tone="bullish"
+              compact
+            />
+            <RiskMetric
+              label="Worst trade"
+              value={`${backtest.worstTradeR}R`}
+              tone="bearish"
+              compact
+            />
+            <RiskMetric label="Max win streak" value={String(backtest.consecutiveWins)} compact />
+            <RiskMetric
+              label="Max loss streak"
+              value={String(backtest.consecutiveLosses)}
+              compact
+            />
+          </div>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Walk-forward replay of the breakout strategy on the loaded bars. Past performance on
+            this chart is evidence, not a guarantee.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+function RiskTab({ evaluation }: { evaluation: SignalEvaluation }) {
+  const risk = usePreferencesStore((s) => s.risk);
+  return (
+    <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-3">
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+        <RiskMetric label="Direction" value={evaluation.direction} compact />
+        <RiskMetric label="Entry" value={formatMoney(evaluation.risk.entry)} compact />
+        <RiskMetric label="Stop" value={formatMoney(evaluation.risk.stop)} tone="bearish" compact />
+        <RiskMetric
+          label="Invalidation"
+          value={formatMoney(evaluation.risk.invalidation)}
+          tone="bearish"
+          compact
+        />
+        <RiskMetric label="Risk / unit" value={formatMoney(evaluation.risk.riskPerUnit)} compact />
+        <RiskMetric label="Position" value={formatUnits(evaluation.risk.positionSize)} compact />
+        <RiskMetric
+          label="Notional"
+          value={formatMoney(evaluation.risk.positionSize * evaluation.risk.entry)}
+          compact
+        />
+        <RiskMetric
+          label="Max $ risk"
+          value={formatMoney(evaluation.risk.maxDollarRisk)}
+          tone="bearish"
+          compact
+        />
+      </div>
+      <p className="rounded-lg border border-border bg-surface p-3 text-[11px] leading-relaxed text-muted-foreground">
+        Sized from your Trade Risk settings — ${risk.accountSize.toLocaleString()} account,{" "}
+        {risk.maxRiskPerTradePercent}% per trade, {risk.stopMethod.replaceAll("-", " ")} stop,
+        minimum {risk.minimumRewardRisk}R.{" "}
+        <Link to="/settings" className="font-semibold text-info hover:underline">
+          Adjust in Settings →
+        </Link>
+      </p>
+    </div>
   );
 }
 
@@ -768,19 +1011,27 @@ function RiskMetric({
   label,
   value,
   tone,
+  compact,
 }: {
   label: string;
   value: string;
   tone?: "bullish" | "bearish";
+  compact?: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-surface p-3">
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+    <div className={cn("rounded-lg border border-border bg-surface", compact ? "p-2" : "p-2.5")}>
+      <div
+        className={cn(
+          "font-semibold uppercase tracking-wider text-muted-foreground",
+          compact ? "text-[9px] leading-tight" : "text-[10px]",
+        )}
+      >
         {label}
       </div>
       <div
         className={cn(
-          "num mt-1 truncate text-sm font-semibold",
+          "num mt-0.5 truncate font-semibold",
+          compact ? "text-xs" : "text-sm",
           tone === "bullish" && "text-bullish",
           tone === "bearish" && "text-bearish",
         )}
