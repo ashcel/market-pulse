@@ -163,6 +163,19 @@ function atr(candles: Candle[], length: number): number | null {
   return mean(ranges);
 }
 
+// The regime thresholds below (ATR%, range width, slope) are absolute
+// percentages calibrated on 4H bars. Volatility grows roughly with the square
+// root of bar duration, so shorter bars must scale them down — otherwise every
+// intraday chart reads as "compression" and never produces a trade direction.
+const BASELINE_BAR_SECONDS = 4 * 60 * 60;
+
+function volatilityScale(candles: Candle[]): number {
+  if (candles.length < 2) return 1;
+  const step = candles[candles.length - 1].time - candles[candles.length - 2].time;
+  if (step <= 0) return 1;
+  return Math.min(1, Math.sqrt(step / BASELINE_BAR_SECONDS));
+}
+
 function slope(values: number[]): number {
   if (values.length < 2) return 0;
   return (values[values.length - 1] - values[0]) / values.length;
@@ -231,17 +244,18 @@ export function classifyRegime(candles: Candle[]): MarketRegime {
   const atrBase = atr(candles.slice(0, -10), 14);
   const rangeHigh = Math.max(...candles.slice(-20).map((c) => c.high));
   const rangeLow = Math.min(...candles.slice(-20).map((c) => c.low));
-  const compression = atr14 && current.close ? atr14 / current.close < 0.012 : false;
+  const scale = volatilityScale(candles);
+  const compression = atr14 && current.close ? atr14 / current.close < 0.012 * scale : false;
   const rangeWidth = current.close ? (rangeHigh - rangeLow) / current.close : 0;
   const maSlope = slope(closes.slice(-10));
 
   if (atr14 && atrBase && atr14 > atrBase * 1.45) return "high-volatility";
-  if (compression && rangeWidth < 0.055) return "breakout-compression";
-  if (atr14 && current.close && atr14 / current.close < 0.008) return "low-volatility";
+  if (compression && rangeWidth < 0.055 * scale) return "breakout-compression";
+  if (atr14 && current.close && atr14 / current.close < 0.008 * scale) return "low-volatility";
   if (ma20 && ma50 && current.close > ma20 && ma20 > ma50 && maSlope > 0) return "trending-up";
   if (ma20 && ma50 && current.close < ma20 && ma20 < ma50 && maSlope < 0) return "trending-down";
-  if (rangeWidth < 0.06) return "range-bound";
-  if (Math.abs(maSlope) < current.close * 0.0008) return "choppy";
+  if (rangeWidth < 0.06 * scale) return "range-bound";
+  if (Math.abs(maSlope) < current.close * 0.0008 * scale) return "choppy";
   return "mean-reversion";
 }
 
@@ -447,14 +461,17 @@ export function evaluateSignal(
         : `Target 1 offers only ${risk.rewardRisk1}R, below the ${settings.minimumRewardRisk}R minimum.`,
   );
 
+  const structureFloor = 0.35 * volatilityScale(candles);
   const nearResistance =
     direction === "long" &&
     analytics.distanceToResistancePercent !== null &&
-    analytics.distanceToResistancePercent < Math.max(0.35, (analytics.atrPercent ?? 1) * 0.55);
+    analytics.distanceToResistancePercent <
+      Math.max(structureFloor, (analytics.atrPercent ?? 1) * 0.55);
   const nearSupport =
     direction === "short" &&
     analytics.distanceToSupportPercent !== null &&
-    analytics.distanceToSupportPercent < Math.max(0.35, (analytics.atrPercent ?? 1) * 0.55);
+    analytics.distanceToSupportPercent <
+      Math.max(structureFloor, (analytics.atrPercent ?? 1) * 0.55);
   add(
     "Support/resistance location",
     nearResistance || nearSupport ? "warning" : "pass",

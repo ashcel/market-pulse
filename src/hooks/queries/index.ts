@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { fetchMacroSnapshot } from "@/lib/engine/macro";
 import { fetchMarketSnapshot, type MarketSnapshot } from "@/lib/engine/market";
 import { fetchNews } from "@/lib/engine/news";
 import { usePreferencesStore } from "@/stores/preferences";
@@ -48,3 +49,13 @@ export const useSignals = (ticker = "BTC") =>
 // impact/direction/assets; falls back to the curated sample offline.
 export const useNews = () =>
   useQuery({ queryKey: ["news"], queryFn: fetchNews, staleTime: 5 * 60_000 });
+
+// Daily stocks/dollar/gold context plus BTC↔Nasdaq correlation. Daily data
+// moves slowly, so this refreshes far less often than the crypto snapshot.
+export const useMacro = () =>
+  useQuery({
+    queryKey: ["macro"],
+    queryFn: fetchMacroSnapshot,
+    staleTime: 5 * 60_000,
+    refetchInterval: 10 * 60_000,
+  });

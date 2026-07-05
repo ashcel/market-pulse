@@ -18,6 +18,7 @@ import { Change } from "@/components/iq/change";
 import { IqCard, CardEyebrow } from "@/components/iq/iq-card";
 import { formatPrice } from "@/components/iq/market-card";
 import { Heatmap } from "@/components/iq/heatmap";
+import { MacroStrip } from "@/components/iq/macro-strip";
 import { AssetIcon } from "@/components/iq/asset-icon";
 import { StatusBadge } from "@/components/iq/status-badge";
 import { SkeletonCard } from "@/components/iq/skeletons";
@@ -74,6 +75,7 @@ function Dashboard() {
       </header>
 
       <HeroMetrics />
+      <MacroStrip />
       <TopSetups />
       <MarketOverviewStrip />
 
