@@ -32,7 +32,10 @@ function placeCard(rect: Rect | null, viewportW: number, viewportH: number) {
   const clampY = (top: number) => Math.min(Math.max(12, top), viewportH - CARD_HEIGHT - 12);
 
   if (!rect) {
-    return { top: clampY(viewportH / 2 - CARD_HEIGHT / 2), left: clampX(viewportW / 2 - CARD_WIDTH / 2) };
+    return {
+      top: clampY(viewportH / 2 - CARD_HEIGHT / 2),
+      left: clampX(viewportW / 2 - CARD_WIDTH / 2),
+    };
   }
 
   const bottomEdge = rect.top + rect.height;
