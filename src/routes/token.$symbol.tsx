@@ -25,11 +25,17 @@ import {
   Bot,
   Brain,
   CheckCircle2,
+  ChevronsLeft,
+  ChevronsRight,
   CircleAlert,
+  CircleHelp,
   CircleX,
+  MoveRight,
   Play,
   Send,
   ShieldAlert,
+  TrendingDown,
+  TrendingUp,
 } from "lucide-react";
 
 import { Link } from "@tanstack/react-router";
@@ -39,10 +45,12 @@ import { Change } from "@/components/iq/change";
 import { ConfidenceGauge } from "@/components/iq/confidence-gauge";
 import { IqCard, CardEyebrow } from "@/components/iq/iq-card";
 import { MiniChart } from "@/components/iq/mini-chart";
+import { ProductTour, type TourStep } from "@/components/iq/product-tour";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLivePrice } from "@/hooks/useLivePrice";
 import { useTokenSignal, type TokenSignalData } from "@/hooks/useTokenSignal";
 import { UNIVERSE } from "@/lib/engine/market";
@@ -66,10 +74,52 @@ export const Route = createFileRoute("/token/$symbol")({
 
 const TIMEFRAMES: TokenTimeframe[] = ["1H", "4H", "1D", "1W"];
 
+const TOUR_SEEN_KEY = "iq-token-tour-v1";
+
+const TOUR_STEPS: TourStep[] = [
+  {
+    target: "header",
+    title: "Token overview",
+    body: "Live price, 24-hour change and key stats for this token. Use the 1H / 4H / 1D / 1W buttons to change the chart timeframe — everything on this page recalculates for the timeframe you pick.",
+  },
+  {
+    target: "chart",
+    title: "Price chart",
+    body: "Each candle is one period of price movement (green = closed up, red = closed down). Small arrows mark swing highs/lows, dashed lines are support and resistance, and when a trade plan is active you'll see entry (blue), stop (red) and target (green) lines.",
+  },
+  {
+    target: "decision",
+    title: "The engine's verdict",
+    body: "Start here. The engine reads the chart and answers one question: buy candidate, short candidate, wait, or no trade — with the most important reason in plain words.",
+  },
+  {
+    target: "risk",
+    title: "Your trade plan",
+    body: "Where to enter, where to exit if it goes wrong (stop), profit targets, and exactly how much to buy so you never lose more than your limit. Sized from your own account settings.",
+  },
+  {
+    target: "insight",
+    title: "Key insight & components",
+    body: "The market's condition in plain words — trend, momentum, volume, volatility — plus every check the engine ran. Green passed, amber is a caution, red failed.",
+  },
+  {
+    target: "backtest",
+    title: "Backtest evidence",
+    body: "How this same kind of signal performed historically on this exact chart. Positive expectancy means history is on your side; negative means demand extra confirmation.",
+  },
+  {
+    target: "ai",
+    title: "AI analyst",
+    body: "Generate a written memo of the whole setup or ask questions like 'what would invalidate this?'. Collapse it with the arrows when you want more space.",
+  },
+];
+
 function TokenDetailPage() {
   const { symbol: rawSymbol } = Route.useParams();
   const symbol = rawSymbol.toUpperCase();
   const [timeframe, setTimeframe] = useState<TokenTimeframe>("4H");
+  const [aiOpen, setAiOpen] = useState(true);
+  const [tourOpen, setTourOpen] = useState(false);
   const signal = useTokenSignal(symbol, timeframe);
   const data = signal.data;
   const live = useLivePrice(symbol, data?.source === "live");
@@ -83,11 +133,24 @@ function TokenDetailPage() {
     [data],
   );
 
+  useEffect(() => {
+    if (!localStorage.getItem(TOUR_SEEN_KEY)) {
+      const timer = setTimeout(() => setTourOpen(true), 900);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  const closeTour = useCallback(() => {
+    setTourOpen(false);
+    localStorage.setItem(TOUR_SEEN_KEY, "1");
+  }, []);
+
   return (
     // Locked to the viewport on desktop: only the right panel and chat scroll.
-    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-3 lg:h-[calc(100dvh-7rem)] lg:min-h-0">
+    <div className="mx-auto flex w-full max-w-[1700px] flex-col gap-3 lg:h-[calc(100dvh-7rem)] lg:min-h-0">
       <IqCard
         padded={false}
+        data-tour="header"
         className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5"
       >
         <div className="flex min-w-0 items-center gap-2.5">
@@ -161,58 +224,138 @@ function TokenDetailPage() {
               <HeaderStat label="24h Turnover" value={`$${formatCompact(stats.turnover)}`} />
             </div>
           )}
+          <button
+            type="button"
+            onClick={() => setTourOpen(true)}
+            className="flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+            aria-label="Start page tour"
+          >
+            <CircleHelp className="h-3.5 w-3.5" />
+            Tour
+          </button>
         </div>
       </IqCard>
 
       {signal.isLoading || !data ? (
-        <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(340px,25rem)]">
+        <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,25rem)_auto]">
           <div className="flex min-h-0 flex-col gap-3">
-            <IqCard padded={false} className="overflow-hidden lg:min-h-0 lg:flex-[13]">
+            <IqCard padded={false} className="overflow-hidden lg:min-h-0 lg:flex-1">
               <div className="h-[360px] animate-pulse bg-surface lg:h-full" />
             </IqCard>
-            <IqCard className="h-64 animate-pulse bg-surface lg:h-auto lg:min-h-0 lg:flex-[10]" />
+            <IqCard className="h-28 shrink-0 animate-pulse bg-surface" />
           </div>
           <IqCard className="h-96 animate-pulse bg-surface lg:h-full" />
+          <IqCard className="hidden w-[300px] animate-pulse bg-surface lg:block lg:h-full" />
         </div>
       ) : (
-        <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(340px,25rem)]">
-          <div className="flex min-h-0 flex-col gap-3">
-            <IqCard
-              padded={false}
-              className="flex flex-col overflow-hidden lg:min-h-0 lg:flex-[13]"
-            >
-              <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2">
-                <div className="flex items-baseline gap-3">
-                  <CardEyebrow>Price Structure</CardEyebrow>
-                  <span className="text-xs text-muted-foreground">
-                    {data.candles.length} {data.source === "live" ? "Binance" : "synthetic"} bars ·{" "}
-                    {data.pivots.length} pivots
-                  </span>
+        <TooltipProvider delayDuration={150}>
+          <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,25rem)_auto]">
+            <div className="flex min-h-0 flex-col gap-3">
+              <IqCard
+                padded={false}
+                data-tour="chart"
+                className="flex flex-col overflow-hidden lg:min-h-0 lg:flex-1"
+              >
+                <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2">
+                  <div className="flex items-baseline gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <CardEyebrow>Price Structure</CardEyebrow>
+                      <InfoHint text="Candlestick chart of the selected timeframe. Arrows mark swing highs and lows, dashed lines are support/resistance, and solid lines show the trade plan levels when one is active." />
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {data.candles.length} {data.source === "live" ? "Binance" : "synthetic"} bars
+                      · {data.pivots.length} pivots
+                    </span>
+                  </div>
+                  <Badge variant="outline" className="border-info/30 bg-info-soft text-info">
+                    {data.evaluation.decision.replaceAll("-", " ")}
+                  </Badge>
                 </div>
-                <Badge variant="outline" className="border-info/30 bg-info-soft text-info">
-                  {data.evaluation.decision.replaceAll("-", " ")}
-                </Badge>
-              </div>
-              <div className="min-h-0 flex-1 lg:min-h-[240px]">
-                <TokenChart {...data} />
-              </div>
-            </IqCard>
+                <div className="min-h-0 flex-1 lg:min-h-[240px]">
+                  <TokenChart {...data} />
+                </div>
+              </IqCard>
 
-            <QuantAiPanel
+              <IqCard padded={false} data-tour="backtest" className="shrink-0 p-3">
+                <BacktestEvidence backtest={data.evaluation.backtest} />
+              </IqCard>
+            </div>
+
+            <SignalPanel
+              evaluation={data.evaluation}
+              className="lg:h-full lg:min-h-0 lg:overflow-y-auto"
+            />
+
+            <AiDrawer
               symbol={symbol}
               timeframe={timeframe}
               evaluation={data.evaluation}
-              className="lg:min-h-0 lg:flex-[10]"
+              open={aiOpen}
+              onOpenChange={setAiOpen}
             />
           </div>
 
-          <SignalPanel
-            evaluation={data.evaluation}
-            className="lg:h-full lg:min-h-0 lg:overflow-y-auto"
-          />
-        </div>
+          <div className="hidden shrink-0 items-center justify-between rounded-lg border border-border bg-card px-4 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground lg:flex">
+            <div className="flex items-center gap-2">
+              <span>
+                Last updated:{" "}
+                <span className="num text-foreground">
+                  {new Date(signal.dataUpdatedAt || Date.now()).toLocaleTimeString()}
+                </span>
+              </span>
+              <span
+                className={cn(
+                  "flex items-center gap-1 font-semibold",
+                  data.source === "live" ? "text-bullish" : "text-warning",
+                )}
+              >
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    data.source === "live" ? "bg-bullish" : "bg-warning",
+                  )}
+                />
+                {data.source === "live" ? "Live" : "Demo"}
+              </span>
+            </div>
+            <span>
+              Data source: {data.source === "live" ? "Binance" : "Synthetic (Binance unreachable)"}
+            </span>
+            <span>
+              Auto-refresh: <span className="text-bullish">On</span>
+            </span>
+          </div>
+        </TooltipProvider>
       )}
+
+      <ProductTour
+        steps={TOUR_STEPS}
+        open={tourOpen && !signal.isLoading}
+        onClose={closeTour}
+        onStepChange={(target) => {
+          if (target === "ai") setAiOpen(true);
+        }}
+      />
     </div>
+  );
+}
+
+function InfoHint({ text }: { text: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label="What is this?"
+          className="text-muted-foreground/70 transition-colors hover:text-foreground"
+        >
+          <CircleHelp className="h-3 w-3" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-[260px] bg-popover text-xs leading-relaxed text-popover-foreground shadow-lg">
+        {text}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -460,7 +603,10 @@ function SignalPanel({
     <IqCard padded={false} className={cn("flex flex-col gap-3.5 p-4", className)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <CardEyebrow>Signal Engine</CardEyebrow>
+          <div className="flex items-center gap-1.5">
+            <CardEyebrow>Signal Engine</CardEyebrow>
+            <InfoHint text="The quant engine reads the chart and names the pattern it sees (the 'setup'), the market condition (the 'regime'), and which direction it favors. The score out of 100 is its overall conviction." />
+          </div>
           <h2 className="mt-1.5 text-lg font-semibold capitalize leading-tight tracking-tight">
             {evaluation.setupType.replaceAll("-", " ")}
           </h2>
@@ -471,53 +617,69 @@ function SignalPanel({
         <ConfidenceGauge value={evaluation.confidence} size={60} label="Score" />
       </div>
 
-      <div className={cn("rounded-lg border p-3", decisionTone)}>
+      <div data-tour="decision" className={cn("rounded-lg border p-3", decisionTone)}>
         <div className="flex items-center justify-between gap-3">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Decision
+            <InfoHint text="The bottom line: act (buy/short candidate) or don't (wait/no trade), with the single most important reason. 'Wait' and 'no trade' are decisions too — most of the time the right trade is none." />
           </span>
           <DecisionBadge decision={evaluation.decision} />
         </div>
         <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{evaluation.reason}</p>
       </div>
 
-      {evaluation.direction !== "none" && (
-        <div className="grid grid-cols-2 gap-1.5">
-          <RiskMetric label="Entry" value={formatMoney(evaluation.risk.entry)} />
-          <RiskMetric label="Stop" value={formatMoney(evaluation.risk.stop)} tone="bearish" />
-          <RiskMetric
-            label="Target 1"
-            value={formatMoney(evaluation.risk.target1)}
-            tone="bullish"
-          />
-          <RiskMetric
-            label="Target 2"
-            value={formatMoney(evaluation.risk.target2)}
-            tone="bullish"
-          />
-          <RiskMetric
-            label="Position"
-            value={`${formatUnits(evaluation.risk.positionSize)} ≈ ${formatMoney(evaluation.risk.positionSize * evaluation.risk.entry)}`}
-          />
-          <RiskMetric
-            label="R/R"
-            value={`${evaluation.risk.rewardRisk1}R / ${evaluation.risk.rewardRisk2}R`}
-          />
-          <RiskMetric
-            label="Max loss"
-            value={formatMoney(evaluation.risk.maxDollarLoss)}
-            tone="bearish"
-          />
-          <RiskMetric
-            label="Gain @ T1"
-            value={formatMoney(evaluation.risk.estimatedGain1)}
-            tone="bullish"
-          />
+      <div data-tour="risk" className="space-y-1.5">
+        <div className="flex items-center gap-1.5">
+          <CardEyebrow>Trade Plan</CardEyebrow>
+          <InfoHint text="A complete plan, sized to your account: entry price, stop (where you exit if wrong), two profit targets, position size, and the most you can lose if the stop is hit. Change account size and risk in Settings." />
         </div>
-      )}
+        {evaluation.direction === "none" ? (
+          <p className="rounded-lg border border-border bg-surface p-3 text-xs leading-relaxed text-muted-foreground">
+            No active trade plan — the engine doesn&apos;t see a setup worth acting on right now.
+            Waiting costs nothing; a bad entry does.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-1.5">
+            <RiskMetric label="Entry" value={formatMoney(evaluation.risk.entry)} />
+            <RiskMetric label="Stop" value={formatMoney(evaluation.risk.stop)} tone="bearish" />
+            <RiskMetric
+              label="Target 1"
+              value={formatMoney(evaluation.risk.target1)}
+              tone="bullish"
+            />
+            <RiskMetric
+              label="Target 2"
+              value={formatMoney(evaluation.risk.target2)}
+              tone="bullish"
+            />
+            <RiskMetric
+              label="Position"
+              value={`${formatUnits(evaluation.risk.positionSize)} ≈ ${formatMoney(evaluation.risk.positionSize * evaluation.risk.entry)}`}
+            />
+            <RiskMetric
+              label="R/R"
+              value={`${evaluation.risk.rewardRisk1}R / ${evaluation.risk.rewardRisk2}R`}
+            />
+            <RiskMetric
+              label="Max loss"
+              value={formatMoney(evaluation.risk.maxDollarLoss)}
+              tone="bearish"
+            />
+            <RiskMetric
+              label="Gain @ T1"
+              value={formatMoney(evaluation.risk.estimatedGain1)}
+              tone="bullish"
+            />
+          </div>
+        )}
+        <SizingNote />
+      </div>
 
       <div className="space-y-1.5">
-        <CardEyebrow>Key Levels</CardEyebrow>
+        <div className="flex items-center gap-1.5">
+          <CardEyebrow>Key Levels</CardEyebrow>
+          <InfoHint text="Support is where buyers stepped in before (price floor); resistance is where sellers did (price ceiling). ATR shows how much this token typically moves per bar — bigger ATR means wilder swings." />
+        </div>
         <div className="grid grid-cols-2 gap-1.5 xl:grid-cols-4">
           <RiskMetric
             label="Support"
@@ -552,23 +714,44 @@ function SignalPanel({
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <CardEyebrow>Components</CardEyebrow>
+      <div data-tour="insight" className="grid gap-3 min-[420px]:grid-cols-2">
         <div className="space-y-1.5">
-          {evaluation.components.map((component) => (
-            <div
-              key={component.name}
-              className="flex items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-1.5"
-              title={component.explanation}
-            >
-              <StatusIcon status={component.status} />
-              <span className="whitespace-nowrap text-xs font-semibold">{component.name}</span>
-              <span className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground">
-                {component.explanation}
-              </span>
-              <StatusBadge status={component.status} score={component.score} />
-            </div>
-          ))}
+          <div className="flex items-center gap-1.5">
+            <CardEyebrow>Key Insight</CardEyebrow>
+            <InfoHint text="The market's current condition translated into plain words — no jargon. This is the context every trade decision should start from." />
+          </div>
+          <div className="space-y-1">
+            {keyInsights(evaluation).map((row) => (
+              <KeyInsightRow key={row.label} {...row} />
+            ))}
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <CardEyebrow>Components</CardEyebrow>
+            <InfoHint text="Every check the engine ran, with its score contribution. Hover a row to read what the check found. Green passed, amber is a caution, red failed." />
+          </div>
+          <div className="space-y-1">
+            {evaluation.components.map((component) => (
+              <Tooltip key={component.name}>
+                <TooltipTrigger asChild>
+                  <div className="flex cursor-default items-center gap-2 rounded-md border border-border bg-surface px-2 py-1.5">
+                    <StatusIcon status={component.status} />
+                    <span className="min-w-0 flex-1 truncate text-[11px] font-semibold">
+                      {component.name}
+                    </span>
+                    <StatusBadge status={component.status} score={component.score} />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="left"
+                  className="max-w-[260px] bg-popover text-xs leading-relaxed text-popover-foreground shadow-lg"
+                >
+                  {component.explanation}
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -585,9 +768,80 @@ function SignalPanel({
           </ul>
         </div>
       )}
-
-      <BacktestEvidence backtest={evaluation.backtest} />
     </IqCard>
+  );
+}
+
+function SizingNote() {
+  const risk = usePreferencesStore((s) => s.risk);
+  return (
+    <p className="text-[10px] leading-relaxed text-muted-foreground">
+      Sized for a ${risk.accountSize.toLocaleString()} account risking {risk.maxRiskPerTradePercent}
+      % per trade ({risk.stopMethod.replaceAll("-", " ")} stop).{" "}
+      <Link to="/settings" className="font-semibold text-info hover:underline">
+        Adjust →
+      </Link>
+    </p>
+  );
+}
+
+interface InsightRow {
+  label: string;
+  value: string;
+  tone: "bullish" | "bearish" | "warning" | "neutral";
+  dir: "up" | "down" | "flat";
+}
+
+function keyInsights(evaluation: SignalEvaluation): InsightRow[] {
+  const a = evaluation.analytics;
+  const trend: InsightRow =
+    evaluation.regime === "trending-up"
+      ? { label: "Trend", value: "Uptrend", tone: "bullish", dir: "up" }
+      : evaluation.regime === "trending-down"
+        ? { label: "Trend", value: "Downtrend", tone: "bearish", dir: "down" }
+        : { label: "Trend", value: "Sideways", tone: "neutral", dir: "flat" };
+
+  const aboveMean = a.sma20 !== null && a.lastClose > a.sma20;
+  const momentum: InsightRow = aboveMean
+    ? { label: "Momentum", value: "Positive", tone: "bullish", dir: "up" }
+    : { label: "Momentum", value: "Weak", tone: "bearish", dir: "down" };
+
+  const ratio = a.volumeRatio ?? 1;
+  const volume: InsightRow =
+    ratio >= 1.15
+      ? { label: "Volume", value: "Above average", tone: "bullish", dir: "up" }
+      : ratio <= 0.85
+        ? { label: "Volume", value: "Below average", tone: "warning", dir: "down" }
+        : { label: "Volume", value: "Average", tone: "neutral", dir: "flat" };
+
+  const atr = a.atrPercent ?? 0;
+  const volatility: InsightRow =
+    atr < 2.2
+      ? { label: "Volatility (ATR)", value: "Low", tone: "neutral", dir: "flat" }
+      : atr < 4.5
+        ? { label: "Volatility (ATR)", value: "Medium", tone: "warning", dir: "flat" }
+        : { label: "Volatility (ATR)", value: "High", tone: "bearish", dir: "up" };
+
+  return [trend, momentum, volume, volatility];
+}
+
+function KeyInsightRow({ label, value, tone, dir }: InsightRow) {
+  const DirIcon = dir === "up" ? TrendingUp : dir === "down" ? TrendingDown : MoveRight;
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-2 py-1.5">
+      <span className="text-[11px] text-muted-foreground">{label}</span>
+      <span
+        className={cn(
+          "flex items-center gap-1 text-[11px] font-semibold",
+          tone === "bullish" && "text-bullish",
+          tone === "bearish" && "text-bearish",
+          tone === "warning" && "text-warning",
+        )}
+      >
+        {value}
+        <DirIcon className="h-3 w-3" />
+      </span>
+    </div>
   );
 }
 
@@ -603,7 +857,10 @@ function BacktestEvidence({ backtest }: { backtest: SignalEvaluation["backtest"]
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-2">
-        <CardEyebrow>Backtest Evidence</CardEyebrow>
+        <div className="flex items-center gap-1.5">
+          <CardEyebrow>Backtest Evidence</CardEyebrow>
+          <InfoHint text="A replay of this same signal on this chart's history. Win rate = how often it worked; expectancy = the average result per trade in R (1R = the amount you risk); max DD = the worst losing stretch." />
+        </div>
         <span className="truncate text-[9px] uppercase tracking-wider text-muted-foreground">
           {backtest.strategyName} · this token, this timeframe
         </span>
@@ -635,26 +892,19 @@ function BacktestEvidence({ backtest }: { backtest: SignalEvaluation["backtest"]
   );
 }
 
-type PanelTab = "analyst" | "backtest" | "risk";
-
-const PANEL_TABS: { id: PanelTab; label: string }[] = [
-  { id: "analyst", label: "Analyst Panel" },
-  { id: "backtest", label: "Backtest" },
-  { id: "risk", label: "Risk Check" },
-];
-
-function QuantAiPanel({
+function AiDrawer({
   symbol,
   timeframe,
   evaluation,
-  className,
+  open,
+  onOpenChange,
 }: {
   symbol: string;
   timeframe: TokenTimeframe;
   evaluation: SignalEvaluation;
-  className?: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
-  const [tab, setTab] = useState<PanelTab>("analyst");
   const [thinkingMode, setThinkingMode] = useState(true);
   const [question, setQuestion] = useState("");
   const [chat, setChat] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
@@ -676,39 +926,59 @@ function QuantAiPanel({
         ].slice(-10),
       );
       setQuestion("");
-      setTab("analyst");
     },
     [evaluation, symbol, timeframe, thinkingMode],
   );
 
+  // Collapsed: a slim rail on desktop (the drawer never collapses on mobile,
+  // where it stacks as a normal card).
   return (
-    <IqCard padded={false} className={cn("flex flex-col overflow-hidden", className)}>
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-3">
-        <div className="flex items-center">
-          {PANEL_TABS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setTab(item.id)}
-              className={cn(
-                "-mb-px border-b-2 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider transition-colors",
-                tab === item.id
-                  ? "border-info text-info"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-        <label className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-          <Brain className="h-4 w-4" />
-          Thinking
-          <Switch checked={thinkingMode} onCheckedChange={setThinkingMode} />
-        </label>
-      </div>
+    <IqCard
+      padded={false}
+      data-tour="ai"
+      className={cn(
+        "flex min-h-0 flex-col overflow-hidden transition-[width] duration-200 lg:h-full",
+        open ? "lg:w-[300px]" : "lg:w-11",
+      )}
+    >
+      {!open && (
+        <button
+          type="button"
+          onClick={() => onOpenChange(true)}
+          aria-label="Expand AI analyst"
+          className="hidden h-full w-full flex-col items-center gap-3 py-3 text-muted-foreground transition-colors hover:text-foreground lg:flex"
+        >
+          <ChevronsLeft className="h-4 w-4" />
+          <Bot className="h-4 w-4 text-info" />
+          <span className="text-[10px] font-semibold uppercase tracking-wider [writing-mode:vertical-rl]">
+            AI Analyst
+          </span>
+        </button>
+      )}
 
-      {tab === "analyst" && (
+      <div className={cn("flex min-h-0 flex-1 flex-col", !open && "lg:hidden")}>
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <Bot className="h-4 w-4 shrink-0 text-info" />
+            <span className="truncate text-xs font-bold">AI Analyst</span>
+            <InfoHint text="Turns everything on this page into a short written memo, or answers your questions about the setup. It only uses the numbers you see here — no outside opinions." />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+              <Brain className="h-3.5 w-3.5" />
+              <Switch checked={thinkingMode} onCheckedChange={setThinkingMode} />
+            </label>
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              aria-label="Collapse AI analyst"
+              className="hidden text-muted-foreground transition-colors hover:text-foreground lg:block"
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
         <div className="flex min-h-0 flex-1 flex-col gap-2.5 p-3">
           <div className="grid shrink-0 grid-cols-3 gap-1.5">
             <ContextPill label="Signal" value={`${evaluation.confidence}/100`} />
@@ -748,7 +1018,7 @@ function QuantAiPanel({
             )}
           </div>
 
-          <div className="grid shrink-0 grid-cols-3 gap-1.5">
+          <div className="grid shrink-0 grid-cols-3 gap-1.5 lg:grid-cols-1">
             <Button type="button" size="sm" className="h-8" onClick={() => runAnalysis()}>
               <Play className="h-3.5 w-3.5" />
               Run analysis
@@ -799,119 +1069,8 @@ function QuantAiPanel({
             </Button>
           </form>
         </div>
-      )}
-
-      {tab === "backtest" && <BacktestTab backtest={evaluation.backtest} />}
-      {tab === "risk" && <RiskTab evaluation={evaluation} />}
+      </div>
     </IqCard>
-  );
-}
-
-function BacktestTab({ backtest }: { backtest: SignalEvaluation["backtest"] }) {
-  return (
-    <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div className="text-sm font-semibold">{backtest.strategyName}</div>
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-          {backtest.strategyVersion} · this token, this timeframe
-        </span>
-      </div>
-      {backtest.totalTrades === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No historical signals fired in this window — no backtest evidence either way.
-        </p>
-      ) : (
-        <>
-          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
-            <RiskMetric label="Trades" value={String(backtest.totalTrades)} compact />
-            <RiskMetric
-              label="Win rate"
-              value={`${backtest.winRate}%`}
-              tone={backtest.winRate >= 50 ? "bullish" : "bearish"}
-              compact
-            />
-            <RiskMetric
-              label="Expectancy"
-              value={`${backtest.expectancy >= 0 ? "+" : ""}${backtest.expectancy}R`}
-              tone={backtest.expectancy > 0 ? "bullish" : "bearish"}
-              compact
-            />
-            <RiskMetric label="Profit factor" value={String(backtest.profitFactor)} compact />
-            <RiskMetric label="Avg win" value={`${backtest.averageWin}R`} tone="bullish" compact />
-            <RiskMetric
-              label="Avg loss"
-              value={`${backtest.averageLoss}R`}
-              tone="bearish"
-              compact
-            />
-            <RiskMetric label="Avg R" value={`${backtest.averageR}R`} compact />
-            <RiskMetric label="Max DD" value={`${backtest.maxDrawdown}R`} tone="bearish" compact />
-            <RiskMetric
-              label="Best trade"
-              value={`${backtest.bestTradeR}R`}
-              tone="bullish"
-              compact
-            />
-            <RiskMetric
-              label="Worst trade"
-              value={`${backtest.worstTradeR}R`}
-              tone="bearish"
-              compact
-            />
-            <RiskMetric label="Max win streak" value={String(backtest.consecutiveWins)} compact />
-            <RiskMetric
-              label="Max loss streak"
-              value={String(backtest.consecutiveLosses)}
-              compact
-            />
-          </div>
-          <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Walk-forward replay of the breakout strategy on the loaded bars. Past performance on
-            this chart is evidence, not a guarantee.
-          </p>
-        </>
-      )}
-    </div>
-  );
-}
-
-function RiskTab({ evaluation }: { evaluation: SignalEvaluation }) {
-  const risk = usePreferencesStore((s) => s.risk);
-  return (
-    <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-3">
-      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-        <RiskMetric label="Direction" value={evaluation.direction} compact />
-        <RiskMetric label="Entry" value={formatMoney(evaluation.risk.entry)} compact />
-        <RiskMetric label="Stop" value={formatMoney(evaluation.risk.stop)} tone="bearish" compact />
-        <RiskMetric
-          label="Invalidation"
-          value={formatMoney(evaluation.risk.invalidation)}
-          tone="bearish"
-          compact
-        />
-        <RiskMetric label="Risk / unit" value={formatMoney(evaluation.risk.riskPerUnit)} compact />
-        <RiskMetric label="Position" value={formatUnits(evaluation.risk.positionSize)} compact />
-        <RiskMetric
-          label="Notional"
-          value={formatMoney(evaluation.risk.positionSize * evaluation.risk.entry)}
-          compact
-        />
-        <RiskMetric
-          label="Max $ risk"
-          value={formatMoney(evaluation.risk.maxDollarRisk)}
-          tone="bearish"
-          compact
-        />
-      </div>
-      <p className="rounded-lg border border-border bg-surface p-3 text-[11px] leading-relaxed text-muted-foreground">
-        Sized from your Trade Risk settings — ${risk.accountSize.toLocaleString()} account,{" "}
-        {risk.maxRiskPerTradePercent}% per trade, {risk.stopMethod.replaceAll("-", " ")} stop,
-        minimum {risk.minimumRewardRisk}R.{" "}
-        <Link to="/settings" className="font-semibold text-info hover:underline">
-          Adjust in Settings →
-        </Link>
-      </p>
-    </div>
   );
 }
 

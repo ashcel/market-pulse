@@ -34,6 +34,7 @@ function buildSignalData(
 
 export function useTokenSignal(symbol: string, timeframe: TokenTimeframe) {
   const risk = usePreferencesStore((s) => s.risk);
+  const refreshIntervalMs = usePreferencesStore((s) => s.refreshIntervalMs);
   // Personal risk preferences drive stop placement and position sizing.
   const settings: RiskSettings = {
     ...CRYPTO_RISK_SETTINGS,
@@ -54,6 +55,7 @@ export function useTokenSignal(symbol: string, timeframe: TokenTimeframe) {
       risk.stopMethod,
     ],
     staleTime: 60_000,
+    refetchInterval: refreshIntervalMs > 0 ? Math.max(refreshIntervalMs, 30_000) : false,
     queryFn: async (): Promise<TokenSignalData> => {
       const candles = await fetchBinanceKlines(symbol, timeframe);
       if (candles.length > 0) {
