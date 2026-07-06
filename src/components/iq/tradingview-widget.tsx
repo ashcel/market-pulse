@@ -12,12 +12,10 @@ export function TradingViewWidget({ symbol = "BINANCE:BTCUSDT", height = 460 }: 
     const container = ref.current;
     if (!container) return;
     container.innerHTML = "";
-    const inner = document.createElement("div");
-    inner.className = "tradingview-widget-container__widget";
-    inner.style.height = "100%";
-    inner.style.width = "100%";
-    container.appendChild(inner);
 
+    // No placeholder `__widget` div: the embed script inserts its own
+    // full-height container before itself, and an extra 100%-height sibling
+    // would push the iframe below the clipped viewport of the card.
     const script = document.createElement("script");
     script.type = "text/javascript";
     script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
@@ -36,10 +34,16 @@ export function TradingViewWidget({ symbol = "BINANCE:BTCUSDT", height = 460 }: 
       backgroundColor: "rgba(19,20,26,1)",
       gridColor: "rgba(255,255,255,0.04)",
     });
-    container.appendChild(script);
+
+    if (container) {
+      container.appendChild(script);
+    }
 
     return () => {
-      container.innerHTML = "";
+      const curr = ref.current;
+      if (curr) {
+        curr.innerHTML = "";
+      }
     };
   }, [symbol]);
 
