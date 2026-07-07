@@ -4,6 +4,7 @@ import { persist } from "zustand/middleware";
 import type { TradingIntent } from "@/lib/engine/intent";
 import type { StopMethod } from "@/lib/engine/quant";
 import type { MarketType } from "@/lib/engine/binance";
+import { clampLeverage } from "@/lib/leverage";
 
 export interface RiskPreferences {
   accountSize: number;
@@ -38,6 +39,8 @@ interface PreferencesState {
   tradingIntent: TradingIntent;
   /** Price the token page against Binance spot or perpetual futures. */
   marketType: MarketType;
+  /** Leverage for perpetual position sizing (margin + liquidation display). */
+  leverage: number;
   hiddenChartIndicators: Partial<Record<ChartIndicatorKey, boolean>>;
   setRefreshInterval: (ms: number) => void;
   setActiveAsset: (ticker: string) => void;
@@ -45,6 +48,7 @@ interface PreferencesState {
   setRisk: (patch: Partial<RiskPreferences>) => void;
   setTradingIntent: (intent: TradingIntent) => void;
   setMarketType: (market: MarketType) => void;
+  setLeverage: (leverage: number) => void;
   toggleChartIndicator: (key: ChartIndicatorKey) => void;
 }
 
@@ -62,6 +66,7 @@ export const usePreferencesStore = create<PreferencesState>()(
       },
       tradingIntent: "swing",
       marketType: "spot",
+      leverage: 5,
       hiddenChartIndicators: {},
       setRefreshInterval: (ms) => set({ refreshIntervalMs: ms }),
       setActiveAsset: (ticker) => set({ activeAsset: ticker }),
@@ -72,6 +77,7 @@ export const usePreferencesStore = create<PreferencesState>()(
       setRisk: (patch) => set((s) => ({ risk: { ...s.risk, ...patch } })),
       setTradingIntent: (intent) => set({ tradingIntent: intent }),
       setMarketType: (marketType) => set({ marketType }),
+      setLeverage: (leverage) => set({ leverage: clampLeverage(leverage) }),
       toggleChartIndicator: (key) =>
         set((s) => ({
           hiddenChartIndicators: {
@@ -88,6 +94,9 @@ export const usePreferencesStore = create<PreferencesState>()(
           ...current,
           ...stored,
           marketType: stored.marketType === "perp" ? "perp" : "spot",
+          leverage: clampLeverage(
+            typeof stored.leverage === "number" ? stored.leverage : current.leverage,
+          ),
           notifications: { ...current.notifications, ...stored.notifications },
           risk: { ...current.risk, ...stored.risk },
           hiddenChartIndicators: {

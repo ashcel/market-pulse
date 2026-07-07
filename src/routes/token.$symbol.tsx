@@ -67,6 +67,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -94,6 +95,7 @@ import type { TokenTimeframe } from "@/lib/engine/mock-candles";
 import { computeBaseZones, SD_ZONE_TIMEFRAMES, type BaseZone } from "@/lib/engine/zones";
 import type { MarketRegime, SignalEvaluation, SignalStatus } from "@/lib/engine/quant";
 import { formatEntryRange, formatMoney, formatUnits } from "@/lib/format";
+import { computeLeverageMetrics, MAX_LEVERAGE, MIN_LEVERAGE } from "@/lib/leverage";
 import { usePreferencesStore, type ChartIndicatorKey } from "@/stores/preferences";
 import { useTrackedSignalsStore } from "@/stores/tracked-signals";
 import { useAiSettingsStore } from "@/stores/ai-settings";
@@ -1233,6 +1235,9 @@ function AssistantPanel({
   const router = useRouter();
   const follow = useTrackedSignalsStore((s) => s.follow);
   const hasOpenSignal = useTrackedSignalsStore((s) => s.hasOpenSignal);
+  const marketType = usePreferencesStore((s) => s.marketType);
+  const leverage = usePreferencesStore((s) => s.leverage);
+  const setLeverage = usePreferencesStore((s) => s.setLeverage);
   const [followDialogOpen, setFollowDialogOpen] = useState(false);
   const [entryPriceInput, setEntryPriceInput] = useState("");
 
@@ -1487,6 +1492,9 @@ function AssistantPanel({
                     compact
                   />
                 </div>
+                {marketType === "perp" && (
+                  <PerpLeverage plan={active.plan} leverage={leverage} onLeverage={setLeverage} />
+                )}
                 <SizingNote multiplier={active.sizeMultiplier} />
                 {(active.verdict === "favored" || active.verdict === "caution") &&
                   active.direction !== "none" &&
@@ -2298,6 +2306,63 @@ function renderInline(text: string): ReactNode[] {
   }
   if (last < text.length) nodes.push(text.slice(last));
   return nodes;
+}
+
+function PerpLeverage({
+  plan,
+  leverage,
+  onLeverage,
+}: {
+  plan: NonNullable<IntentAssessment["plan"]>;
+  leverage: number;
+  onLeverage: (value: number) => void;
+}) {
+  const metrics = computeLeverageMetrics(
+    plan.entry,
+    plan.stop,
+    plan.positionSize,
+    plan.direction,
+    leverage,
+  );
+  if (!metrics) return null;
+
+  return (
+    <div className="space-y-2.5 rounded-lg border border-border bg-surface p-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Leverage
+          <InfoHint text="Leverage doesn't change the risk-sized position — the same units and max loss hold. It only sets the margin you post and where you'd be liquidated. Keep leverage at or below 'Max safe' so your stop triggers before liquidation. Liquidation is an estimate; it excludes fees and funding." />
+        </span>
+        <span className="num text-sm font-semibold text-foreground">{leverage}×</span>
+      </div>
+      <Slider
+        min={MIN_LEVERAGE}
+        max={MAX_LEVERAGE}
+        step={1}
+        value={[leverage]}
+        onValueChange={([value]) => onLeverage(value)}
+        aria-label="Leverage"
+      />
+      <div className="grid grid-cols-2 gap-1.5">
+        <RiskMetric label="Margin" value={formatMoney(metrics.margin)} compact />
+        <RiskMetric label="Notional" value={formatMoney(metrics.notional)} compact />
+        <RiskMetric
+          label="Est. liquidation"
+          value={formatMoney(metrics.liquidation)}
+          tone={metrics.liquidatesBeforeStop ? "bearish" : undefined}
+          compact
+        />
+        <RiskMetric label="Max safe" value={`${metrics.maxSafeLeverage}×`} compact />
+      </div>
+      {metrics.liquidatesBeforeStop && (
+        <p className="text-[10px] font-semibold leading-relaxed text-bearish">
+          At {leverage}× the estimated liquidation ({formatMoney(metrics.liquidation)}) sits before
+          your stop ({formatMoney(plan.stop)}) — you'd be liquidated before the stop triggers. Drop
+          to {metrics.maxSafeLeverage}× or lower.
+        </p>
+      )}
+    </div>
+  );
 }
 
 function RiskMetric({
