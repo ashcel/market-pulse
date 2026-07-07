@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 
 import type { TradingIntent } from "@/lib/engine/intent";
 import type { StopMethod } from "@/lib/engine/quant";
+import type { MarketType } from "@/lib/engine/binance";
 
 export interface RiskPreferences {
   accountSize: number;
@@ -35,12 +36,15 @@ interface PreferencesState {
   risk: RiskPreferences;
   /** The trader's current objective — drives the token-page decision assistant. */
   tradingIntent: TradingIntent;
+  /** Price the token page against Binance spot or perpetual futures. */
+  marketType: MarketType;
   hiddenChartIndicators: Partial<Record<ChartIndicatorKey, boolean>>;
   setRefreshInterval: (ms: number) => void;
   setActiveAsset: (ticker: string) => void;
   toggleNotification: (key: keyof PreferencesState["notifications"]) => void;
   setRisk: (patch: Partial<RiskPreferences>) => void;
   setTradingIntent: (intent: TradingIntent) => void;
+  setMarketType: (market: MarketType) => void;
   toggleChartIndicator: (key: ChartIndicatorKey) => void;
 }
 
@@ -57,6 +61,7 @@ export const usePreferencesStore = create<PreferencesState>()(
         stopMethod: "swing",
       },
       tradingIntent: "swing",
+      marketType: "spot",
       hiddenChartIndicators: {},
       setRefreshInterval: (ms) => set({ refreshIntervalMs: ms }),
       setActiveAsset: (ticker) => set({ activeAsset: ticker }),
@@ -66,6 +71,7 @@ export const usePreferencesStore = create<PreferencesState>()(
         })),
       setRisk: (patch) => set((s) => ({ risk: { ...s.risk, ...patch } })),
       setTradingIntent: (intent) => set({ tradingIntent: intent }),
+      setMarketType: (marketType) => set({ marketType }),
       toggleChartIndicator: (key) =>
         set((s) => ({
           hiddenChartIndicators: {
@@ -81,6 +87,7 @@ export const usePreferencesStore = create<PreferencesState>()(
         return {
           ...current,
           ...stored,
+          marketType: stored.marketType === "perp" ? "perp" : "spot",
           notifications: { ...current.notifications, ...stored.notifications },
           risk: { ...current.risk, ...stored.risk },
           hiddenChartIndicators: {

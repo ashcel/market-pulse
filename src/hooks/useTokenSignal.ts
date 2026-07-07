@@ -2,7 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 
 import { fetchTimeframeAlignment } from "@/lib/engine/alignment";
 import { computePivots, computeTrendLines } from "@/lib/engine/analysis";
-import { dropUnclosedCandle, fetchBinanceKlines, fetchBinancePrice } from "@/lib/engine/binance";
+import {
+  dropUnclosedCandle,
+  fetchBinanceKlines,
+  fetchBinancePrice,
+  type MarketType,
+} from "@/lib/engine/binance";
 import { CRYPTO_RISK_SETTINGS } from "@/lib/engine/crypto-config";
 import { generateMockCandles, type TokenTimeframe } from "@/lib/engine/mock-candles";
 import { evaluateSignal } from "@/lib/engine/quant";
@@ -58,7 +63,11 @@ function buildSignalData(
   return { candles, pivots, trendLines, evaluation, source, liveCandle };
 }
 
-export function useTokenSignal(symbol: string, timeframe: TokenTimeframe) {
+export function useTokenSignal(
+  symbol: string,
+  timeframe: TokenTimeframe,
+  market: MarketType = "spot",
+) {
   const risk = usePreferencesStore((s) => s.risk);
   const refreshIntervalMs = usePreferencesStore((s) => s.refreshIntervalMs);
   // Personal risk preferences drive stop placement and position sizing.
@@ -75,6 +84,7 @@ export function useTokenSignal(symbol: string, timeframe: TokenTimeframe) {
       "token-signal",
       symbol.toUpperCase(),
       timeframe,
+      market,
       risk.accountSize,
       risk.maxRiskPerTradePercent,
       risk.minimumRewardRisk,
@@ -84,8 +94,8 @@ export function useTokenSignal(symbol: string, timeframe: TokenTimeframe) {
     refetchInterval: refreshIntervalMs > 0 ? Math.max(refreshIntervalMs, 30_000) : false,
     queryFn: async (): Promise<TokenSignalData> => {
       const [history, livePrice] = await Promise.all([
-        fetchBinanceKlines(symbol, timeframe, BACKTEST_CANDLE_LIMIT),
-        fetchBinancePrice(symbol),
+        fetchBinanceKlines(symbol, timeframe, BACKTEST_CANDLE_LIMIT, undefined, market),
+        fetchBinancePrice(symbol, market),
       ]);
       if (history.length > 0) {
         // Trade off the last closed bar, not the one still forming — see
@@ -134,18 +144,19 @@ export function useTokenSignal(symbol: string, timeframe: TokenTimeframe) {
 // timeframe buttons and the intent assessments in the decision assistant.
 // One server round trip evaluates all timeframes, sized to the user's risk
 // preferences so per-intent plans match their account.
-export function useTimeframeAlignment(symbol: string) {
+export function useTimeframeAlignment(symbol: string, market: MarketType = "spot") {
   const risk = usePreferencesStore((s) => s.risk);
   return useQuery({
     queryKey: [
       "tf-alignment",
       symbol.toUpperCase(),
+      market,
       risk.accountSize,
       risk.maxRiskPerTradePercent,
       risk.minimumRewardRisk,
       risk.stopMethod,
     ],
-    queryFn: () => fetchTimeframeAlignment(symbol, risk),
+    queryFn: () => fetchTimeframeAlignment(symbol, risk, market),
     staleTime: 60_000,
     refetchInterval: 120_000,
   });

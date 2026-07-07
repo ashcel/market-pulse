@@ -1,7 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { computePivots } from "./analysis";
-import { dropUnclosedCandle, fetchBinanceKlinesDirect, fetchBinancePriceDirect } from "./binance";
+import {
+  dropUnclosedCandle,
+  fetchBinanceKlinesDirect,
+  fetchBinancePriceDirect,
+  type MarketType,
+} from "./binance";
 import { CRYPTO_RISK_SETTINGS } from "./crypto-config";
 import { generateMockCandles, TOKEN_TIMEFRAMES } from "./mock-candles";
 import { evaluateSignal } from "./quant";
@@ -90,20 +95,26 @@ const ALIGNMENT_TTL_MS = 60_000;
 async function computeAlignment(
   symbol: string,
   risk: RiskOverrides,
+  market: MarketType,
 ): Promise<TimeframeAlignmentEntry[]> {
   const ticker = symbol.replace(/[^a-z0-9]/gi, "").toUpperCase();
   if (!ticker) return [];
   const settings: RiskSettings = { ...CRYPTO_RISK_SETTINGS, ...risk };
 
   const now = Date.now();
-  const cacheKey = `${ticker}:${settings.accountSize}:${settings.maxRiskPerTradePercent}:${settings.minimumRewardRisk}:${settings.stopMethod}`;
+  const cacheKey = `${ticker}:${market}:${settings.accountSize}:${settings.maxRiskPerTradePercent}:${settings.minimumRewardRisk}:${settings.stopMethod}`;
   const cached = alignmentCache.get(cacheKey);
   if (cached && now - cached.at < ALIGNMENT_TTL_MS) return cached.data;
 
   const [series, livePrice] = await Promise.all([
     Promise.all(
       TOKEN_TIMEFRAMES.map(async (timeframe) => {
-        const candles = await fetchBinanceKlinesDirect({ symbol: ticker, timeframe, limit: 200 });
+        const candles = await fetchBinanceKlinesDirect({
+          symbol: ticker,
+          timeframe,
+          limit: 200,
+          market,
+        });
         const closed = dropUnclosedCandle(candles);
         return [timeframe, closed.length > 0 ? closed : generateMockCandles(ticker, timeframe)] as [
           TokenTimeframe,
@@ -111,7 +122,7 @@ async function computeAlignment(
         ];
       }),
     ),
-    fetchBinancePriceDirect(ticker),
+    fetchBinancePriceDirect(ticker, market),
   ]);
 
   const data = evaluateTimeframes(series, ticker, settings, livePrice ?? undefined);
@@ -120,19 +131,21 @@ async function computeAlignment(
 }
 
 export const fetchTimeframeAlignmentServer = createServerFn({ method: "GET" })
-  .validator((data: { symbol: string; risk?: RiskOverrides }) => ({
+  .validator((data: { symbol: string; risk?: RiskOverrides; market?: MarketType }) => ({
     symbol: typeof data?.symbol === "string" ? data.symbol : "",
     risk: sanitizeRisk(data?.risk),
+    market: (data?.market === "perp" ? "perp" : "spot") as MarketType,
   }))
-  .handler(async ({ data }) => computeAlignment(data.symbol, data.risk));
+  .handler(async ({ data }) => computeAlignment(data.symbol, data.risk, data.market));
 
 /** Client-facing helper: server evaluation, falling back to the deterministic demo build. */
 export async function fetchTimeframeAlignment(
   symbol: string,
   risk: RiskOverrides = {},
+  market: MarketType = "spot",
 ): Promise<TimeframeAlignmentEntry[]> {
   try {
-    return await fetchTimeframeAlignmentServer({ data: { symbol, risk } });
+    return await fetchTimeframeAlignmentServer({ data: { symbol, risk, market } });
   } catch {
     return buildDemoAlignment(symbol, risk);
   }

@@ -13,12 +13,28 @@ const BINANCE_INTERVALS: Record<TokenTimeframe, string> = {
   "1W": "1w",
 };
 
+/** Binance market to price against: spot or USDⓈ-M perpetual futures. */
+export type MarketType = "spot" | "perp";
+
+// Both markets expose identically shaped /klines and /ticker/price endpoints,
+// so the same parsers work for either — only the REST host differs.
+const REST_BASE: Record<MarketType, string> = {
+  spot: "https://api.binance.com/api/v3",
+  perp: "https://fapi.binance.com/fapi/v1",
+};
+
+function normalizeMarket(market: unknown): MarketType {
+  return market === "perp" ? "perp" : "spot";
+}
+
 export interface BinanceKlinesInput {
   symbol: string;
   timeframe: TokenTimeframe;
   limit?: number;
   /** Only return bars that opened at or before this ms timestamp (history paging). */
   endTime?: number;
+  /** Spot (default) or USDⓈ-M perpetual futures. */
+  market?: MarketType;
 }
 
 type BinanceKlineRow = [number, string, string, string, string, string, number, ...unknown[]];
@@ -76,6 +92,7 @@ export async function fetchBinanceKlinesDirect({
   timeframe,
   limit = 200,
   endTime,
+  market,
 }: BinanceKlinesInput): Promise<Candle[]> {
   const ticker = normalizeSymbol(symbol);
   const interval = BINANCE_INTERVALS[timeframe];
@@ -90,7 +107,9 @@ export async function fetchBinanceKlinesDirect({
   if (normalizedEndTime !== undefined) params.set("endTime", String(normalizedEndTime));
 
   try {
-    const response = await fetch(`https://api.binance.com/api/v3/klines?${params.toString()}`);
+    const response = await fetch(
+      `${REST_BASE[normalizeMarket(market)]}/klines?${params.toString()}`,
+    );
     if (!response.ok) return [];
     return parseBinanceKlines(await response.json());
   } catch {
@@ -103,12 +122,15 @@ export async function fetchBinanceKlinesDirect({
  * anchor risk-plan entries so a 15M and a 4H plan quote the same price rather
  * than each other's last-closed-bar staleness (up to a full bar old).
  */
-export async function fetchBinancePriceDirect(symbol: string): Promise<number | null> {
+export async function fetchBinancePriceDirect(
+  symbol: string,
+  market?: MarketType,
+): Promise<number | null> {
   const ticker = normalizeSymbol(symbol);
   if (!ticker) return null;
   try {
     const response = await fetch(
-      `https://api.binance.com/api/v3/ticker/price?symbol=${ticker}USDT`,
+      `${REST_BASE[normalizeMarket(market)]}/ticker/price?symbol=${ticker}USDT`,
     );
     if (!response.ok) return null;
     const data = (await response.json()) as { price?: string };
@@ -126,6 +148,7 @@ export const fetchBinanceKlinesServer = createServerFn({ method: "GET" })
       timeframe: isTokenTimeframe(data?.timeframe) ? data.timeframe : "4H",
       limit: normalizeLimit(data?.limit),
       endTime: normalizeEndTime(data?.endTime),
+      market: normalizeMarket(data?.market),
     }),
   )
   .handler(async ({ data }) => fetchBinanceKlinesDirect(data));
@@ -135,23 +158,28 @@ export async function fetchBinanceKlines(
   timeframe: TokenTimeframe,
   limit = 200,
   endTime?: number,
+  market?: MarketType,
 ): Promise<Candle[]> {
   try {
-    return await fetchBinanceKlinesServer({ data: { symbol, timeframe, limit, endTime } });
+    return await fetchBinanceKlinesServer({ data: { symbol, timeframe, limit, endTime, market } });
   } catch {
     return [];
   }
 }
 
 export const fetchBinancePriceServer = createServerFn({ method: "GET" })
-  .validator((data: { symbol: string }) => ({
+  .validator((data: { symbol: string; market?: MarketType }) => ({
     symbol: typeof data?.symbol === "string" ? data.symbol : "",
+    market: normalizeMarket(data?.market),
   }))
-  .handler(async ({ data }) => fetchBinancePriceDirect(data.symbol));
+  .handler(async ({ data }) => fetchBinancePriceDirect(data.symbol, data.market));
 
-export async function fetchBinancePrice(symbol: string): Promise<number | null> {
+export async function fetchBinancePrice(
+  symbol: string,
+  market?: MarketType,
+): Promise<number | null> {
   try {
-    return await fetchBinancePriceServer({ data: { symbol } });
+    return await fetchBinancePriceServer({ data: { symbol, market } });
   } catch {
     return null;
   }

@@ -1,16 +1,29 @@
 import { useEffect, useState } from "react";
 
+import type { MarketType } from "@/lib/engine/binance";
+
 export interface LivePrice {
   price: number;
   change24h: number;
 }
 
+// miniTicker frames share the same `c`/`o` shape on both hosts.
+const WS_BASE: Record<MarketType, string> = {
+  spot: "wss://stream.binance.com:9443/ws",
+  perp: "wss://fstream.binance.com/ws",
+};
+
 /**
- * Streams last price + 24h change from Binance spot's miniTicker WebSocket.
- * Returns null until the first tick (callers should fall back to REST data).
- * Reconnects with capped backoff; disable for demo/synthetic symbols.
+ * Streams last price + 24h change from Binance's miniTicker WebSocket (spot or
+ * USDⓈ-M perpetual futures). Returns null until the first tick (callers should
+ * fall back to REST data). Reconnects with capped backoff; disable for
+ * demo/synthetic symbols.
  */
-export function useLivePrice(symbol: string, enabled: boolean): LivePrice | null {
+export function useLivePrice(
+  symbol: string,
+  enabled: boolean,
+  market: MarketType = "spot",
+): LivePrice | null {
   const [tick, setTick] = useState<LivePrice | null>(null);
 
   useEffect(() => {
@@ -24,7 +37,7 @@ export function useLivePrice(symbol: string, enabled: boolean): LivePrice | null
     let closed = false;
 
     const connect = () => {
-      socket = new WebSocket(`wss://stream.binance.com:9443/ws/${stream}`);
+      socket = new WebSocket(`${WS_BASE[market]}/${stream}`);
       socket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data as string) as { c?: string; o?: string };
@@ -51,7 +64,7 @@ export function useLivePrice(symbol: string, enabled: boolean): LivePrice | null
       if (retryTimer) clearTimeout(retryTimer);
       socket?.close();
     };
-  }, [symbol, enabled]);
+  }, [symbol, enabled, market]);
 
   return tick;
 }

@@ -85,7 +85,7 @@ import {
   type TradingIntent,
 } from "@/lib/engine/intent";
 import { computeEmaSeries } from "@/lib/engine/analysis";
-import { fetchBinanceKlines } from "@/lib/engine/binance";
+import { fetchBinanceKlines, type MarketType } from "@/lib/engine/binance";
 import type { Candle } from "@/lib/engine/types";
 import { UNIVERSE } from "@/lib/engine/market";
 import { checkTradableTicker } from "@/lib/engine/symbols";
@@ -217,8 +217,10 @@ function TokenDetailPage() {
   const tour = useProductTour(TOUR_SEEN_KEY);
   const tradingIntent = usePreferencesStore((s) => s.tradingIntent);
   const setTradingIntent = usePreferencesStore((s) => s.setTradingIntent);
-  const signal = useTokenSignal(symbol, timeframe);
-  const alignment = useTimeframeAlignment(symbol);
+  const marketType = usePreferencesStore((s) => s.marketType);
+  const setMarketType = usePreferencesStore((s) => s.setMarketType);
+  const signal = useTokenSignal(symbol, timeframe, marketType);
+  const alignment = useTimeframeAlignment(symbol, marketType);
   const biasByTimeframe = new Map(
     alignment.data?.map((entry) => [entry.timeframe, entry.direction]) ?? [],
   );
@@ -237,7 +239,7 @@ function TokenDetailPage() {
   const activeAssessment = assessments.find((a) => a.intent === tradingIntent) ?? null;
   const marketOutlook = useMemo(() => describeMarketOutlook(evalsByTimeframe), [evalsByTimeframe]);
   const data = signal.data;
-  const live = useLivePrice(symbol, data?.source === "live");
+  const live = useLivePrice(symbol, data?.source === "live", marketType);
   // `risk.entry` already anchors on the REST-fetched live price (see
   // buildRiskPlan), falling back to the last closed candle only if that fetch
   // failed — so it's a strictly better fallback than the raw candle close,
@@ -273,7 +275,9 @@ function TokenDetailPage() {
           <AssetIcon ticker={symbol} className="h-8 w-8 text-sm" />
           <div className="leading-tight">
             <h1 className="text-lg font-bold tracking-tight">{symbol}</h1>
-            <div className="text-[11px] text-muted-foreground">{name} / USDT</div>
+            <div className="text-[11px] text-muted-foreground">
+              {name} / USDT{marketType === "perp" ? " · Perp" : ""}
+            </div>
           </div>
         </div>
 
@@ -315,6 +319,24 @@ function TokenDetailPage() {
         )}
 
         <div className="ml-auto flex items-center gap-4">
+          <div className="flex rounded-md border border-border bg-surface p-0.5 text-xs">
+            {(["spot", "perp"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMarketType(m)}
+                title={m === "spot" ? "Binance spot" : "Binance USDⓈ-M perpetual futures"}
+                className={cn(
+                  "h-9 rounded px-3 font-semibold transition-colors",
+                  marketType === m
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {m === "spot" ? "Spot" : "Perp"}
+              </button>
+            ))}
+          </div>
           <div className="grid grid-cols-6 rounded-md border border-border bg-surface p-0.5 text-xs">
             {TIMEFRAMES.map((item) => (
               <button
@@ -383,7 +405,7 @@ function TokenDetailPage() {
                   </Badge>
                 </div>
                 <div className="flex min-h-0 flex-1 flex-col lg:min-h-[240px]">
-                  <TokenChart {...data} symbol={symbol} timeframe={timeframe} />
+                  <TokenChart {...data} symbol={symbol} timeframe={timeframe} market={marketType} />
                 </div>
               </IqCard>
 
@@ -534,13 +556,14 @@ const HISTORY_PAGE = 500;
 function TokenChart({
   symbol,
   timeframe,
+  market,
   candles,
   pivots,
   trendLines,
   evaluation,
   source,
   liveCandle,
-}: TokenSignalData & { symbol: string; timeframe: TokenTimeframe }) {
+}: TokenSignalData & { symbol: string; timeframe: TokenTimeframe; market: MarketType }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -585,7 +608,13 @@ function TokenChart({
     history.loading = true;
     setLoadingHistory(true);
     try {
-      const older = await fetchBinanceKlines(symbol, timeframe, HISTORY_PAGE, earliest * 1000 - 1);
+      const older = await fetchBinanceKlines(
+        symbol,
+        timeframe,
+        HISTORY_PAGE,
+        earliest * 1000 - 1,
+        market,
+      );
       const fresh = older.filter((c) => c.time < earliest);
       if (fresh.length === 0) {
         history.exhausted = true;
@@ -597,7 +626,7 @@ function TokenChart({
       history.loading = false;
       setLoadingHistory(false);
     }
-  }, [symbol, timeframe, source]);
+  }, [symbol, timeframe, source, market]);
   loadOlderRef.current = loadOlder;
 
   useEffect(() => {
@@ -722,7 +751,7 @@ function TokenChart({
     if (!chart || !candleSeries || !volumeSeries) return;
 
     // Symbol/timeframe/source switch: paged-in history belongs to the old dataset.
-    const datasetKey = `${symbol}|${timeframe}|${source}`;
+    const datasetKey = `${symbol}|${timeframe}|${market}|${source}`;
     if (historyRef.current.key !== datasetKey) {
       historyRef.current = {
         key: datasetKey,
@@ -837,7 +866,17 @@ function TokenChart({
       // Panned into history (or older bars just loaded): keep the same window.
       timeScale.setVisibleRange(prevRange);
     }
-  }, [candles, symbol, timeframe, source, historyVersion, trendLines, evaluation.risk, liveCandle]);
+  }, [
+    candles,
+    symbol,
+    timeframe,
+    market,
+    source,
+    historyVersion,
+    trendLines,
+    evaluation.risk,
+    liveCandle,
+  ]);
 
   useEffect(() => {
     const markers: SeriesMarker<Time>[] = hiddenIndicators.pivots

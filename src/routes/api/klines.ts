@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { fetchBinanceKlinesDirect } from "@/lib/engine/binance";
+import { fetchBinanceKlinesDirect, type MarketType } from "@/lib/engine/binance";
 import { isTokenTimeframe } from "@/lib/engine/mock-candles";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
 
@@ -14,8 +14,15 @@ export const Route = createFileRoute("/api/klines")({
         const limit = Number(url.searchParams.get("limit") ?? 200);
         const endTimeParam = url.searchParams.get("endTime");
         const endTime = endTimeParam === null ? undefined : Number(endTimeParam);
+        const market: MarketType = url.searchParams.get("market") === "perp" ? "perp" : "spot";
 
-        const candles = await fetchBinanceKlinesDirect({ symbol, timeframe, limit, endTime });
+        const candles = await fetchBinanceKlinesDirect({
+          symbol,
+          timeframe,
+          limit,
+          endTime,
+          market,
+        });
         return Response.json(candles);
       },
     },
