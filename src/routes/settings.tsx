@@ -5,9 +5,25 @@ import { useUiStore } from "@/stores/ui";
 import { useWatchlistStore } from "@/stores/watchlist";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useNotificationsStore } from "@/stores/notifications";
-import { Sun, Moon, Star, X, Check, ShieldAlert, BellRing, BellOff } from "lucide-react";
+import {
+  Sun,
+  Moon,
+  Star,
+  X,
+  Check,
+  ShieldAlert,
+  BellRing,
+  BellOff,
+  Bot,
+  Eye,
+  EyeOff,
+  ExternalLink,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StopMethod } from "@/lib/engine/quant";
+import { useAiSettingsStore } from "@/stores/ai-settings";
+import { PROVIDERS, PROVIDER_ORDER, resolveAiConfig } from "@/lib/ai/providers";
+import { useState } from "react";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -84,6 +100,8 @@ function SettingsPage() {
       </IqCard>
 
       <TradeRiskCard />
+
+      <AiAnalystCard />
 
       <IqCard className="flex flex-col gap-4">
         <CardEyebrow>Notifications</CardEyebrow>
@@ -409,5 +427,168 @@ function OptionButton({
     >
       {children}
     </button>
+  );
+}
+
+function AiAnalystCard() {
+  const {
+    provider,
+    apiKeys,
+    models,
+    customBaseUrl,
+    setProvider,
+    setApiKey,
+    setModel,
+    setCustomBaseUrl,
+  } = useAiSettingsStore();
+  const [showKey, setShowKey] = useState(false);
+
+  const meta = PROVIDERS[provider];
+  const configured = resolveAiConfig({ provider, apiKeys, models, customBaseUrl }) !== null;
+  const key = apiKeys[provider] ?? "";
+  const model = models[provider] ?? "";
+
+  return (
+    <IqCard className="flex flex-col gap-5">
+      <div className="flex items-center justify-between">
+        <CardEyebrow>AI Analyst</CardEyebrow>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
+            configured ? "bg-bullish-soft text-bullish" : "bg-muted text-muted-foreground",
+          )}
+        >
+          <Bot className="h-3.5 w-3.5" />
+          {configured ? "Connected" : "Not configured"}
+        </span>
+      </div>
+
+      <p className="text-sm text-muted-foreground">
+        Bring your own key to power the AI analyst on token pages. Your key is stored only in this
+        browser and sent directly to the provider — never to our servers. Without a key, the analyst
+        falls back to a deterministic memo.
+      </p>
+
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-medium text-muted-foreground">Provider</span>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {PROVIDER_ORDER.map((id) => {
+            const p = PROVIDERS[id];
+            const active = provider === id;
+            return (
+              <button
+                key={id}
+                onClick={() => setProvider(id)}
+                className={cn(
+                  "rounded-lg border px-3 py-2 text-left transition-colors",
+                  active
+                    ? "border-info bg-info-soft"
+                    : "border-border bg-surface hover:border-muted-foreground/40",
+                )}
+              >
+                <div
+                  className={cn(
+                    "flex items-center gap-1.5 text-sm font-semibold",
+                    active ? "text-info" : "text-foreground",
+                  )}
+                >
+                  {p.label}
+                  {apiKeys[id] ? <Check className="h-3.5 w-3.5 text-bullish" /> : null}
+                </div>
+                <div className="text-[11px] leading-snug text-muted-foreground">{p.blurb}</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-muted-foreground">API key</span>
+          <a
+            href={meta.keyHelpUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-info hover:underline"
+          >
+            Get a key · {meta.keyHelpLabel}
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2">
+          <input
+            type={showKey ? "text" : "password"}
+            value={key}
+            onChange={(e) => setApiKey(provider, e.currentTarget.value)}
+            placeholder={meta.keyPlaceholder}
+            autoComplete="off"
+            spellCheck={false}
+            className="w-full min-w-0 flex-1 bg-transparent text-sm outline-none"
+            aria-label={`${meta.label} API key`}
+          />
+          <button
+            type="button"
+            onClick={() => setShowKey((v) => !v)}
+            className="shrink-0 text-muted-foreground hover:text-foreground"
+            aria-label={showKey ? "Hide key" : "Show key"}
+          >
+            {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
+      </div>
+
+      {meta.editableBaseUrl && (
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Base URL</span>
+          <input
+            type="text"
+            value={customBaseUrl}
+            onChange={(e) => setCustomBaseUrl(e.currentTarget.value)}
+            placeholder={meta.baseUrlPlaceholder}
+            autoComplete="off"
+            spellCheck={false}
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-info"
+            aria-label="Custom base URL"
+          />
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-medium text-muted-foreground">Model</span>
+        {meta.recommendedModels.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {meta.recommendedModels.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => setModel(provider, m.id)}
+                className={cn(
+                  "rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                  model === m.id
+                    ? "border-info bg-info-soft text-info"
+                    : "border-border bg-surface text-muted-foreground hover:text-foreground",
+                )}
+                title={m.id}
+              >
+                {m.label}
+                {m.note ? <span className="ml-1 opacity-60">· {m.note}</span> : null}
+              </button>
+            ))}
+          </div>
+        )}
+        <input
+          type="text"
+          value={model}
+          onChange={(e) => setModel(provider, e.currentTarget.value)}
+          placeholder={meta.defaultModel || meta.modelPlaceholder}
+          autoComplete="off"
+          spellCheck={false}
+          className="num rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-info"
+          aria-label="Model name"
+        />
+        <span className="text-[11px] text-muted-foreground">
+          Pick a preset or type any model the provider supports.
+        </span>
+      </div>
+    </IqCard>
   );
 }

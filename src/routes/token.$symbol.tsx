@@ -96,6 +96,15 @@ import type { MarketRegime, SignalEvaluation, SignalStatus } from "@/lib/engine/
 import { formatEntryRange, formatMoney, formatUnits } from "@/lib/format";
 import { usePreferencesStore, type ChartIndicatorKey } from "@/stores/preferences";
 import { useTrackedSignalsStore } from "@/stores/tracked-signals";
+import { useAiSettingsStore } from "@/stores/ai-settings";
+import { resolveAiConfig } from "@/lib/ai/providers";
+import { runAiAnalyst, type AiMessage } from "@/lib/ai/client";
+import {
+  buildAnalystSystem,
+  buildChartStructure,
+  MEMO_INSTRUCTION,
+  type ChartStructure,
+} from "@/lib/ai/analyst-context";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/token/$symbol")({
@@ -240,6 +249,16 @@ function TokenDetailPage() {
   const spark = useMemo(
     () => data?.candles.slice(-32).map((c, i) => ({ t: i, v: c.close })) ?? [],
     [data],
+  );
+  // Chart structure fed to the AI analyst so it can cross-check the plan
+  // against the same demand/supply zones and S/R levels the chart draws.
+  const aiBaseZones = useMemo(
+    () => (data && SD_ZONE_TIMEFRAMES.includes(timeframe) ? computeBaseZones(data.candles) : []),
+    [data, timeframe],
+  );
+  const chartStructure = useMemo<ChartStructure | null>(
+    () => (data ? buildChartStructure(data.candles, data.trendLines, aiBaseZones) : null),
+    [data, aiBaseZones],
   );
 
   return (
@@ -388,6 +407,7 @@ function TokenDetailPage() {
               timeframe={timeframe}
               evaluation={data.evaluation}
               assessment={activeAssessment}
+              chartStructure={chartStructure}
               open={aiOpen}
               onOpenChange={setAiOpen}
             />
@@ -775,12 +795,10 @@ function TokenChart({
     // ("Value is null") on its next repaint. Filter to only times in the chart.
     const chartStart = allCandles[0]?.time ?? 0;
     const chartEnd = allCandles.at(-1)?.time ?? Infinity;
-    const validSupportData = trendLines.support?.filter(
-      (p) => p.time >= chartStart && p.time <= chartEnd,
-    ) ?? [];
-    const validResistanceData = trendLines.resistance?.filter(
-      (p) => p.time >= chartStart && p.time <= chartEnd,
-    ) ?? [];
+    const validSupportData =
+      trendLines.support?.filter((p) => p.time >= chartStart && p.time <= chartEnd) ?? [];
+    const validResistanceData =
+      trendLines.resistance?.filter((p) => p.time >= chartStart && p.time <= chartEnd) ?? [];
     supportSeriesRef.current?.setData(toLineData(validSupportData));
     resistanceSeriesRef.current?.setData(toLineData(validResistanceData));
 
@@ -1854,6 +1872,7 @@ function AiDrawer({
   timeframe,
   evaluation,
   assessment,
+  chartStructure,
   open,
   onOpenChange,
 }: {
@@ -1861,33 +1880,101 @@ function AiDrawer({
   timeframe: TokenTimeframe;
   evaluation: SignalEvaluation;
   assessment: IntentAssessment | null;
+  chartStructure: ChartStructure | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const [thinkingMode, setThinkingMode] = useState(true);
   const [question, setQuestion] = useState("");
-  const [chat, setChat] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
+  const [chat, setChat] = useState<
+    Array<{ role: "user" | "assistant"; text: string; source?: string }>
+  >([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const aiProvider = useAiSettingsStore((s) => s.provider);
+  const aiApiKeys = useAiSettingsStore((s) => s.apiKeys);
+  const aiModels = useAiSettingsStore((s) => s.models);
+  const aiCustomBaseUrl = useAiSettingsStore((s) => s.customBaseUrl);
+  const aiConfig = useMemo(
+    () =>
+      resolveAiConfig({
+        provider: aiProvider,
+        apiKeys: aiApiKeys,
+        models: aiModels,
+        customBaseUrl: aiCustomBaseUrl,
+      }),
+    [aiProvider, aiApiKeys, aiModels, aiCustomBaseUrl],
+  );
 
   const runAnalysis = useCallback(
-    (ask?: string) => {
-      const answer = deterministicFallback({
-        symbol,
-        range: timeframe,
-        evaluation,
-        assessment,
-        question: ask,
-        thinkingMode,
-      });
+    async (ask?: string) => {
+      const fallback = () =>
+        deterministicFallback({
+          symbol,
+          range: timeframe,
+          evaluation,
+          assessment,
+          question: ask,
+          thinkingMode,
+        });
+
+      // No key configured — deterministic memo, exactly as before.
+      if (!aiConfig) {
+        setChat((items) =>
+          [
+            ...items,
+            ...(ask ? [{ role: "user" as const, text: ask }] : []),
+            { role: "assistant" as const, text: fallback(), source: "deterministic fallback" },
+          ].slice(-10),
+        );
+        setQuestion("");
+        return;
+      }
+
+      const priorForModel = chat;
       setChat((items) =>
-        [
-          ...items,
-          ...(ask ? [{ role: "user" as const, text: ask }] : []),
-          { role: "assistant" as const, text: answer },
-        ].slice(-10),
+        [...items, ...(ask ? [{ role: "user" as const, text: ask }] : [])].slice(-10),
       );
       setQuestion("");
+      setLoading(true);
+      setError(null);
+      try {
+        const system = buildAnalystSystem(
+          symbol,
+          timeframe,
+          evaluation,
+          assessment,
+          thinkingMode,
+          chartStructure,
+        );
+        // Replay prior turns, but drop any leading assistant memos so the
+        // history starts with a user turn (required by the Anthropic API).
+        const history = priorForModel.reduce<AiMessage[]>((acc, m) => {
+          if (acc.length === 0 && m.role !== "user") return acc;
+          return [...acc, { role: m.role, content: m.text }];
+        }, []);
+        const messages: AiMessage[] = [
+          ...history,
+          { role: "user", content: ask ?? MEMO_INSTRUCTION },
+        ];
+        const text = await runAiAnalyst({ config: aiConfig, system, messages });
+        setChat((items) =>
+          [...items, { role: "assistant" as const, text, source: aiConfig.model }].slice(-10),
+        );
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Request failed.");
+        setChat((items) =>
+          [
+            ...items,
+            { role: "assistant" as const, text: fallback(), source: "deterministic fallback" },
+          ].slice(-10),
+        );
+      } finally {
+        setLoading(false);
+      }
     },
-    [evaluation, assessment, symbol, timeframe, thinkingMode],
+    [aiConfig, chat, evaluation, assessment, chartStructure, symbol, timeframe, thinkingMode],
   );
 
   // Collapsed: a slim rail on desktop (the drawer never collapses on mobile,
@@ -1921,7 +2008,7 @@ function AiDrawer({
           <div className="flex min-w-0 items-center gap-2">
             <Bot className="h-4 w-4 shrink-0 text-info" />
             <span className="truncate text-xs font-bold">AI Analyst</span>
-            <InfoHint text="Turns everything on this page into a short written memo, or answers your questions about the setup. It only uses the numbers you see here — no outside opinions." />
+            <InfoHint text="A second read on the setup: it cross-checks the engine's plan against the chart's demand/supply zones, support/resistance levels and volume, and will flag conflicts. It only uses the data on this page — no outside market feed." />
           </div>
           <div className="flex items-center gap-2">
             <label className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
@@ -1945,11 +2032,21 @@ function AiDrawer({
           <div className="grid shrink-0 grid-cols-3 gap-1.5">
             <ContextPill label="Signal" value={`${evaluation.confidence}/100`} />
             <ContextPill label="Regime" value={evaluation.regime.replaceAll("-", " ")} />
-            <ContextPill label="Source" value="fallback" />
+            <ContextPill label="Source" value={aiConfig ? aiConfig.model : "fallback"} />
           </div>
 
+          {!aiConfig && (
+            <Link
+              to="/settings"
+              className="shrink-0 rounded-md border border-info/30 bg-info-soft px-2.5 py-1.5 text-[11px] leading-snug text-info transition-colors hover:bg-info/20"
+            >
+              Using the built-in deterministic analyst. Add your own API key in Settings for
+              AI-written analysis.
+            </Link>
+          )}
+
           <div className="min-h-[160px] flex-1 overflow-y-auto rounded-lg border border-border bg-surface p-3 lg:min-h-0">
-            {chat.length === 0 ? (
+            {chat.length === 0 && !loading ? (
               <div className="flex h-full min-h-[130px] flex-col justify-center gap-1.5">
                 <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                   <Bot className="h-4 w-4 text-info" />
@@ -1978,8 +2075,8 @@ function AiDrawer({
                         : "ml-8 border-border bg-card text-muted-foreground",
                     )}
                   >
-                    <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      {item.role === "assistant" ? "deterministic fallback" : "you"}
+                    <div className="mb-2 truncate text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {item.role === "assistant" ? (item.source ?? "assistant") : "you"}
                     </div>
                     {item.role === "assistant" ? (
                       <MarkdownText text={item.text} />
@@ -1988,12 +2085,30 @@ function AiDrawer({
                     )}
                   </div>
                 ))}
+                {loading && (
+                  <div className="flex items-center gap-2 rounded-lg border border-info/20 bg-background p-3 text-sm text-muted-foreground">
+                    <span className="h-3 w-3 animate-spin rounded-full border border-info border-t-transparent" />
+                    Analyzing with {aiConfig?.model ?? "the model"}…
+                  </div>
+                )}
               </div>
             )}
           </div>
 
+          {error && (
+            <div className="shrink-0 rounded-md border border-bearish/30 bg-bearish-soft px-2.5 py-1.5 text-[11px] leading-snug text-bearish">
+              {error} Showing the deterministic memo instead.
+            </div>
+          )}
+
           <div className="grid shrink-0 grid-cols-3 gap-1.5 lg:grid-cols-1">
-            <Button type="button" size="sm" className="h-8" onClick={() => runAnalysis()}>
+            <Button
+              type="button"
+              size="sm"
+              className="h-8"
+              disabled={loading}
+              onClick={() => runAnalysis()}
+            >
               <Play className="h-3.5 w-3.5" />
               Run analysis
             </Button>
@@ -2002,6 +2117,7 @@ function AiDrawer({
               size="sm"
               variant="outline"
               className="h-8"
+              disabled={loading}
               onClick={() => runAnalysis("What would invalidate this setup?")}
             >
               Invalidation
@@ -2011,6 +2127,7 @@ function AiDrawer({
               size="sm"
               variant="outline"
               className="h-8"
+              disabled={loading}
               onClick={() => runAnalysis("Critique the risk/reward and position sizing.")}
             >
               Risk check
@@ -2036,7 +2153,7 @@ function AiDrawer({
               type="submit"
               size="icon"
               className="h-9 w-9 shrink-0"
-              disabled={question.trim().length === 0}
+              disabled={loading || question.trim().length === 0}
               aria-label="Send"
             >
               <Send className="h-4 w-4" />
