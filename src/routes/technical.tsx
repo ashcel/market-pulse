@@ -9,6 +9,12 @@ import { TradingViewWidget } from "@/components/iq/tradingview-widget";
 import { usePreferencesStore } from "@/stores/preferences";
 import { AssetIcon } from "@/components/iq/asset-icon";
 import { tradingViewSymbol } from "@/lib/engine/market";
+import {
+  HelpButton,
+  ProductTour,
+  useProductTour,
+  type TourStep,
+} from "@/components/iq/product-tour";
 
 export const Route = createFileRoute("/technical")({
   head: () => ({
@@ -25,9 +31,35 @@ export const Route = createFileRoute("/technical")({
   component: TechnicalPage,
 });
 
+const TOUR_SEEN_KEY = "iq-technical-tour-v1";
+
+const TOUR_STEPS: TourStep[] = [
+  {
+    target: "picker",
+    title: "Pick an asset",
+    body: "Everything on this page — the chart, the confidence score, and the signal cards — recalculates for the asset you select here. Your choice is remembered between visits.",
+  },
+  {
+    target: "chart",
+    title: "TradingView chart",
+    body: "A full TradingView chart for the selected asset. Use its own toolbar to change timeframes, add indicators, or draw on the chart.",
+  },
+  {
+    target: "confidence",
+    title: "Confidence score",
+    body: "The signal engine's overall 0–100 verdict for this asset — a composite of trend, structure, volume, and risk checks on live 1H bars — plus the setup type it currently sees.",
+  },
+  {
+    target: "signals",
+    title: "Signal cards",
+    body: "The individual checks behind the score: structure, order blocks, EMAs, volume, ATR, and more. Each card shows its own reading and direction, so you can see exactly what supports — or contradicts — the overall verdict.",
+  },
+];
+
 function TechnicalPage() {
   const { activeAsset, setActiveAsset } = usePreferencesStore();
   const { data: assets } = useAssets();
+  const tour = useProductTour(TOUR_SEEN_KEY);
 
   // Fall back to BTC if a previously persisted selection is no longer tracked.
   const ticker = assets?.some((a) => a.ticker === activeAsset) ? activeAsset : "BTC";
@@ -43,28 +75,36 @@ function TechnicalPage() {
         title="Technical Analysis"
         subtitle="Chart + smart-money signals for the selected asset."
         action={
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-2 py-1.5">
-            <span className="text-xs text-muted-foreground">Asset</span>
-            <select
-              value={ticker}
-              onChange={(e) => setActiveAsset(e.target.value)}
-              className="bg-transparent text-sm font-semibold outline-none"
+          <div className="flex items-center gap-2">
+            <div
+              data-tour="picker"
+              className="flex items-center gap-2 rounded-lg border border-border bg-surface px-2 py-1.5"
             >
-              {assets?.map((a) => (
-                <option key={a.id} value={a.ticker} className="bg-popover text-foreground">
-                  {a.ticker} · {a.name}
-                </option>
-              ))}
-            </select>
+              <span className="text-xs text-muted-foreground">Asset</span>
+              <select
+                value={ticker}
+                onChange={(e) => setActiveAsset(e.target.value)}
+                className="bg-transparent text-sm font-semibold outline-none"
+              >
+                {assets?.map((a) => (
+                  <option key={a.id} value={a.ticker} className="bg-popover text-foreground">
+                    {a.ticker} · {a.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <HelpButton onClick={tour.start} />
           </div>
         }
       />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
-        <TradingViewWidget symbol={symbol} height={480} />
+        <div data-tour="chart">
+          <TradingViewWidget symbol={symbol} height={480} />
+        </div>
 
         {signalsData ? (
-          <IqCard className="flex flex-col items-center gap-4 text-center">
+          <IqCard data-tour="confidence" className="flex flex-col items-center gap-4 text-center">
             <CardEyebrow>Confidence Score</CardEyebrow>
             <ConfidenceGauge value={signalsData.confidence} size={200} label="Overall" />
             <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2">
@@ -84,7 +124,7 @@ function TechnicalPage() {
         )}
       </div>
 
-      <div>
+      <div data-tour="signals">
         <CardEyebrow>Signal Cards</CardEyebrow>
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {signalsData
@@ -92,6 +132,8 @@ function TechnicalPage() {
             : Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={i} height={130} />)}
         </div>
       </div>
+
+      <ProductTour steps={TOUR_STEPS} open={tour.open && !!signalsData} onClose={tour.close} />
     </div>
   );
 }

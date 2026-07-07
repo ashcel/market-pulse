@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { fetchTimeframeAlignment } from "@/lib/engine/alignment";
 import { computePivots, computeTrendLines } from "@/lib/engine/analysis";
-import { fetchBinanceKlines } from "@/lib/engine/binance";
+import { dropUnclosedCandle, fetchBinanceKlines, fetchBinancePrice } from "@/lib/engine/binance";
 import { CRYPTO_RISK_SETTINGS } from "@/lib/engine/crypto-config";
 import { generateMockCandles, type TokenTimeframe } from "@/lib/engine/mock-candles";
 import { evaluateSignal } from "@/lib/engine/quant";
@@ -17,20 +17,45 @@ export interface TokenSignalData {
   trendLines: TrendLines;
   evaluation: SignalEvaluation;
   source: "live" | "demo";
+  /**
+   * The still-forming bar, display-only. Signal evaluation stays gated on
+   * closed bars (`candles`), but rendering only the closed set leaves the
+   * chart's last candle up to a full bar-duration behind the live-anchored
+   * entry/stop/target lines — this closes that visual gap.
+   */
+  liveCandle: Candle | null;
 }
+
+// Chart/indicators stay on the usual 200-bar window; the backtest gets a much
+// deeper history (Binance's per-request max) so its win-rate/expectancy stats
+// rest on more than a handful of sampled trades.
+const CHART_CANDLE_LIMIT = 200;
+const BACKTEST_CANDLE_LIMIT = 1000;
 
 function buildSignalData(
   symbol: string,
   candles: Candle[],
+  backtestCandles: Candle[],
   source: "live" | "demo",
   settings: RiskSettings,
+  livePrice?: number,
+  liveCandle: Candle | null = null,
 ): TokenSignalData {
   const ticker = symbol.toUpperCase();
   const pivots = computePivots(candles);
   const trendLines = computeTrendLines(candles, pivots);
-  const evaluation = evaluateSignal(ticker, candles, pivots, settings);
+  const backtestPivots = computePivots(backtestCandles);
+  const evaluation = evaluateSignal(
+    ticker,
+    candles,
+    pivots,
+    settings,
+    backtestCandles,
+    backtestPivots,
+    livePrice,
+  );
 
-  return { candles, pivots, trendLines, evaluation, source };
+  return { candles, pivots, trendLines, evaluation, source, liveCandle };
 }
 
 export function useTokenSignal(symbol: string, timeframe: TokenTimeframe) {
@@ -58,22 +83,69 @@ export function useTokenSignal(symbol: string, timeframe: TokenTimeframe) {
     staleTime: 60_000,
     refetchInterval: refreshIntervalMs > 0 ? Math.max(refreshIntervalMs, 30_000) : false,
     queryFn: async (): Promise<TokenSignalData> => {
-      const candles = await fetchBinanceKlines(symbol, timeframe);
-      if (candles.length > 0) {
-        return buildSignalData(symbol, candles, "live", settings);
+      const [history, livePrice] = await Promise.all([
+        fetchBinanceKlines(symbol, timeframe, BACKTEST_CANDLE_LIMIT),
+        fetchBinancePrice(symbol),
+      ]);
+      if (history.length > 0) {
+        // Trade off the last closed bar, not the one still forming — see
+        // dropUnclosedCandle. The risk plan's entry still anchors on
+        // `livePrice` so switching timeframes doesn't quote a different
+        // "current price" per bar's staleness.
+        const closed = dropUnclosedCandle(history);
+        const candles = closed.slice(-CHART_CANDLE_LIMIT);
+        const forming = closed.length < history.length ? history[history.length - 1] : null;
+        // Pin the forming candle's close to the same live price the risk plan
+        // uses, so the chart's last bar and the entry/stop/target lines meet
+        // exactly instead of leaving a gap the size of one bar's drift.
+        const liveCandle =
+          forming && livePrice
+            ? {
+                ...forming,
+                close: livePrice,
+                high: Math.max(forming.high, livePrice),
+                low: Math.min(forming.low, livePrice),
+              }
+            : forming;
+        return buildSignalData(
+          symbol,
+          candles,
+          closed,
+          "live",
+          settings,
+          livePrice ?? undefined,
+          liveCandle,
+        );
       }
 
-      return buildSignalData(symbol, generateMockCandles(symbol, timeframe), "demo", settings);
+      const demoHistory = generateMockCandles(symbol, timeframe, BACKTEST_CANDLE_LIMIT);
+      return buildSignalData(
+        symbol,
+        demoHistory.slice(-CHART_CANDLE_LIMIT),
+        demoHistory,
+        "demo",
+        settings,
+      );
     },
   });
 }
 
-// Engine bias per timeframe for the alignment dots above the timeframe
-// buttons. One server round trip evaluates all timeframes.
+// Full engine evaluation per timeframe: feeds the bias dots above the
+// timeframe buttons and the intent assessments in the decision assistant.
+// One server round trip evaluates all timeframes, sized to the user's risk
+// preferences so per-intent plans match their account.
 export function useTimeframeAlignment(symbol: string) {
+  const risk = usePreferencesStore((s) => s.risk);
   return useQuery({
-    queryKey: ["tf-alignment", symbol.toUpperCase()],
-    queryFn: () => fetchTimeframeAlignment(symbol),
+    queryKey: [
+      "tf-alignment",
+      symbol.toUpperCase(),
+      risk.accountSize,
+      risk.maxRiskPerTradePercent,
+      risk.minimumRewardRisk,
+      risk.stopMethod,
+    ],
+    queryFn: () => fetchTimeframeAlignment(symbol, risk),
     staleTime: 60_000,
     refetchInterval: 120_000,
   });

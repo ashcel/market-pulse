@@ -1,15 +1,17 @@
-import { Search, Bell, Sun, Moon, Menu } from "lucide-react";
+import { Search, Sun, Moon, Menu } from "lucide-react";
 import { useUiStore } from "@/stores/ui";
 import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { IqLogo, NAV } from "./sidebar";
+import { SearchCommand } from "./search-command";
+import { NotificationBell } from "./notification-bell";
 import { cn } from "@/lib/utils";
 
 export function TopBar() {
   const { theme, toggleTheme } = useUiStore();
   const [mounted, setMounted] = useState(false);
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   useEffect(() => setMounted(true), []);
 
   return (
@@ -19,36 +21,31 @@ export function TopBar() {
         <IqLogo className="[&>div:last-child]:hidden" />
       </div>
 
-      <div className="hidden max-w-md flex-1 lg:flex">
-        <TokenSearchForm />
+      <div className="hidden max-w-sm flex-1 lg:flex">
+        <button
+          type="button"
+          onClick={() => setSearchOpen(true)}
+          className="group flex w-full items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-ring"
+        >
+          <Search className="h-4 w-4" />
+          <span className="flex-1 text-left">Search assets, news, or metrics...</span>
+          <kbd className="rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-mono">
+            Shift ⏎
+          </kbd>
+        </button>
       </div>
 
+      <SearchCommand open={searchOpen} onOpenChange={setSearchOpen} />
+
       <div className="ml-auto flex items-center gap-1">
-        <Sheet open={mobileSearchOpen} onOpenChange={setMobileSearchOpen}>
-          <SheetTrigger asChild>
-            <button
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground lg:hidden"
-              aria-label="Search"
-            >
-              <Search className="h-4 w-4" />
-            </button>
-          </SheetTrigger>
-          <SheetContent side="top" className="border-border bg-background p-4">
-            <SheetTitle className="sr-only">Search token</SheetTitle>
-            <TokenSearchForm
-              autoFocus
-              onSearch={() => setMobileSearchOpen(false)}
-              placeholder="Search ticker..."
-            />
-          </SheetContent>
-        </Sheet>
         <button
-          className="relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
-          aria-label="Notifications"
+          onClick={() => setSearchOpen(true)}
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground lg:hidden"
+          aria-label="Search"
         >
-          <Bell className="h-4 w-4" />
-          <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-info" />
+          <Search className="h-4 w-4" />
         </button>
+        <NotificationBell />
         <button
           onClick={toggleTheme}
           className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
@@ -59,48 +56,6 @@ export function TopBar() {
         <div className="ml-1 h-8 w-8 rounded-full bg-gradient-to-br from-info to-primary" />
       </div>
     </header>
-  );
-}
-
-function TokenSearchForm({
-  autoFocus,
-  onSearch,
-  placeholder = "Search assets, news, or metrics...",
-}: {
-  autoFocus?: boolean;
-  onSearch?: () => void;
-  placeholder?: string;
-}) {
-  const navigate = useNavigate();
-  const [value, setValue] = useState("");
-
-  return (
-    <form
-      className="group flex w-full items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-muted-foreground focus-within:border-ring"
-      onSubmit={(event) => {
-        event.preventDefault();
-        const symbol = value
-          .trim()
-          .replace(/[^a-z0-9]/gi, "")
-          .toUpperCase();
-        if (!symbol) return;
-        setValue("");
-        onSearch?.();
-        void navigate({ to: "/token/$symbol", params: { symbol } });
-      }}
-    >
-      <Search className="h-4 w-4" />
-      <input
-        autoFocus={autoFocus}
-        value={value}
-        onChange={(event) => setValue(event.currentTarget.value)}
-        className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
-        placeholder={placeholder}
-      />
-      <kbd className="hidden rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-mono sm:block">
-        Enter
-      </kbd>
-    </form>
   );
 }
 

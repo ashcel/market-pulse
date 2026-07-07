@@ -12,8 +12,10 @@ export const Route = createFileRoute("/api/klines")({
         const symbol = url.searchParams.get("symbol") ?? "";
         const timeframe = toTimeframe(url.searchParams.get("timeframe"));
         const limit = Number(url.searchParams.get("limit") ?? 200);
+        const endTimeParam = url.searchParams.get("endTime");
+        const endTime = endTimeParam === null ? undefined : Number(endTimeParam);
 
-        const candles = await fetchBinanceKlinesDirect({ symbol, timeframe, limit });
+        const candles = await fetchBinanceKlinesDirect({ symbol, timeframe, limit, endTime });
         return Response.json(candles);
       },
     },

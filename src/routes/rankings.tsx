@@ -13,6 +13,12 @@ import { cn } from "@/lib/utils";
 import { useWatchlistStore } from "@/stores/watchlist";
 import { SECTOR_ORDER } from "@/lib/engine/market";
 import type { Asset } from "@/lib/types";
+import {
+  HelpButton,
+  ProductTour,
+  useProductTour,
+  type TourStep,
+} from "@/components/iq/product-tour";
 
 export const Route = createFileRoute("/rankings")({
   head: () => ({
@@ -38,8 +44,24 @@ const FILTERS: { label: string; value: Filter }[] = [
   { label: "Favorites", value: "favorites" },
 ];
 
+const TOUR_SEEN_KEY = "iq-rankings-tour-v1";
+
+const TOUR_STEPS: TourStep[] = [
+  {
+    target: "controls",
+    title: "Search & filters",
+    body: "Find any asset by ticker or name, narrow to a single sector, or show only the tokens you starred as Favorites.",
+  },
+  {
+    target: "table",
+    title: "The rankings table",
+    body: "Every asset scored 0–100 on momentum, strength, volume, and technical quality, plus the engine's current setup call. Click a column header to sort by it (click again to flip the order), click a row to open that token's full analysis, and use the star at the end of a row to add it to your Favorites.",
+  },
+];
+
 function RankingsPage() {
   const { data } = useAssets();
+  const tour = useProductTour(TOUR_SEEN_KEY);
   const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("score");
@@ -75,9 +97,10 @@ function RankingsPage() {
         eyebrow="Rankings"
         title="Asset Rankings"
         subtitle="Momentum, strength, volume, and signal quality computed live from Binance data."
+        action={<HelpButton onClick={tour.start} />}
       />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div data-tour="controls" className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="flex flex-1 items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
           <Search className="h-4 w-4 text-muted-foreground" />
           <input
@@ -108,7 +131,7 @@ function RankingsPage() {
       {!data ? (
         <SkeletonCard height={400} />
       ) : (
-        <IqCard padded={false}>
+        <IqCard padded={false} data-tour="table">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -290,6 +313,8 @@ function RankingsPage() {
           )}
         </IqCard>
       )}
+
+      <ProductTour steps={TOUR_STEPS} open={tour.open && !!data} onClose={tour.close} />
     </div>
   );
 }

@@ -1,0 +1,108 @@
+import { fetchMarketSnapshot } from "./market";
+
+export type NotificationType = "bias-summary" | "setup-found";
+
+export interface NotificationEvent {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  ticker?: string;
+  createdAt: string;
+}
+
+const POLL_MS = 60_000;
+const RECENT_LIMIT = 30;
+const HIGH_QUALITY_CONFIDENCE = 75;
+// Caps how often the *same ticker* can re-alert, independent of how often a
+// decision flips. Without this, a setup wobbling near the confidence/decision
+// boundary during a volatile tape re-fires on every poll.
+const RENOTIFY_COOLDOWN_MS = 15 * 60_000;
+
+const subscribers = new Set<(event: NotificationEvent) => void>();
+const recentEvents: NotificationEvent[] = [];
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+let lastBiasDate: string | null = null;
+let lastRegimeLabel: string | null = null;
+const lastNotified = new Map<string, { decision: string; at: number }>();
+
+function emit(event: NotificationEvent) {
+  recentEvents.unshift(event);
+  recentEvents.length = Math.min(recentEvents.length, RECENT_LIMIT);
+  for (const send of subscribers) send(event);
+}
+
+function titleCase(slug: string): string {
+  return slug.replaceAll("-", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+async function evaluate() {
+  const snapshot = await fetchMarketSnapshot();
+  const today = new Date().toISOString().slice(0, 10);
+  const regimeLabel = snapshot.regime.regime;
+
+  if (today !== lastBiasDate || regimeLabel !== lastRegimeLabel) {
+    const isNewDay = today !== lastBiasDate;
+    lastBiasDate = today;
+    lastRegimeLabel = regimeLabel;
+    emit({
+      id: `bias-${today}-${Date.now()}`,
+      type: "bias-summary",
+      title: isNewDay ? `Today's bias: ${regimeLabel}` : `Regime shifted to ${regimeLabel}`,
+      body: `Rotation favors ${snapshot.rotation.winning} over ${snapshot.rotation.losing}. Sentiment is ${snapshot.sentiment.label.toLowerCase()} (${snapshot.sentiment.fearGreed}/100).`,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  const now = Date.now();
+  for (const asset of snapshot.assets) {
+    const decision = asset.decision;
+    if (decision !== "buy-candidate" && decision !== "short-candidate") continue;
+    const confidence = snapshot.assetSignals[asset.ticker]?.confidence ?? asset.confidence ?? 0;
+    if (confidence < HIGH_QUALITY_CONFIDENCE) continue;
+
+    // Same decision as last time we alerted on this ticker: never re-fire,
+    // no matter how many polls it spent below the confidence bar in between.
+    const prior = lastNotified.get(asset.ticker);
+    if (prior?.decision === decision) continue;
+    // A genuinely new decision still can't re-alert more than once per
+    // cooldown window, so a wobble near a threshold can't spam either.
+    if (prior && now - prior.at < RENOTIFY_COOLDOWN_MS) continue;
+
+    lastNotified.set(asset.ticker, { decision, at: now });
+    emit({
+      id: `setup-${asset.ticker}-${decision}-${now}`,
+      type: "setup-found",
+      title: `${asset.ticker}: ${titleCase(decision)}`,
+      body: `${titleCase(asset.setupType ?? "no-clear-setup")} setup at ${confidence}% confidence on ${asset.ticker}.`,
+      ticker: asset.ticker,
+      createdAt: new Date().toISOString(),
+    });
+  }
+}
+
+function ensurePolling() {
+  if (pollTimer) return;
+  evaluate().catch((error) => console.error("notification evaluate failed", error));
+  pollTimer = setInterval(() => {
+    evaluate().catch((error) => console.error("notification evaluate failed", error));
+  }, POLL_MS);
+}
+
+function stopPollingIfIdle() {
+  if (subscribers.size === 0 && pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+/** Subscribes to live notifications; replays recent buffered events immediately. Returns an unsubscribe fn. */
+export function subscribeToNotifications(send: (event: NotificationEvent) => void): () => void {
+  subscribers.add(send);
+  ensurePolling();
+  for (const event of [...recentEvents].reverse()) send(event);
+  return () => {
+    subscribers.delete(send);
+    stopPollingIfIdle();
+  };
+}

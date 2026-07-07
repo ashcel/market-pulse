@@ -6,6 +6,12 @@ import { SkeletonCard } from "@/components/iq/skeletons";
 import { SECTOR_ORDER } from "@/lib/engine/market";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import {
+  HelpButton,
+  ProductTour,
+  useProductTour,
+  type TourStep,
+} from "@/components/iq/product-tour";
 
 export const Route = createFileRoute("/markets")({
   head: () => ({
@@ -27,10 +33,26 @@ const FILTERS: { label: string; value: string }[] = [
   ...SECTOR_ORDER.map((s) => ({ label: s, value: s })),
 ];
 
+const TOUR_SEEN_KEY = "iq-markets-tour-v1";
+
+const TOUR_STEPS: TourStep[] = [
+  {
+    target: "filters",
+    title: "Sector filters",
+    body: "Narrow the universe to one sector — Majors, Layer 1, DeFi, AI, or Meme — or view everything at once. Sectors matter because money usually rotates between them rather than lifting the whole market.",
+  },
+  {
+    target: "grid",
+    title: "Market cards",
+    body: "Every tracked asset with live price, 24-hour change, and a mini trend line, ranked by IQ score (the engine's 0–100 quality rating). Click any card to open the full chart, signal, and trade plan for that token.",
+  },
+];
+
 function MarketsPage() {
   const { data } = useAssets();
   const [filter, setFilter] = useState<string>("all");
   const filtered = data?.filter((a) => filter === "all" || a.sector === filter);
+  const tour = useProductTour(TOUR_SEEN_KEY);
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
@@ -38,9 +60,10 @@ function MarketsPage() {
         eyebrow="Overview"
         title="Markets"
         subtitle="Live Binance snapshot across the tracked universe, ranked by IQ score."
+        action={<HelpButton onClick={tour.start} />}
       />
 
-      <div className="flex flex-wrap gap-1.5">
+      <div data-tour="filters" className="flex flex-wrap gap-1.5">
         {FILTERS.map((f) => (
           <button
             key={f.value}
@@ -57,7 +80,10 @@ function MarketsPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      <div
+        data-tour="grid"
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+      >
         {filtered
           ? filtered.map((a) => (
               <Link
@@ -71,6 +97,8 @@ function MarketsPage() {
             ))
           : Array.from({ length: 10 }).map((_, i) => <SkeletonCard key={i} />)}
       </div>
+
+      <ProductTour steps={TOUR_STEPS} open={tour.open && !!data} onClose={tour.close} />
     </div>
   );
 }

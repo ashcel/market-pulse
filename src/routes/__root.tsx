@@ -15,6 +15,8 @@ import { Sidebar } from "../components/iq/sidebar";
 import { TopBar } from "../components/iq/top-bar";
 import { BottomNav } from "../components/iq/bottom-nav";
 import { ThemeSync } from "../components/iq/theme-sync";
+import { Toaster } from "../components/ui/sonner";
+import { useNotificationStream } from "../hooks/useNotificationStream";
 
 function NotFoundComponent() {
   return (
@@ -131,10 +133,12 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useNotificationStream();
 
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeSync />
+      <Toaster position="top-right" />
       <div className="flex min-h-screen w-full bg-background">
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">

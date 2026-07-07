@@ -38,5 +38,6 @@ export function MarketCard({ asset, className }: { asset: Asset; className?: str
 export function formatPrice(price: number) {
   if (price >= 1000) return `$${price.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
   if (price >= 1) return `$${price.toFixed(2)}`;
-  return `$${price.toFixed(4)}`;
+  // Sub-dollar prices: toFixed(4) renders PEPE-scale prices as "$0.0000".
+  return `$${price.toLocaleString("en-US", { maximumSignificantDigits: 4 })}`;
 }

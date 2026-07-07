@@ -4,7 +4,8 @@ import { IqCard, CardEyebrow } from "@/components/iq/iq-card";
 import { useUiStore } from "@/stores/ui";
 import { useWatchlistStore } from "@/stores/watchlist";
 import { usePreferencesStore } from "@/stores/preferences";
-import { Sun, Moon, Star, X, Check, ShieldAlert } from "lucide-react";
+import { useNotificationsStore } from "@/stores/notifications";
+import { Sun, Moon, Star, X, Check, ShieldAlert, BellRing, BellOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StopMethod } from "@/lib/engine/quant";
 
@@ -86,10 +87,12 @@ function SettingsPage() {
 
       <IqCard className="flex flex-col gap-4">
         <CardEyebrow>Notifications</CardEyebrow>
+        <BrowserPermissionRow />
         {(
           [
             ["regime", "Regime change alerts"],
             ["rotation", "Capital rotation shifts"],
+            ["highQualitySetup", "High-quality setup found"],
             ["highImpactNews", "High-impact news"],
           ] as const
         ).map(([key, label]) => (
@@ -152,6 +155,58 @@ function SettingsPage() {
           Online
         </span>
       </IqCard>
+    </div>
+  );
+}
+
+function BrowserPermissionRow() {
+  const { permission, requestPermission } = useNotificationsStore();
+
+  const status =
+    permission === "granted"
+      ? { label: "Enabled", hint: "This browser will show OS notifications.", tone: "text-bullish" }
+      : permission === "denied"
+        ? {
+            label: "Blocked",
+            hint: "Re-enable notifications for this site in your browser settings.",
+            tone: "text-bearish",
+          }
+        : permission === "unsupported"
+          ? {
+              label: "Unsupported",
+              hint: "This browser doesn't support notifications.",
+              tone: "text-muted-foreground",
+            }
+          : {
+              label: "Not enabled",
+              hint: "Allow notifications to get alerts even when this tab isn't focused.",
+              tone: "text-muted-foreground",
+            };
+
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface px-4 py-3">
+      <div className="flex items-center gap-3">
+        {permission === "granted" ? (
+          <BellRing className="h-4 w-4 shrink-0 text-bullish" />
+        ) : (
+          <BellOff className="h-4 w-4 shrink-0 text-muted-foreground" />
+        )}
+        <div>
+          <div className="text-sm font-medium">
+            Browser notifications{" "}
+            <span className={cn("font-normal", status.tone)}>· {status.label}</span>
+          </div>
+          <div className="text-xs text-muted-foreground">{status.hint}</div>
+        </div>
+      </div>
+      {permission === "default" && (
+        <button
+          onClick={() => requestPermission()}
+          className="shrink-0 rounded-lg border border-info bg-info-soft px-3 py-1.5 text-xs font-medium text-info transition-colors hover:bg-info/20"
+        >
+          Enable
+        </button>
+      )}
     </div>
   );
 }

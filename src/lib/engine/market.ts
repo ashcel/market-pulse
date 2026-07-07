@@ -11,7 +11,7 @@ import type {
   VolatilityData,
 } from "../types";
 import { computePivots } from "./analysis";
-import { fetchBinanceKlinesDirect } from "./binance";
+import { dropUnclosedCandle, fetchBinanceKlinesDirect } from "./binance";
 import { CRYPTO_RISK_SETTINGS } from "./crypto-config";
 import { generateMockCandles } from "./mock-candles";
 import { classifyRegime, evaluateSignal } from "./quant";
@@ -533,10 +533,12 @@ async function computeSnapshot(): Promise<MarketSnapshot> {
           timeframe: "1H",
           limit: 200,
         });
-        return [entry.ticker, candles] as const;
+        return [entry.ticker, dropUnclosedCandle(candles)] as const;
       }),
     ),
-    fetchBinanceKlinesDirect({ symbol: "BTC", timeframe: "1D", limit: 120 }),
+    fetchBinanceKlinesDirect({ symbol: "BTC", timeframe: "1D", limit: 120 }).then(
+      dropUnclosedCandle,
+    ),
   ]);
 
   if (!fngCache || now - fngCache.at > FNG_TTL_MS) {

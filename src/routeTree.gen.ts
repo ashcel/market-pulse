@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TrackerRouteImport } from './routes/tracker'
 import { Route as TechnicalRouteImport } from './routes/technical'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RotationRouteImport } from './routes/rotation'
@@ -18,8 +19,14 @@ import { Route as NewsRouteImport } from './routes/news'
 import { Route as MarketsRouteImport } from './routes/markets'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TokenSymbolRouteImport } from './routes/token.$symbol'
+import { Route as ApiNotificationsRouteImport } from './routes/api/notifications'
 import { Route as ApiKlinesRouteImport } from './routes/api/klines'
 
+const TrackerRoute = TrackerRouteImport.update({
+  id: '/tracker',
+  path: '/tracker',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TechnicalRoute = TechnicalRouteImport.update({
   id: '/technical',
   path: '/technical',
@@ -65,6 +72,11 @@ const TokenSymbolRoute = TokenSymbolRouteImport.update({
   path: '/token/$symbol',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiNotificationsRoute = ApiNotificationsRouteImport.update({
+  id: '/api/notifications',
+  path: '/api/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiKlinesRoute = ApiKlinesRouteImport.update({
   id: '/api/klines',
   path: '/api/klines',
@@ -80,7 +92,9 @@ export interface FileRoutesByFullPath {
   '/rotation': typeof RotationRoute
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
+  '/tracker': typeof TrackerRoute
   '/api/klines': typeof ApiKlinesRoute
+  '/api/notifications': typeof ApiNotificationsRoute
   '/token/$symbol': typeof TokenSymbolRoute
 }
 export interface FileRoutesByTo {
@@ -92,7 +106,9 @@ export interface FileRoutesByTo {
   '/rotation': typeof RotationRoute
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
+  '/tracker': typeof TrackerRoute
   '/api/klines': typeof ApiKlinesRoute
+  '/api/notifications': typeof ApiNotificationsRoute
   '/token/$symbol': typeof TokenSymbolRoute
 }
 export interface FileRoutesById {
@@ -105,7 +121,9 @@ export interface FileRoutesById {
   '/rotation': typeof RotationRoute
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
+  '/tracker': typeof TrackerRoute
   '/api/klines': typeof ApiKlinesRoute
+  '/api/notifications': typeof ApiNotificationsRoute
   '/token/$symbol': typeof TokenSymbolRoute
 }
 export interface FileRouteTypes {
@@ -119,7 +137,9 @@ export interface FileRouteTypes {
     | '/rotation'
     | '/settings'
     | '/technical'
+    | '/tracker'
     | '/api/klines'
+    | '/api/notifications'
     | '/token/$symbol'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -131,7 +151,9 @@ export interface FileRouteTypes {
     | '/rotation'
     | '/settings'
     | '/technical'
+    | '/tracker'
     | '/api/klines'
+    | '/api/notifications'
     | '/token/$symbol'
   id:
     | '__root__'
@@ -143,7 +165,9 @@ export interface FileRouteTypes {
     | '/rotation'
     | '/settings'
     | '/technical'
+    | '/tracker'
     | '/api/klines'
+    | '/api/notifications'
     | '/token/$symbol'
   fileRoutesById: FileRoutesById
 }
@@ -156,12 +180,21 @@ export interface RootRouteChildren {
   RotationRoute: typeof RotationRoute
   SettingsRoute: typeof SettingsRoute
   TechnicalRoute: typeof TechnicalRoute
+  TrackerRoute: typeof TrackerRoute
   ApiKlinesRoute: typeof ApiKlinesRoute
+  ApiNotificationsRoute: typeof ApiNotificationsRoute
   TokenSymbolRoute: typeof TokenSymbolRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/tracker': {
+      id: '/tracker'
+      path: '/tracker'
+      fullPath: '/tracker'
+      preLoaderRoute: typeof TrackerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/technical': {
       id: '/technical'
       path: '/technical'
@@ -225,6 +258,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TokenSymbolRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/notifications': {
+      id: '/api/notifications'
+      path: '/api/notifications'
+      fullPath: '/api/notifications'
+      preLoaderRoute: typeof ApiNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/klines': {
       id: '/api/klines'
       path: '/api/klines'
@@ -244,7 +284,9 @@ const rootRouteChildren: RootRouteChildren = {
   RotationRoute: RotationRoute,
   SettingsRoute: SettingsRoute,
   TechnicalRoute: TechnicalRoute,
+  TrackerRoute: TrackerRoute,
   ApiKlinesRoute: ApiKlinesRoute,
+  ApiNotificationsRoute: ApiNotificationsRoute,
   TokenSymbolRoute: TokenSymbolRoute,
 }
 export const routeTree = rootRouteImport

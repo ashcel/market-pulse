@@ -14,6 +14,12 @@ import {
   Tooltip,
   ReferenceLine,
 } from "recharts";
+import {
+  HelpButton,
+  ProductTour,
+  useProductTour,
+  type TourStep,
+} from "@/components/iq/product-tour";
 
 export const Route = createFileRoute("/regime")({
   head: () => ({
@@ -30,8 +36,29 @@ export const Route = createFileRoute("/regime")({
   component: RegimePage,
 });
 
+const TOUR_SEEN_KEY = "iq-regime-tour-v1";
+
+const TOUR_STEPS: TourStep[] = [
+  {
+    target: "current",
+    title: "The current regime",
+    body: "One answer to the day's most important question: is the market rewarding risk (Risk On), punishing it (Risk Off), or undecided (Neutral)? The gauge shows how confident the model is — trade smaller when confidence is low.",
+  },
+  {
+    target: "timeline",
+    title: "Regime timeline",
+    body: "The regime score over the last 60 sessions. Above the upper dashed line is Risk On territory, below the lower one is Risk Off. A score that keeps crossing the lines means an unstable, choppy market.",
+  },
+  {
+    target: "pillars",
+    title: "The five pillars",
+    body: "What the regime verdict is built from: trend, breadth, volatility, liquidity, and macro — each scored 0–100. When pillars disagree (say, trend bullish but breadth bearish), treat the overall regime with more caution.",
+  },
+];
+
 function RegimePage() {
   const { data } = useRegime();
+  const tour = useProductTour(TOUR_SEEN_KEY);
   const tone =
     data?.regime === "Risk On" ? "bullish" : data?.regime === "Risk Off" ? "bearish" : "warning";
   return (
@@ -40,11 +67,12 @@ function RegimePage() {
         eyebrow="Regime"
         title="Market Regime"
         subtitle="How the market is behaving right now."
+        action={<HelpButton onClick={tour.start} />}
       />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
         {data ? (
-          <IqCard className="flex flex-col items-center gap-4 text-center">
+          <IqCard data-tour="current" className="flex flex-col items-center gap-4 text-center">
             <CardEyebrow>Current Regime</CardEyebrow>
             <ConfidenceGauge value={data.confidence} size={200} label="Confidence" />
             <div
@@ -65,7 +93,7 @@ function RegimePage() {
         )}
 
         {data ? (
-          <IqCard className="flex flex-col gap-3">
+          <IqCard data-tour="timeline" className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <CardEyebrow>Regime Timeline</CardEyebrow>
               <span className="text-xs text-muted-foreground">Last 60 sessions</span>
@@ -113,7 +141,7 @@ function RegimePage() {
         )}
       </div>
 
-      <div>
+      <div data-tour="pillars">
         <CardEyebrow>Regime Pillars</CardEyebrow>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {data?.pillars.map((p) => (
@@ -150,6 +178,8 @@ function RegimePage() {
           ))}
         </div>
       </div>
+
+      <ProductTour steps={TOUR_STEPS} open={tour.open && !!data} onClose={tour.close} />
     </div>
   );
 }

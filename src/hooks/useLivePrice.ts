@@ -6,7 +6,7 @@ export interface LivePrice {
 }
 
 /**
- * Streams last price + 24h change from Binance's miniTicker WebSocket.
+ * Streams last price + 24h change from Binance spot's miniTicker WebSocket.
  * Returns null until the first tick (callers should fall back to REST data).
  * Reconnects with capped backoff; disable for demo/synthetic symbols.
  */

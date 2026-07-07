@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { CircleHelp, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,47 @@ export interface TourStep {
   target: string;
   title: string;
   body: string;
+}
+
+/**
+ * Owns a page tour's open state: auto-opens once per browser (keyed by
+ * `seenKey` in localStorage), and marks the tour seen on close.
+ */
+export function useProductTour(seenKey: string) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!localStorage.getItem(seenKey)) {
+      const timer = setTimeout(() => setOpen(true), 900);
+      return () => clearTimeout(timer);
+    }
+  }, [seenKey]);
+
+  const start = useCallback(() => setOpen(true), []);
+  const close = useCallback(() => {
+    setOpen(false);
+    localStorage.setItem(seenKey, "1");
+  }, [seenKey]);
+
+  return { open, start, close };
+}
+
+/** The "Help" button that relaunches a page's tour. */
+export function HelpButton({ onClick, className }: { onClick: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Start page help tour"
+      className={cn(
+        "flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground",
+        className,
+      )}
+    >
+      <CircleHelp className="h-3.5 w-3.5" />
+      Help
+    </button>
+  );
 }
 
 interface Rect {

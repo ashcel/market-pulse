@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchMacroSnapshot } from "@/lib/engine/macro";
 import { fetchMarketSnapshot, type MarketSnapshot } from "@/lib/engine/market";
 import { fetchNews } from "@/lib/engine/news";
+import { fetchTradableTickers } from "@/lib/engine/symbols";
 import { usePreferencesStore } from "@/stores/preferences";
 
 /**
@@ -44,6 +45,17 @@ export const useVolatility = () => useMarketSnapshot((s) => s.volatility);
 
 export const useSignals = (ticker = "BTC") =>
   useMarketSnapshot((s) => s.assetSignals[ticker.toUpperCase()] ?? s.assetSignals.BTC);
+
+// Every tradable Binance USDT base ticker (or null while offline), for search
+// autocomplete. The listing set changes rarely, so it refreshes hourly at most.
+export const useBinanceTickers = (enabled = true) =>
+  useQuery({
+    queryKey: ["binance-tickers"],
+    queryFn: () => fetchTradableTickers(),
+    staleTime: 60 * 60_000,
+    gcTime: 60 * 60_000,
+    enabled,
+  });
 
 // Live crypto headlines (Cointelegraph RSS via server fn) with tagged
 // impact/direction/assets; falls back to the curated sample offline.

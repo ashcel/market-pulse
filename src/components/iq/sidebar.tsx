@@ -6,6 +6,7 @@ import {
   Activity,
   ArrowLeftRight,
   BarChart3,
+  Bookmark,
   LineChart,
   Newspaper,
   Settings,
@@ -20,6 +21,7 @@ export const NAV = [
   { to: "/rotation", label: "Rotation", icon: ArrowLeftRight },
   { to: "/rankings", label: "Rankings", icon: BarChart3 },
   { to: "/technical", label: "Technical", icon: LineChart },
+  { to: "/tracker", label: "Tracker", icon: Bookmark },
   { to: "/news", label: "News", icon: Newspaper },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;

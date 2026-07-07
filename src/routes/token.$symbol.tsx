@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   CandlestickSeries,
@@ -17,11 +17,14 @@ import type {
   ISeriesApi,
   ISeriesMarkersPluginApi,
   LineData,
+  LogicalRange,
   SeriesMarker,
   Time,
   UTCTimestamp,
 } from "lightweight-charts";
 import {
+  Bookmark,
+  BookmarkCheck,
   Bot,
   Brain,
   CheckCircle2,
@@ -33,21 +36,37 @@ import {
   MoveRight,
   Play,
   Send,
-  ShieldAlert,
   TrendingDown,
   TrendingUp,
+  Zap,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Link } from "@tanstack/react-router";
 
 import { AssetIcon } from "@/components/iq/asset-icon";
 import { Change } from "@/components/iq/change";
+import { ZonesPrimitive, type PriceZone } from "@/components/iq/chart-zones";
 import { ConfidenceGauge } from "@/components/iq/confidence-gauge";
 import { IqCard, CardEyebrow } from "@/components/iq/iq-card";
 import { MiniChart } from "@/components/iq/mini-chart";
-import { ProductTour, type TourStep } from "@/components/iq/product-tour";
+import {
+  HelpButton,
+  ProductTour,
+  useProductTour,
+  type TourStep,
+} from "@/components/iq/product-tour";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -58,12 +77,25 @@ import {
   type TokenSignalData,
 } from "@/hooks/useTokenSignal";
 import type { TradeDirection } from "@/lib/engine/quant";
+import {
+  assessIntents,
+  describeMarketOutlook,
+  INTENTS,
+  type IntentAssessment,
+  type TradingIntent,
+} from "@/lib/engine/intent";
 import { computeEmaSeries } from "@/lib/engine/analysis";
+import { fetchBinanceKlines } from "@/lib/engine/binance";
+import type { Candle } from "@/lib/engine/types";
 import { UNIVERSE } from "@/lib/engine/market";
+import { checkTradableTicker } from "@/lib/engine/symbols";
 import { TOKEN_TIMEFRAMES } from "@/lib/engine/mock-candles";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
-import type { SignalEvaluation, SignalStatus } from "@/lib/engine/quant";
-import { usePreferencesStore } from "@/stores/preferences";
+import { computeBaseZones, SD_ZONE_TIMEFRAMES, type BaseZone } from "@/lib/engine/zones";
+import type { MarketRegime, SignalEvaluation, SignalStatus } from "@/lib/engine/quant";
+import { formatEntryRange, formatMoney, formatUnits } from "@/lib/format";
+import { usePreferencesStore, type ChartIndicatorKey } from "@/stores/preferences";
+import { useTrackedSignalsStore } from "@/stores/tracked-signals";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/token/$symbol")({
@@ -76,15 +108,48 @@ export const Route = createFileRoute("/token/$symbol")({
       },
     ],
   }),
+  // 404 for pairs Binance doesn't list. "unknown" (directory unreachable)
+  // falls through so the demo-candle path still covers offline use.
+  loader: async ({ params }) => {
+    const symbol = params.symbol.replace(/[^a-z0-9]/gi, "").toUpperCase();
+    if (UNIVERSE.some((u) => u.ticker === symbol)) return;
+    if ((await checkTradableTicker({ data: symbol })) === "invalid") throw notFound();
+  },
+  notFoundComponent: TokenNotFound,
   component: TokenDetailPage,
 });
+
+function TokenNotFound() {
+  const { symbol } = Route.useParams();
+  const ticker = symbol.replace(/[^a-z0-9]/gi, "").toUpperCase();
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center px-4">
+      <div className="max-w-md text-center">
+        <div className="eyebrow">404</div>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+          {ticker || "Token"} isn't listed
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {ticker ? `${ticker}/USDT` : "This pair"} isn't a tradable spot pair on Binance, so
+          there's no live data to analyze.
+        </p>
+        <Link
+          to="/markets"
+          className="mt-6 inline-flex items-center justify-center rounded-md bg-info px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-info/90"
+        >
+          Browse markets
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 const TIMEFRAMES: readonly TokenTimeframe[] = TOKEN_TIMEFRAMES;
 
 const EMA_FAST = { length: 13, color: "#38bdf8" };
 const EMA_SLOW = { length: 21, color: "#a78bfa" };
 
-const TOUR_SEEN_KEY = "iq-token-tour-v1";
+const TOUR_SEEN_KEY = "iq-token-tour-v2";
 
 const TOUR_STEPS: TourStep[] = [
   {
@@ -95,7 +160,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     target: "chart",
     title: "Price chart",
-    body: "Each candle is one period of price movement (green = closed up, red = closed down). The two curves are EMA 13 (sky) and EMA 21 (violet) — when the fast one crosses above the slow one, momentum favors buyers. Arrows mark swing highs/lows, dashed lines are support/resistance, and solid lines show the trade plan when one is active.",
+    body: "Each candle is one period of price movement (green = closed up, red = closed down). The legend below the chart names every overlay — EMAs, support/resistance, swing points, trade-plan levels — and clicking a legend item hides or shows it (your choices are remembered). When the engine flags a strong setup, shaded zones appear: reward (green), risk (red), and the buy/sell pocket (blue). On 1H and higher timeframes the chart also marks true demand/supply bases — consolidations that launched an explosive move. Drag the chart left past the oldest candle to load more history.",
   },
   {
     target: "insight",
@@ -103,14 +168,19 @@ const TOUR_STEPS: TourStep[] = [
     body: "The market's condition in plain words — trend, momentum, volume, volatility — plus every check the engine ran. Green passed, amber is a caution, red failed.",
   },
   {
+    target: "objective",
+    title: "Start with your objective",
+    body: "Tell the assistant what you're trying to do — a quick scalp, an intraday trade, a multi-day swing, or a weeks-long trend position. Each objective is judged on its own pair of timeframes (a bigger one for context, a smaller one for the trigger), so the same chart can favor a scalp while ruling out a swing. The dot is each objective's verdict at a glance, and picking one switches the chart to its trigger timeframe.",
+  },
+  {
     target: "decision",
-    title: "The engine's verdict",
-    body: "The engine reads the chart and answers one question: buy candidate, short candidate, wait, or no trade — with the most important reason in plain words.",
+    title: "A verdict for YOUR objective",
+    body: "Not one answer for everyone: the assistant answers for the objective you picked — go, go at reduced size, not yet, or stand aside — and explains why. 'Not yet' is not 'never': the checklist shows exactly which confirmations are missing, and 'what changes this answer' names the price events that would flip today's verdict.",
   },
   {
     target: "risk",
-    title: "Your trade plan",
-    body: "Where to enter, where to exit if it goes wrong (stop), profit targets, and exactly how much to buy so you never lose more than your limit. Sized from your own account settings.",
+    title: "Execution plan",
+    body: "When your objective has a payable setup: entry, stop, profit targets, and a position sized from your account settings — automatically halved when the trade is counter-trend. When there's no plan, the assistant points at the objective that is payable instead.",
   },
   {
     target: "backtest",
@@ -120,7 +190,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     target: "ai",
     title: "AI analyst",
-    body: "Generate a written memo of the whole setup or ask questions like 'what would invalidate this?'. Collapse it with the arrows when you want more space.",
+    body: "Generate a written memo of the whole setup, pick a suggested prompt, or ask your own questions. Collapse it with the Hide button when you want more chart space.",
   },
 ];
 
@@ -129,16 +199,41 @@ function TokenDetailPage() {
   const symbol = rawSymbol.toUpperCase();
   const [timeframe, setTimeframe] = useState<TokenTimeframe>("4H");
   const [aiOpen, setAiOpen] = useState(true);
-  const [tourOpen, setTourOpen] = useState(false);
+  useEffect(() => {
+    // Small desktops: the three-column grid is cramped, so start the AI rail collapsed.
+    if (window.matchMedia("(min-width: 1024px) and (max-width: 1439px)").matches) {
+      setAiOpen(false);
+    }
+  }, []);
+  const tour = useProductTour(TOUR_SEEN_KEY);
+  const tradingIntent = usePreferencesStore((s) => s.tradingIntent);
+  const setTradingIntent = usePreferencesStore((s) => s.setTradingIntent);
   const signal = useTokenSignal(symbol, timeframe);
   const alignment = useTimeframeAlignment(symbol);
   const biasByTimeframe = new Map(
     alignment.data?.map((entry) => [entry.timeframe, entry.direction]) ?? [],
   );
+  // The chart follows the objective: picking an intent jumps to its trigger
+  // timeframe. The user can still override with the timeframe buttons.
+  useEffect(() => {
+    const def = INTENTS.find((d) => d.intent === tradingIntent);
+    if (def) setTimeframe(def.executionTimeframe);
+  }, [tradingIntent]);
+  const evalsByTimeframe = useMemo(() => {
+    const evals: Partial<Record<TokenTimeframe, SignalEvaluation>> = {};
+    for (const entry of alignment.data ?? []) evals[entry.timeframe] = entry.evaluation;
+    return evals;
+  }, [alignment.data]);
+  const assessments = useMemo(() => assessIntents(evalsByTimeframe), [evalsByTimeframe]);
+  const activeAssessment = assessments.find((a) => a.intent === tradingIntent) ?? null;
+  const marketOutlook = useMemo(() => describeMarketOutlook(evalsByTimeframe), [evalsByTimeframe]);
   const data = signal.data;
   const live = useLivePrice(symbol, data?.source === "live");
-  const lastClose =
-    live?.price ?? data?.candles.at(-1)?.close ?? data?.evaluation.analytics.lastClose ?? 0;
+  // `risk.entry` already anchors on the REST-fetched live price (see
+  // buildRiskPlan), falling back to the last closed candle only if that fetch
+  // failed — so it's a strictly better fallback than the raw candle close,
+  // which reintroduces the per-timeframe staleness this is meant to avoid.
+  const lastClose = live?.price ?? data?.evaluation.risk.entry ?? 0;
   const change24h = live?.change24h ?? (data ? computeChange24h(data.candles) : 0);
   const name = UNIVERSE.find((u) => u.ticker === symbol)?.name ?? symbol;
   const stats = useMemo(() => (data ? compute24hStats(data.candles) : null), [data]);
@@ -146,18 +241,6 @@ function TokenDetailPage() {
     () => data?.candles.slice(-32).map((c, i) => ({ t: i, v: c.close })) ?? [],
     [data],
   );
-
-  useEffect(() => {
-    if (!localStorage.getItem(TOUR_SEEN_KEY)) {
-      const timer = setTimeout(() => setTourOpen(true), 900);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
-  const closeTour = useCallback(() => {
-    setTourOpen(false);
-    localStorage.setItem(TOUR_SEEN_KEY, "1");
-  }, []);
 
   return (
     // Locked to the viewport on desktop: only the right panel and chat scroll.
@@ -240,15 +323,7 @@ function TokenDetailPage() {
               <HeaderStat label="24h Turnover" value={`$${formatCompact(stats.turnover)}`} />
             </div>
           )}
-          <button
-            type="button"
-            onClick={() => setTourOpen(true)}
-            className="flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-            aria-label="Start page tour"
-          >
-            <CircleHelp className="h-3.5 w-3.5" />
-            Tour
-          </button>
+          <HelpButton onClick={tour.start} />
         </div>
       </IqCard>
 
@@ -276,35 +351,20 @@ function TokenDetailPage() {
                   <div className="flex items-baseline gap-3">
                     <div className="flex items-center gap-1.5">
                       <CardEyebrow>Price Structure</CardEyebrow>
-                      <InfoHint text="Candlestick chart of the selected timeframe. The EMA 13/21 pair tracks momentum — price riding above both with the fast one on top is a healthy trend. Arrows mark swing highs and lows, dashed lines are support/resistance, and solid lines show the trade plan levels when one is active." />
+                      <InfoHint text="Candlestick chart of the selected timeframe. The legend below the chart explains every overlay — click an item to hide or show it. Drag the chart past the oldest candle to load more history." />
                     </div>
                     <span className="text-xs text-muted-foreground">
                       {data.candles.length} {data.source === "live" ? "Binance" : "synthetic"} bars
                       · {data.pivots.length} pivots
                     </span>
-                    <span className="hidden items-center gap-2.5 text-[10px] font-medium text-muted-foreground sm:flex">
-                      <span className="flex items-center gap-1">
-                        <span
-                          className="h-[2px] w-3 rounded-full"
-                          style={{ backgroundColor: EMA_FAST.color }}
-                        />
-                        EMA {EMA_FAST.length}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span
-                          className="h-[2px] w-3 rounded-full"
-                          style={{ backgroundColor: EMA_SLOW.color }}
-                        />
-                        EMA {EMA_SLOW.length}
-                      </span>
-                    </span>
                   </div>
                   <Badge variant="outline" className="border-info/30 bg-info-soft text-info">
-                    {data.evaluation.decision.replaceAll("-", " ")}
+                    {timeframe} lean:{" "}
+                    {data.evaluation.direction === "none" ? "neutral" : data.evaluation.direction}
                   </Badge>
                 </div>
-                <div className="min-h-0 flex-1 lg:min-h-[240px]">
-                  <TokenChart {...data} />
+                <div className="flex min-h-0 flex-1 flex-col lg:min-h-[240px]">
+                  <TokenChart {...data} symbol={symbol} timeframe={timeframe} />
                 </div>
               </IqCard>
 
@@ -313,8 +373,13 @@ function TokenDetailPage() {
               </IqCard>
             </div>
 
-            <SignalPanel
-              evaluation={data.evaluation}
+            <AssistantPanel
+              symbol={symbol}
+              assessments={assessments}
+              active={activeAssessment}
+              activeIntent={tradingIntent}
+              marketOutlook={marketOutlook}
+              onSelect={setTradingIntent}
               className="lg:h-full lg:min-h-0 lg:overflow-y-auto"
             />
 
@@ -322,6 +387,7 @@ function TokenDetailPage() {
               symbol={symbol}
               timeframe={timeframe}
               evaluation={data.evaluation}
+              assessment={activeAssessment}
               open={aiOpen}
               onOpenChange={setAiOpen}
             />
@@ -362,8 +428,8 @@ function TokenDetailPage() {
 
       <ProductTour
         steps={TOUR_STEPS}
-        open={tourOpen && !signal.isLoading}
-        onClose={closeTour}
+        open={tour.open && !signal.isLoading}
+        onClose={tour.close}
         onStepChange={(target) => {
           if (target === "ai") setAiOpen(true);
         }}
@@ -440,7 +506,21 @@ function formatCompact(value: number): string {
   );
 }
 
-function TokenChart({ candles, pivots, trendLines, evaluation }: TokenSignalData) {
+type IndicatorKey = ChartIndicatorKey;
+
+// Bars fetched per page when the user drags past the oldest loaded candle.
+const HISTORY_PAGE = 500;
+
+function TokenChart({
+  symbol,
+  timeframe,
+  candles,
+  pivots,
+  trendLines,
+  evaluation,
+  source,
+  liveCandle,
+}: TokenSignalData & { symbol: string; timeframe: TokenTimeframe }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -454,6 +534,51 @@ function TokenChart({ candles, pivots, trendLines, evaluation }: TokenSignalData
   const emaFastSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const emaSlowSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const markerRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+  const zonesPrimitiveRef = useRef<ZonesPrimitive | null>(null);
+
+  // Older bars paged in when the user drags past the left edge of the data.
+  const historyRef = useRef<{
+    key: string;
+    candles: Candle[];
+    exhausted: boolean;
+    loading: boolean;
+  }>({ key: "", candles: [], exhausted: false, loading: false });
+  const [historyVersion, setHistoryVersion] = useState(0);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const appliedKeyRef = useRef("");
+  const earliestTimeRef = useRef<number | null>(null);
+  const lastTimeRef = useRef<number | null>(null);
+  const loadOlderRef = useRef<() => void>(() => {});
+
+  const hiddenIndicators = usePreferencesStore((s) => s.hiddenChartIndicators);
+  const toggleIndicator = usePreferencesStore((s) => s.toggleChartIndicator);
+
+  const baseZones = useMemo(
+    () => (SD_ZONE_TIMEFRAMES.includes(timeframe) ? computeBaseZones(candles) : []),
+    [candles, timeframe],
+  );
+
+  const loadOlder = useCallback(async () => {
+    const history = historyRef.current;
+    const earliest = earliestTimeRef.current;
+    if (history.loading || history.exhausted || earliest === null || source !== "live") return;
+    history.loading = true;
+    setLoadingHistory(true);
+    try {
+      const older = await fetchBinanceKlines(symbol, timeframe, HISTORY_PAGE, earliest * 1000 - 1);
+      const fresh = older.filter((c) => c.time < earliest);
+      if (fresh.length === 0) {
+        history.exhausted = true;
+      } else {
+        history.candles = [...fresh, ...history.candles];
+        setHistoryVersion((version) => version + 1);
+      }
+    } finally {
+      history.loading = false;
+      setLoadingHistory(false);
+    }
+  }, [symbol, timeframe, source]);
+  loadOlderRef.current = loadOlder;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -531,6 +656,16 @@ function TokenChart({ candles, pivots, trendLines, evaluation }: TokenSignalData
     emaFastSeriesRef.current = chart.addSeries(LineSeries, emaOptions(EMA_FAST.color));
     emaSlowSeriesRef.current = chart.addSeries(LineSeries, emaOptions(EMA_SLOW.color));
     markerRef.current = createSeriesMarkers(candleSeries);
+    const zonesPrimitive = new ZonesPrimitive();
+    candleSeries.attachPrimitive(zonesPrimitive);
+    zonesPrimitiveRef.current = zonesPrimitive;
+
+    // Dragging within a dozen bars of the oldest loaded candle pages in
+    // more history (no-op while a page is in flight or history is exhausted).
+    const onEdgeCheck = (range: LogicalRange | null) => {
+      if (range && range.from < 12) loadOlderRef.current();
+    };
+    chart.timeScale().subscribeVisibleLogicalRangeChange(onEdgeCheck);
 
     const observer = new ResizeObserver((entries) => {
       const rect = entries[entries.length - 1].contentRect;
@@ -542,6 +677,7 @@ function TokenChart({ candles, pivots, trendLines, evaluation }: TokenSignalData
 
     return () => {
       observer.disconnect();
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(onEdgeCheck);
       chart.remove();
       chartRef.current = null;
       candleSeriesRef.current = null;
@@ -555,6 +691,7 @@ function TokenChart({ candles, pivots, trendLines, evaluation }: TokenSignalData
       emaFastSeriesRef.current = null;
       emaSlowSeriesRef.current = null;
       markerRef.current = null;
+      zonesPrimitiveRef.current = null;
     };
   }, []);
 
@@ -564,8 +701,51 @@ function TokenChart({ candles, pivots, trendLines, evaluation }: TokenSignalData
     const volumeSeries = volumeSeriesRef.current;
     if (!chart || !candleSeries || !volumeSeries) return;
 
+    // Symbol/timeframe/source switch: paged-in history belongs to the old dataset.
+    const datasetKey = `${symbol}|${timeframe}|${source}`;
+    if (historyRef.current.key !== datasetKey) {
+      historyRef.current = {
+        key: datasetKey,
+        candles: [],
+        exhausted: source !== "live",
+        loading: false,
+      };
+    }
+    const firstLiveTime = candles[0]?.time;
+    const history =
+      firstLiveTime === undefined
+        ? []
+        : historyRef.current.candles.filter((c) => c.time < firstLiveTime);
+    // The forming bar is display-only (see `liveCandle`'s doc comment) — it
+    // keeps the visible candle in step with the live-anchored plan lines
+    // below instead of leaving the chart a full bar behind.
+    const allCandles = liveCandle ? [...history, ...candles, liveCandle] : [...history, ...candles];
+
+    // The default price scale (2dp, 0.01 steps) collapses sub-dollar assets:
+    // DOGE's axis becomes a single label and the plan lines overlap.
+    const precision = pricePrecision(allCandles.at(-1)?.close ?? 0);
+    const priceFormat = { type: "price" as const, precision, minMove: 10 ** -precision };
+    for (const series of [
+      candleSeries,
+      supportSeriesRef.current,
+      resistanceSeriesRef.current,
+      entrySeriesRef.current,
+      stopSeriesRef.current,
+      target1SeriesRef.current,
+      target2SeriesRef.current,
+      emaFastSeriesRef.current,
+      emaSlowSeriesRef.current,
+    ]) {
+      series?.applyOptions({ priceFormat });
+    }
+
+    const timeScale = chart.timeScale();
+    const isNewDataset = appliedKeyRef.current !== datasetKey;
+    const prevRange = timeScale.getVisibleRange();
+    const prevLast = lastTimeRef.current;
+
     candleSeries.setData(
-      candles.map(
+      allCandles.map(
         (c): CandlestickData<Time> => ({
           time: c.time as UTCTimestamp,
           open: c.open,
@@ -576,7 +756,7 @@ function TokenChart({ candles, pivots, trendLines, evaluation }: TokenSignalData
       ),
     );
     volumeSeries.setData(
-      candles.map(
+      allCandles.map(
         (c): HistogramData<Time> => ({
           time: c.time as UTCTimestamp,
           value: c.volume,
@@ -584,25 +764,36 @@ function TokenChart({ candles, pivots, trendLines, evaluation }: TokenSignalData
         }),
       ),
     );
-    emaFastSeriesRef.current?.setData(toLineData(computeEmaSeries(candles, EMA_FAST.length)));
-    emaSlowSeriesRef.current?.setData(toLineData(computeEmaSeries(candles, EMA_SLOW.length)));
-    chart.timeScale().fitContent();
-  }, [candles]);
+    const emaFastData = computeEmaSeries(allCandles, EMA_FAST.length) ?? [];
+    const emaSlowData = computeEmaSeries(allCandles, EMA_SLOW.length) ?? [];
+    emaFastSeriesRef.current?.setData(toLineData(emaFastData));
+    emaSlowSeriesRef.current?.setData(toLineData(emaSlowData));
 
-  useEffect(() => {
-    supportSeriesRef.current?.setData(toLineData(trendLines.support));
-    resistanceSeriesRef.current?.setData(toLineData(trendLines.resistance));
-  }, [trendLines]);
+    // Trend lines and plan levels must be re-set in this same pass: re-setting
+    // the candles rebuilds the chart's internal time index, and a line series
+    // left holding points anchored to the old index crashes the renderer
+    // ("Value is null") on its next repaint. Filter to only times in the chart.
+    const chartStart = allCandles[0]?.time ?? 0;
+    const chartEnd = allCandles.at(-1)?.time ?? Infinity;
+    const validSupportData = trendLines.support?.filter(
+      (p) => p.time >= chartStart && p.time <= chartEnd,
+    ) ?? [];
+    const validResistanceData = trendLines.resistance?.filter(
+      (p) => p.time >= chartStart && p.time <= chartEnd,
+    ) ?? [];
+    supportSeriesRef.current?.setData(toLineData(validSupportData));
+    resistanceSeriesRef.current?.setData(toLineData(validResistanceData));
 
-  useEffect(() => {
     const start = candles[0]?.time;
-    const end = candles[candles.length - 1]?.time;
+    // Extend to the live candle (when present) so the plan lines reach the
+    // actual last bar on screen instead of stopping one bar short of it.
+    const end = allCandles[allCandles.length - 1]?.time;
     // Without a directional plan the entry/stop/targets all collapse onto the
     // last close — drawing them would just clutter the chart.
-    const active = evaluation.risk.direction !== "none";
+    const planActive = evaluation.risk.direction !== "none";
     const setLevel = (series: ISeriesApi<"Line"> | null, value: number) => {
       series?.setData(
-        active && start && end
+        planActive && start && end
           ? [
               { time: start as UTCTimestamp, value },
               { time: end as UTCTimestamp, value },
@@ -614,24 +805,337 @@ function TokenChart({ candles, pivots, trendLines, evaluation }: TokenSignalData
     setLevel(stopSeriesRef.current, evaluation.risk.stop);
     setLevel(target1SeriesRef.current, evaluation.risk.target1);
     setLevel(target2SeriesRef.current, evaluation.risk.target2);
-  }, [candles, evaluation.risk]);
+
+    earliestTimeRef.current = allCandles[0]?.time ?? null;
+    lastTimeRef.current = allCandles.at(-1)?.time ?? null;
+
+    if (isNewDataset || prevRange === null) {
+      appliedKeyRef.current = datasetKey;
+      timeScale.fitContent();
+    } else if (prevLast !== null && (prevRange.to as number) >= prevLast) {
+      // Viewing the newest bar: stay pinned to real time as fresh bars arrive.
+      timeScale.scrollToRealTime();
+    } else {
+      // Panned into history (or older bars just loaded): keep the same window.
+      timeScale.setVisibleRange(prevRange);
+    }
+  }, [candles, symbol, timeframe, source, historyVersion, trendLines, evaluation.risk, liveCandle]);
 
   useEffect(() => {
-    const markers: SeriesMarker<Time>[] = pivots.map((pivot) => ({
-      time: pivot.time as UTCTimestamp,
-      position: pivot.kind === "high" ? "aboveBar" : "belowBar",
-      shape: pivot.kind === "high" ? "arrowDown" : "arrowUp",
-      color: pivot.kind === "high" ? "#f59e0b" : "#22c55e",
-      size: 1,
-    }));
+    const markers: SeriesMarker<Time>[] = hiddenIndicators.pivots
+      ? []
+      : pivots.map((pivot) => ({
+          time: pivot.time as UTCTimestamp,
+          position: pivot.kind === "high" ? "aboveBar" : "belowBar",
+          shape: pivot.kind === "high" ? "arrowDown" : "arrowUp",
+          color: pivot.kind === "high" ? "#f59e0b" : "#22c55e",
+          size: 1,
+        }));
     markerRef.current?.setMarkers(markers);
-  }, [pivots]);
+  }, [pivots, hiddenIndicators.pivots]);
 
-  return <div ref={hostRef} className="h-[360px] w-full sm:h-[400px] lg:h-full" />;
+  useEffect(() => {
+    emaFastSeriesRef.current?.applyOptions({ visible: !hiddenIndicators.emaFast });
+    emaSlowSeriesRef.current?.applyOptions({ visible: !hiddenIndicators.emaSlow });
+    supportSeriesRef.current?.applyOptions({ visible: !hiddenIndicators.support });
+    resistanceSeriesRef.current?.applyOptions({ visible: !hiddenIndicators.resistance });
+    volumeSeriesRef.current?.applyOptions({ visible: !hiddenIndicators.volume });
+    for (const series of [
+      entrySeriesRef.current,
+      stopSeriesRef.current,
+      target1SeriesRef.current,
+      target2SeriesRef.current,
+    ]) {
+      series?.applyOptions({ visible: !hiddenIndicators.plan });
+    }
+  }, [hiddenIndicators]);
+
+  useEffect(() => {
+    // Demand/supply bases first so the trade-plan bands paint on top of them.
+    const zones: PriceZone[] = [];
+    if (!hiddenIndicators.sdZones) zones.push(...baseZonesToPriceZones(baseZones));
+    if (!hiddenIndicators.zones) zones.push(...computeSetupZones(candles, evaluation));
+    zonesPrimitiveRef.current?.setZones(zones);
+  }, [candles, evaluation, baseZones, hiddenIndicators.zones, hiddenIndicators.sdZones]);
+
+  return (
+    <>
+      <div className="relative min-h-0 flex-1">
+        {loadingHistory && (
+          <div className="absolute left-2 top-2 z-10 flex items-center gap-1.5 rounded-md border border-border bg-card/90 px-2 py-1 text-[10px] font-semibold text-muted-foreground">
+            <span className="h-3 w-3 animate-spin rounded-full border border-info border-t-transparent" />
+            Loading older bars…
+          </div>
+        )}
+        <div ref={hostRef} className="h-[360px] w-full sm:h-[400px] lg:h-full" />
+      </div>
+      <ChartLegend
+        hidden={hiddenIndicators}
+        planActive={evaluation.risk.direction !== "none"}
+        zonesActive={hasStrongSetup(evaluation)}
+        sdActive={baseZones.length > 0}
+        onToggle={toggleIndicator}
+      />
+    </>
+  );
+}
+
+// Zones are only drawn when the engine actually wants the trade, not when it
+// merely leans a direction while telling you to wait.
+function hasStrongSetup(evaluation: SignalEvaluation): boolean {
+  return (
+    evaluation.risk.direction !== "none" &&
+    (evaluation.decision === "buy-candidate" || evaluation.decision === "short-candidate")
+  );
+}
+
+function computeSetupZones(
+  candles: TokenSignalData["candles"],
+  evaluation: SignalEvaluation,
+): PriceZone[] {
+  if (!hasStrongSetup(evaluation)) return [];
+  const { risk } = evaluation;
+  const planStart = candles[Math.max(0, candles.length - 10)]?.time;
+  if (planStart === undefined) return [];
+
+  const long = risk.direction === "long";
+  const zones: PriceZone[] = [];
+
+  // Green-red position bands: reward up to target 1, risk down to the stop.
+  zones.push({
+    priceLow: Math.min(risk.entry, risk.target1),
+    priceHigh: Math.max(risk.entry, risk.target1),
+    from: planStart as UTCTimestamp,
+    fill: "rgba(34,197,94,0.10)",
+    border: "rgba(34,197,94,0.28)",
+    label: "REWARD → T1",
+    labelColor: "rgba(34,197,94,0.85)",
+    labelAlign: long ? "top" : "bottom",
+  });
+  zones.push({
+    priceLow: Math.min(risk.entry, risk.stop),
+    priceHigh: Math.max(risk.entry, risk.stop),
+    from: planStart as UTCTimestamp,
+    fill: "rgba(244,63,94,0.10)",
+    border: "rgba(244,63,94,0.28)",
+    label: "RISK → STOP",
+    labelColor: "rgba(244,63,94,0.85)",
+    labelAlign: long ? "bottom" : "top",
+  });
+
+  // Ideal entry zone, straight from the engine's risk plan.
+  zones.push({
+    priceLow: risk.entryLow,
+    priceHigh: risk.entryHigh,
+    from: planStart as UTCTimestamp,
+    fill: "rgba(96,165,250,0.14)",
+    border: "rgba(96,165,250,0.40)",
+    label: long ? "BUY ZONE" : "SELL ZONE",
+    labelColor: "rgba(96,165,250,0.95)",
+    labelAlign: "middle",
+  });
+
+  return zones;
+}
+
+// Detected accumulation/distribution bases. Fresh (untested) zones paint
+// stronger than ones already retested once.
+function baseZonesToPriceZones(zones: BaseZone[]): PriceZone[] {
+  return zones.map((zone) => {
+    const demand = zone.kind === "demand";
+    const fresh = zone.freshness === "fresh";
+    const rgb = demand ? "34,197,94" : "245,158,11";
+    return {
+      priceLow: zone.priceLow,
+      priceHigh: zone.priceHigh,
+      from: zone.startTime as UTCTimestamp,
+      fill: `rgba(${rgb},${fresh ? 0.1 : 0.06})`,
+      border: `rgba(${rgb},${fresh ? 0.3 : 0.16})`,
+      label: `${demand ? "DEMAND" : "SUPPLY"}${fresh ? "" : " · TESTED"}`,
+      labelColor: `rgba(${rgb},${fresh ? 0.85 : 0.55})`,
+      labelAlign: demand ? "top" : "bottom",
+    };
+  });
 }
 
 function toLineData(points: Array<{ time: number; value: number }>): LineData<Time>[] {
   return points.map((point) => ({ time: point.time as UTCTimestamp, value: point.value }));
+}
+
+function lineSwatch(color: string, dashed = false) {
+  return (
+    <span
+      className="h-[2px] w-3.5 shrink-0 rounded-full"
+      style={
+        dashed
+          ? {
+              backgroundImage: `repeating-linear-gradient(90deg, ${color} 0 3px, transparent 3px 5px)`,
+            }
+          : { backgroundColor: color }
+      }
+    />
+  );
+}
+
+const LEGEND_ENTRIES: Array<{ key: IndicatorKey; label: string; hint: string; swatch: ReactNode }> =
+  [
+    {
+      key: "volume",
+      label: "Volume",
+      hint: "Traded volume per bar along the bottom — green when the candle closed up, red when it closed down. Rising volume confirms a move; falling volume questions it.",
+      swatch: (
+        <span className="flex shrink-0 items-end gap-px">
+          <span className="h-1.5 w-[3px] rounded-[1px] bg-[#22c55e]/40" />
+          <span className="h-2.5 w-[3px] rounded-[1px] bg-[#f43f5e]/40" />
+          <span className="h-2 w-[3px] rounded-[1px] bg-[#22c55e]/40" />
+        </span>
+      ),
+    },
+    {
+      key: "emaFast",
+      label: `EMA ${EMA_FAST.length}`,
+      hint: "Exponential moving average of the last 13 closes — the fast momentum curve. Price above it with EMA 13 on top of EMA 21 favors buyers.",
+      swatch: lineSwatch(EMA_FAST.color),
+    },
+    {
+      key: "emaSlow",
+      label: `EMA ${EMA_SLOW.length}`,
+      hint: "Exponential moving average of the last 21 closes — the slower trend curve the fast EMA is measured against.",
+      swatch: lineSwatch(EMA_SLOW.color),
+    },
+    {
+      key: "support",
+      label: "Support",
+      hint: "Dashed green trend line through recent swing lows — the floor buyers have been defending.",
+      swatch: lineSwatch("#22c55e", true),
+    },
+    {
+      key: "resistance",
+      label: "Resistance",
+      hint: "Dashed amber trend line through recent swing highs — the ceiling sellers have been defending.",
+      swatch: lineSwatch("#f59e0b", true),
+    },
+    {
+      key: "pivots",
+      label: "Swing points",
+      hint: "Arrows mark confirmed swing points: amber ▼ above swing highs, green ▲ below swing lows. Trend lines and setups are built from these.",
+      swatch: (
+        <span className="flex shrink-0 items-center gap-0.5 text-[8px] leading-none">
+          <span className="text-[#f59e0b]">▼</span>
+          <span className="text-[#22c55e]">▲</span>
+        </span>
+      ),
+    },
+    {
+      key: "plan",
+      label: "Trade plan",
+      hint: "The active setup's levels: entry (blue), stop (rose), target 1 (solid green), target 2 (dashed green). Shown only while the engine has a directional plan.",
+      swatch: (
+        <span className="flex shrink-0 flex-col gap-[2px]">
+          <span className="h-[2px] w-3.5 rounded-full bg-[#60a5fa]" />
+          <span className="h-[2px] w-3.5 rounded-full bg-[#f43f5e]" />
+          <span className="h-[2px] w-3.5 rounded-full bg-[#22c55e]" />
+        </span>
+      ),
+    },
+    {
+      key: "zones",
+      label: "Trade zones",
+      hint: "Shaded bands drawn only for a strong setup: green = reward to target 1, red = risk to the stop, blue = the buy/sell pocket around entry.",
+      swatch: (
+        <span className="flex shrink-0 flex-col">
+          <span className="h-1.5 w-3.5 rounded-t-[2px] bg-[#22c55e]/30" />
+          <span className="h-1.5 w-3.5 rounded-b-[2px] bg-[#f43f5e]/30" />
+        </span>
+      ),
+    },
+    {
+      key: "sdZones",
+      label: "Demand/Supply",
+      hint: "True demand/supply bases: a tight consolidation followed by an explosive move away. Green = demand (buyers launched from here), amber = supply (sellers did). Bright = fresh and untested; faded = already retested once. Zones price closed through are dropped. Detected on 1H, 4H, 1D and 1W charts, where bases are meaningful.",
+      swatch: (
+        <span className="flex shrink-0 flex-col gap-[2px]">
+          <span className="h-1 w-3.5 rounded-[1px] border border-[#f59e0b]/40 bg-[#f59e0b]/15" />
+          <span className="h-1 w-3.5 rounded-[1px] border border-[#22c55e]/40 bg-[#22c55e]/15" />
+        </span>
+      ),
+    },
+  ];
+
+function ChartLegend({
+  hidden,
+  planActive,
+  zonesActive,
+  sdActive,
+  onToggle,
+}: {
+  hidden: Partial<Record<IndicatorKey, boolean>>;
+  planActive: boolean;
+  zonesActive: boolean;
+  sdActive: boolean;
+  onToggle: (key: IndicatorKey) => void;
+}) {
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-x-1 gap-y-0.5 border-t border-border px-2 py-1.5">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="flex cursor-default items-center gap-1.5 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            <span className="flex shrink-0 items-end gap-0.5">
+              <span className="h-2.5 w-1 rounded-[1px] bg-[#22c55e]" />
+              <span className="h-2 w-1 rounded-[1px] bg-[#f43f5e]" />
+            </span>
+            Candles
+          </span>
+        </TooltipTrigger>
+        <TooltipContent
+          side="top"
+          className="max-w-[240px] bg-popover text-xs leading-relaxed text-popover-foreground shadow-lg"
+        >
+          One bar of price movement — green closed up, red closed down. The wicks show the high and
+          low reached within the bar.
+        </TooltipContent>
+      </Tooltip>
+      {LEGEND_ENTRIES.map((entry) => {
+        if (entry.key === "plan" && !planActive) return null;
+        if (entry.key === "zones" && !zonesActive) return null;
+        if (entry.key === "sdZones" && !sdActive) return null;
+        const isHidden = hidden[entry.key] === true;
+        return (
+          <Tooltip key={entry.key}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => onToggle(entry.key)}
+                aria-pressed={!isHidden}
+                className={cn(
+                  "flex items-center gap-1.5 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors hover:bg-surface",
+                  isHidden ? "opacity-40 grayscale" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {entry.swatch}
+                <span className={cn(isHidden && "line-through")}>{entry.label}</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent
+              side="top"
+              className="max-w-[240px] bg-popover text-xs leading-relaxed text-popover-foreground shadow-lg"
+            >
+              {entry.hint} Click to {isHidden ? "show" : "hide"}.
+            </TooltipContent>
+          </Tooltip>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Chart price-scale decimals for a given price magnitude. */
+function pricePrecision(price: number): number {
+  const abs = Math.abs(price);
+  if (abs >= 100 || abs === 0) return 2;
+  if (abs >= 1) return 3;
+  if (abs >= 0.01) return 5;
+  return Math.min(10, -Math.floor(Math.log10(abs)) + 3);
 }
 
 function computeChange24h(candles: TokenSignalData["candles"]): number {
@@ -651,207 +1155,566 @@ function computeChange24h(candles: TokenSignalData["candles"]): number {
   return Number((((lastCandle.close - base.close) / base.close) * 100).toFixed(2));
 }
 
-function SignalPanel({
-  evaluation,
+function AssistantPanel({
+  symbol,
+  assessments,
+  active,
+  activeIntent,
+  marketOutlook,
+  onSelect,
   className,
 }: {
-  evaluation: SignalEvaluation;
+  symbol: string;
+  assessments: IntentAssessment[];
+  active: IntentAssessment | null;
+  activeIntent: TradingIntent;
+  marketOutlook: string;
+  onSelect: (intent: TradingIntent) => void;
   className?: string;
 }) {
-  const decisionTone =
-    evaluation.decision === "buy-candidate"
-      ? "border-bullish/30 bg-bullish-soft"
-      : evaluation.decision === "short-candidate" || evaluation.decision === "invalidated"
-        ? "border-bearish/30 bg-bearish-soft"
-        : "border-warning/30 bg-warning-soft";
+  const byIntent = new Map(assessments.map((a) => [a.intent, a]));
+  const router = useRouter();
+  const follow = useTrackedSignalsStore((s) => s.follow);
+  const hasOpenSignal = useTrackedSignalsStore((s) => s.hasOpenSignal);
+  const [followDialogOpen, setFollowDialogOpen] = useState(false);
+  const [entryPriceInput, setEntryPriceInput] = useState("");
+
+  const openFollowDialog = () => {
+    if (!active?.plan) return;
+    setEntryPriceInput(String(active.plan.entry));
+    setFollowDialogOpen(true);
+  };
+
+  const confirmFollow = () => {
+    if (!active?.plan || active.direction === "none") return;
+    const entryPrice = Number.parseFloat(entryPriceInput);
+    if (!Number.isFinite(entryPrice) || entryPrice <= 0) {
+      toast.error("Enter a valid entry price.");
+      return;
+    }
+    follow({
+      symbol,
+      intent: active.intent,
+      direction: active.direction,
+      setupType: active.execution.setupType,
+      timeframe: active.definition.executionTimeframe,
+      entryLow: active.plan.entryLow,
+      entryHigh: active.plan.entryHigh,
+      entryPrice,
+      stop: active.plan.stop,
+      target1: active.plan.target1,
+      target2: active.plan.target2,
+      confidenceAtFollow: active.confidence,
+    });
+    setFollowDialogOpen(false);
+    toast(`Now tracking ${symbol}`, {
+      description: `${active.definition.label} ${active.direction} signal added to the tracker at ${formatMoney(entryPrice)}.`,
+      action: {
+        label: "View",
+        onClick: () => router.navigate({ to: "/tracker" }),
+      },
+    });
+  };
 
   return (
-    <IqCard padded={false} className={cn("flex flex-col gap-3.5 p-4", className)}>
+    <IqCard padded={false} className={cn("flex flex-col gap-3 p-3.5", className)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
-            <CardEyebrow>Signal Engine</CardEyebrow>
-            <InfoHint text="The quant engine reads the chart and names the pattern it sees (the 'setup'), the market condition (the 'regime'), and which direction it favors. The score out of 100 is its overall conviction." />
+            <CardEyebrow>Decision Assistant</CardEyebrow>
+            <InfoHint text="One chart, many valid answers. Pick your objective and the assistant tells you whether this market pays it right now, what confirmation is still missing, and which price events would change today's answer." />
           </div>
-          <h2 className="mt-1.5 text-lg font-semibold capitalize leading-tight tracking-tight">
-            {evaluation.setupType.replaceAll("-", " ")}
+          <h2 className="mt-1.5 text-lg font-semibold leading-tight tracking-tight">
+            {active ? active.headline : "Reading all timeframes…"}
           </h2>
-          <p className="mt-0.5 text-xs text-muted-foreground capitalize">
-            {evaluation.regime.replaceAll("-", " ")} · {evaluation.direction}
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {active
+              ? `${active.definition.contextTimeframe} context · ${active.definition.executionTimeframe} trigger · holds ${active.definition.horizon}`
+              : "Evaluating every objective"}
           </p>
         </div>
-        <ConfidenceGauge value={evaluation.confidence} size={60} />
+        {active && <ConfidenceGauge value={active.confidence} size={60} />}
       </div>
 
-      <div data-tour="decision" className={cn("rounded-lg border p-3", decisionTone)}>
-        <div className="flex items-center justify-between gap-3">
-          <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Decision
-            <InfoHint text="The bottom line: act (buy/short candidate) or don't (wait/no trade), with the single most important reason. 'Wait' and 'no trade' are decisions too — most of the time the right trade is none." />
-          </span>
-          <DecisionBadge decision={evaluation.decision} />
-        </div>
-        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{evaluation.reason}</p>
-      </div>
-
-      <div data-tour="risk" className="space-y-1.5">
+      <div data-tour="objective" className="space-y-1.5">
         <div className="flex items-center gap-1.5">
-          <CardEyebrow>Trade Plan</CardEyebrow>
-          <InfoHint text="A complete plan, sized to your account: entry price, stop (where you exit if wrong), two profit targets, position size, and the most you can lose if the stop is hit. Change account size and risk in Settings." />
+          <CardEyebrow>Your Objective</CardEyebrow>
+          <InfoHint text="Each objective is judged on its own timeframe pair. The dot is its verdict at a glance: green/red = favored long/short, amber = tradable at reduced size, blue = wait, grey = stand aside. Selecting one also switches the chart to its trigger timeframe." />
         </div>
-        {evaluation.direction === "none" ? (
-          <p className="rounded-lg border border-border bg-surface p-3 text-xs leading-relaxed text-muted-foreground">
-            No active trade plan — the engine doesn&apos;t see a setup worth acting on right now.
-            Waiting costs nothing; a bad entry does.
-          </p>
-        ) : (
-          <div className="grid grid-cols-2 gap-1.5">
-            <RiskMetric label="Entry" value={formatMoney(evaluation.risk.entry)} />
-            <RiskMetric label="Stop" value={formatMoney(evaluation.risk.stop)} tone="bearish" />
-            <RiskMetric
-              label="Target 1"
-              value={formatMoney(evaluation.risk.target1)}
-              tone="bullish"
-            />
-            <RiskMetric
-              label="Target 2"
-              value={formatMoney(evaluation.risk.target2)}
-              tone="bullish"
-            />
-            <RiskMetric
-              label="Position"
-              value={`${formatUnits(evaluation.risk.positionSize)} ≈ ${formatMoney(evaluation.risk.positionSize * evaluation.risk.entry)}`}
-            />
-            <RiskMetric
-              label="R/R"
-              value={`${evaluation.risk.rewardRisk1}R / ${evaluation.risk.rewardRisk2}R`}
-            />
-            <RiskMetric
-              label="Max loss"
-              value={formatMoney(evaluation.risk.maxDollarLoss)}
-              tone="bearish"
-            />
-            <RiskMetric
-              label="Gain @ T1"
-              value={formatMoney(evaluation.risk.estimatedGain1)}
-              tone="bullish"
-            />
-          </div>
-        )}
-        <SizingNote />
-      </div>
-
-      <div className="space-y-1.5">
-        <div className="flex items-center gap-1.5">
-          <CardEyebrow>Key Levels</CardEyebrow>
-          <InfoHint text="Support is where buyers stepped in before (price floor); resistance is where sellers did (price ceiling). ATR shows how much this token typically moves per bar — bigger ATR means wilder swings." />
-        </div>
-        <div className="grid grid-cols-2 gap-1.5 xl:grid-cols-4">
-          <RiskMetric
-            label="Support"
-            value={formatMoney(evaluation.analytics.support)}
-            tone="bullish"
-            compact
-          />
-          <RiskMetric
-            label="Resistance"
-            value={formatMoney(evaluation.analytics.resistance)}
-            tone="bearish"
-            compact
-          />
-          <RiskMetric
-            label="ATR (14)"
-            value={
-              evaluation.analytics.atrPercent !== null
-                ? `${evaluation.analytics.atrPercent}%`
-                : "n/a"
-            }
-            compact
-          />
-          <RiskMetric
-            label="Vol vs 20-bar"
-            value={
-              evaluation.analytics.volumeRatio !== null
-                ? `${evaluation.analytics.volumeRatio}×`
-                : "n/a"
-            }
-            compact
-          />
+        <div className="grid grid-cols-4 rounded-md border border-border bg-surface p-0.5 text-xs">
+          {INTENTS.map((def) => {
+            const a = byIntent.get(def.intent);
+            return (
+              <button
+                key={def.intent}
+                type="button"
+                onClick={() => onSelect(def.intent)}
+                title={a?.headline ?? `${def.label}: assessing…`}
+                className={cn(
+                  "flex h-10 flex-col items-center justify-center gap-1 rounded px-1 font-semibold transition-colors",
+                  activeIntent === def.intent
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <VerdictDot assessment={a} />
+                {def.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {evaluation.noTradeReasons.length > 0 && (
-        <div className="rounded-lg border border-warning/30 bg-warning-soft p-3 text-xs">
-          <div className="mb-1.5 flex items-center gap-2 font-semibold text-warning">
-            <ShieldAlert className="h-3.5 w-3.5" />
-            No-trade blockers
-          </div>
-          <ul className="space-y-0.5 text-muted-foreground">
-            {evaluation.noTradeReasons.slice(0, 4).map((reason) => (
-              <li key={reason}>{reason}</li>
-            ))}
-          </ul>
+      {!active ? (
+        <div className="space-y-3">
+          <div className="h-28 animate-pulse rounded-lg bg-surface" />
+          <div className="h-40 animate-pulse rounded-lg bg-surface" />
+          <div className="h-28 animate-pulse rounded-lg bg-surface" />
         </div>
+      ) : (
+        <>
+          {marketOutlook && (
+            <div className="rounded-lg border border-border bg-surface p-2.5">
+              <div className="flex items-center gap-1.5">
+                <CardEyebrow>Market Outlook</CardEyebrow>
+                <InfoHint text="The current market story for this token, told before any recommendation: the big picture, the near-term tape, and what that combination rewards. Every verdict below is this narrative applied to one objective." />
+              </div>
+              <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                {marketOutlook}
+              </p>
+            </div>
+          )}
+
+          <div className="rounded-lg border border-border bg-surface p-2.5">
+            <div className="flex items-center gap-1.5">
+              <CardEyebrow>Market Read</CardEyebrow>
+              <InfoHint text="What the two timeframes behind your objective are doing. When they disagree it doesn't mean 'no trade' — it changes which objectives are payable and which should wait." />
+            </div>
+            <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+              <BiasCell
+                label={`${active.definition.contextTimeframe} context`}
+                regime={active.context.regime}
+                bias={active.contextBias}
+              />
+              <BiasCell
+                label={`${active.definition.executionTimeframe} trigger`}
+                regime={active.execution.regime}
+                bias={active.executionBias}
+              />
+            </div>
+          </div>
+
+          <div data-tour="decision" className={cn("rounded-lg border p-2.5", verdictTone(active))}>
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Verdict · {active.definition.label}
+                <InfoHint text="'Not yet', 'reduced size', 'wrong direction', and 'unsuitable market' are all different answers. The badge names which one applies to your objective; the text explains why in plain words." />
+              </span>
+              <VerdictBadge assessment={active} />
+            </div>
+            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{active.summary}</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <CardEyebrow>Confirmation Checklist</CardEyebrow>
+              <InfoHint text="Everything this objective needs before a full-size entry. The unchecked items are what 'not yet' means, concretely. Hover an item for the detail." />
+            </div>
+            <div className="space-y-1">
+              {active.checklist.map((item) => (
+                <Tooltip key={item.label}>
+                  <TooltipTrigger asChild>
+                    <div className="flex cursor-default items-center gap-2 rounded-md border border-border bg-surface px-2 py-1.5">
+                      {item.done ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-bullish" />
+                      ) : (
+                        <CircleAlert className="h-3.5 w-3.5 shrink-0 text-warning" />
+                      )}
+                      <span className="min-w-0 truncate text-[11px] font-semibold">
+                        {item.label}
+                      </span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="top"
+                    className="max-w-[260px] bg-popover text-xs leading-relaxed text-popover-foreground shadow-lg"
+                  >
+                    {item.detail}
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <CardEyebrow>What Changes This Answer</CardEyebrow>
+              <InfoHint text="Concrete price events that would upgrade, downgrade, or flip today's verdict — so you know what to watch for instead of re-reading the chart all day." />
+            </div>
+            <div className="space-y-1">
+              {active.triggers.map((trigger) => (
+                <div
+                  key={trigger}
+                  className="flex items-start gap-2 rounded-md border border-border bg-surface px-2 py-1.5 text-[11px] leading-relaxed text-muted-foreground"
+                >
+                  <Zap className="mt-0.5 h-3 w-3 shrink-0 text-info" />
+                  <span>{trigger}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div data-tour="risk" className="space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <CardEyebrow>Execution Plan · {active.definition.executionTimeframe}</CardEyebrow>
+                <InfoHint text="A complete plan for your objective, sized to your account: entry, stop, two targets, position size, and worst-case loss. Counter-trend verdicts are automatically halved. Change account size and risk in Settings." />
+              </div>
+              {active.plan && active.sizeMultiplier < 1 && (
+                <Badge variant="outline" className="border-warning/30 bg-warning-soft text-warning">
+                  ½ size
+                </Badge>
+              )}
+            </div>
+            {active.plan ? (
+              <>
+                {active.verdict === "wait" && (
+                  <p className="text-[10px] font-semibold leading-relaxed text-warning">
+                    Conditional — execute only once the checklist above completes.
+                  </p>
+                )}
+                <div className="grid grid-cols-2 gap-1.5">
+                  <RiskMetric
+                    label="Entry zone"
+                    value={formatEntryRange(active.plan.entryLow, active.plan.entryHigh)}
+                    compact
+                  />
+                  <RiskMetric
+                    label="Stop"
+                    value={formatMoney(active.plan.stop)}
+                    tone="bearish"
+                    compact
+                  />
+                  <RiskMetric
+                    label="Target 1"
+                    value={formatMoney(active.plan.target1)}
+                    tone="bullish"
+                    compact
+                  />
+                  <RiskMetric
+                    label="Target 2"
+                    value={formatMoney(active.plan.target2)}
+                    tone="bullish"
+                    compact
+                  />
+                  <RiskMetric
+                    label="Position"
+                    value={`${formatUnits(active.plan.positionSize)} ≈ ${formatMoney(active.plan.positionSize * active.plan.entry)}`}
+                    compact
+                  />
+                  <RiskMetric
+                    label="R/R"
+                    value={`${active.plan.rewardRisk1}R / ${active.plan.rewardRisk2}R`}
+                    compact
+                  />
+                  <RiskMetric
+                    label="Max loss"
+                    value={formatMoney(active.plan.maxDollarLoss)}
+                    tone="bearish"
+                    compact
+                  />
+                  <RiskMetric
+                    label="Gain @ T1"
+                    value={formatMoney(active.plan.estimatedGain1)}
+                    tone="bullish"
+                    compact
+                  />
+                </div>
+                <SizingNote multiplier={active.sizeMultiplier} />
+                {(active.verdict === "favored" || active.verdict === "caution") &&
+                  active.direction !== "none" &&
+                  (hasOpenSignal(symbol, active.intent, active.direction) ? (
+                    <Button variant="outline" size="sm" disabled className="w-full gap-1.5 text-xs">
+                      <BookmarkCheck className="h-3.5 w-3.5" />
+                      Following this signal
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full gap-1.5 text-xs"
+                      onClick={openFollowDialog}
+                    >
+                      <Bookmark className="h-3.5 w-3.5" />
+                      Follow this signal
+                    </Button>
+                  ))}
+              </>
+            ) : (
+              <p className="rounded-lg border border-border bg-surface p-2.5 text-xs leading-relaxed text-muted-foreground">
+                {planEmptyMessage(active, assessments)}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <CardEyebrow>Key Levels · {active.definition.executionTimeframe}</CardEyebrow>
+              <InfoHint text="Support is where buyers stepped in before (price floor); resistance is where sellers did (price ceiling). ATR shows how much this token typically moves per bar — bigger ATR means wilder swings." />
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              <LevelStat
+                label="Support"
+                value={formatMoney(active.execution.analytics.support)}
+                tone="bullish"
+              />
+              <LevelStat
+                label="Resistance"
+                value={formatMoney(active.execution.analytics.resistance)}
+                tone="bearish"
+              />
+              <LevelStat
+                label="ATR (14)"
+                value={
+                  active.execution.analytics.atrPercent !== null
+                    ? `${active.execution.analytics.atrPercent}%`
+                    : "n/a"
+                }
+              />
+              <LevelStat
+                label="Vol vs 20-bar"
+                value={
+                  active.execution.analytics.volumeRatio !== null
+                    ? `${active.execution.analytics.volumeRatio}×`
+                    : "n/a"
+                }
+              />
+            </div>
+          </div>
+
+          <div data-tour="backtest">
+            <BacktestEvidence backtest={active.execution.backtest} />
+          </div>
+        </>
       )}
 
-      <div data-tour="backtest">
-        <BacktestEvidence backtest={evaluation.backtest} />
-      </div>
+      <Dialog open={followDialogOpen} onOpenChange={setFollowDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Follow {symbol}</DialogTitle>
+            <DialogDescription>
+              {active &&
+                `Confirm the price you actually entered at — the engine's ideal zone was ${formatEntryRange(active.plan?.entryLow ?? 0, active.plan?.entryHigh ?? 0)}.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <label
+              htmlFor="follow-entry-price"
+              className="text-xs font-medium text-muted-foreground"
+            >
+              Your entry price
+            </label>
+            <Input
+              id="follow-entry-price"
+              type="number"
+              step="any"
+              value={entryPriceInput}
+              onChange={(e) => setEntryPriceInput(e.target.value)}
+              autoFocus
+            />
+          </div>
+          {active?.plan && (
+            <div className="grid grid-cols-3 gap-1.5 text-xs">
+              <RiskMetric
+                label="Stop"
+                value={formatMoney(active.plan.stop)}
+                tone="bearish"
+                compact
+              />
+              <RiskMetric
+                label="Target 1"
+                value={formatMoney(active.plan.target1)}
+                tone="bullish"
+                compact
+              />
+              <RiskMetric
+                label="Target 2"
+                value={formatMoney(active.plan.target2)}
+                tone="bullish"
+                compact
+              />
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setFollowDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmFollow}>Confirm and track</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </IqCard>
   );
 }
 
-function InsightStrip({ evaluation }: { evaluation: SignalEvaluation }) {
+function verdictTone(assessment: IntentAssessment): string {
+  if (assessment.verdict === "favored")
+    return assessment.direction === "short"
+      ? "border-bearish/30 bg-bearish-soft"
+      : "border-bullish/30 bg-bullish-soft";
+  if (assessment.verdict === "caution") return "border-warning/30 bg-warning-soft";
+  if (assessment.verdict === "wait") return "border-info/30 bg-info-soft";
+  return "border-border bg-muted/40";
+}
+
+function VerdictBadge({ assessment }: { assessment: IntentAssessment }) {
+  const { verdict, direction, isCounterTrend } = assessment;
+  // The label must tell the same story as the narrative: a counter-trend
+  // trade is never presented as a plain "long/short favored".
+  const label =
+    verdict === "favored"
+      ? `${direction} favored`
+      : verdict === "caution"
+        ? isCounterTrend
+          ? `counter-trend ${direction} · ½ size`
+          : `tactical ${direction} · ½ size`
+        : verdict === "wait"
+          ? isCounterTrend
+            ? `counter-trend ${direction} · not yet`
+            : "not yet"
+          : "stand aside";
   return (
-    <div className="space-y-2.5">
-      <div className="space-y-1.5">
-        <div className="flex items-center gap-1.5">
-          <CardEyebrow>Key Insight</CardEyebrow>
-          <InfoHint text="The market's current condition translated into plain words — no jargon. This is the context every trade decision should start from." />
-        </div>
-        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-          {keyInsights(evaluation).map((row) => (
-            <KeyInsightBox key={row.label} {...row} />
-          ))}
-        </div>
+    <Badge
+      variant="outline"
+      className={cn(
+        "capitalize",
+        verdict === "favored" &&
+          (direction === "short"
+            ? "border-bearish/30 bg-bearish-soft text-bearish"
+            : "border-bullish/30 bg-bullish-soft text-bullish"),
+        verdict === "caution" && "border-warning/30 bg-warning-soft text-warning",
+        verdict === "wait" && "border-info/30 bg-info-soft text-info",
+        verdict === "avoid" && "border-border bg-muted text-muted-foreground",
+      )}
+    >
+      {label}
+    </Badge>
+  );
+}
+
+function VerdictDot({ assessment }: { assessment: IntentAssessment | undefined }) {
+  return (
+    <span
+      className={cn(
+        "h-1 w-1 rounded-full",
+        !assessment && "bg-muted-foreground/30",
+        assessment?.verdict === "favored" &&
+          (assessment.direction === "short" ? "bg-bearish" : "bg-bullish"),
+        assessment?.verdict === "caution" && "bg-warning",
+        assessment?.verdict === "wait" && "bg-info",
+        assessment?.verdict === "avoid" && "bg-muted-foreground/30",
+      )}
+    />
+  );
+}
+
+function BiasCell({
+  label,
+  regime,
+  bias,
+}: {
+  label: string;
+  regime: MarketRegime;
+  bias: TradeDirection;
+}) {
+  const Icon = bias === "long" ? TrendingUp : bias === "short" ? TrendingDown : MoveRight;
+  return (
+    <div className="rounded-md border border-border bg-card px-2 py-1.5">
+      <div className="text-[9px] font-semibold uppercase leading-tight tracking-wider text-muted-foreground">
+        {label}
       </div>
-      <div className="space-y-1.5">
-        <div className="flex items-center gap-1.5">
-          <CardEyebrow>Components</CardEyebrow>
-          <InfoHint text="Every check the engine ran, with its score contribution. Hover a row to read what the check found. Green passed, amber is a caution, red failed." />
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {evaluation.components.map((component) => (
-            <Tooltip key={component.name}>
-              <TooltipTrigger asChild>
-                <div className="flex cursor-default items-center gap-2 rounded-md border border-border bg-surface px-2 py-1.5">
-                  <StatusIcon status={component.status} />
-                  <span className="whitespace-nowrap text-[11px] font-semibold">
-                    {component.name}
-                  </span>
-                  <StatusBadge status={component.status} score={component.score} />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent
-                side="top"
-                className="max-w-[260px] bg-popover text-xs leading-relaxed text-popover-foreground shadow-lg"
-              >
-                {component.explanation}
-              </TooltipContent>
-            </Tooltip>
-          ))}
-        </div>
+      <div
+        className={cn(
+          "mt-0.5 flex items-center gap-1 truncate text-[11px] font-semibold capitalize",
+          bias === "long" && "text-bullish",
+          bias === "short" && "text-bearish",
+        )}
+      >
+        {regime.replaceAll("-", " ")}
+        <Icon className="h-3 w-3 shrink-0" />
       </div>
     </div>
   );
 }
 
-function SizingNote() {
+// When there is nothing to execute for the chosen objective, say what would
+// pay instead — "no trade" should read as "wrong objective", not "go away".
+function planEmptyMessage(active: IntentAssessment, assessments: IntentAssessment[]): string {
+  const alt = assessments.find(
+    (a) =>
+      a.intent !== active.intent &&
+      (a.verdict === "favored" || a.verdict === "caution") &&
+      a.plan !== null,
+  );
+  const base =
+    active.verdict === "wait"
+      ? "No entry yet — the plan appears the moment the trigger confirms."
+      : "This market doesn't pay your objective right now.";
+  if (alt) {
+    return `${base} If you want action today, the ${alt.definition.label.toLowerCase()} objective has a ${alt.verdict === "caution" ? "reduced-size " : ""}${alt.direction} setup on the ${alt.definition.executionTimeframe}.`;
+  }
+  return `${base} No other objective has a payable setup either — flat is a position.`;
+}
+
+function InsightStrip({ evaluation }: { evaluation: SignalEvaluation }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <CardEyebrow>Key Insight & Components</CardEyebrow>
+        <InfoHint text="The market's current condition in plain words — trend, momentum, volume, volatility — plus every check the engine ran with its score contribution. Hover a check to read what it found. Green passed, amber is a caution, red failed." />
+      </div>
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+        {keyInsights(evaluation).map((row) => (
+          <KeyInsightBox key={row.label} {...row} />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {evaluation.components.map((component) => (
+          <Tooltip key={component.name}>
+            <TooltipTrigger asChild>
+              <div className="flex cursor-default items-center gap-2 rounded-md border border-border bg-surface px-2 py-1.5">
+                <StatusIcon status={component.status} />
+                <span className="whitespace-nowrap text-[11px] font-semibold">
+                  {component.name}
+                </span>
+                <StatusBadge status={component.status} score={component.score} />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent
+              side="top"
+              className="max-w-[260px] bg-popover text-xs leading-relaxed text-popover-foreground shadow-lg"
+            >
+              {component.explanation}
+            </TooltipContent>
+          </Tooltip>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SizingNote({ multiplier = 1 }: { multiplier?: number }) {
   const risk = usePreferencesStore((s) => s.risk);
   return (
     <p className="text-[10px] leading-relaxed text-muted-foreground">
       Sized for a ${risk.accountSize.toLocaleString()} account risking {risk.maxRiskPerTradePercent}
-      % per trade ({risk.stopMethod.replaceAll("-", " ")} stop).{" "}
+      % per trade ({risk.stopMethod.replaceAll("-", " ")} stop).
+      {multiplier < 1 && (
+        <span className="font-semibold text-warning">
+          {" "}
+          Shown at half size — counter-trend for this objective.
+        </span>
+      )}{" "}
       <Link to="/settings" className="font-semibold text-info hover:underline">
         Adjust →
       </Link>
@@ -925,17 +1788,21 @@ function BacktestEvidence({ backtest }: { backtest: SignalEvaluation["backtest"]
   if (backtest.totalTrades === 0) {
     return (
       <div className="rounded-lg border border-border bg-surface p-3 text-xs text-muted-foreground">
-        No historical breakout signals fired in this window — no backtest evidence either way.
+        No historical {backtest.strategyName.toLowerCase()} signals fired in this window — no
+        backtest evidence either way.
       </div>
     );
   }
   const positive = backtest.expectancy > 0;
+  // With too few replayed trades, win rate/expectancy are noise — don't color
+  // them as if they were a verdict, and say so explicitly.
+  const lowSample = backtest.lowSample;
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <CardEyebrow>Backtest Evidence</CardEyebrow>
-          <InfoHint text="A replay of this same signal on this chart's history. Win rate = how often it worked; expectancy = the average result per trade in R (1R = the amount you risk); max DD = the worst losing stretch." />
+          <InfoHint text="A replay of this exact setup type on this chart's history. Win rate = how often it worked; expectancy = the average result per trade in R (1R = the amount you risk); max DD = the worst losing stretch." />
         </div>
         <span className="truncate text-[9px] uppercase tracking-wider text-muted-foreground">
           {backtest.strategyName} · this token, this timeframe
@@ -946,38 +1813,54 @@ function BacktestEvidence({ backtest }: { backtest: SignalEvaluation["backtest"]
         <RiskMetric
           label="Win rate"
           value={`${backtest.winRate}%`}
-          tone={backtest.winRate >= 50 ? "bullish" : "bearish"}
+          tone={lowSample ? undefined : backtest.winRate >= 50 ? "bullish" : "bearish"}
           compact
         />
         <RiskMetric
           label="Expectancy"
           value={`${backtest.expectancy >= 0 ? "+" : ""}${backtest.expectancy}R`}
-          tone={positive ? "bullish" : "bearish"}
+          tone={lowSample ? undefined : positive ? "bullish" : "bearish"}
           compact
         />
         <RiskMetric label="Profit factor" value={String(backtest.profitFactor)} compact />
         <RiskMetric label="Avg R" value={`${backtest.averageR}R`} compact />
         <RiskMetric label="Max DD" value={`${backtest.maxDrawdown}R`} tone="bearish" compact />
       </div>
-      <p className="text-[11px] leading-relaxed text-muted-foreground">
-        {positive
-          ? "Similar breakout signals on this chart carried positive expectancy — historical support for acting when the engine confirms."
-          : "Similar breakout signals on this chart lost money historically — demand extra confirmation before acting."}
-      </p>
+      {lowSample ? (
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          Only {backtest.totalTrades} historical {backtest.strategyName.toLowerCase()} trade
+          {backtest.totalTrades === 1 ? "" : "s"} on this chart — too few to trust as a statistic.
+          Treat this as a hint, not a verdict.
+        </p>
+      ) : (
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          {positive
+            ? `Similar ${backtest.strategyName.toLowerCase()} signals on this chart carried positive expectancy — historical support for acting when the engine confirms.`
+            : `Similar ${backtest.strategyName.toLowerCase()} signals on this chart lost money historically — demand extra confirmation before acting.`}
+        </p>
+      )}
     </div>
   );
 }
+
+const SUGGESTED_PROMPTS = [
+  "Summarize this setup in plain words.",
+  "What would invalidate this setup?",
+  "Critique the risk/reward and position sizing.",
+] as const;
 
 function AiDrawer({
   symbol,
   timeframe,
   evaluation,
+  assessment,
   open,
   onOpenChange,
 }: {
   symbol: string;
   timeframe: TokenTimeframe;
   evaluation: SignalEvaluation;
+  assessment: IntentAssessment | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -991,6 +1874,7 @@ function AiDrawer({
         symbol,
         range: timeframe,
         evaluation,
+        assessment,
         question: ask,
         thinkingMode,
       });
@@ -1003,7 +1887,7 @@ function AiDrawer({
       );
       setQuestion("");
     },
-    [evaluation, symbol, timeframe, thinkingMode],
+    [evaluation, assessment, symbol, timeframe, thinkingMode],
   );
 
   // Collapsed: a slim rail on desktop (the drawer never collapses on mobile,
@@ -1048,9 +1932,11 @@ function AiDrawer({
               type="button"
               onClick={() => onOpenChange(false)}
               aria-label="Collapse AI analyst"
-              className="hidden text-muted-foreground transition-colors hover:text-foreground lg:block"
+              title="Collapse panel"
+              className="hidden items-center gap-1 rounded-md border border-border px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-surface hover:text-foreground lg:flex"
             >
-              <ChevronsRight className="h-4 w-4" />
+              <ChevronsRight className="h-3.5 w-3.5" />
+              Hide
             </button>
           </div>
         </div>
@@ -1064,9 +1950,21 @@ function AiDrawer({
 
           <div className="min-h-[160px] flex-1 overflow-y-auto rounded-lg border border-border bg-surface p-3 lg:min-h-0">
             {chat.length === 0 ? (
-              <div className="flex h-full min-h-[130px] items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Bot className="h-4 w-4" />
-                No memo generated yet.
+              <div className="flex h-full min-h-[130px] flex-col justify-center gap-1.5">
+                <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                  <Bot className="h-4 w-4 text-info" />
+                  Ask the analyst about this setup
+                </div>
+                {SUGGESTED_PROMPTS.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => runAnalysis(prompt)}
+                    className="rounded-md border border-border bg-card px-2.5 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:border-info/40 hover:text-foreground"
+                  >
+                    {prompt}
+                  </button>
+                ))}
               </div>
             ) : (
               <div className="space-y-3">
@@ -1154,17 +2052,21 @@ function deterministicFallback(req: {
   symbol: string;
   range: string;
   evaluation: SignalEvaluation;
+  assessment?: IntentAssessment | null;
   question?: string;
   thinkingMode: boolean;
 }): string {
   const e = req.evaluation;
   const lines = [
-    `### Quant memo: ${e.decision.replaceAll("-", " ")}`,
+    `### Quant memo: ${req.assessment ? req.assessment.headline : e.decision.replaceAll("-", " ")}`,
     ``,
+    ...(req.assessment
+      ? [`- **Your objective (${req.assessment.definition.label}):** ${req.assessment.summary}`]
+      : []),
     `- **Setup:** ${e.setupType.replaceAll("-", " ")}`,
     `- **Regime:** ${e.regime.replaceAll("-", " ")}`,
     `- **Confidence:** ${e.confidence}/100`,
-    `- **Risk plan:** entry \`${e.risk.entry}\`, stop \`${e.risk.stop}\`, target 1 \`${e.risk.target1}\`, target 2 \`${e.risk.target2}\``,
+    `- **Risk plan:** entry zone \`${e.risk.entryLow}–${e.risk.entryHigh}\`, stop \`${e.risk.stop}\`, target 1 \`${e.risk.target1}\`, target 2 \`${e.risk.target2}\``,
     `- **Position:** ${e.risk.positionSize} units, max loss \`${e.risk.maxDollarLoss}\`, target 1 reward \`${e.risk.rewardRisk1}R\``,
   ];
   if (e.noTradeReasons.length) {
@@ -1277,6 +2179,33 @@ function RiskMetric({
   );
 }
 
+function LevelStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: "bullish" | "bearish";
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-2 py-1.5">
+      <span className="text-[9px] font-semibold uppercase leading-tight tracking-wider text-muted-foreground">
+        {label}
+      </span>
+      <span
+        className={cn(
+          "num truncate text-[11px] font-semibold",
+          tone === "bullish" && "text-bullish",
+          tone === "bearish" && "text-bearish",
+        )}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
 function ContextPill({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 rounded-lg border border-border bg-surface p-2">
@@ -1285,24 +2214,6 @@ function ContextPill({ label, value }: { label: string; value: string }) {
       </div>
       <div className="mt-1 truncate text-xs font-semibold capitalize">{value}</div>
     </div>
-  );
-}
-
-function DecisionBadge({ decision }: { decision: SignalEvaluation["decision"] }) {
-  const bullish = decision === "buy-candidate";
-  const bearish = decision === "short-candidate" || decision === "invalidated";
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "capitalize",
-        bullish && "border-bullish/30 bg-bullish-soft text-bullish",
-        bearish && "border-bearish/30 bg-bearish-soft text-bearish",
-        !bullish && !bearish && "border-warning/30 bg-warning-soft text-warning",
-      )}
-    >
-      {decision.replaceAll("-", " ")}
-    </Badge>
   );
 }
 
@@ -1329,19 +2240,4 @@ function StatusIcon({ status }: { status: SignalStatus }) {
   if (status === "fail") return <CircleX className="h-4 w-4 shrink-0 text-bearish" />;
   if (status === "warning") return <CircleAlert className="h-4 w-4 shrink-0 text-warning" />;
   return <CircleAlert className="h-4 w-4 shrink-0 text-muted-foreground" />;
-}
-
-function formatUnits(value: number) {
-  if (!Number.isFinite(value)) return "n/a";
-  if (value >= 100) return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
-  if (value >= 1) return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
-  return value.toLocaleString(undefined, { maximumFractionDigits: 6 });
-}
-
-function formatMoney(value: number | null | undefined) {
-  if (value === null || value === undefined || !Number.isFinite(value)) return "n/a";
-  if (Math.abs(value) >= 1000) {
-    return `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-  }
-  return `$${value.toLocaleString(undefined, { maximumFractionDigits: value >= 10 ? 3 : 5 })}`;
 }

@@ -52,6 +52,9 @@ export interface RiskSettings {
 export interface RiskRewardPlan {
   direction: TradeDirection;
   entry: number;
+  /** Ideal acceptable entry zone (a pullback/rally toward structure), bounded by the stop. */
+  entryLow: number;
+  entryHigh: number;
   stop: number;
   target1: number;
   target2: number;
@@ -98,6 +101,18 @@ export interface BacktestSummary {
   worstTradeR: number;
   consecutiveWins: number;
   consecutiveLosses: number;
+  /** True when totalTrades is too small to trust the stats above. */
+  lowSample: boolean;
+}
+
+/** Below this many replayed trades, win rate/expectancy are noise, not signal. */
+export const MIN_RELIABLE_BACKTEST_TRADES = 10;
+
+function humanizeSetup(setup: SetupType): string {
+  return setup
+    .split("-")
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 export interface SignalEvaluation {
@@ -134,6 +149,21 @@ function isFiniteNumber(value: unknown): value is number {
 function round(value: number, digits = 2): number {
   const scale = 10 ** digits;
   return Math.round(value * scale) / scale;
+}
+
+/**
+ * Round a price with magnitude-aware precision. A fixed 2dp collapses
+ * sub-dollar assets (DOGE ~$0.1, PEPE ~$0.00001) to identical levels,
+ * which destroys the trade plan and risk math.
+ */
+function roundPrice(value: number): number {
+  const abs = Math.abs(value);
+  if (abs === 0 || !Number.isFinite(value)) return value;
+  if (abs >= 100) return round(value, 2);
+  if (abs >= 1) return round(value, 4);
+  if (abs >= 0.01) return round(value, 6);
+  // Below a cent: keep 5 significant digits.
+  return round(value, Math.min(12, -Math.floor(Math.log10(abs)) + 4));
 }
 
 function last<T>(items: T[]): T | null {
@@ -214,18 +244,18 @@ export function analyticsFor(candles: Candle[], pivots: PivotPoint[]): Analytics
   const support = candles.length ? nearestSupport(candles, pivots) : null;
   const resistance = candles.length ? nearestResistance(candles, pivots) : null;
   return {
-    lastClose: round(lastClose),
+    lastClose: roundPrice(lastClose),
     changePercent:
       prev && prev.close !== 0 ? round(((lastClose - prev.close) / prev.close) * 100, 2) : 0,
-    sma20: sma(candles, 20) === null ? null : round(sma(candles, 20) as number),
-    sma50: sma(candles, 50) === null ? null : round(sma(candles, 50) as number),
-    atr14: atr14 === null ? null : round(atr14),
+    sma20: sma(candles, 20) === null ? null : roundPrice(sma(candles, 20) as number),
+    sma50: sma(candles, 50) === null ? null : roundPrice(sma(candles, 50) as number),
+    atr14: atr14 === null ? null : roundPrice(atr14),
     atrPercent: atr14 && lastClose ? round((atr14 / lastClose) * 100, 2) : null,
     avgVolume20: avgVolume20 === null ? null : Math.round(avgVolume20),
     volumeRatio:
       avgVolume20 && current && avgVolume20 > 0 ? round(current.volume / avgVolume20, 2) : null,
-    support: support === null ? null : round(support),
-    resistance: resistance === null ? null : round(resistance),
+    support: support === null ? null : roundPrice(support),
+    resistance: resistance === null ? null : roundPrice(resistance),
     distanceToSupportPercent:
       support && lastClose ? round(((lastClose - support) / lastClose) * 100, 2) : null,
     distanceToResistancePercent:
@@ -304,9 +334,17 @@ export function buildRiskPlan(
   pivots: PivotPoint[],
   direction: TradeDirection,
   settings: RiskSettings = DEFAULT_RISK_SETTINGS,
+  /**
+   * Real-time price to anchor entry/stop/target on. Setup classification stays
+   * gated on the last *closed* bar (so decisions don't flip mid-candle), but an
+   * "entry" the trader can actually act on must be current — otherwise a 4H
+   * plan quotes a close up to 4h stale next to a 15M plan only minutes stale.
+   */
+  livePrice?: number,
 ): RiskRewardPlan {
   const current = last(candles);
-  const entry = current?.close ?? 0;
+  const entry =
+    livePrice && Number.isFinite(livePrice) && livePrice > 0 ? livePrice : (current?.close ?? 0);
   const atr14 = atr(candles, 14) ?? entry * 0.02;
   const support = nearestSupport(candles, pivots) ?? entry - atr14 * 1.5;
   const resistance = nearestResistance(candles, pivots) ?? entry + atr14 * 2;
@@ -323,6 +361,18 @@ export function buildRiskPlan(
       stop = entry * (1 + settings.fixedStopPercent / 100);
     else if (settings.stopMethod === "atr") stop = entry + atr14 * settings.atrStopMultiplier;
     else stop = Math.max(resistance, entry + atr14 * 0.7);
+  }
+
+  // Ideal entry zone: a bounded pullback (long) or rally (short) toward
+  // structure, never worse than just past the stop. Current price is always
+  // one edge — the "still acceptable, but you're paying up" side.
+  const pullback = atr14 * 1.1;
+  let entryLow = entry;
+  let entryHigh = entry;
+  if (direction === "long") {
+    entryLow = Math.min(entry, Math.max(support, entry - pullback, stop + atr14 * 0.1));
+  } else if (direction === "short") {
+    entryHigh = Math.max(entry, Math.min(resistance, entry + pullback, stop - atr14 * 0.1));
   }
 
   const riskPerUnit = direction === "none" ? 0 : Math.abs(entry - stop);
@@ -346,13 +396,15 @@ export function buildRiskPlan(
 
   return {
     direction,
-    entry: round(entry),
-    stop: round(stop),
-    target1: round(target1),
-    target2: round(target2),
-    riskPerUnit: round(riskPerUnit),
-    rewardPerUnit1: round(rewardPerUnit1),
-    rewardPerUnit2: round(rewardPerUnit2),
+    entry: roundPrice(entry),
+    entryLow: roundPrice(entryLow),
+    entryHigh: roundPrice(entryHigh),
+    stop: roundPrice(stop),
+    target1: roundPrice(target1),
+    target2: roundPrice(target2),
+    riskPerUnit: roundPrice(riskPerUnit),
+    rewardPerUnit1: roundPrice(rewardPerUnit1),
+    rewardPerUnit2: roundPrice(rewardPerUnit2),
     rewardRisk1: riskPerUnit > 0 ? round(rewardPerUnit1 / riskPerUnit, 2) : 0,
     rewardRisk2: riskPerUnit > 0 ? round(rewardPerUnit2 / riskPerUnit, 2) : 0,
     maxDollarRisk: round(maxDollarRisk),
@@ -360,12 +412,11 @@ export function buildRiskPlan(
     maxDollarLoss: round(positionSize * riskPerUnit),
     estimatedGain1: round(positionSize * rewardPerUnit1),
     estimatedGain2: round(positionSize * rewardPerUnit2),
-    invalidation: round(stop),
+    invalidation: roundPrice(stop),
   };
 }
 
-function decisionFromSetup(setup: SetupType, regime: MarketRegime): TradeDirection {
-  if (regime === "trending-down" && setup === "lower-high-rejection") return "short";
+function decisionFromSetup(setup: SetupType): TradeDirection {
   if (setup === "failed-breakout" || setup === "lower-high-rejection") return "short";
   if (
     setup === "breakout" ||
@@ -392,13 +443,19 @@ export function evaluateSignal(
   candles: Candle[],
   pivots: PivotPoint[],
   settings: RiskSettings = DEFAULT_RISK_SETTINGS,
+  /** Wider history for the backtest sample; defaults to `candles` when the caller has nothing extra. */
+  backtestCandles: Candle[] = candles,
+  /** Pivots over `backtestCandles`; defaults to `pivots` when the caller has nothing extra. */
+  backtestPivots: PivotPoint[] = pivots,
+  /** Real-time price to anchor the risk plan's entry on; see `buildRiskPlan`. */
+  livePrice?: number,
 ): SignalEvaluation {
   const current = last(candles);
   const analytics = analyticsFor(candles, pivots);
   const regime = classifyRegime(candles);
   const setupType = classifySetup(candles, pivots, regime);
-  const direction = decisionFromSetup(setupType, regime);
-  const risk = buildRiskPlan(candles, pivots, direction, settings);
+  const direction = decisionFromSetup(setupType);
+  const risk = buildRiskPlan(candles, pivots, direction, settings, livePrice);
   const components: SignalComponent[] = [];
   const add = (name: string, status: SignalStatus, score: number, explanation: string) => {
     components.push({ name, status, score, explanation });
@@ -410,15 +467,31 @@ export function evaluateSignal(
       : direction === "short"
         ? regime === "trending-down" || regime === "choppy"
         : false;
+  // Trading straight into a confirmed opposing trend (long in trending-down,
+  // short in trending-up) isn't just "not aligned" — it's the setup a
+  // discretionary trader refuses outright, not one they take at a discount.
+  const againstConfirmedTrend =
+    (direction === "long" && regime === "trending-down") ||
+    (direction === "short" && regime === "trending-up");
   add(
     "Trend alignment",
-    direction === "none" ? "neutral" : trendAligned ? "pass" : "warning",
-    direction === "none" ? 0 : statusScore(trendAligned ? "pass" : "warning", 20, -8),
+    direction === "none"
+      ? "neutral"
+      : trendAligned
+        ? "pass"
+        : againstConfirmedTrend
+          ? "fail"
+          : "warning",
+    direction === "none"
+      ? 0
+      : statusScore(trendAligned ? "pass" : againstConfirmedTrend ? "fail" : "warning", 20, -8),
     direction === "none"
       ? "No directional setup is strong enough to require trend confirmation."
       : trendAligned
         ? `The current regime supports a ${direction} thesis.`
-        : `The current regime does not cleanly support a ${direction} thesis.`,
+        : againstConfirmedTrend
+          ? `This ${direction} setup fights a confirmed ${regime} regime — that's the wrong side of the tape.`
+          : `The current regime does not cleanly support a ${direction} thesis.`,
   );
 
   const volumeOk = (analytics.volumeRatio ?? 0) >= 1.15;
@@ -495,6 +568,8 @@ export function evaluateSignal(
   const noTradeReasons: string[] = [];
   if (setupType === "no-clear-setup") noTradeReasons.push("No clear setup is classified.");
   if (regime === "choppy") noTradeReasons.push("Market regime is choppy/noisy.");
+  if (againstConfirmedTrend)
+    noTradeReasons.push(`Setup direction is against the confirmed ${regime} regime.`);
   if (!rrOk && direction !== "none")
     noTradeReasons.push("Reward/risk is below the configured minimum.");
   if (nearResistance) noTradeReasons.push("Price is too close to resistance for a long trade.");
@@ -538,7 +613,7 @@ export function evaluateSignal(
     reason,
     risk,
     analytics,
-    backtest: runBacktest(candles, settings),
+    backtest: runBacktest(backtestCandles, settings, setupType, backtestPivots),
     strategyVersion: "QuantDeskSignal_v1",
     evaluatedAt: new Date().toISOString(),
   };
@@ -547,36 +622,65 @@ export function evaluateSignal(
 export function runBacktest(
   candles: Candle[],
   settings: RiskSettings = DEFAULT_RISK_SETTINGS,
+  setupType: SetupType = "no-clear-setup",
+  pivots: PivotPoint[] = [],
 ): BacktestSummary {
   const trades: number[] = [];
   let equity = 0;
   let peak = 0;
   let maxDrawdown = 0;
-  for (let i = 55; i < candles.length - 5; i++) {
+  const direction = decisionFromSetup(setupType);
+  for (let i = 55; direction !== "none" && i < candles.length - 5; i++) {
     const window = candles.slice(0, i + 1);
-    const ma20 = sma(window, 20);
-    const ma50 = sma(window, 50);
-    const avgVol = mean(window.slice(-20).map((c) => c.volume));
     const c = candles[i];
-    if (!ma20 || !ma50 || !avgVol) continue;
-    const breakout = c.close > Math.max(...window.slice(-21, -1).map((x) => x.high));
-    if (!breakout || c.close < ma20 || ma20 < ma50 || c.volume < avgVol * 1.1) continue;
-    const risk = atr(window, 14) ?? c.close * 0.02;
-    const stop = c.close - risk * settings.atrStopMultiplier;
-    const target = c.close + risk * Math.max(settings.minimumRewardRisk, 1.8);
+    // A pivot needs future bars to confirm, so a pivot computed over the full
+    // history is only "known" once its own confirmation window has passed —
+    // filtering by time approximates a walk-forward recompute without paying
+    // for prominence-ranked pivot detection on every bar.
+    const windowPivots = pivots.filter((p) => p.time <= c.time);
+    const regime = classifyRegime(window);
+    const setup = classifySetup(window, windowPivots, regime);
+    if (setup !== setupType) continue;
+
+    const atr14 = atr(window, 14) ?? c.close * 0.02;
+    const rr = Math.max(settings.minimumRewardRisk, 1.8);
+    const stop =
+      direction === "long"
+        ? c.close - atr14 * settings.atrStopMultiplier
+        : c.close + atr14 * settings.atrStopMultiplier;
+    const target = direction === "long" ? c.close + atr14 * rr : c.close - atr14 * rr;
+    const riskPerUnit = Math.abs(c.close - stop);
+    if (riskPerUnit <= 0) continue;
+
     let r = 0;
     for (let j = i + 1; j < Math.min(candles.length, i + 11); j++) {
-      if (candles[j].low <= stop) {
-        r = -1;
-        break;
-      }
-      if (candles[j].high >= target) {
-        r = (target - c.close) / (c.close - stop);
-        break;
+      if (direction === "long") {
+        if (candles[j].low <= stop) {
+          r = -1;
+          break;
+        }
+        if (candles[j].high >= target) {
+          r = (target - c.close) / riskPerUnit;
+          break;
+        }
+      } else {
+        if (candles[j].high >= stop) {
+          r = -1;
+          break;
+        }
+        if (candles[j].low <= target) {
+          r = (c.close - target) / riskPerUnit;
+          break;
+        }
       }
     }
-    if (r === 0)
-      r = (candles[Math.min(candles.length - 1, i + 10)].close - c.close) / (c.close - stop);
+    if (r === 0) {
+      const exitClose = candles[Math.min(candles.length - 1, i + 10)].close;
+      r =
+        direction === "long"
+          ? (exitClose - c.close) / riskPerUnit
+          : (c.close - exitClose) / riskPerUnit;
+    }
     trades.push(round(r, 2));
     equity += r;
     peak = Math.max(peak, equity);
@@ -607,8 +711,8 @@ export function runBacktest(
   const grossWin = wins.reduce((sum, r) => sum + r, 0);
   const grossLoss = Math.abs(losses.reduce((sum, r) => sum + r, 0));
   return {
-    strategyName: "Breakout confirmation",
-    strategyVersion: "BreakoutStrategy_v1",
+    strategyName: humanizeSetup(setupType),
+    strategyVersion: "SetupReplay_v1",
     totalTrades: trades.length,
     winRate: round(winRate * 100, 1),
     averageWin: round(averageWin, 2),
@@ -621,5 +725,6 @@ export function runBacktest(
     worstTradeR: round(trades.length ? Math.min(...trades) : 0, 2),
     consecutiveWins: maxCw,
     consecutiveLosses: maxCl,
+    lowSample: trades.length > 0 && trades.length < MIN_RELIABLE_BACKTEST_TRADES,
   };
 }

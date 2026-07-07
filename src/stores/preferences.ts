@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import type { TradingIntent } from "@/lib/engine/intent";
 import type { StopMethod } from "@/lib/engine/quant";
 
 export interface RiskPreferences {
@@ -10,6 +11,18 @@ export interface RiskPreferences {
   stopMethod: StopMethod;
 }
 
+/** Toggleable overlays on the token detail chart. */
+export type ChartIndicatorKey =
+  | "volume"
+  | "emaFast"
+  | "emaSlow"
+  | "support"
+  | "resistance"
+  | "pivots"
+  | "plan"
+  | "zones"
+  | "sdZones";
+
 interface PreferencesState {
   refreshIntervalMs: number;
   activeAsset: string;
@@ -17,12 +30,18 @@ interface PreferencesState {
     regime: boolean;
     rotation: boolean;
     highImpactNews: boolean;
+    highQualitySetup: boolean;
   };
   risk: RiskPreferences;
+  /** The trader's current objective — drives the token-page decision assistant. */
+  tradingIntent: TradingIntent;
+  hiddenChartIndicators: Partial<Record<ChartIndicatorKey, boolean>>;
   setRefreshInterval: (ms: number) => void;
   setActiveAsset: (ticker: string) => void;
   toggleNotification: (key: keyof PreferencesState["notifications"]) => void;
   setRisk: (patch: Partial<RiskPreferences>) => void;
+  setTradingIntent: (intent: TradingIntent) => void;
+  toggleChartIndicator: (key: ChartIndicatorKey) => void;
 }
 
 export const usePreferencesStore = create<PreferencesState>()(
@@ -30,13 +49,15 @@ export const usePreferencesStore = create<PreferencesState>()(
     (set) => ({
       refreshIntervalMs: 30_000,
       activeAsset: "BTC",
-      notifications: { regime: true, rotation: true, highImpactNews: true },
+      notifications: { regime: true, rotation: true, highImpactNews: true, highQualitySetup: true },
       risk: {
         accountSize: 10_000,
         maxRiskPerTradePercent: 0.5,
         minimumRewardRisk: 1.6,
         stopMethod: "swing",
       },
+      tradingIntent: "swing",
+      hiddenChartIndicators: {},
       setRefreshInterval: (ms) => set({ refreshIntervalMs: ms }),
       setActiveAsset: (ticker) => set({ activeAsset: ticker }),
       toggleNotification: (key) =>
@@ -44,6 +65,14 @@ export const usePreferencesStore = create<PreferencesState>()(
           notifications: { ...s.notifications, [key]: !s.notifications[key] },
         })),
       setRisk: (patch) => set((s) => ({ risk: { ...s.risk, ...patch } })),
+      setTradingIntent: (intent) => set({ tradingIntent: intent }),
+      toggleChartIndicator: (key) =>
+        set((s) => ({
+          hiddenChartIndicators: {
+            ...s.hiddenChartIndicators,
+            [key]: !s.hiddenChartIndicators[key],
+          },
+        })),
     }),
     {
       name: "iq-preferences",
@@ -54,6 +83,10 @@ export const usePreferencesStore = create<PreferencesState>()(
           ...stored,
           notifications: { ...current.notifications, ...stored.notifications },
           risk: { ...current.risk, ...stored.risk },
+          hiddenChartIndicators: {
+            ...current.hiddenChartIndicators,
+            ...stored.hiddenChartIndicators,
+          },
         };
       },
     },
