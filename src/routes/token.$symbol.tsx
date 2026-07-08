@@ -438,7 +438,7 @@ function TokenDetailPage() {
                     </div>
                     <span className="text-xs text-muted-foreground">
                       {data.candles.length} {data.source === "live" ? "Binance" : "synthetic"} bars
-                      · {data.pivots.length} pivots
+                      · {data.displayPivots.length} pivots
                     </span>
                   </div>
                   <Badge variant="outline" className="border-info/30 bg-info-soft text-info">
@@ -635,7 +635,7 @@ function TokenChart({
   timeframe,
   market,
   candles,
-  pivots,
+  displayPivots,
   trendLines,
   evaluation,
   source,
@@ -964,7 +964,7 @@ function TokenChart({
   useEffect(() => {
     const markers: SeriesMarker<Time>[] = hiddenIndicators.pivots
       ? []
-      : pivots.map((pivot) => ({
+      : displayPivots.map((pivot) => ({
           time: pivot.time as UTCTimestamp,
           position: pivot.kind === "high" ? "aboveBar" : "belowBar",
           shape: pivot.kind === "high" ? "arrowDown" : "arrowUp",
@@ -972,7 +972,7 @@ function TokenChart({
           size: 1,
         }));
     markerRef.current?.setMarkers(markers);
-  }, [pivots, hiddenIndicators.pivots]);
+  }, [displayPivots, hiddenIndicators.pivots]);
 
   useEffect(() => {
     emaFastSeriesRef.current?.applyOptions({ visible: !hiddenIndicators.emaFast });

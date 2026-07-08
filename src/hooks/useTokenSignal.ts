@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { fetchTimeframeAlignment } from "@/lib/engine/alignment";
-import { computePivots, computeTrendLines } from "@/lib/engine/analysis";
+import { computePivots, computeTrendLines, selectDisplayPivots } from "@/lib/engine/analysis";
 import {
   dropUnclosedCandle,
   fetchBinanceKlines,
@@ -21,6 +21,8 @@ import type { RiskSettings, SignalEvaluation } from "@/lib/engine/quant";
 export interface TokenSignalData {
   candles: Candle[];
   pivots: PivotPoint[];
+  /** Prominence-selected subset for chart markers — engine logic uses `pivots`. */
+  displayPivots: PivotPoint[];
   trendLines: TrendLines;
   evaluation: SignalEvaluation;
   source: "live" | "demo";
@@ -50,6 +52,7 @@ function buildSignalData(
 ): TokenSignalData {
   const ticker = symbol.toUpperCase();
   const pivots = computePivots(candles);
+  const displayPivots = selectDisplayPivots(pivots, candles);
   const trendLines = computeTrendLines(candles, pivots);
   const backtestPivots = computePivots(backtestCandles);
   const evaluation = evaluateSignal(
@@ -62,7 +65,7 @@ function buildSignalData(
     livePrice,
   );
 
-  return { candles, pivots, trendLines, evaluation, source, liveCandle };
+  return { candles, pivots, displayPivots, trendLines, evaluation, source, liveCandle };
 }
 
 export function useTokenSignal(
