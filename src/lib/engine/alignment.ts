@@ -10,6 +10,7 @@ import {
 import { CRYPTO_RISK_SETTINGS } from "./crypto-config";
 import { generateMockCandles, TOKEN_TIMEFRAMES } from "./mock-candles";
 import { evaluateSignal } from "./quant";
+import { computeBaseZones, SD_ZONE_TIMEFRAMES, type BaseZone } from "./zones";
 import type { TokenTimeframe } from "./mock-candles";
 import type { RiskSettings, SignalEvaluation, TradeDecision, TradeDirection } from "./quant";
 
@@ -19,6 +20,12 @@ export interface TimeframeAlignmentEntry {
   decision: TradeDecision;
   /** Full engine output — the intent layer needs the whole evaluation per timeframe. */
   evaluation: SignalEvaluation;
+  /**
+   * Fresh/tested supply-demand base zones on this timeframe (empty on
+   * timeframes too fast to form meaningful bases — see SD_ZONE_TIMEFRAMES).
+   * Feeds location grading + multi-timeframe zone confluence.
+   */
+  zones: BaseZone[];
 }
 
 /** User-adjustable subset of RiskSettings that affects the per-timeframe plans. */
@@ -73,6 +80,7 @@ function evaluateTimeframes(
       direction: evaluation.direction,
       decision: evaluation.decision,
       evaluation,
+      zones: SD_ZONE_TIMEFRAMES.includes(timeframe) ? computeBaseZones(candles) : [],
     };
   });
 }

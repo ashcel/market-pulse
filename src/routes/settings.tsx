@@ -108,6 +108,7 @@ function SettingsPage() {
         <BrowserPermissionRow />
         {(
           [
+            ["triggerAlert", "Verdict trigger hit (a held verdict's level breaks)"],
             ["regime", "Regime change alerts"],
             ["rotation", "Capital rotation shifts"],
             ["highQualitySetup", "High-quality setup found"],

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Trash2, TrendingDown, TrendingUp } from "lucide-react";
 
 import { AssetIcon } from "@/components/iq/asset-icon";
-import { IqCard } from "@/components/iq/iq-card";
+import { IqCard, CardEyebrow } from "@/components/iq/iq-card";
 import { PageHeader } from "@/components/iq/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,22 @@ import {
   type TrackedSignal,
   type TrackedSignalStatus,
 } from "@/lib/engine/tracker";
+import {
+  MIN_SHADOW_RECORD_TRADES,
+  shadowComboStats,
+  summarizeShadowRecord,
+} from "@/lib/engine/shadow";
 import { formatEntryRange, formatMoney } from "@/lib/format";
+import { useShadowSignalsStore } from "@/stores/shadow-signals";
 import { useTrackedSignalsStore } from "@/stores/tracked-signals";
 import { cn } from "@/lib/utils";
+
+function humanize(value: string): string {
+  return value
+    .split("-")
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(" ");
+}
 
 export const Route = createFileRoute("/tracker")({
   head: () => ({
@@ -80,6 +93,12 @@ function TrackerPage() {
         subtitle="Follow a signal from any token's Execution Plan, then watch what actually happens — no backtest hindsight."
       />
 
+      <EngineRecord />
+
+      <div className="flex items-center gap-1.5 pt-1">
+        <CardEyebrow>Signals You Followed</CardEyebrow>
+      </div>
+
       <IqCard className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <StatTile label="Followed" value={String(summary.total)} />
         <StatTile label="Open" value={String(summary.open)} />
@@ -132,6 +151,121 @@ function TrackerPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function EngineRecord() {
+  const signals = useShadowSignalsStore((s) => s.signals);
+  const summary = summarizeShadowRecord(signals);
+  const combos = shadowComboStats(signals);
+
+  return (
+    <IqCard className="space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <CardEyebrow>Engine's Live Record</CardEyebrow>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            Every time the assistant issues a <span className="font-semibold">favored</span> verdict
+            it's auto-recorded here and settled against real candle highs and lows — nothing
+            cherry-picked, no follow required. Combos with a proven losing record get demoted to
+            half-size on the token page.
+          </p>
+        </div>
+      </div>
+
+      {summary.total === 0 ? (
+        <p className="rounded-lg border border-border bg-surface p-3 text-xs text-muted-foreground">
+          No favored verdicts recorded yet. Open a few tokens and the engine starts building its own
+          track record automatically as verdicts fire.
+        </p>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <StatTile label="Calls made" value={String(summary.total)} />
+            <StatTile label="Still open" value={String(summary.open)} />
+            <StatTile
+              label="Win rate"
+              value={summary.closed ? `${summary.winRate}%` : "—"}
+              tone={summary.closed ? (summary.winRate >= 50 ? "bullish" : "bearish") : undefined}
+            />
+            <StatTile
+              label="Avg R (settled)"
+              value={
+                summary.closed ? `${summary.averageR >= 0 ? "+" : ""}${summary.averageR}R` : "—"
+              }
+              tone={summary.closed ? (summary.averageR >= 0 ? "bullish" : "bearish") : undefined}
+            />
+          </div>
+
+          {summary.lowSample && (
+            <p className="text-[11px] text-muted-foreground">
+              Only {summary.closed} settled call{summary.closed === 1 ? "" : "s"} so far — the
+              engine needs {MIN_SHADOW_RECORD_TRADES} per setup/regime combo before it trusts a
+              record enough to demote a verdict.
+            </p>
+          )}
+
+          {combos.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                By setup × regime
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[420px] text-xs">
+                  <thead>
+                    <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground">
+                      <th className="pb-1.5 pr-2 font-semibold">Setup</th>
+                      <th className="pb-1.5 pr-2 font-semibold">Regime</th>
+                      <th className="pb-1.5 pr-2 text-right font-semibold">Settled</th>
+                      <th className="pb-1.5 pr-2 text-right font-semibold">Win</th>
+                      <th className="pb-1.5 text-right font-semibold">Avg R</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {combos.map((combo) => (
+                      <tr
+                        key={`${combo.setupType}|${combo.regime}`}
+                        className="border-t border-border/60"
+                      >
+                        <td className="py-1.5 pr-2 font-medium">
+                          <span className="flex items-center gap-1.5">
+                            {humanize(combo.setupType)}
+                            {combo.demoted && (
+                              <Badge
+                                variant="outline"
+                                className="border-warning/30 bg-warning-soft px-1 py-0 text-[9px] text-warning"
+                              >
+                                demoted
+                              </Badge>
+                            )}
+                          </span>
+                        </td>
+                        <td className="py-1.5 pr-2 text-muted-foreground">
+                          {humanize(combo.regime)}
+                        </td>
+                        <td className="num py-1.5 pr-2 text-right text-muted-foreground">
+                          {combo.closed}
+                        </td>
+                        <td className="num py-1.5 pr-2 text-right">{combo.winRate}%</td>
+                        <td
+                          className={cn(
+                            "num py-1.5 text-right font-semibold",
+                            combo.averageR >= 0 ? "text-bullish" : "text-bearish",
+                          )}
+                        >
+                          {combo.averageR >= 0 ? "+" : ""}
+                          {combo.averageR}R
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </IqCard>
   );
 }
 

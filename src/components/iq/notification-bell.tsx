@@ -65,7 +65,9 @@ export function NotificationBell() {
               <span
                 className={cn(
                   "text-sm font-medium",
-                  event.type === "setup-found" ? "text-bullish" : "text-foreground",
+                  event.type === "setup-found" && "text-bullish",
+                  event.type === "trigger-hit" && "text-info",
+                  event.type !== "setup-found" && event.type !== "trigger-hit" && "text-foreground",
                 )}
               >
                 {event.title}

@@ -10,6 +10,8 @@ import {
 } from "@/lib/engine/binance";
 import { CRYPTO_RISK_SETTINGS } from "@/lib/engine/crypto-config";
 import { generateMockCandles, type TokenTimeframe } from "@/lib/engine/mock-candles";
+import { fetchPerpContext, type PerpRead } from "@/lib/engine/perp";
+import { computeSessionLevels, type SessionLevel } from "@/lib/engine/sessions";
 import { evaluateSignal } from "@/lib/engine/quant";
 import { usePreferencesStore } from "@/stores/preferences";
 import type { TrendLines } from "@/lib/engine/analysis";
@@ -137,6 +139,36 @@ export function useTokenSignal(
         settings,
       );
     },
+  });
+}
+
+// Perp funding + open interest, fetched only in perp mode (spot has neither).
+// Funding settles every 8h and OI is sampled hourly, so this refreshes on a
+// relaxed cadence rather than the fast signal poll — enough to keep the
+// crowding read current without hammering the futures API.
+export function usePerpContext(symbol: string, market: MarketType) {
+  return useQuery<PerpRead | null>({
+    queryKey: ["perp-context", symbol.toUpperCase()],
+    queryFn: () => fetchPerpContext(symbol),
+    enabled: market === "perp",
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+  });
+}
+
+// Asia / London / New York session high-low levels, computed from a week of 1H
+// candles server-side. Independent of the chart's timeframe — these are
+// intraday structure fed to location grading and (soon) drawn as chart levels.
+// Sessions only complete a few times a day, so a relaxed refresh is plenty.
+export function useSessionLevels(symbol: string, market: MarketType) {
+  return useQuery<SessionLevel[]>({
+    queryKey: ["session-levels", symbol.toUpperCase(), market],
+    queryFn: async () => {
+      const candles = await fetchBinanceKlines(symbol, "1H", 168, undefined, market);
+      return candles.length > 0 ? computeSessionLevels(dropUnclosedCandle(candles)) : [];
+    },
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
   });
 }
 

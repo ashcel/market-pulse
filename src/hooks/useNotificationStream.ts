@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "@tanstack/react-router";
-import { toast } from "sonner";
 
 import type { NotificationEvent } from "@/lib/engine/notifications";
+import { presentNotification } from "@/lib/notifications/present";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useNotificationsStore } from "@/stores/notifications";
 
@@ -40,22 +40,11 @@ export function useNotificationStream() {
       const isLive = event.createdAt > connectedAt;
       if (!isLive || !isAllowed(event, prefsRef.current)) return;
 
-      const permission = useNotificationsStore.getState().permission;
-      if (permission === "granted" && document.visibilityState !== "visible") {
-        new Notification(event.title, { body: event.body, tag: event.id });
-        return;
-      }
-
-      toast(event.title, {
-        description: event.body,
-        action: {
-          label: "View",
-          onClick: () =>
-            event.ticker
-              ? router.navigate({ to: "/token/$symbol", params: { symbol: event.ticker } })
-              : router.navigate({ to: "/regime" }),
-        },
-      });
+      presentNotification(event, () =>
+        event.ticker
+          ? router.navigate({ to: "/token/$symbol", params: { symbol: event.ticker } })
+          : router.navigate({ to: "/regime" }),
+      );
     };
 
     source.addEventListener("bias-summary", handle);

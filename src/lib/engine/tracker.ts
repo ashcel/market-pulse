@@ -1,6 +1,9 @@
+import { STEP_SECONDS } from "./mock-candles";
+import type { MarketType } from "./binance";
 import type { TradingIntent } from "./intent";
 import type { TokenTimeframe } from "./mock-candles";
 import type { SetupType, TradeDirection } from "./quant";
+import type { Candle } from "./types";
 
 /** "active" is the only open state — following a signal means you've already entered. */
 export type TrackedSignalStatus = "active" | "target1-hit" | "target2-hit" | "stopped-out";
@@ -17,6 +20,8 @@ export interface TrackedSignal {
   setupType: SetupType;
   /** Execution timeframe the plan was built on. */
   timeframe: TokenTimeframe;
+  /** Binance market the signal priced against; absent on older records (spot). */
+  market?: MarketType;
   /** The engine's ideal entry zone at follow time, kept for reference against the actual entry price. */
   entryLow: number;
   entryHigh: number;
@@ -91,6 +96,101 @@ export function evaluateTrackedSignal(
     };
   }
   return null;
+}
+
+export interface ExitLevels {
+  direction: "long" | "short";
+  entry: number;
+  stop: number;
+  target1: number;
+  target2: number;
+}
+
+export interface ExitEvent {
+  status: "stopped-out" | "target1-hit" | "target2-hit";
+  /** The level that produced the exit (stop or target price). */
+  exitLevel: number;
+  /** Open time (sec) of the bar that touched the level. */
+  barTime: number;
+  resultR: number;
+}
+
+/**
+ * Walks closed bars first-touch-wins using intrabar highs/lows. Within a
+ * single bar the stop is checked first (conservative, same precedence as
+ * `runBacktest`), then target 2, then target 1.
+ */
+export function walkExitLevels(levels: ExitLevels, bars: Candle[]): ExitEvent | null {
+  const long = levels.direction === "long";
+  const riskPerUnit = Math.abs(levels.entry - levels.stop);
+  const resultR = (exit: number) =>
+    riskPerUnit > 0
+      ? round((long ? exit - levels.entry : levels.entry - exit) / riskPerUnit, 2)
+      : 0;
+
+  for (const bar of bars) {
+    if (long ? bar.low <= levels.stop : bar.high >= levels.stop) {
+      return {
+        status: "stopped-out",
+        exitLevel: levels.stop,
+        barTime: bar.time,
+        resultR: resultR(levels.stop),
+      };
+    }
+    if (long ? bar.high >= levels.target2 : bar.low <= levels.target2) {
+      return {
+        status: "target2-hit",
+        exitLevel: levels.target2,
+        barTime: bar.time,
+        resultR: resultR(levels.target2),
+      };
+    }
+    if (long ? bar.high >= levels.target1 : bar.low <= levels.target1) {
+      return {
+        status: "target1-hit",
+        exitLevel: levels.target1,
+        barTime: bar.time,
+        resultR: resultR(levels.target1),
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Catch-up settlement against closed klines: unlike `evaluateTrackedSignal`
+ * (polled last price), this sees intrabar highs/lows, so wicks through a
+ * level between polls are no longer missed. Only bars that opened after the
+ * follow time count — the bar in progress at follow time partially predates
+ * the entry.
+ */
+export function settleTrackedSignalWithCandles(
+  signal: TrackedSignal,
+  closedBars: Candle[],
+): Partial<TrackedSignal> | null {
+  if (isTerminalStatus(signal.status)) return null;
+  const followedAtSec = Date.parse(signal.followedAt) / 1000;
+  if (!Number.isFinite(followedAtSec)) return null;
+
+  const bars = closedBars.filter((c) => c.time > followedAtSec);
+  const exit = walkExitLevels(
+    {
+      direction: signal.direction,
+      entry: signal.entryPrice,
+      stop: signal.stop,
+      target1: signal.target1,
+      target2: signal.target2,
+    },
+    bars,
+  );
+  if (!exit) return null;
+
+  return {
+    status: exit.status,
+    closePrice: exit.exitLevel,
+    closedAt: new Date((exit.barTime + STEP_SECONDS[signal.timeframe]) * 1000).toISOString(),
+    resultR: exit.resultR,
+  };
 }
 
 export interface TrackedSignalSummary {

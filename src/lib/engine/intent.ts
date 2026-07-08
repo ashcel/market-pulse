@@ -1,5 +1,12 @@
+import { gradeLocation, type LocationRead } from "./location";
+import type { PerpRead } from "./perp";
+import type { SessionLevel } from "./sessions";
 import type { TokenTimeframe } from "./mock-candles";
 import type { MarketRegime, RiskRewardPlan, SignalEvaluation, TradeDirection } from "./quant";
+import type { BaseZone } from "./zones";
+
+/** Fresh supply/demand zones per timeframe, for location grading + confluence. */
+export type ZonesByTimeframe = Partial<Record<TokenTimeframe, BaseZone[]>>;
 
 /**
  * The trader's objective. The same chart legitimately produces different
@@ -92,6 +99,8 @@ export interface IntentAssessment {
   execution: SignalEvaluation;
   /** Execution-timeframe plan (size-adjusted), or null when there is nothing to execute. */
   plan: RiskRewardPlan | null;
+  /** Where price sits vs. structure for this direction; null when unavailable or standing aside. */
+  location: LocationRead | null;
 }
 
 function human(value: string): string {
@@ -117,7 +126,7 @@ function fmtPrice(value: number | null | undefined): string {
   return `$${value.toLocaleString("en-US", { maximumSignificantDigits: 5 })}`;
 }
 
-function scalePlan(plan: RiskRewardPlan, multiplier: number): RiskRewardPlan {
+export function scalePlan(plan: RiskRewardPlan, multiplier: number): RiskRewardPlan {
   if (multiplier === 1) return plan;
   const money = (v: number) => Math.round(v * multiplier * 100) / 100;
   return {
@@ -130,11 +139,23 @@ function scalePlan(plan: RiskRewardPlan, multiplier: number): RiskRewardPlan {
   };
 }
 
+/** Short clause describing entry location, for the favored-verdict summary. */
+function locationClause(location: LocationRead): string {
+  if (location.confluence === "multi-timeframe")
+    return "price is sitting on a multi-timeframe supply/demand confluence — the highest-quality entry structure";
+  if (location.confluence === "single-timeframe")
+    return "price is sitting on a fresh supply/demand zone for a tight-stop entry";
+  return location.grade === "at-structure"
+    ? "price is well located against structure for a tight-stop entry"
+    : "price is mid-range but still a workable entry";
+}
+
 function buildChecklist(
   def: IntentDefinition,
   direction: TradeDirection,
   ctx: SignalEvaluation,
   exe: SignalEvaluation,
+  location: LocationRead | null,
 ): IntentChecklistItem[] {
   const ctxBias = timeframeBias(ctx);
   const items: IntentChecklistItem[] = [
@@ -155,6 +176,13 @@ function buildChecklist(
       detail: component.explanation,
     });
   }
+  if (location) {
+    items.push({
+      label: "Price at a good entry location",
+      done: location.grade !== "extended",
+      detail: location.note,
+    });
+  }
   return items;
 }
 
@@ -164,6 +192,7 @@ function buildTriggers(
   isCounterTrend: boolean,
   ctx: SignalEvaluation,
   exe: SignalEvaluation,
+  location: LocationRead | null,
 ): string[] {
   const triggers: string[] = [];
   const a = exe.analytics;
@@ -200,12 +229,22 @@ function buildTriggers(
     );
   }
 
+  // When price is extended, the pullback is the event to watch — surface it first.
+  if (location && location.grade === "extended") {
+    triggers.unshift(
+      `A pullback toward ${fmtPrice(location.pullbackTarget)} would set up a cleaner ${direction} entry and can upgrade this to favored.`,
+    );
+  }
+
   return triggers.slice(0, 3);
 }
 
 export function assessIntent(
   def: IntentDefinition,
   evals: Partial<Record<TokenTimeframe, SignalEvaluation>>,
+  zonesByTimeframe?: ZonesByTimeframe,
+  perp?: PerpRead | null,
+  sessionLevels?: SessionLevel[],
 ): IntentAssessment | null {
   const ctx = evals[def.contextTimeframe];
   const exe = evals[def.executionTimeframe];
@@ -226,6 +265,21 @@ export function assessIntent(
   const exeTf = def.executionTimeframe;
   const ctxTf = def.contextTimeframe;
   const dirWord = direction === "long" ? "Long" : "Short";
+
+  // Where price sits vs. structure for this direction — gates the favored
+  // verdict, sharpened by fresh supply/demand zones and their cross-timeframe
+  // confluence when available.
+  const location = gradeLocation(
+    exe,
+    direction,
+    zonesByTimeframe
+      ? {
+          execution: zonesByTimeframe[def.executionTimeframe] ?? [],
+          context: zonesByTimeframe[def.contextTimeframe] ?? [],
+        }
+      : undefined,
+    sessionLevels,
+  );
 
   let verdict: IntentVerdict;
   let headline: string;
@@ -259,21 +313,63 @@ export function assessIntent(
       headline = `Skip the ${dirWord.toLowerCase()} ${label}`;
       summary = `This would be a weak, unconfirmed trade against the ${ctxTf} trend — the kind that bleeds accounts. Either trade ${ctxBias} with the trend or stand aside.`;
     }
+  } else if (confirmed && location?.grade === "extended") {
+    // Right direction, confirmed trigger — but price has run away from the
+    // structure you'd enter against. That's an entry-location problem, not a
+    // broken thesis, so it's a "wait for a pullback", not a "favored".
+    verdict = "wait";
+    headline = `${dirWord} ${label} — wait for a pullback`;
+    summary = `${ctxTf} trend and ${exeTf} trigger agree on a ${direction} ${label}, but ${location.note} Right idea, wrong price — let price come back to structure before committing.`;
   } else if (confirmed) {
     verdict = "favored";
     headline = `${dirWord} ${label} favored`;
-    summary = `${ctxTf} trend and ${exeTf} trigger agree, and the ${exeTf} setup is confirmed (${human(exe.setupType)}). Conditions currently pay this objective — execute the plan below.`;
+    summary = `${ctxTf} trend and ${exeTf} trigger agree, the ${exeTf} setup is confirmed (${human(exe.setupType)}), and ${location ? locationClause(location) : "the plan below is ready"}. Conditions currently pay this objective — execute the plan below.`;
   } else {
     verdict = "wait";
     headline = `${dirWord} ${label} — wait for the trigger`;
     summary = `Direction is right, but the ${exeTf} trigger isn't confirmed yet. "Not yet" — the unchecked confirmations below are exactly what's missing.`;
   }
 
-  const sizeMultiplier = isCounterTrend ? 0.5 : 1;
+  // Perp positioning overlay: funding says which side is crowded, and joining
+  // the crowd means buying into squeeze risk. When funding is with your
+  // direction we caution (extreme funding downgrades a favored call to a
+  // trimmed caution); when the crowd is offside, the squeeze runs your way —
+  // noted as a tailwind but never used to upgrade.
+  let crowdedTrim = false;
+  if (perp && direction !== "none" && perp.fundingBias !== "neutral") {
+    const crowdedWithYou =
+      (direction === "long" && perp.fundingBias === "longs-crowded") ||
+      (direction === "short" && perp.fundingBias === "shorts-crowded");
+    const apr = `${perp.fundingAnnualizedPct > 0 ? "+" : ""}${perp.fundingAnnualizedPct.toFixed(0)}% APR`;
+    if (crowdedWithYou && perp.fundingExtreme && verdict === "favored") {
+      verdict = "caution";
+      crowdedTrim = true;
+      headline = `${dirWord} ${label} — crowded, trim size`;
+      summary = `${summary} But funding is extreme with the crowd already ${direction} (${apr}): you'd be joining a crowded ${direction} into squeeze risk, so take it smaller with a tighter leash.`;
+    } else if (crowdedWithYou) {
+      summary = `${summary} Heads-up: funding leans ${direction} (${apr}), so positioning is a little crowded on your side — don't chase.`;
+    } else {
+      summary = `${summary} Tailwind: the crowd is offside (${apr}), and a squeeze would run in your favor.`;
+    }
+  }
+
+  const sizeMultiplier = isCounterTrend || crowdedTrim ? 0.5 : 1;
   const plan =
     verdict !== "avoid" && direction !== "none" && exe.risk.direction === direction
       ? scalePlan(exe.risk, sizeMultiplier)
       : null;
+
+  const checklist = buildChecklist(def, direction, ctx, exe, location);
+  if (perp && direction !== "none" && perp.fundingBias !== "neutral") {
+    const crowdedWithYou =
+      (direction === "long" && perp.fundingBias === "longs-crowded") ||
+      (direction === "short" && perp.fundingBias === "shorts-crowded");
+    checklist.push({
+      label: "Funding not crowded against the trade",
+      done: !crowdedWithYou,
+      detail: perp.note,
+    });
+  }
 
   return {
     intent: def.intent,
@@ -284,23 +380,27 @@ export function assessIntent(
     sizeMultiplier,
     headline,
     summary,
-    checklist: buildChecklist(def, direction, ctx, exe),
-    triggers: buildTriggers(def, direction, isCounterTrend, ctx, exe),
+    checklist,
+    triggers: buildTriggers(def, direction, isCounterTrend, ctx, exe, location),
     confidence: exe.confidence,
     contextBias: ctxBias,
     executionBias: exeBias,
     context: ctx,
     execution: exe,
     plan,
+    location,
   };
 }
 
 export function assessIntents(
   evals: Partial<Record<TokenTimeframe, SignalEvaluation>>,
+  zonesByTimeframe?: ZonesByTimeframe,
+  perp?: PerpRead | null,
+  sessionLevels?: SessionLevel[],
 ): IntentAssessment[] {
-  return INTENTS.map((def) => assessIntent(def, evals)).filter(
-    (a): a is IntentAssessment => a !== null,
-  );
+  return INTENTS.map((def) =>
+    assessIntent(def, evals, zonesByTimeframe, perp, sessionLevels),
+  ).filter((a): a is IntentAssessment => a !== null);
 }
 
 // ---------------------------------------------------------------------------

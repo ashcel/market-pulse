@@ -9,6 +9,8 @@ interface TrackedSignalsState {
   signals: TrackedSignal[];
   follow: (input: FollowInput) => void;
   applyPriceUpdate: (id: string, latestPrice: number) => void;
+  /** Merges a kline-based settlement patch (see settleTrackedSignalWithCandles). */
+  applySettlement: (id: string, patch: Partial<TrackedSignal>) => void;
   remove: (id: string) => void;
   hasOpenSignal: (
     symbol: string,
@@ -42,6 +44,10 @@ export const useTrackedSignalsStore = create<TrackedSignalsState>()(
           signals: s.signals.map((item) => (item.id === id ? { ...item, ...patch } : item)),
         }));
       },
+      applySettlement: (id, patch) =>
+        set((s) => ({
+          signals: s.signals.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+        })),
       remove: (id) => set((s) => ({ signals: s.signals.filter((item) => item.id !== id) })),
       hasOpenSignal: (symbol, intent, direction) =>
         get().signals.some(

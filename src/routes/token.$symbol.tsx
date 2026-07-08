@@ -14,6 +14,7 @@ import type {
   CandlestickData,
   HistogramData,
   IChartApi,
+  IPriceLine,
   ISeriesApi,
   ISeriesMarkersPluginApi,
   LineData,
@@ -23,19 +24,24 @@ import type {
   UTCTimestamp,
 } from "lightweight-charts";
 import {
+  Activity,
   Bookmark,
   BookmarkCheck,
   Bot,
   Brain,
   CheckCircle2,
-  ChevronsLeft,
-  ChevronsRight,
   CircleAlert,
   CircleHelp,
   CircleX,
+  History,
+  Layers,
+  Lock,
   MoveRight,
   Play,
+  Scale,
   Send,
+  ShieldAlert,
+  ShieldCheck,
   TrendingDown,
   TrendingUp,
   Zap,
@@ -69,22 +75,30 @@ import {
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLivePrice } from "@/hooks/useLivePrice";
 import {
+  usePerpContext,
+  useSessionLevels,
   useTimeframeAlignment,
   useTokenSignal,
   type TokenSignalData,
 } from "@/hooks/useTokenSignal";
+import type { PerpRead } from "@/lib/engine/perp";
+import type { SessionLevel } from "@/lib/engine/sessions";
 import type { TradeDirection } from "@/lib/engine/quant";
 import {
-  assessIntents,
   describeMarketOutlook,
   INTENTS,
   type IntentAssessment,
   type TradingIntent,
+  type ZonesByTimeframe,
 } from "@/lib/engine/intent";
+import { useReconciledAssessments } from "@/hooks/useReconciledAssessments";
+import type { DisplayIntentAssessment } from "@/lib/engine/hysteresis";
 import { computeEmaSeries } from "@/lib/engine/analysis";
 import { fetchBinanceKlines, type MarketType } from "@/lib/engine/binance";
 import type { Candle } from "@/lib/engine/types";
@@ -160,6 +174,15 @@ const TIMEFRAMES: readonly TokenTimeframe[] = TOKEN_TIMEFRAMES;
 const EMA_FAST = { length: 13, color: "#38bdf8" };
 const EMA_SLOW = { length: 21, color: "#a78bfa" };
 
+// Session H/L lines are only meaningful on intraday charts; on daily/weekly
+// they'd just clutter far below/above the visible action.
+const SESSION_LINE_TIMEFRAMES: readonly TokenTimeframe[] = ["15M", "30M", "1H", "4H"];
+const SESSION_LINE_COLORS: Record<string, string> = {
+  asia: "#f472b6", // pink
+  eu: "#2dd4bf", // teal
+  us: "#fb923c", // orange
+};
+
 const TOUR_SEEN_KEY = "iq-token-tour-v2";
 
 const TOUR_STEPS: TourStep[] = [
@@ -209,13 +232,13 @@ function TokenDetailPage() {
   const { symbol: rawSymbol } = Route.useParams();
   const symbol = rawSymbol.toUpperCase();
   const [timeframe, setTimeframe] = useState<TokenTimeframe>("4H");
-  const [aiOpen, setAiOpen] = useState(true);
-  useEffect(() => {
-    // Small desktops: the three-column grid is cramped, so start the AI rail collapsed.
-    if (window.matchMedia("(min-width: 1024px) and (max-width: 1439px)").matches) {
-      setAiOpen(false);
-    }
-  }, []);
+  // The AI analyst is now an on-demand drawer, closed by default so the page
+  // stays focused on the decision itself.
+  const [aiOpen, setAiOpen] = useState(false);
+  // The decision panel is organized into tabs that follow the trader's flow
+  // (Should I? → Why? → Where? → Risk? → Evidence). Controlled so the product
+  // tour can jump to the tab a step lives in.
+  const [activeTab, setActiveTab] = useState("decision");
   const tour = useProductTour(TOUR_SEEN_KEY);
   const tradingIntent = usePreferencesStore((s) => s.tradingIntent);
   const setTradingIntent = usePreferencesStore((s) => s.setTradingIntent);
@@ -223,6 +246,10 @@ function TokenDetailPage() {
   const setMarketType = usePreferencesStore((s) => s.setMarketType);
   const signal = useTokenSignal(symbol, timeframe, marketType);
   const alignment = useTimeframeAlignment(symbol, marketType);
+  const perpQuery = usePerpContext(symbol, marketType);
+  const perp = marketType === "perp" ? (perpQuery.data ?? null) : null;
+  const sessionQuery = useSessionLevels(symbol, marketType);
+  const sessionLevels = useMemo(() => sessionQuery.data ?? [], [sessionQuery.data]);
   const biasByTimeframe = new Map(
     alignment.data?.map((entry) => [entry.timeframe, entry.direction]) ?? [],
   );
@@ -237,7 +264,20 @@ function TokenDetailPage() {
     for (const entry of alignment.data ?? []) evals[entry.timeframe] = entry.evaluation;
     return evals;
   }, [alignment.data]);
-  const assessments = useMemo(() => assessIntents(evalsByTimeframe), [evalsByTimeframe]);
+  const zonesByTimeframe = useMemo(() => {
+    const zones: ZonesByTimeframe = {};
+    for (const entry of alignment.data ?? []) zones[entry.timeframe] = entry.zones;
+    return zones;
+  }, [alignment.data]);
+  const assessments = useReconciledAssessments(
+    symbol,
+    marketType,
+    evalsByTimeframe,
+    zonesByTimeframe,
+    perp,
+    sessionLevels,
+    !!alignment.data,
+  );
   const activeAssessment = assessments.find((a) => a.intent === tradingIntent) ?? null;
   const marketOutlook = useMemo(() => describeMarketOutlook(evalsByTimeframe), [evalsByTimeframe]);
   const data = signal.data;
@@ -383,7 +423,7 @@ function TokenDetailPage() {
         </div>
       ) : (
         <TooltipProvider delayDuration={150}>
-          <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,25rem)_auto]">
+          <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(340px,27rem)]">
             <div className="flex min-h-0 flex-col gap-3">
               <IqCard
                 padded={false}
@@ -407,12 +447,14 @@ function TokenDetailPage() {
                   </Badge>
                 </div>
                 <div className="flex min-h-0 flex-1 flex-col lg:min-h-[240px]">
-                  <TokenChart {...data} symbol={symbol} timeframe={timeframe} market={marketType} />
+                  <TokenChart
+                    {...data}
+                    symbol={symbol}
+                    timeframe={timeframe}
+                    market={marketType}
+                    sessionLevels={sessionLevels}
+                  />
                 </div>
-              </IqCard>
-
-              <IqCard padded={false} data-tour="insight" className="shrink-0 p-3">
-                <InsightStrip evaluation={data.evaluation} />
               </IqCard>
             </div>
 
@@ -422,20 +464,39 @@ function TokenDetailPage() {
               active={activeAssessment}
               activeIntent={tradingIntent}
               marketOutlook={marketOutlook}
+              perp={perp}
+              sessionLevels={sessionLevels}
+              price={lastClose}
               onSelect={setTradingIntent}
-              className="lg:h-full lg:min-h-0 lg:overflow-y-auto"
-            />
-
-            <AiDrawer
-              symbol={symbol}
-              timeframe={timeframe}
-              evaluation={data.evaluation}
-              assessment={activeAssessment}
-              chartStructure={chartStructure}
-              open={aiOpen}
-              onOpenChange={setAiOpen}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              className="lg:h-full lg:min-h-0"
             />
           </div>
+
+          {/* AI analyst: on-demand, opened from the floating button below. Kept
+              mounted so the chat history survives closing/reopening the drawer. */}
+          <AiDrawer
+            symbol={symbol}
+            timeframe={timeframe}
+            evaluation={data.evaluation}
+            assessment={activeAssessment}
+            chartStructure={chartStructure}
+            open={aiOpen}
+            onOpenChange={setAiOpen}
+          />
+          {!aiOpen && (
+            <button
+              type="button"
+              data-tour="ai"
+              onClick={() => setAiOpen(true)}
+              aria-label="Open AI analyst"
+              className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            >
+              <Bot className="h-5 w-5" />
+              <span className="hidden sm:inline">Ask AI</span>
+            </button>
+          )}
 
           <div className="hidden shrink-0 items-center justify-between rounded-lg border border-border bg-card px-4 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground lg:flex">
             <div className="flex items-center gap-2">
@@ -475,7 +536,21 @@ function TokenDetailPage() {
         open={tour.open && !signal.isLoading}
         onClose={tour.close}
         onStepChange={(target) => {
-          if (target === "ai") setAiOpen(true);
+          if (target === "ai") {
+            setAiOpen(true);
+            return;
+          }
+          // Each tour step lives on a specific tab — surface it before the
+          // spotlight measures the target (ProductTour re-measures after 120ms).
+          const tabForTarget: Record<string, string> = {
+            objective: "decision",
+            decision: "decision",
+            risk: "plan",
+            backtest: "evidence",
+            insight: "details",
+          };
+          const tab = tabForTarget[target];
+          if (tab) setActiveTab(tab);
         }}
       />
     </div>
@@ -565,7 +640,13 @@ function TokenChart({
   evaluation,
   source,
   liveCandle,
-}: TokenSignalData & { symbol: string; timeframe: TokenTimeframe; market: MarketType }) {
+  sessionLevels,
+}: TokenSignalData & {
+  symbol: string;
+  timeframe: TokenTimeframe;
+  market: MarketType;
+  sessionLevels: SessionLevel[];
+}) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -917,6 +998,52 @@ function TokenChart({
     zonesPrimitiveRef.current?.setZones(zones);
   }, [candles, evaluation, baseZones, hiddenIndicators.zones, hiddenIndicators.sdZones]);
 
+  // Session high/low levels drawn as labeled horizontal price lines. Rebuilt
+  // whenever the levels, timeframe, or visibility toggle change; skipped on
+  // higher timeframes where they'd sit far off-screen.
+  useEffect(() => {
+    const series = candleSeriesRef.current;
+    if (!series || hiddenIndicators.sessions || !SESSION_LINE_TIMEFRAMES.includes(timeframe)) {
+      return;
+    }
+
+    const lines: IPriceLine[] = [];
+    for (const level of sessionLevels) {
+      const color = SESSION_LINE_COLORS[level.session] ?? "#94a3b8";
+      const add = (price: number, suffix: string) => {
+        // A non-finite price would make lightweight-charts throw "Value is
+        // null" on its next repaint — never hand it one.
+        if (!Number.isFinite(price)) return;
+        lines.push(
+          series.createPriceLine({
+            price,
+            color,
+            lineWidth: 1,
+            lineStyle: LineStyle.Dotted,
+            axisLabelVisible: true,
+            title: `${level.label} ${suffix}`,
+          }),
+        );
+      };
+      add(level.high, "H");
+      add(level.low, "L");
+    }
+
+    // Remove on the next re-run and on unmount, scoped to THIS effect's series
+    // so we never hand one series a price line created on another (a disposed
+    // series' line → lightweight-charts "Value is null" on repaint). Guard the
+    // teardown in case the chart was already removed first.
+    return () => {
+      for (const line of lines) {
+        try {
+          series.removePriceLine(line);
+        } catch {
+          /* series already disposed by chart teardown */
+        }
+      }
+    };
+  }, [sessionLevels, timeframe, hiddenIndicators.sessions]);
+
   return (
     <>
       <div className="relative min-h-0 flex-1">
@@ -933,6 +1060,7 @@ function TokenChart({
         planActive={evaluation.risk.direction !== "none"}
         zonesActive={hasStrongSetup(evaluation)}
         sdActive={baseZones.length > 0}
+        sessionsActive={sessionLevels.length > 0 && SESSION_LINE_TIMEFRAMES.includes(timeframe)}
         onToggle={toggleIndicator}
       />
     </>
@@ -1119,6 +1247,18 @@ const LEGEND_ENTRIES: Array<{ key: IndicatorKey; label: string; hint: string; sw
         </span>
       ),
     },
+    {
+      key: "sessions",
+      label: "Session H/L",
+      hint: "The high and low of the most recent completed Asia (pink), London (teal) and New York (orange) session, drawn as dotted levels. Yesterday's session extremes are the intraday levels traders lean on. Shown on 15M–4H charts, where they're in range.",
+      swatch: (
+        <span className="flex shrink-0 flex-col gap-[2px]">
+          <span className="h-[2px] w-3.5 rounded-full bg-[#f472b6]" />
+          <span className="h-[2px] w-3.5 rounded-full bg-[#2dd4bf]" />
+          <span className="h-[2px] w-3.5 rounded-full bg-[#fb923c]" />
+        </span>
+      ),
+    },
   ];
 
 function ChartLegend({
@@ -1126,12 +1266,14 @@ function ChartLegend({
   planActive,
   zonesActive,
   sdActive,
+  sessionsActive,
   onToggle,
 }: {
   hidden: Partial<Record<IndicatorKey, boolean>>;
   planActive: boolean;
   zonesActive: boolean;
   sdActive: boolean;
+  sessionsActive: boolean;
   onToggle: (key: IndicatorKey) => void;
 }) {
   return (
@@ -1158,6 +1300,7 @@ function ChartLegend({
         if (entry.key === "plan" && !planActive) return null;
         if (entry.key === "zones" && !zonesActive) return null;
         if (entry.key === "sdZones" && !sdActive) return null;
+        if (entry.key === "sessions" && !sessionsActive) return null;
         const isHidden = hidden[entry.key] === true;
         return (
           <Tooltip key={entry.key}>
@@ -1220,15 +1363,25 @@ function AssistantPanel({
   active,
   activeIntent,
   marketOutlook,
+  perp,
+  sessionLevels,
+  price,
   onSelect,
+  activeTab,
+  onTabChange,
   className,
 }: {
   symbol: string;
-  assessments: IntentAssessment[];
-  active: IntentAssessment | null;
+  assessments: DisplayIntentAssessment[];
+  active: DisplayIntentAssessment | null;
   activeIntent: TradingIntent;
   marketOutlook: string;
+  perp: PerpRead | null;
+  sessionLevels: SessionLevel[];
+  price: number;
   onSelect: (intent: TradingIntent) => void;
+  activeTab: string;
+  onTabChange: (tab: string) => void;
   className?: string;
 }) {
   const byIntent = new Map(assessments.map((a) => [a.intent, a]));
@@ -1260,6 +1413,7 @@ function AssistantPanel({
       direction: active.direction,
       setupType: active.execution.setupType,
       timeframe: active.definition.executionTimeframe,
+      market: marketType,
       entryLow: active.plan.entryLow,
       entryHigh: active.plan.entryHigh,
       entryPrice,
@@ -1279,31 +1433,16 @@ function AssistantPanel({
   };
 
   return (
-    <IqCard padded={false} className={cn("flex flex-col gap-3 p-3.5", className)}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <CardEyebrow>Decision Assistant</CardEyebrow>
-            <InfoHint text="One chart, many valid answers. Pick your objective and the assistant tells you whether this market pays it right now, what confirmation is still missing, and which price events would change today's answer." />
-          </div>
-          <h2 className="mt-1.5 text-lg font-semibold leading-tight tracking-tight">
-            {active ? active.headline : "Reading all timeframes…"}
-          </h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {active
-              ? `${active.definition.contextTimeframe} context · ${active.definition.executionTimeframe} trigger · holds ${active.definition.horizon}`
-              : "Evaluating every objective"}
-          </p>
-        </div>
-        {active && <ConfidenceGauge value={active.confidence} size={60} />}
-      </div>
-
-      <div data-tour="objective" className="space-y-1.5">
+    <IqCard padded={false} className={cn("flex min-h-0 flex-col p-0", className)}>
+      <div className="shrink-0 space-y-2.5 border-b border-border p-3">
         <div className="flex items-center gap-1.5">
-          <CardEyebrow>Your Objective</CardEyebrow>
-          <InfoHint text="Each objective is judged on its own timeframe pair. The dot is its verdict at a glance: green/red = favored long/short, amber = tradable at reduced size, blue = wait, grey = stand aside. Selecting one also switches the chart to its trigger timeframe." />
+          <CardEyebrow>Decision Assistant</CardEyebrow>
+          <InfoHint text="One chart, many valid answers. Pick your objective and the assistant tells you whether this market pays it right now, what confirmation is still missing, and which price events would change today's answer." />
         </div>
-        <div className="grid grid-cols-4 rounded-md border border-border bg-surface p-0.5 text-xs">
+        <div
+          data-tour="objective"
+          className="grid grid-cols-4 rounded-md border border-border bg-surface p-0.5 text-xs"
+        >
           {INTENTS.map((def) => {
             const a = byIntent.get(def.intent);
             return (
@@ -1328,239 +1467,396 @@ function AssistantPanel({
       </div>
 
       {!active ? (
-        <div className="space-y-3">
+        <div className="space-y-3 p-3">
           <div className="h-28 animate-pulse rounded-lg bg-surface" />
           <div className="h-40 animate-pulse rounded-lg bg-surface" />
           <div className="h-28 animate-pulse rounded-lg bg-surface" />
         </div>
       ) : (
-        <>
-          {marketOutlook && (
-            <div className="rounded-lg border border-border bg-surface p-2.5">
-              <div className="flex items-center gap-1.5">
-                <CardEyebrow>Market Outlook</CardEyebrow>
-                <InfoHint text="The current market story for this token, told before any recommendation: the big picture, the near-term tape, and what that combination rewards. Every verdict below is this narrative applied to one objective." />
-              </div>
-              <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                {marketOutlook}
-              </p>
-            </div>
-          )}
+        <Tabs
+          value={activeTab}
+          onValueChange={onTabChange}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <TabsList className="flex h-auto w-full shrink-0 justify-start gap-0.5 overflow-x-auto rounded-none border-b border-border bg-transparent p-1.5">
+            {(
+              [
+                ["decision", "Decision"],
+                ["why", "Why"],
+                ["plan", "Plan"],
+                ["entry", "Entry"],
+                ["context", "Context"],
+                ["evidence", "Evidence"],
+                ["details", "Details"],
+              ] as const
+            ).map(([value, label]) => (
+              <TabsTrigger key={value} value={value} className="shrink-0 px-2.5 py-1 text-[11px]">
+                {label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
-          <div className="rounded-lg border border-border bg-surface p-2.5">
-            <div className="flex items-center gap-1.5">
-              <CardEyebrow>Market Read</CardEyebrow>
-              <InfoHint text="What the two timeframes behind your objective are doing. When they disagree it doesn't mean 'no trade' — it changes which objectives are payable and which should wait." />
-            </div>
-            <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-              <BiasCell
-                label={`${active.definition.contextTimeframe} context`}
-                regime={active.context.regime}
-                bias={active.contextBias}
-              />
-              <BiasCell
-                label={`${active.definition.executionTimeframe} trigger`}
-                regime={active.execution.regime}
-                bias={active.executionBias}
-              />
-            </div>
-          </div>
-
-          <div data-tour="decision" className={cn("rounded-lg border p-2.5", verdictTone(active))}>
-            <div className="flex items-center justify-between gap-3">
-              <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Verdict · {active.definition.label}
-                <InfoHint text="'Not yet', 'reduced size', 'wrong direction', and 'unsuitable market' are all different answers. The badge names which one applies to your objective; the text explains why in plain words." />
-              </span>
-              <VerdictBadge assessment={active} />
-            </div>
-            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{active.summary}</p>
-          </div>
-
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5">
-              <CardEyebrow>Confirmation Checklist</CardEyebrow>
-              <InfoHint text="Everything this objective needs before a full-size entry. The unchecked items are what 'not yet' means, concretely. Hover an item for the detail." />
-            </div>
-            <div className="space-y-1">
-              {active.checklist.map((item) => (
-                <Tooltip key={item.label}>
-                  <TooltipTrigger asChild>
-                    <div className="flex cursor-default items-center gap-2 rounded-md border border-border bg-surface px-2 py-1.5">
-                      {item.done ? (
-                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-bullish" />
-                      ) : (
-                        <CircleAlert className="h-3.5 w-3.5 shrink-0 text-warning" />
-                      )}
-                      <span className="min-w-0 truncate text-[11px] font-semibold">
-                        {item.label}
-                      </span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="top"
-                    className="max-w-[260px] bg-popover text-xs leading-relaxed text-popover-foreground shadow-lg"
-                  >
-                    {item.detail}
-                  </TooltipContent>
-                </Tooltip>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5">
-              <CardEyebrow>What Changes This Answer</CardEyebrow>
-              <InfoHint text="Concrete price events that would upgrade, downgrade, or flip today's verdict — so you know what to watch for instead of re-reading the chart all day." />
-            </div>
-            <div className="space-y-1">
-              {active.triggers.map((trigger) => (
-                <div
-                  key={trigger}
-                  className="flex items-start gap-2 rounded-md border border-border bg-surface px-2 py-1.5 text-[11px] leading-relaxed text-muted-foreground"
-                >
-                  <Zap className="mt-0.5 h-3 w-3 shrink-0 text-info" />
-                  <span>{trigger}</span>
+          <div className="min-h-0 flex-1 overflow-y-auto p-3">
+            {/* 1 — SHOULD I TRADE? The verdict, up front. */}
+            <TabsContent value="decision" className="mt-0 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="text-lg font-semibold leading-tight tracking-tight">
+                    {active.headline}
+                  </h2>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {`${active.definition.contextTimeframe} context · ${active.definition.executionTimeframe} trigger · holds ${active.definition.horizon}`}
+                  </p>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div data-tour="risk" className="space-y-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5">
-                <CardEyebrow>Execution Plan · {active.definition.executionTimeframe}</CardEyebrow>
-                <InfoHint text="A complete plan for your objective, sized to your account: entry, stop, two targets, position size, and worst-case loss. Counter-trend verdicts are automatically halved. Change account size and risk in Settings." />
+                <ConfidenceGauge value={active.confidence} size={60} />
               </div>
-              {active.plan && active.sizeMultiplier < 1 && (
-                <Badge variant="outline" className="border-warning/30 bg-warning-soft text-warning">
-                  ½ size
-                </Badge>
+
+              <div
+                data-tour="decision"
+                className={cn("rounded-lg border p-2.5", verdictTone(active))}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Verdict · {active.definition.label}
+                    <InfoHint text="'Not yet', 'reduced size', 'wrong direction', and 'unsuitable market' are all different answers. The badge names which one applies to your objective; the text explains why in plain words." />
+                  </span>
+                  <VerdictBadge assessment={active} />
+                </div>
+                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                  {active.summary}
+                </p>
+                <HoldNote hold={active.hold} />
+              </div>
+
+              {marketOutlook && (
+                <div className="rounded-lg border border-border bg-surface p-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <CardEyebrow>Market Outlook</CardEyebrow>
+                    <InfoHint text="The current market story for this token, told before any recommendation: the big picture, the near-term tape, and what that combination rewards. Every verdict below is this narrative applied to one objective." />
+                  </div>
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                    {marketOutlook}
+                  </p>
+                </div>
               )}
-            </div>
-            {active.plan ? (
-              <>
-                {active.verdict === "wait" && (
-                  <p className="text-[10px] font-semibold leading-relaxed text-warning">
-                    Conditional — execute only once the checklist above completes.
+            </TabsContent>
+
+            {/* 2 — WHY? Reasoning + what would change the verdict. */}
+            <TabsContent value="why" className="mt-0 space-y-3">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5">
+                  <CardEyebrow>Confirmation Checklist</CardEyebrow>
+                  <InfoHint text="Everything this objective needs before a full-size entry. The unchecked items are what 'not yet' means, concretely. Hover an item for the detail." />
+                </div>
+                <div className="space-y-1">
+                  {active.checklist.map((item) => (
+                    <Tooltip key={item.label}>
+                      <TooltipTrigger asChild>
+                        <div className="flex cursor-default items-center gap-2 rounded-md border border-border bg-surface px-2 py-1.5">
+                          {item.done ? (
+                            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-bullish" />
+                          ) : (
+                            <CircleAlert className="h-3.5 w-3.5 shrink-0 text-warning" />
+                          )}
+                          <span className="min-w-0 truncate text-[11px] font-semibold">
+                            {item.label}
+                          </span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent
+                        side="top"
+                        className="max-w-[260px] bg-popover text-xs leading-relaxed text-popover-foreground shadow-lg"
+                      >
+                        {item.detail}
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5">
+                  <CardEyebrow>What Changes This Answer</CardEyebrow>
+                  <InfoHint text="Concrete price events that would upgrade, downgrade, or flip today's verdict — so you know what to watch for instead of re-reading the chart all day." />
+                </div>
+                <div className="space-y-1">
+                  {active.triggers.map((trigger) => (
+                    <div
+                      key={trigger}
+                      className="flex items-start gap-2 rounded-md border border-border bg-surface px-2 py-1.5 text-[11px] leading-relaxed text-muted-foreground"
+                    >
+                      <Zap className="mt-0.5 h-3 w-3 shrink-0 text-info" />
+                      <span>{trigger}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* 3 — RISK? The execution plan and sizing. */}
+            <TabsContent value="plan" className="mt-0">
+              <div data-tour="risk" className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <CardEyebrow>
+                      Execution Plan · {active.definition.executionTimeframe}
+                    </CardEyebrow>
+                    <InfoHint text="A complete plan for your objective, sized to your account: entry, stop, two targets, position size, and worst-case loss. Counter-trend verdicts are automatically halved. Change account size and risk in Settings." />
+                  </div>
+                  {active.plan && active.sizeMultiplier < 1 && (
+                    <Badge
+                      variant="outline"
+                      className="border-warning/30 bg-warning-soft text-warning"
+                    >
+                      ½ size
+                    </Badge>
+                  )}
+                </div>
+                {active.plan ? (
+                  <>
+                    {active.verdict === "wait" && (
+                      <p className="text-[10px] font-semibold leading-relaxed text-warning">
+                        Conditional — execute only once the checklist above completes.
+                      </p>
+                    )}
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <RiskMetric
+                        label="Entry zone"
+                        value={formatEntryRange(active.plan.entryLow, active.plan.entryHigh)}
+                        compact
+                      />
+                      <RiskMetric
+                        label="Stop"
+                        value={formatMoney(active.plan.stop)}
+                        tone="bearish"
+                        compact
+                      />
+                      <RiskMetric
+                        label="Target 1"
+                        value={formatMoney(active.plan.target1)}
+                        tone="bullish"
+                        compact
+                      />
+                      <RiskMetric
+                        label="Target 2"
+                        value={formatMoney(active.plan.target2)}
+                        tone="bullish"
+                        compact
+                      />
+                      <RiskMetric
+                        label="Position"
+                        value={`${formatUnits(active.plan.positionSize)} ≈ ${formatMoney(active.plan.positionSize * active.plan.entry)}`}
+                        compact
+                      />
+                      <RiskMetric
+                        label="R/R"
+                        value={`${active.plan.rewardRisk1}R / ${active.plan.rewardRisk2}R`}
+                        compact
+                      />
+                      <RiskMetric
+                        label="Max loss"
+                        value={formatMoney(active.plan.maxDollarLoss)}
+                        tone="bearish"
+                        compact
+                      />
+                      <RiskMetric
+                        label="Gain @ T1"
+                        value={formatMoney(active.plan.estimatedGain1)}
+                        tone="bullish"
+                        compact
+                      />
+                    </div>
+                    {marketType === "perp" && (
+                      <>
+                        <PerpLeverage
+                          plan={active.plan}
+                          leverage={leverage}
+                          onLeverage={setLeverage}
+                        />
+                        <LiquidationCheck plan={active.plan} leverage={leverage} />
+                      </>
+                    )}
+                    <SizingNote multiplier={active.sizeMultiplier} />
+                    {(active.verdict === "favored" || active.verdict === "caution") &&
+                      active.direction !== "none" &&
+                      (hasOpenSignal(symbol, active.intent, active.direction) ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled
+                          className="w-full gap-1.5 text-xs"
+                        >
+                          <BookmarkCheck className="h-3.5 w-3.5" />
+                          Following this signal
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full gap-1.5 text-xs"
+                          onClick={openFollowDialog}
+                        >
+                          <Bookmark className="h-3.5 w-3.5" />
+                          Follow this signal
+                        </Button>
+                      ))}
+                  </>
+                ) : (
+                  <p className="rounded-lg border border-border bg-surface p-2.5 text-xs leading-relaxed text-muted-foreground">
+                    {planEmptyMessage(active, assessments)}
                   </p>
                 )}
+              </div>
+            </TabsContent>
+
+            {/* 4 — WHERE? Entry location, structure, sessions, confluence. */}
+            <TabsContent value="entry" className="mt-0 space-y-3">
+              {active.location && (
+                <LocationRow
+                  location={active.location}
+                  support={active.execution.analytics.support}
+                  resistance={active.execution.analytics.resistance}
+                />
+              )}
+
+              {sessionLevels.length > 0 && price > 0 && (
+                <SessionLevelsCard levels={sessionLevels} price={price} />
+              )}
+
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5">
+                  <CardEyebrow>
+                    Support & Resistance · {active.definition.executionTimeframe}
+                  </CardEyebrow>
+                  <InfoHint text="Support is where buyers stepped in before (price floor); resistance is where sellers did (price ceiling). A long is best entered near support, a short near resistance." />
+                </div>
                 <div className="grid grid-cols-2 gap-1.5">
-                  <RiskMetric
-                    label="Entry zone"
-                    value={formatEntryRange(active.plan.entryLow, active.plan.entryHigh)}
-                    compact
+                  <LevelStat
+                    label="Support"
+                    value={formatMoney(active.execution.analytics.support)}
+                    tone="bullish"
                   />
-                  <RiskMetric
-                    label="Stop"
-                    value={formatMoney(active.plan.stop)}
+                  <LevelStat
+                    label="Resistance"
+                    value={formatMoney(active.execution.analytics.resistance)}
                     tone="bearish"
-                    compact
-                  />
-                  <RiskMetric
-                    label="Target 1"
-                    value={formatMoney(active.plan.target1)}
-                    tone="bullish"
-                    compact
-                  />
-                  <RiskMetric
-                    label="Target 2"
-                    value={formatMoney(active.plan.target2)}
-                    tone="bullish"
-                    compact
-                  />
-                  <RiskMetric
-                    label="Position"
-                    value={`${formatUnits(active.plan.positionSize)} ≈ ${formatMoney(active.plan.positionSize * active.plan.entry)}`}
-                    compact
-                  />
-                  <RiskMetric
-                    label="R/R"
-                    value={`${active.plan.rewardRisk1}R / ${active.plan.rewardRisk2}R`}
-                    compact
-                  />
-                  <RiskMetric
-                    label="Max loss"
-                    value={formatMoney(active.plan.maxDollarLoss)}
-                    tone="bearish"
-                    compact
-                  />
-                  <RiskMetric
-                    label="Gain @ T1"
-                    value={formatMoney(active.plan.estimatedGain1)}
-                    tone="bullish"
-                    compact
                   />
                 </div>
-                {marketType === "perp" && (
-                  <PerpLeverage plan={active.plan} leverage={leverage} onLeverage={setLeverage} />
-                )}
-                <SizingNote multiplier={active.sizeMultiplier} />
-                {(active.verdict === "favored" || active.verdict === "caution") &&
-                  active.direction !== "none" &&
-                  (hasOpenSignal(symbol, active.intent, active.direction) ? (
-                    <Button variant="outline" size="sm" disabled className="w-full gap-1.5 text-xs">
-                      <BookmarkCheck className="h-3.5 w-3.5" />
-                      Following this signal
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full gap-1.5 text-xs"
-                      onClick={openFollowDialog}
-                    >
-                      <Bookmark className="h-3.5 w-3.5" />
-                      Follow this signal
-                    </Button>
+              </div>
+            </TabsContent>
+
+            {/* 5 — MARKET CONTEXT: regime, funding/OI, volatility. */}
+            <TabsContent value="context" className="mt-0 space-y-3">
+              <div className="rounded-lg border border-border bg-surface p-2.5">
+                <div className="flex items-center gap-1.5">
+                  <CardEyebrow>Market Read</CardEyebrow>
+                  <InfoHint text="What the two timeframes behind your objective are doing. When they disagree it doesn't mean 'no trade' — it changes which objectives are payable and which should wait." />
+                </div>
+                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                  <BiasCell
+                    label={`${active.definition.contextTimeframe} context`}
+                    regime={active.context.regime}
+                    bias={active.contextBias}
+                  />
+                  <BiasCell
+                    label={`${active.definition.executionTimeframe} trigger`}
+                    regime={active.execution.regime}
+                    bias={active.executionBias}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5">
+                  <CardEyebrow>Conditions · {active.definition.executionTimeframe}</CardEyebrow>
+                  <InfoHint text="The market's current condition in plain words — trend, momentum, volume, volatility — with the exact ATR and volume readings below. Bigger ATR means wilder swings." />
+                </div>
+                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                  {keyInsights(active.execution).map((row) => (
+                    <KeyInsightBox key={row.label} {...row} />
                   ))}
-              </>
-            ) : (
-              <p className="rounded-lg border border-border bg-surface p-2.5 text-xs leading-relaxed text-muted-foreground">
-                {planEmptyMessage(active, assessments)}
-              </p>
-            )}
-          </div>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <LevelStat
+                    label="ATR (14)"
+                    value={
+                      active.execution.analytics.atrPercent !== null
+                        ? `${active.execution.analytics.atrPercent}%`
+                        : "n/a"
+                    }
+                  />
+                  <LevelStat
+                    label="Vol vs 20-bar"
+                    value={
+                      active.execution.analytics.volumeRatio !== null
+                        ? `${active.execution.analytics.volumeRatio}×`
+                        : "n/a"
+                    }
+                  />
+                </div>
+              </div>
 
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5">
-              <CardEyebrow>Key Levels · {active.definition.executionTimeframe}</CardEyebrow>
-              <InfoHint text="Support is where buyers stepped in before (price floor); resistance is where sellers did (price ceiling). ATR shows how much this token typically moves per bar — bigger ATR means wilder swings." />
-            </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              <LevelStat
-                label="Support"
-                value={formatMoney(active.execution.analytics.support)}
-                tone="bullish"
-              />
-              <LevelStat
-                label="Resistance"
-                value={formatMoney(active.execution.analytics.resistance)}
-                tone="bearish"
-              />
-              <LevelStat
-                label="ATR (14)"
-                value={
-                  active.execution.analytics.atrPercent !== null
-                    ? `${active.execution.analytics.atrPercent}%`
-                    : "n/a"
-                }
-              />
-              <LevelStat
-                label="Vol vs 20-bar"
-                value={
-                  active.execution.analytics.volumeRatio !== null
-                    ? `${active.execution.analytics.volumeRatio}×`
-                    : "n/a"
-                }
-              />
-            </div>
-          </div>
+              {perp && <PerpContextCard perp={perp} />}
+            </TabsContent>
 
-          <div data-tour="backtest">
-            <BacktestEvidence backtest={active.execution.backtest} />
+            {/* 6 — EVIDENCE: backtest + the engine's live record. */}
+            <TabsContent value="evidence" className="mt-0 space-y-3">
+              <div data-tour="backtest">
+                <BacktestEvidence backtest={active.execution.backtest} />
+              </div>
+
+              {active.record && (
+                <div
+                  className={cn(
+                    "flex items-start gap-2 rounded-lg border p-2.5 text-[11px] leading-relaxed",
+                    active.record.demoted
+                      ? "border-warning/30 bg-warning-soft text-warning"
+                      : "border-border bg-surface text-muted-foreground",
+                  )}
+                >
+                  <History className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <div>
+                    <span className="text-[9px] font-semibold uppercase tracking-wider">
+                      Engine's live record
+                    </span>
+                    <p className="mt-0.5">{active.record.note}</p>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+
+            {/* 7 — DETAILS: the engine's scored checks. */}
+            <TabsContent value="details" className="mt-0">
+              <div data-tour="insight" className="space-y-1.5">
+                <div className="flex items-center gap-1.5">
+                  <CardEyebrow>Engine Checks · {active.definition.executionTimeframe}</CardEyebrow>
+                  <InfoHint text="Every check the engine ran with its score contribution. Hover a check to read what it found. Green passed, amber is a caution, red failed." />
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {active.execution.components.map((component) => (
+                    <Tooltip key={component.name}>
+                      <TooltipTrigger asChild>
+                        <div className="flex cursor-default items-center gap-2 rounded-md border border-border bg-surface px-2 py-1.5">
+                          <StatusIcon status={component.status} />
+                          <span className="whitespace-nowrap text-[11px] font-semibold">
+                            {component.name}
+                          </span>
+                          <StatusBadge status={component.status} score={component.score} />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent
+                        side="top"
+                        className="max-w-[260px] bg-popover text-xs leading-relaxed text-popover-foreground shadow-lg"
+                      >
+                        {component.explanation}
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
           </div>
-        </>
+        </Tabs>
       )}
 
       <Dialog open={followDialogOpen} onOpenChange={setFollowDialogOpen}>
@@ -1619,6 +1915,219 @@ function AssistantPanel({
         </DialogContent>
       </Dialog>
     </IqCard>
+  );
+}
+
+function formatHeldFor(heldAt: string): string {
+  const ms = Date.now() - Date.parse(heldAt);
+  if (!Number.isFinite(ms) || ms < 0) return "just now";
+  const mins = Math.floor(ms / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
+function HoldNote({ hold }: { hold: DisplayIntentAssessment["hold"] }) {
+  if (hold.isHeld) {
+    return (
+      <div className="mt-1.5 flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
+        <Lock className="h-3 w-3 shrink-0" />
+        <span>
+          Verdict held {formatHeldFor(hold.heldAt)} — it stands until a trigger below fires, so it
+          won't flicker between refreshes.
+        </span>
+      </div>
+    );
+  }
+  if (hold.adoptedBecause) {
+    return (
+      <div className="mt-1.5 flex items-start gap-1.5 text-[10px] font-medium text-info">
+        <MoveRight className="mt-0.5 h-3 w-3 shrink-0" />
+        <span>Updated: {hold.adoptedBecause}</span>
+      </div>
+    );
+  }
+  return null;
+}
+
+function SessionLevelsCard({ levels, price }: { levels: SessionLevel[]; price: number }) {
+  // The single high/low across all sessions that price is currently nearest —
+  // the level most likely to act as immediate support/resistance.
+  let nearestKey = "";
+  let nearestDist = Infinity;
+  for (const l of levels) {
+    for (const kind of ["high", "low"] as const) {
+      const p = kind === "high" ? l.high : l.low;
+      const d = Math.abs(p - price);
+      if (d < nearestDist) {
+        nearestDist = d;
+        nearestKey = `${l.session}-${kind}`;
+      }
+    }
+  }
+
+  const pill = (session: string, kind: "high" | "low", value: number) => {
+    const deltaPct = ((value - price) / price) * 100;
+    const highlight = nearestKey === `${session}-${kind}`;
+    return (
+      <div
+        className={cn(
+          "flex flex-1 items-baseline justify-between rounded-md border px-2 py-1",
+          highlight
+            ? "border-info/40 bg-info-soft text-info"
+            : "border-border bg-card text-muted-foreground",
+        )}
+      >
+        <span className="text-[9px] font-semibold uppercase tracking-wider">
+          {kind === "high" ? "H" : "L"}
+        </span>
+        <span className="num text-[11px] font-semibold">{formatMoney(value)}</span>
+        <span className="num text-[9px]">
+          {deltaPct >= 0 ? "+" : ""}
+          {deltaPct.toFixed(1)}%
+        </span>
+      </div>
+    );
+  };
+
+  return (
+    <div className="rounded-lg border border-border bg-surface p-2.5">
+      <div className="flex items-center gap-1.5">
+        <CardEyebrow>Session Levels</CardEyebrow>
+        <InfoHint text="The high and low each trading region (Asia, London, New York) printed in its most recent completed session. Yesterday's session extremes are the intraday levels traders lean on — reclaiming a session high or holding a session low is a structure event. The level price is nearest is highlighted; the verdict's entry-location read counts a session level you're holding as structure." />
+      </div>
+      <div className="mt-2 space-y-1">
+        {levels.map((l) => (
+          <div key={l.session} className="flex items-center gap-1.5">
+            <span className="w-16 shrink-0 text-[10px] font-semibold text-foreground">
+              {l.label}
+            </span>
+            {pill(l.session, "high", l.high)}
+            {pill(l.session, "low", l.low)}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PerpContextCard({ perp }: { perp: PerpRead }) {
+  const fundingTone =
+    perp.fundingBias === "neutral"
+      ? "border-border bg-muted text-muted-foreground"
+      : perp.fundingExtreme
+        ? "border-bearish/30 bg-bearish-soft text-bearish"
+        : "border-warning/30 bg-warning-soft text-warning";
+  const fundingLabel =
+    perp.fundingBias === "longs-crowded"
+      ? "Longs crowded"
+      : perp.fundingBias === "shorts-crowded"
+        ? "Shorts crowded"
+        : "Balanced";
+  const apr = `${perp.fundingAnnualizedPct > 0 ? "+" : ""}${perp.fundingAnnualizedPct.toFixed(0)}%`;
+  const oiTone =
+    perp.oiTrend === "rising"
+      ? "text-info"
+      : perp.oiTrend === "falling"
+        ? "text-muted-foreground"
+        : "text-foreground";
+  const oiChange = `${perp.oiChangePct > 0 ? "+" : ""}${perp.oiChangePct.toFixed(1)}%`;
+
+  return (
+    <div className="rounded-lg border border-border bg-surface p-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <CardEyebrow>Perp Positioning</CardEyebrow>
+          <InfoHint text="Funding + open interest — what perp traders check first. Positive funding means longs are paying to hold (crowded long, flush risk); negative means shorts are paying (crowded short, squeeze risk). Rising open interest means fresh money is behind the move; falling means positions are being closed. The verdict trims size when funding is extreme with the crowd already on your side." />
+        </div>
+        <Badge variant="outline" className={cn("shrink-0", fundingTone)}>
+          {fundingLabel}
+        </Badge>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-1.5">
+        <div className="rounded-md border border-border bg-card px-2 py-1.5">
+          <div className="flex items-center gap-1 text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+            <Scale className="h-3 w-3" />
+            Funding · 8h
+          </div>
+          <div className="num mt-0.5 text-sm font-semibold text-foreground">
+            {(perp.fundingRate * 100).toFixed(4)}%
+          </div>
+          <div className="text-[10px] text-muted-foreground">{apr} annualized</div>
+        </div>
+        <div className="rounded-md border border-border bg-card px-2 py-1.5">
+          <div className="flex items-center gap-1 text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+            <Activity className="h-3 w-3" />
+            Open interest
+          </div>
+          <div className="num mt-0.5 text-sm font-semibold text-foreground">
+            {perp.openInterestValue > 0 ? `$${formatCompact(perp.openInterestValue)}` : "—"}
+          </div>
+          <div className={cn("text-[10px] font-medium", oiTone)}>{oiChange} · 24h</div>
+        </div>
+      </div>
+      <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">{perp.note}</p>
+    </div>
+  );
+}
+
+function LocationRow({
+  location,
+  support,
+  resistance,
+}: {
+  location: NonNullable<DisplayIntentAssessment["location"]>;
+  support: number | null;
+  resistance: number | null;
+}) {
+  const tone =
+    location.grade === "at-structure"
+      ? { chip: "border-bullish/30 bg-bullish-soft text-bullish", marker: "bg-bullish" }
+      : location.grade === "extended"
+        ? { chip: "border-warning/30 bg-warning-soft text-warning", marker: "bg-warning" }
+        : { chip: "border-info/30 bg-info-soft text-info", marker: "bg-info" };
+  const pct = Math.round(Math.min(1, Math.max(0, location.rangePosition)) * 100);
+
+  return (
+    <div className="rounded-lg border border-border bg-surface p-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <CardEyebrow>Entry Location</CardEyebrow>
+          <InfoHint text="Where price sits between support and resistance for this trade's direction. A long is best entered near support, a short near resistance — 'favored' is reserved for well-located setups, and an extended price becomes 'wait for a pullback' even when the direction is right." />
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {location.confluence !== "none" && (
+            <Badge
+              variant="outline"
+              className={cn(
+                location.confluence === "multi-timeframe"
+                  ? "border-bullish/40 bg-bullish-soft text-bullish"
+                  : "border-info/30 bg-info-soft text-info",
+              )}
+            >
+              <Layers className="mr-1 h-3 w-3" />
+              {location.confluence === "multi-timeframe" ? "MTF confluence" : "Zone-backed"}
+            </Badge>
+          )}
+          <Badge variant="outline" className={cn(tone.chip)}>
+            {location.label}
+          </Badge>
+        </div>
+      </div>
+      <div className="relative mt-2 h-1.5 rounded-full bg-muted">
+        <div
+          className={cn("absolute -top-1 h-3.5 w-1 rounded-full", tone.marker)}
+          style={{ left: `calc(${pct}% - 2px)` }}
+        />
+      </div>
+      <div className="mt-1 flex justify-between text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+        <span>S {support !== null ? formatMoney(support) : "—"}</span>
+        <span>R {resistance !== null ? formatMoney(resistance) : "—"}</span>
+      </div>
+      <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">{location.note}</p>
+    </div>
   );
 }
 
@@ -1729,43 +2238,6 @@ function planEmptyMessage(active: IntentAssessment, assessments: IntentAssessmen
     return `${base} If you want action today, the ${alt.definition.label.toLowerCase()} objective has a ${alt.verdict === "caution" ? "reduced-size " : ""}${alt.direction} setup on the ${alt.definition.executionTimeframe}.`;
   }
   return `${base} No other objective has a payable setup either — flat is a position.`;
-}
-
-function InsightStrip({ evaluation }: { evaluation: SignalEvaluation }) {
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5">
-        <CardEyebrow>Key Insight & Components</CardEyebrow>
-        <InfoHint text="The market's current condition in plain words — trend, momentum, volume, volatility — plus every check the engine ran with its score contribution. Hover a check to read what it found. Green passed, amber is a caution, red failed." />
-      </div>
-      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-        {keyInsights(evaluation).map((row) => (
-          <KeyInsightBox key={row.label} {...row} />
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        {evaluation.components.map((component) => (
-          <Tooltip key={component.name}>
-            <TooltipTrigger asChild>
-              <div className="flex cursor-default items-center gap-2 rounded-md border border-border bg-surface px-2 py-1.5">
-                <StatusIcon status={component.status} />
-                <span className="whitespace-nowrap text-[11px] font-semibold">
-                  {component.name}
-                </span>
-                <StatusBadge status={component.status} score={component.score} />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent
-              side="top"
-              className="max-w-[260px] bg-popover text-xs leading-relaxed text-popover-foreground shadow-lg"
-            >
-              {component.explanation}
-            </TooltipContent>
-          </Tooltip>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 function SizingNote({ multiplier = 1 }: { multiplier?: number }) {
@@ -2024,55 +2496,21 @@ function AiDrawer({
     [aiConfig, chat, evaluation, assessment, chartStructure, symbol, timeframe, thinkingMode],
   );
 
-  // Collapsed: a slim rail on desktop (the drawer never collapses on mobile,
-  // where it stacks as a normal card).
+  // On-demand drawer, opened from the floating button on the token page. The
+  // component stays mounted while closed so chat history survives reopening.
   return (
-    <IqCard
-      padded={false}
-      data-tour="ai"
-      className={cn(
-        "flex min-h-0 flex-col overflow-hidden transition-[width] duration-200 lg:h-full",
-        open ? "lg:w-[300px]" : "lg:w-11",
-      )}
-    >
-      {!open && (
-        <button
-          type="button"
-          onClick={() => onOpenChange(true)}
-          aria-label="Expand AI analyst"
-          className="hidden h-full w-full flex-col items-center gap-3 py-3 text-muted-foreground transition-colors hover:text-foreground lg:flex"
-        >
-          <ChevronsLeft className="h-4 w-4" />
-          <Bot className="h-4 w-4 text-info" />
-          <span className="text-[10px] font-semibold uppercase tracking-wider [writing-mode:vertical-rl]">
-            AI Analyst
-          </span>
-        </button>
-      )}
-
-      <div className={cn("flex min-h-0 flex-1 flex-col", !open && "lg:hidden")}>
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2 pr-10">
           <div className="flex min-w-0 items-center gap-2">
             <Bot className="h-4 w-4 shrink-0 text-info" />
-            <span className="truncate text-xs font-bold">AI Analyst</span>
+            <SheetTitle className="truncate text-xs font-bold">AI Analyst</SheetTitle>
             <InfoHint text="A second read on the setup: it cross-checks the engine's plan against the chart's demand/supply zones, support/resistance levels and volume, and will flag conflicts. It only uses the data on this page — no outside market feed." />
           </div>
-          <div className="flex items-center gap-2">
-            <label className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
-              <Brain className="h-3.5 w-3.5" />
-              <Switch checked={thinkingMode} onCheckedChange={setThinkingMode} />
-            </label>
-            <button
-              type="button"
-              onClick={() => onOpenChange(false)}
-              aria-label="Collapse AI analyst"
-              title="Collapse panel"
-              className="hidden items-center gap-1 rounded-md border border-border px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-surface hover:text-foreground lg:flex"
-            >
-              <ChevronsRight className="h-3.5 w-3.5" />
-              Hide
-            </button>
-          </div>
+          <label className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+            <Brain className="h-3.5 w-3.5" />
+            <Switch checked={thinkingMode} onCheckedChange={setThinkingMode} />
+          </label>
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-2.5 p-3">
@@ -2207,8 +2645,8 @@ function AiDrawer({
             </Button>
           </form>
         </div>
-      </div>
-    </IqCard>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -2354,13 +2792,73 @@ function PerpLeverage({
         />
         <RiskMetric label="Max safe" value={`${metrics.maxSafeLeverage}×`} compact />
       </div>
-      {metrics.liquidatesBeforeStop && (
-        <p className="text-[10px] font-semibold leading-relaxed text-bearish">
-          At {leverage}× the estimated liquidation ({formatMoney(metrics.liquidation)}) sits before
-          your stop ({formatMoney(plan.stop)}) — you'd be liquidated before the stop triggers. Drop
-          to {metrics.maxSafeLeverage}× or lower.
-        </p>
-      )}
+    </div>
+  );
+}
+
+/**
+ * Leverage-aware invalidation check: does your stop (the trade's invalidation)
+ * actually get to do its job, or does liquidation come first? At high leverage
+ * the estimated liquidation can sit in front of the stop — the idea never even
+ * gets the chance to be proven wrong. This reads out the current leverage's
+ * verdict and, when unsafe, the leverage that restores a real stop.
+ */
+function LiquidationCheck({
+  plan,
+  leverage,
+}: {
+  plan: NonNullable<IntentAssessment["plan"]>;
+  leverage: number;
+}) {
+  const metrics = computeLeverageMetrics(
+    plan.entry,
+    plan.stop,
+    plan.positionSize,
+    plan.direction,
+    leverage,
+  );
+  if (!metrics) return null;
+
+  const bufferPct = Math.abs(metrics.stopToLiquidationBufferPct) * 100;
+  const tone =
+    metrics.liquidationSafety === "safe"
+      ? { box: "border-bullish/30 bg-bullish-soft text-bullish", Icon: ShieldCheck }
+      : metrics.liquidationSafety === "thin"
+        ? { box: "border-warning/30 bg-warning-soft text-warning", Icon: ShieldAlert }
+        : { box: "border-bearish/30 bg-bearish-soft text-bearish", Icon: ShieldAlert };
+
+  const message =
+    metrics.liquidationSafety === "danger" ? (
+      <>
+        At {leverage}× liquidation ({formatMoney(metrics.liquidation)}) triggers{" "}
+        <strong>before</strong> your stop ({formatMoney(plan.stop)}) — you'd be liquidated before
+        the idea is even invalidated. Drop to {metrics.maxSafeLeverage}× or lower so your stop does
+        its job.
+      </>
+    ) : metrics.liquidationSafety === "thin" ? (
+      <>
+        Liquidation ({formatMoney(metrics.liquidation)}) sits only {bufferPct.toFixed(1)}% past your
+        stop ({formatMoney(plan.stop)}) — a stop-run wick could liquidate you before the trade is
+        invalidated. Consider {metrics.maxSafeLeverage}× or lower for more cushion.
+      </>
+    ) : (
+      <>
+        Your stop ({formatMoney(plan.stop)}) triggers first; liquidation (
+        {formatMoney(metrics.liquidation)}) sits {bufferPct.toFixed(1)}% further out — a{" "}
+        {metrics.bufferInStops.toFixed(1)}× stop-distance cushion. Invalidation stays in your
+        control.
+      </>
+    );
+
+  return (
+    <div className={cn("flex items-start gap-2 rounded-lg border p-2.5", tone.box)}>
+      <tone.Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <div>
+        <span className="text-[9px] font-semibold uppercase tracking-wider">
+          Liquidation vs invalidation
+        </span>
+        <p className="mt-0.5 text-[11px] leading-relaxed">{message}</p>
+      </div>
     </div>
   );
 }

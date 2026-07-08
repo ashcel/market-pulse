@@ -17,6 +17,8 @@ import { BottomNav } from "../components/iq/bottom-nav";
 import { ThemeSync } from "../components/iq/theme-sync";
 import { Toaster } from "../components/ui/sonner";
 import { useNotificationStream } from "../hooks/useNotificationStream";
+import { useSignalSettlement } from "../hooks/useSignalSettlement";
+import { useTriggerAlerts } from "../hooks/useTriggerAlerts";
 
 function NotFoundComponent() {
   return (
@@ -134,6 +136,8 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   useNotificationStream();
+  useSignalSettlement();
+  useTriggerAlerts();
 
   return (
     <QueryClientProvider client={queryClient}>

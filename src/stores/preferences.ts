@@ -23,7 +23,8 @@ export type ChartIndicatorKey =
   | "pivots"
   | "plan"
   | "zones"
-  | "sdZones";
+  | "sdZones"
+  | "sessions";
 
 interface PreferencesState {
   refreshIntervalMs: number;
@@ -33,6 +34,8 @@ interface PreferencesState {
     rotation: boolean;
     highImpactNews: boolean;
     highQualitySetup: boolean;
+    /** Alert when a held verdict's own trigger level breaks on a closed candle. */
+    triggerAlert: boolean;
   };
   risk: RiskPreferences;
   /** The trader's current objective — drives the token-page decision assistant. */
@@ -57,7 +60,13 @@ export const usePreferencesStore = create<PreferencesState>()(
     (set) => ({
       refreshIntervalMs: 30_000,
       activeAsset: "BTC",
-      notifications: { regime: true, rotation: true, highImpactNews: true, highQualitySetup: true },
+      notifications: {
+        regime: true,
+        rotation: true,
+        highImpactNews: true,
+        highQualitySetup: true,
+        triggerAlert: true,
+      },
       risk: {
         accountSize: 10_000,
         maxRiskPerTradePercent: 0.5,

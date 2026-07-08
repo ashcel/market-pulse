@@ -18,7 +18,7 @@ const BASE_PRICE: Record<string, number> = {
   DOGE: 0.32,
 };
 
-const STEP_SECONDS: Record<TokenTimeframe, number> = {
+export const STEP_SECONDS: Record<TokenTimeframe, number> = {
   "15M": 15 * 60,
   "30M": 30 * 60,
   "1H": 60 * 60,

@@ -1,6 +1,6 @@
 import { fetchMarketSnapshot } from "./market";
 
-export type NotificationType = "bias-summary" | "setup-found";
+export type NotificationType = "bias-summary" | "setup-found" | "trigger-hit";
 
 export interface NotificationEvent {
   id: string;
