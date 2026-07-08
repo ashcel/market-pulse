@@ -148,9 +148,8 @@ describe("downstream consumer regression", () => {
     expect(evaluation.backtest).toBeTruthy();
   });
 
-  it("evaluateSignal with backtestPivots accepts the full pivot set", () => {
+  it("evaluateSignal with separate backtestCandles produces valid output", () => {
     const backtestCandles = makeSeries("SOL", 500);
-    const backtestPivots = computePivots(backtestCandles);
 
     const evaluation = evaluateSignal(
       "SOL",
@@ -158,7 +157,6 @@ describe("downstream consumer regression", () => {
       pivots,
       DEFAULT_RISK_SETTINGS,
       backtestCandles,
-      backtestPivots,
     );
 
     expect(evaluation.backtest.strategyVersion).toBeTruthy();

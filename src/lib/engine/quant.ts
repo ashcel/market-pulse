@@ -1,4 +1,5 @@
 import type { Candle, PivotPoint } from "./types";
+import { computePivots } from "./analysis";
 
 export type SignalStatus = "pass" | "fail" | "warning" | "neutral";
 export type TradeDecision =
@@ -445,8 +446,6 @@ export function evaluateSignal(
   settings: RiskSettings = DEFAULT_RISK_SETTINGS,
   /** Wider history for the backtest sample; defaults to `candles` when the caller has nothing extra. */
   backtestCandles: Candle[] = candles,
-  /** Pivots over `backtestCandles`; defaults to `pivots` when the caller has nothing extra. */
-  backtestPivots: PivotPoint[] = pivots,
   /** Real-time price to anchor the risk plan's entry on; see `buildRiskPlan`. */
   livePrice?: number,
 ): SignalEvaluation {
@@ -613,7 +612,7 @@ export function evaluateSignal(
     reason,
     risk,
     analytics,
-    backtest: runBacktest(backtestCandles, settings, setupType, backtestPivots),
+    backtest: runBacktest(backtestCandles, settings, setupType),
     strategyVersion: "QuantDeskSignal_v1",
     evaluatedAt: new Date().toISOString(),
   };
@@ -623,7 +622,6 @@ export function runBacktest(
   candles: Candle[],
   settings: RiskSettings = DEFAULT_RISK_SETTINGS,
   setupType: SetupType = "no-clear-setup",
-  pivots: PivotPoint[] = [],
 ): BacktestSummary {
   const trades: number[] = [];
   let equity = 0;
@@ -633,11 +631,10 @@ export function runBacktest(
   for (let i = 55; direction !== "none" && i < candles.length - 5; i++) {
     const window = candles.slice(0, i + 1);
     const c = candles[i];
-    // A pivot needs future bars to confirm, so a pivot computed over the full
-    // history is only "known" once its own confirmation window has passed —
-    // filtering by time approximates a walk-forward recompute without paying
-    // for prominence-ranked pivot detection on every bar.
-    const windowPivots = pivots.filter((p) => p.time <= c.time);
+    // Replay-safe: compute pivots from only the bars available at this point
+    // in time. This ensures the replay uses exactly the same information the
+    // live engine would have at bar i — no future-data leakage.
+    const windowPivots = computePivots(window);
     const regime = classifyRegime(window);
     const setup = classifySetup(window, windowPivots, regime);
     if (setup !== setupType) continue;
@@ -712,7 +709,7 @@ export function runBacktest(
   const grossLoss = Math.abs(losses.reduce((sum, r) => sum + r, 0));
   return {
     strategyName: humanizeSetup(setupType),
-    strategyVersion: "SetupReplay_v1",
+    strategyVersion: "SetupReplay_v2",
     totalTrades: trades.length,
     winRate: round(winRate * 100, 1),
     averageWin: round(averageWin, 2),
