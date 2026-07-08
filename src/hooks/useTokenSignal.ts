@@ -54,14 +54,7 @@ function buildSignalData(
   const pivots = computePivots(candles);
   const displayPivots = selectDisplayPivots(pivots, candles);
   const trendLines = computeTrendLines(candles, pivots);
-  const evaluation = evaluateSignal(
-    ticker,
-    candles,
-    pivots,
-    settings,
-    backtestCandles,
-    livePrice,
-  );
+  const evaluation = evaluateSignal(ticker, candles, pivots, settings, backtestCandles, livePrice);
 
   return { candles, pivots, displayPivots, trendLines, evaluation, source, liveCandle };
 }
