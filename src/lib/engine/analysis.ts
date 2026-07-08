@@ -45,7 +45,7 @@ function prominenceAt(candles: Candle[], i: number, k: number, price: number): n
   return Math.abs(price - mean) / Math.max(stdev, 1e-8);
 }
 
-const MAX_PIVOTS = 8;
+export const MAX_DISPLAY_PIVOTS = 8;
 
 export function computePivots(candles: Candle[]): PivotPoint[] {
   const n = candles.length;
@@ -71,10 +71,42 @@ export function computePivots(candles: Candle[]): PivotPoint[] {
   }
 
   return scored
-    .sort((a, b) => b.prominence - a.prominence)
-    .slice(0, MAX_PIVOTS)
     .map((s) => s.pivot)
     .sort((a, b) => a.time - b.time || (a.kind === b.kind ? 0 : a.kind === "low" ? -1 : 1));
+}
+
+/**
+ * Presentation-layer filter: selects the most prominent pivots for chart
+ * rendering. Engine logic should always consume the full set from
+ * `computePivots` — this function is exclusively for visualization.
+ */
+export function selectDisplayPivots(
+  pivots: PivotPoint[],
+  candles: Candle[],
+  maxCount: number = MAX_DISPLAY_PIVOTS,
+): PivotPoint[] {
+  if (pivots.length <= maxCount) return pivots;
+
+  const n = candles.length;
+  const k = pivotWindow(n);
+  const indexByTime = new Map<number, number>();
+  for (let i = 0; i < n; i++) indexByTime.set(candles[i].time, i);
+
+  const scored = pivots
+    .map((pivot) => {
+      const idx = indexByTime.get(pivot.time);
+      const prominence =
+        idx !== undefined && idx >= k && idx < n - k
+          ? prominenceAt(candles, idx, k, pivot.price)
+          : 0;
+      return { pivot, prominence };
+    })
+    .sort((a, b) => b.prominence - a.prominence)
+    .slice(0, maxCount)
+    .map((s) => s.pivot)
+    .sort((a, b) => a.time - b.time || (a.kind === b.kind ? 0 : a.kind === "low" ? -1 : 1));
+
+  return scored;
 }
 
 function projectLine(

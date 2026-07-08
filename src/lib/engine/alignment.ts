@@ -72,7 +72,6 @@ function evaluateTimeframes(
       computePivots(candles),
       settings,
       undefined,
-      undefined,
       livePrice,
     );
     return {

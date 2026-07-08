@@ -84,6 +84,19 @@ class ZonesPaneView implements IPrimitivePaneView {
 
     const rects: ZoneRect[] = [];
     for (const zone of zones) {
+      if (
+        zone.from === null ||
+        zone.from === undefined ||
+        !Number.isFinite(zone.from as number) ||
+        zone.priceHigh === null ||
+        zone.priceHigh === undefined ||
+        !Number.isFinite(zone.priceHigh) ||
+        zone.priceLow === null ||
+        zone.priceLow === undefined ||
+        !Number.isFinite(zone.priceLow)
+      ) {
+        continue;
+      }
       if ((zone.from as number) > (visible.to as number)) continue;
       // Anchor scrolled off-screen to the left: clamp to the pane edge.
       const x = timeScale.timeToCoordinate(zone.from) ?? 0;

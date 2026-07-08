@@ -438,7 +438,7 @@ function TokenDetailPage() {
                     </div>
                     <span className="text-xs text-muted-foreground">
                       {data.candles.length} {data.source === "live" ? "Binance" : "synthetic"} bars
-                      · {data.pivots.length} pivots
+                      · {data.displayPivots.length} pivots
                     </span>
                   </div>
                   <Badge variant="outline" className="border-info/30 bg-info-soft text-info">
@@ -447,13 +447,15 @@ function TokenDetailPage() {
                   </Badge>
                 </div>
                 <div className="flex min-h-0 flex-1 flex-col lg:min-h-[240px]">
-                  <TokenChart
-                    {...data}
-                    symbol={symbol}
-                    timeframe={timeframe}
-                    market={marketType}
-                    sessionLevels={sessionLevels}
-                  />
+                  {data?.candles.length > 0 && (
+                    <TokenChart
+                      {...data}
+                      symbol={symbol}
+                      timeframe={timeframe}
+                      market={marketType}
+                      sessionLevels={sessionLevels}
+                    />
+                  )}
                 </div>
               </IqCard>
             </div>
@@ -635,7 +637,7 @@ function TokenChart({
   timeframe,
   market,
   candles,
-  pivots,
+  displayPivots,
   trendLines,
   evaluation,
   source,
@@ -674,7 +676,7 @@ function TokenChart({
   const appliedKeyRef = useRef("");
   const earliestTimeRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
-  const loadOlderRef = useRef<() => void>(() => {});
+  const loadOlderRef = useRef<() => void>(() => { });
 
   const hiddenIndicators = usePreferencesStore((s) => s.hiddenChartIndicators);
   const toggleIndicator = usePreferencesStore((s) => s.toggleChartIndicator);
@@ -800,6 +802,7 @@ function TokenChart({
     chart.timeScale().subscribeVisibleLogicalRangeChange(onEdgeCheck);
 
     const observer = new ResizeObserver((entries) => {
+      if (!chartRef.current) return;
       const rect = entries[entries.length - 1].contentRect;
       if (rect.width > 0 && rect.height > 0) {
         chart.applyOptions({ width: Math.floor(rect.width), height: Math.floor(rect.height) });
@@ -853,9 +856,21 @@ function TokenChart({
     // below instead of leaving the chart a full bar behind.
     const allCandles = liveCandle ? [...history, ...candles, liveCandle] : [...history, ...candles];
 
+    // Filter out invalid candles
+    const validCandles = allCandles.filter(
+      (c) =>
+        c &&
+        Number.isFinite(c.time) &&
+        Number.isFinite(c.open) &&
+        Number.isFinite(c.high) &&
+        Number.isFinite(c.low) &&
+        Number.isFinite(c.close) &&
+        Number.isFinite(c.volume),
+    );
+
     // The default price scale (2dp, 0.01 steps) collapses sub-dollar assets:
     // DOGE's axis becomes a single label and the plan lines overlap.
-    const precision = pricePrecision(allCandles.at(-1)?.close ?? 0);
+    const precision = pricePrecision(validCandles.at(-1)?.close ?? 0);
     const priceFormat = { type: "price" as const, precision, minMove: 10 ** -precision };
     for (const series of [
       candleSeries,
@@ -877,7 +892,7 @@ function TokenChart({
     const prevLast = lastTimeRef.current;
 
     candleSeries.setData(
-      allCandles.map(
+      validCandles.map(
         (c): CandlestickData<Time> => ({
           time: c.time as UTCTimestamp,
           open: c.open,
@@ -888,7 +903,7 @@ function TokenChart({
       ),
     );
     volumeSeries.setData(
-      allCandles.map(
+      validCandles.map(
         (c): HistogramData<Time> => ({
           time: c.time as UTCTimestamp,
           value: c.volume,
@@ -896,8 +911,8 @@ function TokenChart({
         }),
       ),
     );
-    const emaFastData = computeEmaSeries(allCandles, EMA_FAST.length) ?? [];
-    const emaSlowData = computeEmaSeries(allCandles, EMA_SLOW.length) ?? [];
+    const emaFastData = computeEmaSeries(validCandles, EMA_FAST.length) ?? [];
+    const emaSlowData = computeEmaSeries(validCandles, EMA_SLOW.length) ?? [];
     emaFastSeriesRef.current?.setData(toLineData(emaFastData));
     emaSlowSeriesRef.current?.setData(toLineData(emaSlowData));
 
@@ -905,39 +920,46 @@ function TokenChart({
     // the candles rebuilds the chart's internal time index, and a line series
     // left holding points anchored to the old index crashes the renderer
     // ("Value is null") on its next repaint. Filter to only times in the chart.
-    const chartStart = allCandles[0]?.time ?? 0;
-    const chartEnd = allCandles.at(-1)?.time ?? Infinity;
+    const chartStart = validCandles[0]?.time ?? 0;
+    const chartEnd = validCandles.at(-1)?.time ?? Infinity;
     const validSupportData =
-      trendLines.support?.filter((p) => p.time >= chartStart && p.time <= chartEnd) ?? [];
+      trendLines?.support?.filter((p) => p && p.time >= chartStart && p.time <= chartEnd) ?? [];
     const validResistanceData =
-      trendLines.resistance?.filter((p) => p.time >= chartStart && p.time <= chartEnd) ?? [];
+      trendLines?.resistance?.filter((p) => p && p.time >= chartStart && p.time <= chartEnd) ?? [];
     supportSeriesRef.current?.setData(toLineData(validSupportData));
     resistanceSeriesRef.current?.setData(toLineData(validResistanceData));
 
     const start = candles[0]?.time;
     // Extend to the live candle (when present) so the plan lines reach the
     // actual last bar on screen instead of stopping one bar short of it.
-    const end = allCandles[allCandles.length - 1]?.time;
+    const end = validCandles[validCandles.length - 1]?.time;
     // Without a directional plan the entry/stop/targets all collapse onto the
     // last close — drawing them would just clutter the chart.
-    const planActive = evaluation.risk.direction !== "none";
+    const planActive = evaluation?.risk?.direction !== "none";
     const setLevel = (series: ISeriesApi<"Line"> | null, value: number) => {
+      const isValid =
+        planActive &&
+        start &&
+        end &&
+        Number.isFinite(start) &&
+        Number.isFinite(end) &&
+        Number.isFinite(value);
       series?.setData(
-        planActive && start && end
+        isValid
           ? [
-              { time: start as UTCTimestamp, value },
-              { time: end as UTCTimestamp, value },
-            ]
+            { time: start as UTCTimestamp, value },
+            { time: end as UTCTimestamp, value },
+          ]
           : [],
       );
     };
-    setLevel(entrySeriesRef.current, evaluation.risk.entry);
-    setLevel(stopSeriesRef.current, evaluation.risk.stop);
-    setLevel(target1SeriesRef.current, evaluation.risk.target1);
-    setLevel(target2SeriesRef.current, evaluation.risk.target2);
+    setLevel(entrySeriesRef.current, evaluation?.risk?.entry);
+    setLevel(stopSeriesRef.current, evaluation?.risk?.stop);
+    setLevel(target1SeriesRef.current, evaluation?.risk?.target1);
+    setLevel(target2SeriesRef.current, evaluation?.risk?.target2);
 
-    earliestTimeRef.current = allCandles[0]?.time ?? null;
-    lastTimeRef.current = allCandles.at(-1)?.time ?? null;
+    earliestTimeRef.current = validCandles[0]?.time ?? null;
+    lastTimeRef.current = validCandles.at(-1)?.time ?? null;
 
     if (isNewDataset || prevRange === null) {
       appliedKeyRef.current = datasetKey;
@@ -957,14 +979,16 @@ function TokenChart({
     source,
     historyVersion,
     trendLines,
-    evaluation.risk,
+    evaluation?.risk,
     liveCandle,
   ]);
 
   useEffect(() => {
     const markers: SeriesMarker<Time>[] = hiddenIndicators.pivots
       ? []
-      : pivots.map((pivot) => ({
+      : (displayPivots || [])
+        .filter((pivot) => pivot && Number.isFinite(pivot.time) && Number.isFinite(pivot.price))
+        .map((pivot) => ({
           time: pivot.time as UTCTimestamp,
           position: pivot.kind === "high" ? "aboveBar" : "belowBar",
           shape: pivot.kind === "high" ? "arrowDown" : "arrowUp",
@@ -972,7 +996,7 @@ function TokenChart({
           size: 1,
         }));
     markerRef.current?.setMarkers(markers);
-  }, [pivots, hiddenIndicators.pivots]);
+  }, [displayPivots, hiddenIndicators.pivots]);
 
   useEffect(() => {
     emaFastSeriesRef.current?.applyOptions({ visible: !hiddenIndicators.emaFast });
@@ -1034,6 +1058,7 @@ function TokenChart({
     // series' line → lightweight-charts "Value is null" on repaint). Guard the
     // teardown in case the chart was already removed first.
     return () => {
+      if (!chartRef.current || !candleSeriesRef.current) return;
       for (const line of lines) {
         try {
           series.removePriceLine(line);
@@ -1146,7 +1171,9 @@ function baseZonesToPriceZones(zones: BaseZone[]): PriceZone[] {
 }
 
 function toLineData(points: Array<{ time: number; value: number }>): LineData<Time>[] {
-  return points.map((point) => ({ time: point.time as UTCTimestamp, value: point.value }));
+  return (points || [])
+    .filter((point) => point && Number.isFinite(point.time) && Number.isFinite(point.value))
+    .map((point) => ({ time: point.time as UTCTimestamp, value: point.value }));
 }
 
 function lineSwatch(color: string, dashed = false) {
@@ -1156,8 +1183,8 @@ function lineSwatch(color: string, dashed = false) {
       style={
         dashed
           ? {
-              backgroundImage: `repeating-linear-gradient(90deg, ${color} 0 3px, transparent 3px 5px)`,
-            }
+            backgroundImage: `repeating-linear-gradient(90deg, ${color} 0 3px, transparent 3px 5px)`,
+          }
           : { backgroundColor: color }
       }
     />
@@ -2163,9 +2190,9 @@ function VerdictBadge({ assessment }: { assessment: IntentAssessment }) {
       className={cn(
         "capitalize",
         verdict === "favored" &&
-          (direction === "short"
-            ? "border-bearish/30 bg-bearish-soft text-bearish"
-            : "border-bullish/30 bg-bullish-soft text-bullish"),
+        (direction === "short"
+          ? "border-bearish/30 bg-bearish-soft text-bearish"
+          : "border-bullish/30 bg-bullish-soft text-bullish"),
         verdict === "caution" && "border-warning/30 bg-warning-soft text-warning",
         verdict === "wait" && "border-info/30 bg-info-soft text-info",
         verdict === "avoid" && "border-border bg-muted text-muted-foreground",
@@ -2183,7 +2210,7 @@ function VerdictDot({ assessment }: { assessment: IntentAssessment | undefined }
         "h-1 w-1 rounded-full",
         !assessment && "bg-muted-foreground/30",
         assessment?.verdict === "favored" &&
-          (assessment.direction === "short" ? "bg-bearish" : "bg-bullish"),
+        (assessment.direction === "short" ? "bg-bearish" : "bg-bullish"),
         assessment?.verdict === "caution" && "bg-warning",
         assessment?.verdict === "wait" && "bg-info",
         assessment?.verdict === "avoid" && "bg-muted-foreground/30",
