@@ -117,6 +117,29 @@ export interface BacktestSummary {
 /** Below this many replayed trades, win rate/expectancy are noise, not signal. */
 export const MIN_RELIABLE_BACKTEST_TRADES = 10;
 
+export type RiskGrade = "low" | "medium" | "high";
+
+/** ATR% bands for the risk grade: below `medium` is calm, above `high` is wild. */
+const RISK_GRADE_ATR_BANDS = { medium: 2.2, high: 4.5 };
+
+/**
+ * The single risk-level read for UI chips: volatility (ATR as a % of price)
+ * sets the base grade, and a counter-trend trade bumps it one level — wrong-
+ * way exposure in a calm market still isn't low-risk. Null when there is no
+ * ATR read to grade.
+ */
+export function gradeRisk(atrPercent: number | null, counterTrend = false): RiskGrade | null {
+  if (atrPercent === null || !Number.isFinite(atrPercent)) return null;
+  const base: RiskGrade =
+    atrPercent < RISK_GRADE_ATR_BANDS.medium
+      ? "low"
+      : atrPercent < RISK_GRADE_ATR_BANDS.high
+        ? "medium"
+        : "high";
+  if (!counterTrend) return base;
+  return base === "low" ? "medium" : "high";
+}
+
 function humanizeSetup(setup: SetupType): string {
   return setup
     .split("-")
@@ -327,6 +350,18 @@ function sweepIsRecent(sweep: LiquiditySweep, candles: Candle[]): boolean {
   return sweep.time >= cutoff;
 }
 
+/**
+ * The latest sweep that is still live trigger material — within
+ * SWEEP_SETUP_RECENCY_BARS closed bars of the newest candle. This is the
+ * single "is the sweep still news?" rule: setup classification and any UI
+ * liquidity read must share it, so a chip never headlines a raid the engine
+ * already treats as history.
+ */
+export function currentSweep(sweeps: LiquiditySweep[], candles: Candle[]): LiquiditySweep | null {
+  const latest = last(sweeps); // sweeps arrive time-ordered
+  return latest && sweepIsRecent(latest, candles) ? latest : null;
+}
+
 export function classifySetup(
   candles: Candle[],
   pivots: PivotPoint[],
@@ -354,8 +389,7 @@ export function classifySetup(
   // that clears sellers — the capitulation-reversal long. A fresh acceptance
   // on the current bar (the breakout branch above) still outranks a raid
   // from a bar or two back.
-  const latestSweep = last(sweeps); // sweeps arrive time-ordered
-  const recentSweep = latestSweep && sweepIsRecent(latestSweep, candles) ? latestSweep : null;
+  const recentSweep = currentSweep(sweeps, candles);
   if (recentSweep) {
     return recentSweep.side === "bsl" ? "failed-breakout" : "capitulation-reversal";
   }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { computePivots } from "./analysis";
-import { classifyRegime, classifySetup, evaluateSignal } from "./quant";
+import { classifyRegime, classifySetup, currentSweep, evaluateSignal } from "./quant";
 import type { Candle } from "./types";
 import type { SignalEvaluation } from "./quant";
 
@@ -165,6 +165,33 @@ describe("sweeps classify setups", () => {
     });
 
     expect(setupFor(candles)).toBe("breakout");
+  });
+});
+
+describe("currentSweep", () => {
+  it("returns the latest sweep while it is inside the recency window", () => {
+    const candles = patchCandle(createCandles([...DOUBLE_TOP_BASE, 99]), 29, { high: 101.5 });
+    const evaluation = evaluate(candles);
+
+    expect(currentSweep(evaluation.liquiditySweeps, candles)).toBe(evaluation.liquiditySweeps[0]);
+  });
+
+  it("returns null once the sweep ages past the recency window", () => {
+    // Same rule setup classification applies (see "ignores a sweep older than
+    // the recency window") — a raid five bars back is recorded but not live.
+    const candles = patchCandle(createCandles([...DOUBLE_TOP_BASE, 99]), 24, { high: 101.5 });
+    const evaluation = evaluate(candles);
+
+    expect(evaluation.liquiditySweeps).toHaveLength(1);
+    expect(currentSweep(evaluation.liquiditySweeps, candles)).toBeNull();
+  });
+
+  it("returns null with no sweeps or no candles", () => {
+    const candles = createCandles([...DOUBLE_TOP_BASE, 99]);
+    const evaluation = evaluate(patchCandle(candles, 29, { high: 101.5 }));
+
+    expect(currentSweep([], candles)).toBeNull();
+    expect(currentSweep(evaluation.liquiditySweeps, [])).toBeNull();
   });
 });
 

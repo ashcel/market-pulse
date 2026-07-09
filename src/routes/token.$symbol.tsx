@@ -1,5 +1,13 @@
 import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type ReactElement,
+} from "react";
 import {
   CandlestickSeries,
   ColorType,
@@ -42,8 +50,11 @@ import {
   Send,
   ShieldAlert,
   ShieldCheck,
+  Target,
   TrendingDown,
   TrendingUp,
+  Waves,
+  Waypoints,
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -107,7 +118,14 @@ import { checkTradableTicker } from "@/lib/engine/symbols";
 import { TOKEN_TIMEFRAMES } from "@/lib/engine/mock-candles";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
 import { computeBaseZones, SD_ZONE_TIMEFRAMES, type BaseZone } from "@/lib/engine/zones";
-import type { MarketRegime, SignalEvaluation, SignalStatus } from "@/lib/engine/quant";
+import { currentSweep, gradeRisk } from "@/lib/engine/quant";
+import type {
+  MarketRegime,
+  RiskRewardPlan,
+  SetupType,
+  SignalEvaluation,
+  SignalStatus,
+} from "@/lib/engine/quant";
 import type { MarketStructure } from "@/lib/engine/structure";
 import { formatEntryRange, formatMoney, formatUnits } from "@/lib/format";
 import { computeLeverageMetrics, MAX_LEVERAGE, MIN_LEVERAGE } from "@/lib/leverage";
@@ -195,7 +213,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     target: "chart",
     title: "Price chart",
-    body: "Each candle is one period of price movement (green = closed up, red = closed down). The legend below the chart names every overlay — EMAs, support/resistance, swing points, trade-plan levels — and clicking a legend item hides or shows it (your choices are remembered). When the engine flags a strong setup, shaded zones appear: reward (green), risk (red), and the buy/sell pocket (blue). On 1H and higher timeframes the chart also marks true demand/supply bases — consolidations that launched an explosive move. Drag the chart left past the oldest candle to load more history.",
+    body: "Each candle is one period of price movement (green = closed up, red = closed down). The legend below the chart names every overlay — EMAs, support/resistance, swing points, trade-plan levels — and clicking a legend item hides or shows it (your choices are remembered). The trade-plan levels and zones always belong to your selected objective's trigger timeframe — the legend names it (e.g. 'Trade plan · 4H') — so exploring other chart timeframes never changes the plan. When your objective's verdict wants the trade, shaded zones appear: reward (green), risk (red), and the buy/sell pocket (blue). On 1H and higher timeframes the chart also marks true demand/supply bases — consolidations that launched an explosive move. Drag the chart left past the oldest candle to load more history.",
   },
   {
     target: "insight",
@@ -210,7 +228,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     target: "decision",
     title: "A verdict for YOUR objective",
-    body: "Not one answer for everyone: the assistant answers for the objective you picked — go, go at reduced size, not yet, or stand aside — and explains why. 'Not yet' is not 'never': the checklist shows exactly which confirmations are missing, and 'what changes this answer' names the price events that would flip today's verdict.",
+    body: "Not one answer for everyone: the assistant answers for the objective you picked — go, go at reduced size, not yet, or stand aside — with the plan levels and the one thing standing in the way, all on one screen. 'Not yet' is not 'never': the Why tab lists every missing confirmation and the price events that would flip today's verdict.",
   },
   {
     target: "risk",
@@ -229,6 +247,50 @@ const TOUR_STEPS: TourStep[] = [
   },
 ];
 
+class ChartErrorBoundary extends React.Component<
+  { children: ReactElement },
+  { hasError: boolean }
+> {
+  constructor(props: { children: ReactElement }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    // Lightweight-charts "Value is null" bug: chart is still usable, just suppress the error
+    if (error.message.includes("Value is null")) {
+      return;
+    }
+    console.error("Chart error:", error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <IqCard padded={false} className="flex flex-col overflow-hidden lg:min-h-0 lg:flex-1">
+          <div className="h-full w-full bg-surface flex items-center justify-center">
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground">Chart encountered an issue</p>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="mt-2 text-xs text-info hover:underline"
+              >
+                Reload page
+              </button>
+            </div>
+          </div>
+        </IqCard>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function TokenDetailPage() {
   const { symbol: rawSymbol } = Route.useParams();
   const symbol = rawSymbol.toUpperCase();
@@ -239,7 +301,7 @@ function TokenDetailPage() {
   // The decision panel is organized into tabs that follow the trader's flow
   // (Should I? → Why? → Where? → Risk? → Evidence). Controlled so the product
   // tour can jump to the tab a step lives in.
-  const [activeTab, setActiveTab] = useState("decision");
+  const [activeTab, setActiveTab] = useState("overview");
   const tour = useProductTour(TOUR_SEEN_KEY);
   const tradingIntent = usePreferencesStore((s) => s.tradingIntent);
   const setTradingIntent = usePreferencesStore((s) => s.setTradingIntent);
@@ -252,7 +314,9 @@ function TokenDetailPage() {
   const sessionQuery = useSessionLevels(symbol, marketType);
   const sessionLevels = useMemo(() => sessionQuery.data ?? [], [sessionQuery.data]);
   const biasByTimeframe = new Map(
-    alignment.data?.map((entry) => [entry.timeframe, entry.direction]) ?? [],
+    // The reconciled lean, not the raw setup direction — a setup the engine
+    // vetoed for fighting structure/regime must not color the bias dot.
+    alignment.data?.map((entry) => [entry.timeframe, entry.evaluation.lean]) ?? [],
   );
   // The chart follows the objective: picking an intent jumps to its trigger
   // timeframe. The user can still override with the timeframe buttons.
@@ -413,7 +477,7 @@ function TokenDetailPage() {
 
       {signal.isLoading || !data ? (
         <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,25rem)_auto]">
-          <div className="flex min-h-0 flex-col gap-3">
+          <div className="flex min-h-0 min-w-0 flex-col gap-3">
             <IqCard padded={false} className="overflow-hidden lg:min-h-0 lg:flex-1">
               <div className="h-[360px] animate-pulse bg-surface lg:h-full" />
             </IqCard>
@@ -425,41 +489,56 @@ function TokenDetailPage() {
       ) : (
         <TooltipProvider delayDuration={150}>
           <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(340px,27rem)]">
-            <div className="flex min-h-0 flex-col gap-3">
-              <IqCard
-                padded={false}
-                data-tour="chart"
-                className="flex flex-col overflow-hidden lg:min-h-0 lg:flex-1"
-              >
-                <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2">
-                  <div className="flex items-baseline gap-3">
-                    <div className="flex items-center gap-1.5">
-                      <CardEyebrow>Price Structure</CardEyebrow>
-                      <InfoHint text="Candlestick chart of the selected timeframe. The legend below the chart explains every overlay — click an item to hide or show it. Drag the chart past the oldest candle to load more history." />
+            <div className="flex min-h-0 min-w-0 flex-col gap-3">
+              <ChartErrorBoundary>
+                <IqCard
+                  padded={false}
+                  data-tour="chart"
+                  className="flex flex-col overflow-hidden lg:min-h-0 lg:flex-1"
+                >
+                  <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2">
+                    <div className="flex items-baseline gap-3">
+                      <div className="flex items-center gap-1.5">
+                        <CardEyebrow>Price Structure</CardEyebrow>
+                        <InfoHint text="Candlestick chart of the selected timeframe. The legend below the chart explains every overlay — click an item to hide or show it. Drag the chart past the oldest candle to load more history." />
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {data.candles.length} {data.source === "live" ? "Binance" : "synthetic"}{" "}
+                        bars · {data.evaluation.structure.swings.length} swings ·{" "}
+                        {structureReading(data.evaluation.structure)}
+                      </span>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {data.candles.length} {data.source === "live" ? "Binance" : "synthetic"} bars
-                      · {data.evaluation.structure.swings.length} swings ·{" "}
-                      {structureReading(data.evaluation.structure)}
-                    </span>
+                    <Badge variant="outline" className="border-info/30 bg-info-soft text-info">
+                      {timeframe} lean:{" "}
+                      {data.evaluation.lean === "none" ? "neutral" : data.evaluation.lean}
+                    </Badge>
                   </div>
-                  <Badge variant="outline" className="border-info/30 bg-info-soft text-info">
-                    {timeframe} lean:{" "}
-                    {data.evaluation.direction === "none" ? "neutral" : data.evaluation.direction}
-                  </Badge>
-                </div>
-                <div className="flex min-h-0 flex-1 flex-col lg:min-h-[240px]">
-                  {data?.candles.length > 0 && (
-                    <TokenChart
-                      {...data}
-                      symbol={symbol}
-                      timeframe={timeframe}
-                      market={marketType}
-                      sessionLevels={sessionLevels}
-                    />
-                  )}
-                </div>
-              </IqCard>
+                  <div className="flex min-h-0 flex-1 flex-col lg:min-h-[240px]">
+                    {data?.candles.length > 0 && (
+                      <TokenChart
+                        {...data}
+                        symbol={symbol}
+                        timeframe={timeframe}
+                        market={marketType}
+                        sessionLevels={sessionLevels}
+                        plan={activeAssessment?.plan ?? null}
+                        planTimeframe={activeAssessment?.definition.executionTimeframe ?? null}
+                        planStrong={
+                          activeAssessment?.verdict === "favored" ||
+                          activeAssessment?.verdict === "caution"
+                        }
+                      />
+                    )}
+                  </div>
+                </IqCard>
+              </ChartErrorBoundary>
+
+              <GlanceStrip
+                assessment={activeAssessment}
+                evaluation={data.evaluation}
+                timeframe={timeframe}
+                candles={data.candles}
+              />
             </div>
 
             <AssistantPanel
@@ -547,8 +626,8 @@ function TokenDetailPage() {
           // Each tour step lives on a specific tab — surface it before the
           // spotlight measures the target (ProductTour re-measures after 120ms).
           const tabForTarget: Record<string, string> = {
-            objective: "decision",
-            decision: "decision",
+            objective: "overview",
+            decision: "overview",
             risk: "plan",
             backtest: "evidence",
             insight: "details",
@@ -645,6 +724,211 @@ function structureReading(structure: MarketStructure): string {
   return "range structure";
 }
 
+function humanSetup(setup: SetupType): string {
+  return setup
+    .split("-")
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+type GlanceTone = "bullish" | "bearish" | "warning" | "info" | "neutral" | "muted";
+
+const GLANCE_TONE_TEXT: Record<GlanceTone, string> = {
+  bullish: "text-bullish",
+  bearish: "text-bearish",
+  warning: "text-warning",
+  info: "text-info",
+  neutral: "text-foreground",
+  muted: "text-muted-foreground",
+};
+
+interface GlanceChip {
+  icon: typeof Activity;
+  label: string;
+  value: string;
+  sub: string;
+  tone: GlanceTone;
+}
+
+/**
+ * The five reads a trader needs before anything else, each straight from the
+ * engine: HTF trend (the active objective's context lean), the chart
+ * timeframe's regime + setup, its swing structure with the live BOS/CHoCH,
+ * the liquidity state (recent sweep, else intact pools), and where the active
+ * objective's entry sits relative to structure.
+ */
+function buildGlanceChips(
+  assessment: DisplayIntentAssessment | null,
+  evaluation: SignalEvaluation,
+  timeframe: TokenTimeframe,
+  candles: Candle[],
+): GlanceChip[] {
+  const chips: GlanceChip[] = [];
+
+  // 1 — Higher-timeframe trend, from the objective's reconciled context lean.
+  if (assessment) {
+    const bias = assessment.contextBias;
+    chips.push({
+      icon: bias === "long" ? TrendingUp : bias === "short" ? TrendingDown : MoveRight,
+      label: `${assessment.definition.contextTimeframe} trend`,
+      value: bias === "long" ? "Bullish" : bias === "short" ? "Bearish" : "Neutral",
+      sub: assessment.context.regime.replaceAll("-", " "),
+      tone: bias === "long" ? "bullish" : bias === "short" ? "bearish" : "neutral",
+    });
+  } else {
+    chips.push({
+      icon: MoveRight,
+      label: "HTF trend",
+      value: "—",
+      sub: "assessing…",
+      tone: "muted",
+    });
+  }
+
+  // 2 — The chart timeframe's regime, with the classified setup as detail.
+  const regimeTone: GlanceTone =
+    evaluation.regime === "trending-up"
+      ? "bullish"
+      : evaluation.regime === "trending-down"
+        ? "bearish"
+        : evaluation.regime === "high-volatility" || evaluation.regime === "choppy"
+          ? "warning"
+          : evaluation.regime === "breakout-compression" || evaluation.regime === "mean-reversion"
+            ? "info"
+            : "neutral";
+  chips.push({
+    icon: Activity,
+    label: `${timeframe} state`,
+    value: evaluation.regime.replaceAll("-", " "),
+    sub:
+      evaluation.setupType === "no-clear-setup"
+        ? "no clear setup"
+        : humanSetup(evaluation.setupType),
+    tone: regimeTone,
+  });
+
+  // 3 — Swing structure, with the break event only while it is still live.
+  const s = evaluation.structure;
+  const eventCurrent =
+    s.event && s.eventSwing && (s.eventSwing === s.lastHigh || s.eventSwing === s.lastLow);
+  const eventSub = eventCurrent
+    ? s.event === "bos"
+      ? "BOS — trend confirmed"
+      : "CHoCH — reversal risk"
+    : `last ${s.lastHigh?.label ?? "–"} high · ${s.lastLow?.label ?? "–"} low`;
+  chips.push({
+    icon: Waypoints,
+    label: "Structure",
+    value: s.trend === "uptrend" ? "HH / HL" : s.trend === "downtrend" ? "LH / LL" : "Range",
+    sub: eventSub,
+    tone: s.trend === "uptrend" ? "bullish" : s.trend === "downtrend" ? "bearish" : "neutral",
+  });
+
+  // 4 — Liquidity: a live sweep is the headline; otherwise the intact pools.
+  // Recency is the engine's own rule (currentSweep), so this chip headlines a
+  // raid exactly while setup classification still treats it as a trigger.
+  const sweeps = evaluation.liquiditySweeps;
+  const recentSweep = currentSweep(sweeps, candles);
+  if (recentSweep) {
+    chips.push({
+      icon: Waves,
+      label: "Liquidity",
+      value: recentSweep.side === "ssl" ? "SSL swept" : "BSL swept",
+      sub: recentSweep.side === "ssl" ? "stop hunt below — fuel up" : "stop hunt above — fuel down",
+      tone: recentSweep.side === "ssl" ? "bullish" : "bearish",
+    });
+  } else {
+    const sweptPools = new Set(sweeps.map((sweep) => sweep.pool));
+    const intact = evaluation.liquidity.filter((pool) => pool.intact && !sweptPools.has(pool));
+    const bsl = intact.filter((pool) => pool.side === "bsl").length;
+    const ssl = intact.length - bsl;
+    const parts = [bsl > 0 ? `${bsl} BSL` : null, ssl > 0 ? `${ssl} SSL` : null].filter(Boolean);
+    chips.push({
+      icon: Waves,
+      label: "Liquidity",
+      value: parts.length ? parts.join(" · ") : "None mapped",
+      sub: parts.length ? "intact pools — price magnets" : "no equal highs/lows",
+      tone: parts.length ? "info" : "muted",
+    });
+  }
+
+  // 5 — Entry location for the active objective's direction.
+  const location = assessment?.location ?? null;
+  if (location) {
+    chips.push({
+      icon: Target,
+      label: "Entry location",
+      value: location.label,
+      sub:
+        location.confluence === "multi-timeframe"
+          ? "MTF zone confluence"
+          : location.confluence === "single-timeframe"
+            ? "zone-backed"
+            : `${Math.round(Math.min(1, Math.max(0, location.rangePosition)) * 100)}% of S→R range`,
+      tone:
+        location.grade === "at-structure"
+          ? "bullish"
+          : location.grade === "extended"
+            ? "warning"
+            : "info",
+    });
+  } else {
+    chips.push({
+      icon: Target,
+      label: "Entry location",
+      value: "—",
+      sub: "no directional read",
+      tone: "muted",
+    });
+  }
+
+  return chips;
+}
+
+/**
+ * Glanceable market read under the chart — five chips a trader can absorb in
+ * seconds, mirroring the same engine state the verdict panel reasons from.
+ */
+function GlanceStrip({
+  assessment,
+  evaluation,
+  timeframe,
+  candles,
+}: {
+  assessment: DisplayIntentAssessment | null;
+  evaluation: SignalEvaluation;
+  timeframe: TokenTimeframe;
+  candles: Candle[];
+}) {
+  const chips = buildGlanceChips(assessment, evaluation, timeframe, candles);
+  return (
+    <IqCard
+      padded={false}
+      className="grid shrink-0 grid-cols-2 gap-px sm:grid-cols-3 lg:grid-cols-5 lg:divide-x lg:divide-border"
+    >
+      {chips.map((chip) => (
+        <div key={chip.label} className="flex min-w-0 items-center gap-2.5 px-3 py-2">
+          <chip.icon className={cn("h-4 w-4 shrink-0", GLANCE_TONE_TEXT[chip.tone])} />
+          <div className="min-w-0 leading-tight">
+            <div className="truncate text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {chip.label}
+            </div>
+            <div
+              className={cn(
+                "truncate text-xs font-bold capitalize",
+                GLANCE_TONE_TEXT[chip.tone === "muted" ? "muted" : chip.tone],
+              )}
+            >
+              {chip.value}
+            </div>
+            <div className="truncate text-[9px] text-muted-foreground">{chip.sub}</div>
+          </div>
+        </div>
+      ))}
+    </IqCard>
+  );
+}
+
 function TokenChart({
   symbol,
   timeframe,
@@ -655,11 +939,25 @@ function TokenChart({
   source,
   liveCandle,
   sessionLevels,
+  plan,
+  planTimeframe,
+  planStrong,
 }: TokenSignalData & {
   symbol: string;
   timeframe: TokenTimeframe;
   market: MarketType;
   sessionLevels: SessionLevel[];
+  /**
+   * The active objective's execution-timeframe plan — NOT this chart
+   * timeframe's `evaluation.risk`. The candles follow whatever timeframe the
+   * user explores, but the plan overlays always tell the one trade story the
+   * assistant panel is quoting; `planTimeframe` labels their source in the
+   * legend so the split is explicit.
+   */
+  plan: RiskRewardPlan | null;
+  planTimeframe: TokenTimeframe | null;
+  /** True when the verdict actually wants the trade (favored/caution) — gates the shaded zones. */
+  planStrong: boolean;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -848,148 +1146,166 @@ function TokenChart({
     const volumeSeries = volumeSeriesRef.current;
     if (!chart || !candleSeries || !volumeSeries) return;
 
-    // Symbol/timeframe/source switch: paged-in history belongs to the old dataset.
-    const datasetKey = `${symbol}|${timeframe}|${market}|${source}`;
-    if (historyRef.current.key !== datasetKey) {
-      historyRef.current = {
-        key: datasetKey,
-        candles: [],
-        exhausted: source !== "live",
-        loading: false,
-      };
-    }
-    const firstLiveTime = candles[0]?.time;
-    const history =
-      firstLiveTime === undefined
-        ? []
-        : historyRef.current.candles.filter((c) => c.time < firstLiveTime);
-    // The forming bar is display-only (see `liveCandle`'s doc comment) — it
-    // keeps the visible candle in step with the live-anchored plan lines
-    // below instead of leaving the chart a full bar behind.
-    const allCandles = liveCandle ? [...history, ...candles, liveCandle] : [...history, ...candles];
+    try {
+      // Symbol/timeframe/source switch: paged-in history belongs to the old dataset.
+      const datasetKey = `${symbol}|${timeframe}|${market}|${source}`;
+      if (historyRef.current.key !== datasetKey) {
+        historyRef.current = {
+          key: datasetKey,
+          candles: [],
+          exhausted: source !== "live",
+          loading: false,
+        };
+      }
+      const firstLiveTime = candles[0]?.time;
+      const history =
+        firstLiveTime === undefined
+          ? []
+          : historyRef.current.candles.filter((c) => c.time < firstLiveTime);
+      // The forming bar is display-only (see `liveCandle`'s doc comment) — it
+      // keeps the visible candle in step with the live-anchored plan lines
+      // below instead of leaving the chart a full bar behind.
+      const allCandles = liveCandle
+        ? [...history, ...candles, liveCandle]
+        : [...history, ...candles];
 
-    // Filter out invalid candles
-    const validCandles = allCandles.filter(
-      (c) =>
-        c &&
-        Number.isFinite(c.time) &&
-        Number.isFinite(c.open) &&
-        Number.isFinite(c.high) &&
-        Number.isFinite(c.low) &&
-        Number.isFinite(c.close) &&
-        Number.isFinite(c.volume),
-    );
-
-    // The default price scale (2dp, 0.01 steps) collapses sub-dollar assets:
-    // DOGE's axis becomes a single label and the plan lines overlap.
-    const precision = pricePrecision(validCandles.at(-1)?.close ?? 0);
-    const priceFormat = { type: "price" as const, precision, minMove: 10 ** -precision };
-    for (const series of [
-      candleSeries,
-      supportSeriesRef.current,
-      resistanceSeriesRef.current,
-      entrySeriesRef.current,
-      stopSeriesRef.current,
-      target1SeriesRef.current,
-      target2SeriesRef.current,
-      emaFastSeriesRef.current,
-      emaSlowSeriesRef.current,
-    ]) {
-      series?.applyOptions({ priceFormat });
-    }
-
-    const timeScale = chart.timeScale();
-    const isNewDataset = appliedKeyRef.current !== datasetKey;
-    const prevRange = timeScale.getVisibleRange();
-    const prevLast = lastTimeRef.current;
-
-    candleSeries.setData(
-      validCandles.map((c): CandlestickData<Time> => ({
-        time: c.time as UTCTimestamp,
-        open: c.open,
-        high: c.high,
-        low: c.low,
-        close: c.close,
-      })),
-    );
-    volumeSeries.setData(
-      validCandles.map((c): HistogramData<Time> => ({
-        time: c.time as UTCTimestamp,
-        value: c.volume,
-        color: c.close >= c.open ? "rgba(34,197,94,0.32)" : "rgba(244,63,94,0.32)",
-      })),
-    );
-    const emaFastData = computeEmaSeries(validCandles, EMA_FAST.length) ?? [];
-    const emaSlowData = computeEmaSeries(validCandles, EMA_SLOW.length) ?? [];
-    emaFastSeriesRef.current?.setData(toLineData(emaFastData));
-    emaSlowSeriesRef.current?.setData(toLineData(emaSlowData));
-
-    // Trend lines and plan levels must be re-set in this same pass: re-setting
-    // the candles rebuilds the chart's internal time index, and a line series
-    // left holding points anchored to the old index crashes the renderer
-    // ("Value is null") on its next repaint. Filter to only times in the chart.
-    const chartStart = validCandles[0]?.time ?? 0;
-    const chartEnd = validCandles.at(-1)?.time ?? Infinity;
-    const validSupportData =
-      trendLines?.support?.filter((p) => p && p.time >= chartStart && p.time <= chartEnd) ?? [];
-    const validResistanceData =
-      trendLines?.resistance?.filter((p) => p && p.time >= chartStart && p.time <= chartEnd) ?? [];
-    supportSeriesRef.current?.setData(toLineData(validSupportData));
-    resistanceSeriesRef.current?.setData(toLineData(validResistanceData));
-
-    const start = candles[0]?.time;
-    // Extend to the live candle (when present) so the plan lines reach the
-    // actual last bar on screen instead of stopping one bar short of it.
-    const end = validCandles[validCandles.length - 1]?.time;
-    // Without a directional plan the entry/stop/targets all collapse onto the
-    // last close — drawing them would just clutter the chart.
-    const planActive = evaluation?.risk?.direction !== "none";
-    const setLevel = (series: ISeriesApi<"Line"> | null, value: number) => {
-      const isValid =
-        planActive &&
-        start &&
-        end &&
-        Number.isFinite(start) &&
-        Number.isFinite(end) &&
-        Number.isFinite(value);
-      series?.setData(
-        isValid
-          ? [
-              { time: start as UTCTimestamp, value },
-              { time: end as UTCTimestamp, value },
-            ]
-          : [],
+      // Filter out invalid candles
+      const validCandles = allCandles.filter(
+        (c) =>
+          c &&
+          Number.isFinite(c.time) &&
+          Number.isFinite(c.open) &&
+          Number.isFinite(c.high) &&
+          Number.isFinite(c.low) &&
+          Number.isFinite(c.close) &&
+          Number.isFinite(c.volume),
       );
-    };
-    setLevel(entrySeriesRef.current, evaluation?.risk?.entry);
-    setLevel(stopSeriesRef.current, evaluation?.risk?.stop);
-    setLevel(target1SeriesRef.current, evaluation?.risk?.target1);
-    setLevel(target2SeriesRef.current, evaluation?.risk?.target2);
 
-    earliestTimeRef.current = validCandles[0]?.time ?? null;
-    lastTimeRef.current = validCandles.at(-1)?.time ?? null;
+      if (validCandles.length === 0) return;
 
-    if (isNewDataset || prevRange === null) {
-      appliedKeyRef.current = datasetKey;
-      timeScale.fitContent();
-    } else if (prevLast !== null && (prevRange.to as number) >= prevLast) {
-      // Viewing the newest bar: stay pinned to real time as fresh bars arrive.
-      timeScale.scrollToRealTime();
-    } else {
-      // Panned into history (or older bars just loaded): keep the same window.
-      timeScale.setVisibleRange(prevRange);
+      // The default price scale (2dp, 0.01 steps) collapses sub-dollar assets:
+      // DOGE's axis becomes a single label and the plan lines overlap.
+      const precision = pricePrecision(validCandles.at(-1)?.close ?? 0);
+      const priceFormat = { type: "price" as const, precision, minMove: 10 ** -precision };
+      for (const series of [
+        candleSeries,
+        supportSeriesRef.current,
+        resistanceSeriesRef.current,
+        entrySeriesRef.current,
+        stopSeriesRef.current,
+        target1SeriesRef.current,
+        target2SeriesRef.current,
+        emaFastSeriesRef.current,
+        emaSlowSeriesRef.current,
+      ]) {
+        series?.applyOptions({ priceFormat });
+      }
+
+      const timeScale = chart.timeScale();
+      const isNewDataset = appliedKeyRef.current !== datasetKey;
+      const prevRange = timeScale.getVisibleRange();
+      const prevLast = lastTimeRef.current;
+
+      candleSeries.setData(
+        validCandles.map((c): CandlestickData<Time> => ({
+          time: c.time as UTCTimestamp,
+          open: c.open,
+          high: c.high,
+          low: c.low,
+          close: c.close,
+        })),
+      );
+      volumeSeries.setData(
+        validCandles.map((c): HistogramData<Time> => ({
+          time: c.time as UTCTimestamp,
+          value: c.volume,
+          color: c.close >= c.open ? "rgba(34,197,94,0.32)" : "rgba(244,63,94,0.32)",
+        })),
+      );
+      const emaFastData = computeEmaSeries(validCandles, EMA_FAST.length) ?? [];
+      const emaSlowData = computeEmaSeries(validCandles, EMA_SLOW.length) ?? [];
+      emaFastSeriesRef.current?.setData(toLineData(emaFastData));
+      emaSlowSeriesRef.current?.setData(toLineData(emaSlowData));
+
+      // Trend lines and plan levels must be re-set in this same pass: re-setting
+      // the candles rebuilds the chart's internal time index, and a line series
+      // left holding points anchored to the old index crashes the renderer
+      // ("Value is null") on its next repaint. Filter to only times in the chart.
+      const chartStart = validCandles[0]?.time ?? 0;
+      const chartEnd = validCandles.at(-1)?.time ?? Infinity;
+      const validSupportData = (trendLines?.support ?? []).filter(
+        (p) =>
+          p &&
+          Number.isFinite(p.time) &&
+          Number.isFinite(p.value) &&
+          p.time >= chartStart &&
+          p.time <= chartEnd,
+      );
+      const validResistanceData = (trendLines?.resistance ?? []).filter(
+        (p) =>
+          p &&
+          Number.isFinite(p.time) &&
+          Number.isFinite(p.value) &&
+          p.time >= chartStart &&
+          p.time <= chartEnd,
+      );
+      supportSeriesRef.current?.setData(toLineData(validSupportData));
+      resistanceSeriesRef.current?.setData(toLineData(validResistanceData));
+
+      const start = candles[0]?.time;
+      // Extend to the live candle (when present) so the plan lines reach the
+      // actual last bar on screen instead of stopping one bar short of it.
+      const end = validCandles[validCandles.length - 1]?.time;
+      // The intent's execution-TF plan (see the prop doc). Without a
+      // directional plan the entry/stop/targets all collapse onto the last
+      // close — drawing them would just clutter the chart.
+      const planActive = plan !== null && plan.direction !== "none";
+      const setLevel = (series: ISeriesApi<"Line"> | null, value: number | undefined) => {
+        const isValid =
+          planActive &&
+          start &&
+          end &&
+          Number.isFinite(start) &&
+          Number.isFinite(end) &&
+          value !== undefined &&
+          Number.isFinite(value);
+        series?.setData(
+          isValid
+            ? [
+                { time: start as UTCTimestamp, value: value as number },
+                { time: end as UTCTimestamp, value: value as number },
+              ]
+            : [],
+        );
+      };
+      setLevel(entrySeriesRef.current, plan?.entry);
+      setLevel(stopSeriesRef.current, plan?.stop);
+      setLevel(target1SeriesRef.current, plan?.target1);
+      setLevel(target2SeriesRef.current, plan?.target2);
+
+      earliestTimeRef.current = validCandles[0]?.time ?? null;
+      lastTimeRef.current = validCandles.at(-1)?.time ?? null;
+
+      if (isNewDataset || prevRange === null) {
+        appliedKeyRef.current = datasetKey;
+        timeScale.fitContent();
+      } else if (prevLast !== null && (prevRange.to as number) >= prevLast) {
+        // Viewing the newest bar: stay pinned to real time as fresh bars arrive.
+        timeScale.scrollToRealTime();
+      } else {
+        // Panned into history (or older bars just loaded): keep the same window.
+        timeScale.setVisibleRange(prevRange);
+      }
+    } catch (err) {
+      // Workaround for lightweight-charts bug: "Value is null" when hitTest
+      // encounters invalid line series data. Already filtering invalid data,
+      // but catch and silently continue on edge cases. Chart remains usable.
+      if (err instanceof Error && err.message.includes("Value is null")) {
+        return;
+      }
+      throw err;
     }
-  }, [
-    candles,
-    symbol,
-    timeframe,
-    market,
-    source,
-    historyVersion,
-    trendLines,
-    evaluation?.risk,
-    liveCandle,
-  ]);
+  }, [candles, symbol, timeframe, market, source, historyVersion, trendLines, plan, liveCandle]);
 
   useEffect(() => {
     // Markers surface the engine's swing structure directly: the most recent
@@ -1059,9 +1375,9 @@ function TokenChart({
     // Demand/supply bases first so the trade-plan bands paint on top of them.
     const zones: PriceZone[] = [];
     if (!hiddenIndicators.sdZones) zones.push(...baseZonesToPriceZones(baseZones));
-    if (!hiddenIndicators.zones) zones.push(...computeSetupZones(candles, evaluation));
+    if (!hiddenIndicators.zones) zones.push(...computeSetupZones(candles, plan, planStrong));
     zonesPrimitiveRef.current?.setZones(zones);
-  }, [candles, evaluation, baseZones, hiddenIndicators.zones, hiddenIndicators.sdZones]);
+  }, [candles, plan, planStrong, baseZones, hiddenIndicators.zones, hiddenIndicators.sdZones]);
 
   // Intact liquidity pools drawn as labeled horizontal price lines: purple
   // buy-side (BSL) lines at equal-high clusters, cyan sell-side (SSL) at
@@ -1163,8 +1479,9 @@ function TokenChart({
       </div>
       <ChartLegend
         hidden={hiddenIndicators}
-        planActive={evaluation?.risk?.direction !== "none"}
-        zonesActive={hasStrongSetup(evaluation)}
+        planActive={plan !== null && plan.direction !== "none"}
+        zonesActive={planStrong && plan !== null && plan.direction !== "none"}
+        planTimeframe={planTimeframe}
         sdActive={baseZones.length > 0}
         sessionsActive={sessionLevels.length > 0 && SESSION_LINE_TIMEFRAMES.includes(timeframe)}
         onToggle={toggleIndicator}
@@ -1173,22 +1490,15 @@ function TokenChart({
   );
 }
 
-// Zones are only drawn when the engine actually wants the trade, not when it
-// merely leans a direction while telling you to wait.
-function hasStrongSetup(evaluation: SignalEvaluation | undefined): boolean {
-  if (!evaluation) return false;
-  return (
-    evaluation.risk?.direction !== "none" &&
-    (evaluation.decision === "buy-candidate" || evaluation.decision === "short-candidate")
-  );
-}
-
+// Zones paint only when the verdict actually wants the trade (favored or
+// caution — `planStrong`), not when the assistant merely leans a direction
+// while telling you to wait. The plan is the intent's execution-TF plan.
 function computeSetupZones(
   candles: TokenSignalData["candles"],
-  evaluation: SignalEvaluation,
+  risk: RiskRewardPlan | null,
+  strong: boolean,
 ): PriceZone[] {
-  if (!hasStrongSetup(evaluation)) return [];
-  const { risk } = evaluation;
+  if (!risk || !strong || risk.direction === "none") return [];
   const planStart = candles[Math.max(0, candles.length - 10)]?.time;
   if (planStart === undefined) return [];
 
@@ -1336,7 +1646,7 @@ const LEGEND_ENTRIES: Array<{ key: IndicatorKey; label: string; hint: string; sw
     {
       key: "plan",
       label: "Trade plan",
-      hint: "The active setup's levels: entry (blue), stop (rose), target 1 (solid green), target 2 (dashed green). Shown only while the engine has a directional plan.",
+      hint: "Your objective's plan levels: entry (blue), stop (rose), target 1 (solid green), target 2 (dashed green). These come from the objective's trigger timeframe (named on the label) and stay the same while you explore other chart timeframes — one trade story per page. Shown only while the objective has a directional plan.",
       swatch: (
         <span className="flex shrink-0 flex-col gap-[2px]">
           <span className="h-[2px] w-3.5 rounded-full bg-[#60a5fa]" />
@@ -1348,7 +1658,7 @@ const LEGEND_ENTRIES: Array<{ key: IndicatorKey; label: string; hint: string; sw
     {
       key: "zones",
       label: "Trade zones",
-      hint: "Shaded bands drawn only for a strong setup: green = reward to target 1, red = risk to the stop, blue = the buy/sell pocket around entry.",
+      hint: "Shaded bands drawn only while your objective's verdict wants the trade: green = reward to target 1, red = risk to the stop, blue = the buy/sell pocket around entry. Like the trade plan, they belong to the objective's trigger timeframe (named on the label), whatever timeframe the chart shows.",
       swatch: (
         <span className="flex shrink-0 flex-col">
           <span className="h-1.5 w-3.5 rounded-t-[2px] bg-[#22c55e]/30" />
@@ -1385,6 +1695,7 @@ function ChartLegend({
   hidden,
   planActive,
   zonesActive,
+  planTimeframe,
   sdActive,
   sessionsActive,
   onToggle,
@@ -1392,6 +1703,8 @@ function ChartLegend({
   hidden: Partial<Record<IndicatorKey, boolean>>;
   planActive: boolean;
   zonesActive: boolean;
+  /** The plan's source timeframe, shown on the plan/zones labels ("Trade plan · 4H"). */
+  planTimeframe: TokenTimeframe | null;
   sdActive: boolean;
   sessionsActive: boolean;
   onToggle: (key: IndicatorKey) => void;
@@ -1422,6 +1735,12 @@ function ChartLegend({
         if (entry.key === "sdZones" && !sdActive) return null;
         if (entry.key === "sessions" && !sessionsActive) return null;
         const isHidden = hidden[entry.key] === true;
+        // The plan overlays are pinned to the objective's trigger timeframe —
+        // name it on the label so a 15M chart never implies a 15M plan.
+        const label =
+          (entry.key === "plan" || entry.key === "zones") && planTimeframe
+            ? `${entry.label} · ${planTimeframe}`
+            : entry.label;
         return (
           <Tooltip key={entry.key}>
             <TooltipTrigger asChild>
@@ -1435,7 +1754,7 @@ function ChartLegend({
                 )}
               >
                 {entry.swatch}
-                <span className={cn(isHidden && "line-through")}>{entry.label}</span>
+                <span className={cn(isHidden && "line-through")}>{label}</span>
               </button>
             </TooltipTrigger>
             <TooltipContent
@@ -1601,11 +1920,9 @@ function AssistantPanel({
           <TabsList className="flex h-auto w-full shrink-0 justify-start gap-0.5 overflow-x-auto rounded-none border-b border-border bg-transparent p-1.5">
             {(
               [
-                ["decision", "Decision"],
+                ["overview", "Overview"],
                 ["why", "Why"],
                 ["plan", "Plan"],
-                ["entry", "Entry"],
-                ["context", "Context"],
                 ["evidence", "Evidence"],
                 ["details", "Details"],
               ] as const
@@ -1617,30 +1934,94 @@ function AssistantPanel({
           </TabsList>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
-            {/* 1 — SHOULD I TRADE? The verdict, up front. */}
-            <TabsContent value="decision" className="mt-0 space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="text-lg font-semibold leading-tight tracking-tight">
-                    {active.headline}
-                  </h2>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {`${active.definition.contextTimeframe} context · ${active.definition.executionTimeframe} trigger · holds ${active.definition.horizon}`}
-                  </p>
-                </div>
-                <ConfidenceGauge value={active.confidence} size={60} />
-              </div>
-
+            {/* 1 — OVERVIEW: decide in seconds. Verdict, edge, plan, one status
+                line — no prose. The reasoning lives on the Why tab. */}
+            <TabsContent value="overview" className="mt-0 space-y-2">
               <div
                 data-tour="decision"
-                className={cn("rounded-lg border p-2.5", verdictTone(active))}
+                className={cn("rounded-lg border p-3", verdictTone(active))}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Verdict · {active.definition.label}
-                    <InfoHint text="'Not yet', 'reduced size', 'wrong direction', and 'unsuitable market' are all different answers. The badge names which one applies to your objective; the text explains why in plain words." />
-                  </span>
-                  <VerdictBadge assessment={active} />
+                  <div className="min-w-0">
+                    <VerdictHero assessment={active} />
+                    <p className="mt-1.5 truncate text-xs font-semibold text-foreground">
+                      {active.direction !== "none"
+                        ? humanSetup(active.execution.setupType)
+                        : active.headline}
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">
+                      {`${active.definition.contextTimeframe} context · ${active.definition.executionTimeframe} trigger · holds ${active.definition.horizon}`}
+                    </p>
+                  </div>
+                  <ReadStrengthGauge assessment={active} />
+                </div>
+              </div>
+
+              <EdgeStats assessment={active} />
+
+              {active.plan && (
+                <>
+                  <div className="flex gap-1.5">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <PlanRow
+                        color="#60a5fa"
+                        label="Entry"
+                        value={formatEntryRange(active.plan.entryLow, active.plan.entryHigh)}
+                      />
+                      <PlanRow
+                        color="#f43f5e"
+                        label="Stop loss"
+                        value={formatMoney(active.plan.stop)}
+                      />
+                      <PlanRow
+                        color="#22c55e"
+                        label="Target 1"
+                        value={formatMoney(active.plan.target1)}
+                      />
+                      <PlanRow
+                        color="#22c55e"
+                        label="Target 2"
+                        value={formatMoney(active.plan.target2)}
+                      />
+                      <PlanRow
+                        color="#94a3b8"
+                        label="R / R"
+                        value={`${active.plan.rewardRisk1}R / ${active.plan.rewardRisk2}R`}
+                      />
+                    </div>
+                    <PlanLadder plan={active.plan} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <RiskMetric
+                      label="Position"
+                      value={formatMoney(active.plan.positionSize * active.plan.entry)}
+                      compact
+                    />
+                    <RiskMetric
+                      label="Max loss"
+                      value={formatMoney(active.plan.maxDollarLoss)}
+                      tone="bearish"
+                      compact
+                    />
+                    <RiskMetric
+                      label="Gain @ T1"
+                      value={formatMoney(active.plan.estimatedGain1)}
+                      tone="bullish"
+                      compact
+                    />
+                  </div>
+                </>
+              )}
+
+              <DecisionBanner active={active} assessments={assessments} />
+            </TabsContent>
+
+            {/* 2 — WHY: the reasoning behind the verdict, in full. */}
+            <TabsContent value="why" className="mt-0 space-y-3">
+              <div className={cn("rounded-lg border p-2.5", verdictTone(active))}>
+                <div className="flex items-center gap-1.5">
+                  <CardEyebrow>Verdict · {active.definition.label}</CardEyebrow>
+                  <InfoHint text="'Not yet', 'reduced size', 'wrong direction', and 'unsuitable market' are all different answers. The Overview names the one that applies; this text explains why in plain words." />
                 </div>
                 <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
                   {active.summary}
@@ -1648,24 +2029,12 @@ function AssistantPanel({
                 <HoldNote hold={active.hold} />
               </div>
 
-              {marketOutlook && (
-                <div className="rounded-lg border border-border bg-surface p-2.5">
-                  <div className="flex items-center gap-1.5">
-                    <CardEyebrow>Market Outlook</CardEyebrow>
-                    <InfoHint text="The current market story for this token, told before any recommendation: the big picture, the near-term tape, and what that combination rewards. Every verdict below is this narrative applied to one objective." />
-                  </div>
-                  <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                    {marketOutlook}
-                  </p>
-                </div>
-              )}
-            </TabsContent>
-
-            {/* 2 — WHY? Reasoning + what would change the verdict. */}
-            <TabsContent value="why" className="mt-0 space-y-3">
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5">
-                  <CardEyebrow>Confirmation Checklist</CardEyebrow>
+                  <CardEyebrow>
+                    Checklist · {active.checklist.filter((item) => item.done).length}/
+                    {active.checklist.length}
+                  </CardEyebrow>
                   <InfoHint text="Everything this objective needs before a full-size entry. The unchecked items are what 'not yet' means, concretely. Hover an item for the detail." />
                 </div>
                 <div className="space-y-1">
@@ -1711,10 +2080,22 @@ function AssistantPanel({
                   ))}
                 </div>
               </div>
+
+              {marketOutlook && (
+                <div className="rounded-lg border border-border bg-surface p-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <CardEyebrow>Market Outlook</CardEyebrow>
+                    <InfoHint text="The current market story for this token, told before any recommendation: the big picture, the near-term tape, and what that combination rewards. Every verdict is this narrative applied to one objective." />
+                  </div>
+                  <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                    {marketOutlook}
+                  </p>
+                </div>
+              )}
             </TabsContent>
 
-            {/* 3 — RISK? The execution plan and sizing. */}
-            <TabsContent value="plan" className="mt-0">
+            {/* 2 — PLAN: the execution plan, sizing, and entry location. */}
+            <TabsContent value="plan" className="mt-0 space-y-3">
               <div data-tour="risk" className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
@@ -1736,7 +2117,7 @@ function AssistantPanel({
                   <>
                     {active.verdict === "wait" && (
                       <p className="text-[10px] font-semibold leading-relaxed text-warning">
-                        Conditional — execute only once the checklist above completes.
+                        Conditional — execute only once the checklist on the Why tab completes.
                       </p>
                     )}
                     <div className="grid grid-cols-2 gap-1.5">
@@ -1780,8 +2161,8 @@ function AssistantPanel({
                         compact
                       />
                       <RiskMetric
-                        label="Gain @ T1"
-                        value={formatMoney(active.plan.estimatedGain1)}
+                        label="Gain @ T1 / T2"
+                        value={`${formatMoney(active.plan.estimatedGain1)} / ${formatMoney(active.plan.estimatedGain2)}`}
                         tone="bullish"
                         compact
                       />
@@ -1827,10 +2208,7 @@ function AssistantPanel({
                   </p>
                 )}
               </div>
-            </TabsContent>
 
-            {/* 4 — WHERE? Entry location, structure, sessions, confluence. */}
-            <TabsContent value="entry" className="mt-0 space-y-3">
               {active.location && (
                 <LocationRow
                   location={active.location}
@@ -1865,8 +2243,8 @@ function AssistantPanel({
               </div>
             </TabsContent>
 
-            {/* 5 — MARKET CONTEXT: regime, funding/OI, volatility. */}
-            <TabsContent value="context" className="mt-0 space-y-3">
+            {/* 4 — DETAILS: market context and the engine's scored checks. */}
+            <TabsContent value="details" className="mt-0 space-y-3">
               <div className="rounded-lg border border-border bg-surface p-2.5">
                 <div className="flex items-center gap-1.5">
                   <CardEyebrow>Market Read</CardEyebrow>
@@ -1917,36 +2295,7 @@ function AssistantPanel({
               </div>
 
               {perp && <PerpContextCard perp={perp} />}
-            </TabsContent>
 
-            {/* 6 — EVIDENCE: backtest + the engine's live record. */}
-            <TabsContent value="evidence" className="mt-0 space-y-3">
-              <div data-tour="backtest">
-                <BacktestEvidence backtest={active.execution.backtest} />
-              </div>
-
-              {active.record && (
-                <div
-                  className={cn(
-                    "flex items-start gap-2 rounded-lg border p-2.5 text-[11px] leading-relaxed",
-                    active.record.demoted
-                      ? "border-warning/30 bg-warning-soft text-warning"
-                      : "border-border bg-surface text-muted-foreground",
-                  )}
-                >
-                  <History className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <div>
-                    <span className="text-[9px] font-semibold uppercase tracking-wider">
-                      Engine's live record
-                    </span>
-                    <p className="mt-0.5">{active.record.note}</p>
-                  </div>
-                </div>
-              )}
-            </TabsContent>
-
-            {/* 7 — DETAILS: the engine's scored checks. */}
-            <TabsContent value="details" className="mt-0">
               <div data-tour="insight" className="space-y-1.5">
                 <div className="flex items-center gap-1.5">
                   <CardEyebrow>Engine Checks · {active.definition.executionTimeframe}</CardEyebrow>
@@ -1974,6 +2323,32 @@ function AssistantPanel({
                   ))}
                 </div>
               </div>
+            </TabsContent>
+
+            {/* 3 — EVIDENCE: backtest + the engine's live record. */}
+            <TabsContent value="evidence" className="mt-0 space-y-3">
+              <div data-tour="backtest">
+                <BacktestEvidence backtest={active.execution.backtest} />
+              </div>
+
+              {active.record && (
+                <div
+                  className={cn(
+                    "flex items-start gap-2 rounded-lg border p-2.5 text-[11px] leading-relaxed",
+                    active.record.demoted
+                      ? "border-warning/30 bg-warning-soft text-warning"
+                      : "border-border bg-surface text-muted-foreground",
+                  )}
+                >
+                  <History className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <div>
+                    <span className="text-[9px] font-semibold uppercase tracking-wider">
+                      Engine's live record
+                    </span>
+                    <p className="mt-0.5">{active.record.note}</p>
+                  </div>
+                </div>
+              )}
             </TabsContent>
           </div>
         </Tabs>
@@ -2261,38 +2636,216 @@ function verdictTone(assessment: IntentAssessment): string {
   return "border-border bg-muted/40";
 }
 
-function VerdictBadge({ assessment }: { assessment: IntentAssessment }) {
-  const { verdict, direction, isCounterTrend } = assessment;
-  // The label must tell the same story as the narrative: a counter-trend
-  // trade is never presented as a plain "long/short favored".
-  const label =
+/**
+ * The five-second read: one big colored word for the verdict. Favored/caution
+ * lead with the direction itself; wait and avoid lead with the answer. The
+ * badges keep the counter-trend/half-size nuance the old text badge carried.
+ */
+function VerdictHero({ assessment }: { assessment: DisplayIntentAssessment }) {
+  const { verdict, direction, isCounterTrend, sizeMultiplier } = assessment;
+  const DirIcon =
+    direction === "long" ? TrendingUp : direction === "short" ? TrendingDown : MoveRight;
+  const word =
+    verdict === "favored" || verdict === "caution"
+      ? direction.toUpperCase()
+      : verdict === "wait"
+        ? direction === "none"
+          ? "NOT YET"
+          : `${direction.toUpperCase()} · NOT YET`
+        : "STAND ASIDE";
+  const text =
     verdict === "favored"
-      ? `${direction} favored`
+      ? direction === "short"
+        ? "text-bearish"
+        : "text-bullish"
       : verdict === "caution"
-        ? isCounterTrend
-          ? `counter-trend ${direction} · ½ size`
-          : `tactical ${direction} · ½ size`
+        ? "text-warning"
         : verdict === "wait"
-          ? isCounterTrend
-            ? `counter-trend ${direction} · not yet`
-            : "not yet"
-          : "stand aside";
+          ? "text-info"
+          : "text-muted-foreground";
   return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "capitalize",
-        verdict === "favored" &&
-          (direction === "short"
-            ? "border-bearish/30 bg-bearish-soft text-bearish"
-            : "border-bullish/30 bg-bullish-soft text-bullish"),
-        verdict === "caution" && "border-warning/30 bg-warning-soft text-warning",
-        verdict === "wait" && "border-info/30 bg-info-soft text-info",
-        verdict === "avoid" && "border-border bg-muted text-muted-foreground",
+    <div className="flex flex-wrap items-center gap-2">
+      <DirIcon className={cn("h-6 w-6 shrink-0", text)} />
+      <span className={cn("text-2xl font-bold leading-none tracking-tight", text)}>{word}</span>
+      {sizeMultiplier < 1 && (
+        <Badge variant="outline" className="border-warning/30 bg-warning-soft text-warning">
+          ½ size
+        </Badge>
       )}
+      {isCounterTrend && (
+        <Badge variant="outline" className="border-warning/30 bg-warning-soft text-warning">
+          counter-trend
+        </Badge>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The engine's confidence, presented as what it actually is: the strength of
+ * the *directional read*, not permission to act. The number is never rescaled
+ * or capped — hysteresis and the tracker store this same raw value — but the
+ * ring takes the verdict's color and the hint states the verdict's meaning,
+ * so "NOT YET beside a high number" reads as "strong read, entry conditions
+ * not yet satisfied" rather than a contradiction.
+ */
+function ReadStrengthGauge({ assessment }: { assessment: DisplayIntentAssessment }) {
+  const { verdict, direction } = assessment;
+  const tone =
+    verdict === "favored"
+      ? direction === "short"
+        ? "var(--color-bearish)"
+        : "var(--color-bullish)"
+      : verdict === "caution"
+        ? "var(--color-warning)"
+        : verdict === "wait"
+          ? "var(--color-info)"
+          : "var(--color-muted-foreground)";
+  const meaning =
+    verdict === "favored"
+      ? "Here the read and the entry conditions agree — the setup is confirmed."
+      : verdict === "caution"
+        ? "The read is tradable but fights the higher timeframe — hence reduced size."
+        : verdict === "wait"
+          ? "A strong number beside 'not yet' is not a contradiction: the engine is confident about the direction while the entry conditions are still unsatisfied — the checklist shows exactly what's missing."
+          : "Whatever its strength, this market doesn't pay your objective — stand aside.";
+  return (
+    <div className="flex shrink-0 flex-col items-center">
+      <ConfidenceGauge value={assessment.confidence} size={60} tone={tone} />
+      <span className="mt-0.5 flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">
+        Read strength
+        <InfoHint
+          text={`How strongly the engine's evidence points in one direction — not a 'take the trade' score. The verdict word is the action. ${meaning}`}
+        />
+      </span>
+    </div>
+  );
+}
+
+/** Historical edge, win rate, and risk level — the ref-style stat row. */
+function EdgeStats({ assessment }: { assessment: DisplayIntentAssessment }) {
+  const backtest = assessment.execution.backtest;
+  const atr = assessment.execution.analytics.atrPercent;
+  const hasSample = backtest.totalTrades > 0;
+  // Below the reliable-sample floor the stats are noise — show them uncolored.
+  const trustworthy = hasSample && !backtest.lowSample;
+  // The engine owns the risk formula (ATR bands + counter-trend bump).
+  const grade = gradeRisk(atr, assessment.isCounterTrend);
+  return (
+    <div className="grid grid-cols-3 gap-1.5">
+      <GlanceStat
+        label="Hist. edge"
+        value={hasSample ? `${backtest.expectancy >= 0 ? "+" : ""}${backtest.expectancy}R` : "n/a"}
+        sub={
+          hasSample
+            ? `${backtest.totalTrades} similar trade${backtest.totalTrades === 1 ? "" : "s"}${backtest.lowSample ? " · thin" : ""}`
+            : "no history"
+        }
+        tone={trustworthy ? (backtest.expectancy > 0 ? "bullish" : "bearish") : undefined}
+      />
+      <GlanceStat
+        label="Win rate"
+        value={hasSample ? `${backtest.winRate}%` : "n/a"}
+        sub="on this chart"
+        tone={trustworthy ? (backtest.winRate >= 50 ? "bullish" : "bearish") : undefined}
+      />
+      <GlanceStat
+        label="Risk level"
+        value={grade ? grade[0].toUpperCase() + grade.slice(1) : "n/a"}
+        sub={
+          [atr !== null ? `ATR ${atr}%` : null, assessment.isCounterTrend ? "counter-trend" : null]
+            .filter(Boolean)
+            .join(" · ") || "no ATR read"
+        }
+        tone={grade === "high" ? "bearish" : grade === "medium" ? "warning" : undefined}
+      />
+    </div>
+  );
+}
+
+function GlanceStat({
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  tone?: "bullish" | "bearish" | "warning";
+}) {
+  return (
+    <div className="min-w-0 rounded-lg border border-border bg-surface p-2">
+      <div className="truncate text-[9px] font-semibold uppercase leading-tight tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div
+        className={cn(
+          "num mt-0.5 truncate text-sm font-semibold",
+          tone === "bullish" && "text-bullish",
+          tone === "bearish" && "text-bearish",
+          tone === "warning" && "text-warning",
+        )}
+      >
+        {value}
+      </div>
+      <div className="truncate text-[9px] text-muted-foreground">{sub}</div>
+    </div>
+  );
+}
+
+/** One trade-plan level, ref-style: colored dot, label, monospaced price. */
+function PlanRow({ color, label, value }: { color: string; label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-2 py-1.5">
+      <span className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+        {label}
+      </span>
+      <span className="num truncate text-[11px] font-semibold">{value}</span>
+    </div>
+  );
+}
+
+/**
+ * Mini vertical map of the plan: green reward band up to T1 (fainter on to
+ * T2), blue entry pocket, red risk band to the stop — the same bands the
+ * chart's trade zones paint, at a glance next to the numbers. Orientation
+ * follows the actual prices, so shorts render inverted automatically.
+ */
+function PlanLadder({ plan }: { plan: RiskRewardPlan }) {
+  const prices = [plan.stop, plan.entry, plan.entryLow, plan.entryHigh, plan.target1, plan.target2];
+  if (prices.some((value) => !Number.isFinite(value))) return null;
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  if (!(max > min)) return null;
+  const pct = (value: number) => ((max - value) / (max - min)) * 100;
+  const band = (a: number, b: number) => ({
+    top: `${Math.min(pct(a), pct(b))}%`,
+    height: `${Math.max(1.5, Math.abs(pct(a) - pct(b)))}%`,
+  });
+  return (
+    <div
+      aria-hidden
+      className="relative w-9 shrink-0 self-stretch overflow-hidden rounded-md border border-border bg-surface"
     >
-      {label}
-    </Badge>
+      <div
+        className="absolute inset-x-1 rounded-sm bg-bullish/10"
+        style={band(plan.target1, plan.target2)}
+      />
+      <div
+        className="absolute inset-x-1 rounded-sm bg-bullish/25"
+        style={band(plan.entry, plan.target1)}
+      />
+      <div
+        className="absolute inset-x-1 rounded-sm bg-bearish/25"
+        style={band(plan.entry, plan.stop)}
+      />
+      <div
+        className="absolute inset-x-0 rounded-sm border border-info/50 bg-info/30"
+        style={band(plan.entryLow, plan.entryHigh)}
+      />
+    </div>
   );
 }
 
@@ -2337,6 +2890,79 @@ function BiasCell({
         {regime.replaceAll("-", " ")}
         <Icon className="h-3 w-3 shrink-0" />
       </div>
+    </div>
+  );
+}
+
+/**
+ * The Overview's one-line status: what stands between you and the trade (or
+ * what pays instead), without the prose — the Why tab carries the full
+ * reasoning. This is the "not-yet / wrong-strategy / what-flips-it" answer
+ * compressed to a glance.
+ */
+function DecisionBanner({
+  active,
+  assessments,
+}: {
+  active: DisplayIntentAssessment;
+  assessments: DisplayIntentAssessment[];
+}) {
+  const done = active.checklist.filter((item) => item.done).length;
+  const total = active.checklist.length;
+  const next = active.checklist.find((item) => !item.done);
+  const heldFor = active.hold.isHeld ? formatHeldFor(active.hold.heldAt) : null;
+
+  let tone: string;
+  let Icon: typeof CheckCircle2;
+  let headline: string;
+  let detail: string | null;
+  if (active.verdict === "favored") {
+    tone = "border-bullish/30 bg-bullish-soft text-bullish";
+    Icon = CheckCircle2;
+    headline = `Setup confirmed — ${done}/${total} checks in`;
+    detail = next ? `Open: ${next.label}` : null;
+  } else if (active.verdict === "caution") {
+    tone = "border-warning/30 bg-warning-soft text-warning";
+    Icon = ShieldAlert;
+    headline = active.isCounterTrend ? "Counter-trend — tradable at ½ size" : "Tradable at ½ size";
+    detail = next
+      ? `${total - done} check${total - done === 1 ? "" : "s"} open — next: ${next.label}`
+      : null;
+  } else if (active.verdict === "wait") {
+    tone = "border-info/30 bg-info-soft text-info";
+    Icon = CircleAlert;
+    headline = `Not yet — ${total - done} of ${total} confirmations missing`;
+    detail = next
+      ? `Next: ${next.label}${active.plan ? "" : " · plan appears once the trigger confirms"}`
+      : null;
+  } else {
+    tone = "border-border bg-muted/40 text-muted-foreground";
+    Icon = CircleX;
+    headline = "Doesn't pay this objective";
+    const alt = assessments.find(
+      (a) =>
+        a.intent !== active.intent &&
+        (a.verdict === "favored" || a.verdict === "caution") &&
+        a.plan !== null,
+    );
+    detail = alt
+      ? `${alt.definition.label} has a ${alt.direction} setup on the ${alt.definition.executionTimeframe}`
+      : "No other objective is payable — flat is a position";
+  }
+
+  return (
+    <div className={cn("flex items-start gap-2 rounded-lg border p-2.5", tone)}>
+      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <div className="min-w-0 flex-1 leading-tight">
+        <div className="text-[11px] font-semibold">{headline}</div>
+        {detail && <div className="mt-0.5 truncate text-[10px] opacity-80">{detail}</div>}
+      </div>
+      {heldFor && (
+        <span className="flex shrink-0 items-center gap-1 text-[9px] font-semibold uppercase tracking-wider opacity-80">
+          <Lock className="h-3 w-3" />
+          held {heldFor}
+        </span>
+      )}
     </div>
   );
 }
@@ -2410,13 +3036,14 @@ function keyInsights(evaluation: SignalEvaluation): InsightRow[] {
         ? { label: "Volume", value: "Below avg", tone: "warning", dir: "down" }
         : { label: "Volume", value: "Average", tone: "neutral", dir: "flat" };
 
-  const atr = a.atrPercent ?? 0;
+  // Same engine formula the Overview risk chip reads — the two can't diverge.
+  const atrGrade = gradeRisk(a.atrPercent);
   const volatility: InsightRow =
-    atr < 2.2
-      ? { label: "Volatility (ATR)", value: "Low", tone: "neutral", dir: "flat" }
-      : atr < 4.5
+    atrGrade === "high"
+      ? { label: "Volatility (ATR)", value: "High", tone: "bearish", dir: "up" }
+      : atrGrade === "medium"
         ? { label: "Volatility (ATR)", value: "Medium", tone: "warning", dir: "flat" }
-        : { label: "Volatility (ATR)", value: "High", tone: "bearish", dir: "up" };
+        : { label: "Volatility (ATR)", value: "Low", tone: "neutral", dir: "flat" };
 
   // Swing structure is a separate read from the regime above: the regime is
   // MA/ATR-derived, structure is the HH/HL/LH/LL sequence of validated swing

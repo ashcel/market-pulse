@@ -68,3 +68,35 @@ describe("runBacktest replay pivot safety", () => {
     expect(second).toEqual(first);
   });
 });
+
+describe("gradeRisk", () => {
+  // Dynamic import for consistency with the mocked-module hygiene above:
+  // a static top-level import would cache quant before the replay tests mock
+  // "./analysis".
+  const load = () => import("./quant");
+
+  it("grades by the ATR% bands", async () => {
+    const { gradeRisk } = await load();
+
+    expect(gradeRisk(1.0)).toBe("low");
+    expect(gradeRisk(2.2)).toBe("medium");
+    expect(gradeRisk(3.0)).toBe("medium");
+    expect(gradeRisk(4.5)).toBe("high");
+    expect(gradeRisk(7.0)).toBe("high");
+  });
+
+  it("bumps a counter-trend trade one grade, capped at high", async () => {
+    const { gradeRisk } = await load();
+
+    expect(gradeRisk(1.0, true)).toBe("medium");
+    expect(gradeRisk(3.0, true)).toBe("high");
+    expect(gradeRisk(7.0, true)).toBe("high");
+  });
+
+  it("returns null without an ATR read", async () => {
+    const { gradeRisk } = await load();
+
+    expect(gradeRisk(null)).toBeNull();
+    expect(gradeRisk(Number.NaN)).toBeNull();
+  });
+});
