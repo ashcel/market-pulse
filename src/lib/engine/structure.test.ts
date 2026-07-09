@@ -199,6 +199,171 @@ describe("computeMarketStructure", () => {
   });
 });
 
+describe("equal highs / equal lows (EQH/EQL)", () => {
+  it("detects exact equal highs, flagging only the later swing", () => {
+    const s = computeMarketStructure(pivots(["high", 100], ["low", 50], ["high", 100]));
+
+    expect(s.swings.map((sw) => sw.equal)).toEqual([null, null, "eqh"]);
+    expect(s.equalHighs).toHaveLength(1);
+    expect(s.equalHighs[0].kind).toBe("eqh");
+    expect(s.equalHighs[0].price).toBe(100);
+    expect(s.equalHighs[0].swings).toHaveLength(2);
+    expect(s.equalLows).toHaveLength(0);
+    // Label behavior is untouched: an equal high still reads LH (strict-break rule).
+    expect(s.swings[2].label).toBe("LH");
+  });
+
+  it("detects exact equal lows, flagging only the later swing", () => {
+    const s = computeMarketStructure(pivots(["low", 100], ["high", 150], ["low", 100]));
+
+    expect(s.swings.map((sw) => sw.equal)).toEqual([null, null, "eql"]);
+    expect(s.equalLows).toHaveLength(1);
+    expect(s.equalLows[0].kind).toBe("eql");
+    expect(s.equalLows[0].price).toBe(100);
+    expect(s.equalHighs).toHaveLength(0);
+    expect(s.swings[2].label).toBe("HL");
+  });
+
+  it("reads a marginal break inside tolerance as EQH even though the label is HH", () => {
+    // 100 → 100.1 is exactly 0.1% of the anchor: an HH by strict break, but
+    // equal by tolerance — the classic stop-hunt just above a double top.
+    const s = computeMarketStructure(pivots(["high", 100], ["low", 50], ["high", 100.1]));
+
+    expect(s.swings[2].label).toBe("HH");
+    expect(s.swings[2].equal).toBe("eqh");
+    // The liquidity line is the cluster's extreme, not its anchor.
+    expect(s.equalHighs[0].price).toBe(100.1);
+  });
+
+  it("does not read a swing just outside tolerance as equal", () => {
+    const s = computeMarketStructure(pivots(["high", 100], ["low", 50], ["high", 100.2]));
+
+    expect(s.swings[2].equal).toBeNull();
+    expect(s.equalHighs).toHaveLength(0);
+  });
+
+  it("measures a chain against the cluster anchor, so tolerance cannot drift", () => {
+    // 100.09 is within 0.1% of the anchor (100); 100.19 is within 0.1% of the
+    // *previous* swing but not of the anchor — pairwise chaining would let a
+    // staircase of near-misses read as one long shelf.
+    const s = computeMarketStructure(
+      pivots(
+        ["high", 100],
+        ["low", 50],
+        ["high", 100.09],
+        ["low", 51],
+        ["high", 100.19],
+        ["low", 52],
+      ),
+    );
+
+    const highs = s.swings.filter((sw) => sw.kind === "high");
+    expect(highs.map((sw) => sw.equal)).toEqual([null, "eqh", null]);
+    expect(s.equalHighs).toHaveLength(1);
+    expect(s.equalHighs[0].swings.map((sw) => sw.price)).toEqual([100, 100.09]);
+    expect(s.equalHighs[0].price).toBe(100.09);
+  });
+
+  it("honors a custom tolerance, including zero for exact-only matching", () => {
+    const seq = pivots(["high", 100], ["low", 50], ["high", 100.1]);
+
+    expect(computeMarketStructure(seq, 0).equalHighs).toHaveLength(0);
+    expect(computeMarketStructure(seq, 0.01).equalHighs).toHaveLength(1);
+  });
+
+  it("collects triple tops into one cluster and closes it when the level breaks", () => {
+    const s = computeMarketStructure(
+      pivots(
+        ["high", 100],
+        ["low", 50],
+        ["high", 100.05],
+        ["low", 51],
+        ["high", 99.95],
+        ["low", 52],
+        ["high", 110], // decisive break: closes the cluster and anchors a new run
+      ),
+    );
+
+    expect(s.equalHighs).toHaveLength(1);
+    expect(s.equalHighs[0].swings).toHaveLength(3);
+    expect(s.equalHighs[0].price).toBe(100.05);
+    expect(s.swings[s.swings.length - 1].equal).toBeNull();
+  });
+
+  it("never reads a same-leg pivot shelf as equal highs", () => {
+    // Two raw highs at 100 with no confirmed low between belong to one leg:
+    // toAlternatingSwings collapses them before equality is measured.
+    const s = computeMarketStructure(pivots(["low", 50], ["high", 100], ["high", 100]));
+
+    expect(s.equalHighs).toHaveLength(0);
+    expect(s.swings.filter((sw) => sw.kind === "high")).toHaveLength(1);
+  });
+
+  it("leaves labels, trend, and events untouched by equality detection", () => {
+    // A marginal break *above* the prior high is an HH that fires its BOS in
+    // the established uptrend — and is still an EQH by tolerance. Equality is
+    // an extra lens; it must never mute a label, an event, or the trend.
+    const above = computeMarketStructure(
+      pivots(["low", 10], ["high", 20], ["low", 12], ["high", 24], ["low", 15], ["high", 24.01]),
+    );
+    expect(above.trend).toBe("uptrend");
+    expect(above.swings.map((sw) => sw.label)).toEqual([null, null, "HL", "HH", "HL", "HH"]);
+    expect(above.swings.map((sw) => sw.event)).toEqual([null, null, null, null, null, "bos"]);
+    expect(above.swings[5].equal).toBe("eqh");
+
+    // A marginal miss *below* takes the internal LH label (strict-break rule),
+    // downgrading the trend to range — again exactly as without equality.
+    const below = computeMarketStructure(
+      pivots(["low", 10], ["high", 20], ["low", 12], ["high", 24], ["low", 15], ["high", 23.99]),
+    );
+    expect(below.trend).toBe("range");
+    expect(below.swings.map((sw) => sw.label)).toEqual([null, null, "HL", "HH", "HL", "LH"]);
+    expect(below.swings.every((sw) => sw.event === null)).toBe(true);
+    expect(below.swings[5].equal).toBe("eqh");
+  });
+
+  it("is deterministic: identical input produces deep-equal structures", () => {
+    const seq: [PivotPoint["kind"], number][] = [
+      ["high", 100],
+      ["low", 50],
+      ["high", 100.05],
+      ["low", 50.02],
+      ["high", 108],
+      ["low", 60],
+    ];
+
+    expect(computeMarketStructure(pivots(...seq))).toEqual(computeMarketStructure(pivots(...seq)));
+  });
+
+  it("produces prefix-identical equal flags and stable cluster membership (replay equals live)", () => {
+    const seq: [PivotPoint["kind"], number][] = [
+      ["high", 100],
+      ["low", 50],
+      ["high", 100.05], // EQH vs anchor 100
+      ["low", 50.02], // EQL vs anchor 50
+      ["high", 99.96], // EQH — triple top
+      ["low", 58],
+      ["high", 110], // breaks the cluster
+      ["low", 70],
+    ];
+    const full = computeMarketStructure(pivots(...seq));
+
+    for (let k = 1; k <= seq.length; k++) {
+      const prefix = computeMarketStructure(pivots(...seq.slice(0, k)));
+      // Per-swing equal flags never change once a swing is emitted.
+      expect(prefix.swings).toEqual(full.swings.slice(0, k));
+      // Cluster membership over already-seen swings never changes either —
+      // clusters only grow at the tail as new members join.
+      for (const [i, cluster] of prefix.equalHighs.entries()) {
+        expect(full.equalHighs[i].swings.slice(0, cluster.swings.length)).toEqual(cluster.swings);
+      }
+      for (const [i, cluster] of prefix.equalLows.entries()) {
+        expect(full.equalLows[i].swings.slice(0, cluster.swings.length)).toEqual(cluster.swings);
+      }
+    }
+  });
+});
+
 describe("toAlternatingSwings", () => {
   it("collapses a run of highs to the highest and a run of lows to the lowest", () => {
     const legs = toAlternatingSwings(
