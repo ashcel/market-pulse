@@ -515,6 +515,54 @@ export function evaluateSignal(
           : `The current regime does not cleanly support a ${direction} thesis.`,
   );
 
+  // Swing structure is the engine's second trend opinion — the HH/HL/LH/LL
+  // read the chart draws. The MA-based regime and the swing read can disagree
+  // (price above a rising 20MA while printing LH/LL), and until now only the
+  // regime affected the score. A structural break stays "live" only while its
+  // swing is still the most recent of its kind — the same recency read the
+  // presentation layer applies before showing a BOS/CHoCH badge.
+  const structureBias: TradeDirection =
+    structure.trend === "uptrend" ? "long" : structure.trend === "downtrend" ? "short" : "none";
+  const liveEventSwing =
+    structure.eventSwing !== null &&
+    (structure.eventSwing === structure.lastHigh || structure.eventSwing === structure.lastLow)
+      ? structure.eventSwing
+      : null;
+  const liveEventBias: TradeDirection =
+    liveEventSwing?.label === "HH" ? "long" : liveEventSwing?.label === "LL" ? "short" : "none";
+  const eventName = structure.event === "choch" ? "CHoCH" : "BOS";
+  let structureStatus: SignalStatus;
+  let structureNote: string;
+  if (direction === "none") {
+    structureStatus = "neutral";
+    structureNote = "No directional setup to test against swing structure.";
+  } else if (structureBias === direction) {
+    structureStatus = "pass";
+    structureNote =
+      structure.trend === "uptrend"
+        ? "Swing structure agrees: higher highs and higher lows support the long."
+        : "Swing structure agrees: lower highs and lower lows support the short.";
+  } else if (structureBias !== "none") {
+    structureStatus = "fail";
+    structureNote = `Swing structure prints a ${structure.trend === "uptrend" ? "HH/HL uptrend" : "LH/LL downtrend"} — this ${direction} fights the structural trend.`;
+  } else if (liveEventBias === direction) {
+    structureStatus = "pass";
+    structureNote = `Structure is ranging, but the latest break is a ${eventName} in the ${direction} direction — an early structural turn in the trade's favor.`;
+  } else if (liveEventBias !== "none") {
+    structureStatus = "fail";
+    structureNote = `Structure is ranging and the latest break is a ${eventName} against the ${direction} — the most recent structural evidence points the other way.`;
+  } else {
+    structureStatus = "warning";
+    structureNote =
+      "Swing structure is range-bound — no HH/HL or LH/LL sequence confirms this direction yet.";
+  }
+  add(
+    "Structure alignment",
+    structureStatus,
+    direction === "none" ? 0 : statusScore(structureStatus, 15, -8),
+    structureNote,
+  );
+
   const volumeOk = (analytics.volumeRatio ?? 0) >= 1.15;
   add(
     "Volume confirmation",
@@ -591,6 +639,11 @@ export function evaluateSignal(
   if (regime === "choppy") noTradeReasons.push("Market regime is choppy/noisy.");
   if (againstConfirmedTrend)
     noTradeReasons.push(`Setup direction is against the confirmed ${regime} regime.`);
+  // Fighting the swing structure is the same hard veto as fighting the regime:
+  // the discretionary trader does not take the long while the chart prints
+  // LH/LL, whatever the moving averages say.
+  if (structureStatus === "fail")
+    noTradeReasons.push("Setup direction fights the swing-structure read.");
   if (!rrOk && direction !== "none")
     noTradeReasons.push("Reward/risk is below the configured minimum.");
   if (nearResistance) noTradeReasons.push("Price is too close to resistance for a long trade.");
