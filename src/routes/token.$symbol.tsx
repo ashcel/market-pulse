@@ -27,7 +27,9 @@ import type {
   ISeriesMarkersPluginApi,
   LineData,
   LogicalRange,
+  SeriesDataItemTypeMap,
   SeriesMarker,
+  SeriesType,
   Time,
   UTCTimestamp,
 } from "lightweight-charts";
@@ -984,6 +986,11 @@ function TokenChart({
   const [historyVersion, setHistoryVersion] = useState(0);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const appliedKeyRef = useRef("");
+  // Bounded next-frame retries of the data pass when lightweight-charts throws
+  // its "Value is null" time-scale bug (see the catch below for the details).
+  const chartRetriesRef = useRef(0);
+  const [chartRetry, setChartRetry] = useState(0);
+  const appliedPrecisionRef = useRef<number | null>(null);
   const earliestTimeRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
   const loadOlderRef = useRef<() => void>(() => {});
@@ -1183,12 +1190,7 @@ function TokenChart({
 
       if (validCandles.length === 0) return;
 
-      // The default price scale (2dp, 0.01 steps) collapses sub-dollar assets:
-      // DOGE's axis becomes a single label and the plan lines overlap.
-      const precision = pricePrecision(validCandles.at(-1)?.close ?? 0);
-      const priceFormat = { type: "price" as const, precision, minMove: 10 ** -precision };
-      for (const series of [
-        candleSeries,
+      const lineSeries = [
         supportSeriesRef.current,
         resistanceSeriesRef.current,
         entrySeriesRef.current,
@@ -1197,8 +1199,20 @@ function TokenChart({
         target2SeriesRef.current,
         emaFastSeriesRef.current,
         emaSlowSeriesRef.current,
-      ]) {
-        series?.applyOptions({ priceFormat });
+      ];
+
+      // The default price scale (2dp, 0.01 steps) collapses sub-dollar assets:
+      // DOGE's axis becomes a single label and the plan lines overlap. Only
+      // re-apply when the precision actually changes (i.e. symbol switch):
+      // applyOptions marks every series' cached items for a recolor pass, and
+      // that pass crashes on items holding stale time-scale indices.
+      const precision = pricePrecision(validCandles.at(-1)?.close ?? 0);
+      if (appliedPrecisionRef.current !== precision) {
+        appliedPrecisionRef.current = precision;
+        const priceFormat = { type: "price" as const, precision, minMove: 10 ** -precision };
+        for (const series of [candleSeries, ...lineSeries]) {
+          series?.applyOptions({ priceFormat });
+        }
       }
 
       const timeScale = chart.timeScale();
@@ -1206,31 +1220,29 @@ function TokenChart({
       const prevRange = timeScale.getVisibleRange();
       const prevLast = lastTimeRef.current;
 
-      candleSeries.setData(
-        validCandles.map((c): CandlestickData<Time> => ({
-          time: c.time as UTCTimestamp,
-          open: c.open,
-          high: c.high,
-          low: c.low,
-          close: c.close,
-        })),
-      );
-      volumeSeries.setData(
-        validCandles.map((c): HistogramData<Time> => ({
-          time: c.time as UTCTimestamp,
-          value: c.volume,
-          color: c.close >= c.open ? "rgba(34,197,94,0.32)" : "rgba(244,63,94,0.32)",
-        })),
-      );
+      // Lightweight-charts bug: when a setData removes time points, the time scale
+      // compacts, leaving series set *earlier* with stale index mappings. The
+      // chart's pane views defer validation until rendering/hit-test, so errors
+      // occur asynchronously during crosshair movement. Workaround: defer visible-
+      // range restoration to the next frame, giving the browser one full render
+      // cycle to validate all pane views against the final time scale before any
+      // user interaction can trigger hit-test (which calls recolor-items code).
+
+      const candleData = validCandles.map((c): CandlestickData<Time> => ({
+        time: c.time as UTCTimestamp,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      }));
+      const volumeData = validCandles.map((c): HistogramData<Time> => ({
+        time: c.time as UTCTimestamp,
+        value: c.volume,
+        color: c.close >= c.open ? "rgba(34,197,94,0.32)" : "rgba(244,63,94,0.32)",
+      }));
       const emaFastData = computeEmaSeries(validCandles, EMA_FAST.length) ?? [];
       const emaSlowData = computeEmaSeries(validCandles, EMA_SLOW.length) ?? [];
-      emaFastSeriesRef.current?.setData(toLineData(emaFastData));
-      emaSlowSeriesRef.current?.setData(toLineData(emaSlowData));
 
-      // Trend lines and plan levels must be re-set in this same pass: re-setting
-      // the candles rebuilds the chart's internal time index, and a line series
-      // left holding points anchored to the old index crashes the renderer
-      // ("Value is null") on its next repaint. Filter to only times in the chart.
       const chartStart = validCandles[0]?.time ?? 0;
       const chartEnd = validCandles.at(-1)?.time ?? Infinity;
       const validSupportData = (trendLines?.support ?? []).filter(
@@ -1249,18 +1261,21 @@ function TokenChart({
           p.time >= chartStart &&
           p.time <= chartEnd,
       );
+
+      const start = candles[0]?.time;
+      const end = validCandles[validCandles.length - 1]?.time;
+      const planActive = plan !== null && plan.direction !== "none";
+
+      // Set all data in one frame
+      candleSeries.setData(candleData);
+      volumeSeries.setData(volumeData);
+      emaFastSeriesRef.current?.setData(toLineData(emaFastData));
+      emaSlowSeriesRef.current?.setData(toLineData(emaSlowData));
       supportSeriesRef.current?.setData(toLineData(validSupportData));
       resistanceSeriesRef.current?.setData(toLineData(validResistanceData));
 
-      const start = candles[0]?.time;
-      // Extend to the live candle (when present) so the plan lines reach the
-      // actual last bar on screen instead of stopping one bar short of it.
-      const end = validCandles[validCandles.length - 1]?.time;
-      // The intent's execution-TF plan (see the prop doc). Without a
-      // directional plan the entry/stop/targets all collapse onto the last
-      // close — drawing them would just clutter the chart.
-      const planActive = plan !== null && plan.direction !== "none";
-      const setLevel = (series: ISeriesApi<"Line"> | null, value: number | undefined) => {
+      // Plan levels: entry/stop/targets
+      const buildLevelData = (value: number | undefined) => {
         const isValid =
           planActive &&
           start &&
@@ -1269,43 +1284,67 @@ function TokenChart({
           Number.isFinite(end) &&
           value !== undefined &&
           Number.isFinite(value);
-        series?.setData(
-          isValid
-            ? [
-                { time: start as UTCTimestamp, value: value as number },
-                { time: end as UTCTimestamp, value: value as number },
-              ]
-            : [],
-        );
+        return isValid
+          ? [
+              { time: start as UTCTimestamp, value: value as number },
+              { time: end as UTCTimestamp, value: value as number },
+            ]
+          : [];
       };
-      setLevel(entrySeriesRef.current, plan?.entry);
-      setLevel(stopSeriesRef.current, plan?.stop);
-      setLevel(target1SeriesRef.current, plan?.target1);
-      setLevel(target2SeriesRef.current, plan?.target2);
+      entrySeriesRef.current?.setData(buildLevelData(plan?.entry));
+      stopSeriesRef.current?.setData(buildLevelData(plan?.stop));
+      target1SeriesRef.current?.setData(buildLevelData(plan?.target1));
+      target2SeriesRef.current?.setData(buildLevelData(plan?.target2));
 
       earliestTimeRef.current = validCandles[0]?.time ?? null;
       lastTimeRef.current = validCandles.at(-1)?.time ?? null;
+      appliedKeyRef.current = datasetKey;
 
-      if (isNewDataset || prevRange === null) {
-        appliedKeyRef.current = datasetKey;
-        timeScale.fitContent();
-      } else if (prevLast !== null && (prevRange.to as number) >= prevLast) {
-        // Viewing the newest bar: stay pinned to real time as fresh bars arrive.
-        timeScale.scrollToRealTime();
-      } else {
-        // Panned into history (or older bars just loaded): keep the same window.
-        timeScale.setVisibleRange(prevRange);
-      }
+      // Defer visible-range restoration through nested requestAnimationFrames to
+      // guarantee two full render cycles before user interaction can trigger
+      // hit-tests. This ensures all pane views are fully validated against the
+      // final time scale before zoom/pan/crosshair events can fire.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (isNewDataset || prevRange === null) {
+            timeScale.fitContent();
+          } else if (prevLast !== null && (prevRange.to as number) >= prevLast) {
+            timeScale.scrollToRealTime();
+          } else {
+            timeScale.setVisibleRange(prevRange);
+          }
+        });
+      });
+      chartRetriesRef.current = 0;
     } catch (err) {
-      // Workaround for lightweight-charts bug: "Value is null" when hitTest
-      // encounters invalid line series data. Already filtering invalid data,
-      // but catch and silently continue on edge cases. Chart remains usable.
+      // Same lightweight-charts bug as above when it escapes the workaround:
+      // a stale series/time-scale mapping throws "Value is null" mid-pass,
+      // which used to leave the chart partially drawn or blank. Re-run the
+      // whole pass on the next frame — the render in between lets the chart
+      // rebuild its time scale — bounded so a persistent throw can't loop.
       if (err instanceof Error && err.message.includes("Value is null")) {
+        if (chartRetriesRef.current < 3) {
+          chartRetriesRef.current += 1;
+          requestAnimationFrame(() => setChartRetry((v) => v + 1));
+        } else {
+          console.warn("TokenChart: lightweight-charts 'Value is null' persisted after retries");
+        }
         return;
       }
       throw err;
     }
-  }, [candles, symbol, timeframe, market, source, historyVersion, trendLines, plan, liveCandle]);
+  }, [
+    candles,
+    symbol,
+    timeframe,
+    market,
+    source,
+    historyVersion,
+    trendLines,
+    plan,
+    liveCandle,
+    chartRetry,
+  ]);
 
   useEffect(() => {
     // Markers surface the engine's swing structure directly: the most recent
