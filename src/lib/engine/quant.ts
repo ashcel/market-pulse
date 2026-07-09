@@ -1,6 +1,6 @@
 import type { Candle, PivotPoint } from "./types";
 import { computePivots } from "./analysis";
-import { computeMarketStructure, type MarketStructure } from "./structure";
+import { computeMarketStructure, toAlternatingSwings, type MarketStructure } from "./structure";
 
 export type SignalStatus = "pass" | "fail" | "warning" | "neutral";
 export type TradeDecision =
@@ -351,6 +351,14 @@ export function buildRiskPlan(
   const atr14 = atr(candles, 14) ?? entry * 0.02;
   const support = nearestSupport(candles, pivots) ?? entry - atr14 * 1.5;
   const resistance = nearestResistance(candles, pivots) ?? entry + atr14 * 2;
+  // A swing stop belongs under the level the market *defended* — the
+  // alternation-collapsed leg extreme — not the nearest raw pivot, which can
+  // be an interior touch of a single leg that one wick runs through. Raw
+  // levels stay in use for targets and the entry zone, where nearest-touch
+  // proximity is the honest read (evidence: sr-candidates.test.ts).
+  const swings = toAlternatingSwings(pivots);
+  const defendedSupport = nearestSupport(candles, swings) ?? support;
+  const defendedResistance = nearestResistance(candles, swings) ?? resistance;
   const maxDollarRisk = settings.accountSize * (settings.maxRiskPerTradePercent / 100);
 
   let stop = entry;
@@ -358,12 +366,12 @@ export function buildRiskPlan(
     if (settings.stopMethod === "fixed-percent")
       stop = entry * (1 - settings.fixedStopPercent / 100);
     else if (settings.stopMethod === "atr") stop = entry - atr14 * settings.atrStopMultiplier;
-    else stop = Math.min(support, entry - atr14 * 0.7);
+    else stop = Math.min(defendedSupport, entry - atr14 * 0.7);
   } else if (direction === "short") {
     if (settings.stopMethod === "fixed-percent")
       stop = entry * (1 + settings.fixedStopPercent / 100);
     else if (settings.stopMethod === "atr") stop = entry + atr14 * settings.atrStopMultiplier;
-    else stop = Math.max(resistance, entry + atr14 * 0.7);
+    else stop = Math.max(defendedResistance, entry + atr14 * 0.7);
   }
 
   // Ideal entry zone: a bounded pullback (long) or rally (short) toward
