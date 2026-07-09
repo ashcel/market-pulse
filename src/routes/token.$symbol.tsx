@@ -997,23 +997,47 @@ function TokenChart({
     // any break-of-structure event it produced — the same MarketStructure the
     // setup classifier reads, so the chart and the verdict tell one story.
     const swings = evaluation?.structure?.swings ?? [];
-    const markers: SeriesMarker<Time>[] = hiddenIndicators.pivots
+    const swingMarkers: SeriesMarker<Time>[] = hiddenIndicators.pivots
       ? []
       : swings
           .slice(-MAX_STRUCTURE_MARKERS)
           .filter((swing) => Number.isFinite(swing.time) && Number.isFinite(swing.price))
-          .map((swing) => ({
-            time: swing.time as UTCTimestamp,
-            position: swing.kind === "high" ? "aboveBar" : "belowBar",
-            shape: swing.kind === "high" ? "arrowDown" : "arrowUp",
-            color: swing.kind === "high" ? "#f59e0b" : "#22c55e",
+          .map((swing) => {
+            const tags = [
+              swing.label,
+              swing.event ? (swing.event === "bos" ? "BOS" : "CHoCH") : null,
+              swing.equal ? (swing.equal === "eqh" ? "EQH" : "EQL") : null,
+            ].filter((tag): tag is string => tag !== null);
+            return {
+              time: swing.time as UTCTimestamp,
+              position: swing.kind === "high" ? "aboveBar" : "belowBar",
+              shape: swing.kind === "high" ? "arrowDown" : "arrowUp",
+              color: swing.kind === "high" ? "#f59e0b" : "#22c55e",
+              size: 1,
+              text: tags.length ? tags.join(" ") : undefined,
+            } satisfies SeriesMarker<Time>;
+          });
+    // Sweep markers ride the liquidity toggle with the pool lines they raid:
+    // a circle at the stop-hunt candle, on the side the wick reached into.
+    const sweepMarkers: SeriesMarker<Time>[] = hiddenIndicators.liquidity
+      ? []
+      : (evaluation?.liquiditySweeps ?? [])
+          .filter((sweep) => Number.isFinite(sweep.time))
+          .map((sweep) => ({
+            time: sweep.time as UTCTimestamp,
+            position: sweep.side === "bsl" ? "aboveBar" : "belowBar",
+            shape: "circle",
+            color: sweep.side === "bsl" ? "#c084fc" : "#22d3ee",
             size: 1,
-            text: swing.label
-              ? `${swing.label}${swing.event ? ` ${swing.event === "bos" ? "BOS" : "CHoCH"}` : ""}`
-              : undefined,
+            text: sweep.side === "bsl" ? "BSL sweep" : "SSL sweep",
           }));
+    // setMarkers replaces the whole set, and lightweight-charts requires
+    // ascending time — merge both families before handing them over.
+    const markers = [...swingMarkers, ...sweepMarkers].sort(
+      (a, b) => (a.time as number) - (b.time as number),
+    );
     markerRef.current?.setMarkers(markers);
-  }, [evaluation, hiddenIndicators.pivots]);
+  }, [evaluation, hiddenIndicators.pivots, hiddenIndicators.liquidity]);
 
   useEffect(() => {
     emaFastSeriesRef.current?.applyOptions({ visible: !hiddenIndicators.emaFast });
@@ -1038,6 +1062,46 @@ function TokenChart({
     if (!hiddenIndicators.zones) zones.push(...computeSetupZones(candles, evaluation));
     zonesPrimitiveRef.current?.setZones(zones);
   }, [candles, evaluation, baseZones, hiddenIndicators.zones, hiddenIndicators.sdZones]);
+
+  // Intact liquidity pools drawn as labeled horizontal price lines: purple
+  // buy-side (BSL) lines at equal-high clusters, cyan sell-side (SSL) at
+  // equal-low clusters, each titled with its confidence. Spent pools
+  // (intact: false) are engine history, not chart furniture — skipped.
+  useEffect(() => {
+    const series = candleSeriesRef.current;
+    if (!series || hiddenIndicators.liquidity) return;
+
+    const lines: IPriceLine[] = [];
+    // A swept pool's stops are gone even when swing bookkeeping still calls it
+    // intact (the raid wick may never confirm as a pivot) — don't draw it.
+    const sweptPools = new Set((evaluation?.liquiditySweeps ?? []).map((sweep) => sweep.pool));
+    for (const pool of evaluation?.liquidity ?? []) {
+      if (!pool.intact || sweptPools.has(pool) || !Number.isFinite(pool.price)) continue;
+      lines.push(
+        series.createPriceLine({
+          price: pool.price,
+          color: pool.side === "bsl" ? "#c084fc" : "#22d3ee",
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: `${pool.side === "bsl" ? "BSL" : "SSL"} ${pool.confidence}`,
+        }),
+      );
+    }
+
+    // Same teardown discipline as the session-level lines below: remove only
+    // from this effect's series, and tolerate a chart already disposed.
+    return () => {
+      if (!chartRef.current || !candleSeriesRef.current) return;
+      for (const line of lines) {
+        try {
+          series.removePriceLine(line);
+        } catch {
+          /* series already disposed by chart teardown */
+        }
+      }
+    };
+  }, [evaluation, hiddenIndicators.liquidity]);
 
   // Session high/low levels drawn as labeled horizontal price lines. Rebuilt
   // whenever the levels, timeframe, or visibility toggle change; skipped on
@@ -1250,11 +1314,22 @@ const LEGEND_ENTRIES: Array<{ key: IndicatorKey; label: string; hint: string; sw
     {
       key: "pivots",
       label: "Swing structure",
-      hint: "Arrows mark the confirmed swing legs (amber ▼ highs, green ▲ lows), each labeled against the prior swing of its kind: HH/HL = higher high/low, LH/LL = lower high/low. BOS tags a break that extends the trend; CHoCH a break against it — the first structural hint of a reversal. Trend lines and setups are built from these.",
+      hint: "Arrows mark the confirmed swing legs (amber ▼ highs, green ▲ lows), each labeled against the prior swing of its kind: HH/HL = higher high/low, LH/LL = lower high/low. BOS tags a break that extends the trend; CHoCH a break against it — the first structural hint of a reversal. EQH/EQL mark equal highs/lows — matching swing levels where stop-loss liquidity tends to rest. Trend lines and setups are built from these.",
       swatch: (
         <span className="flex shrink-0 items-center gap-0.5 text-[8px] leading-none">
           <span className="text-[#f59e0b]">▼</span>
           <span className="text-[#22c55e]">▲</span>
+        </span>
+      ),
+    },
+    {
+      key: "liquidity",
+      label: "Liquidity",
+      hint: "Dashed horizontal lines at intact liquidity pools: purple BSL (buy-side) at equal highs — stop orders resting above a double/triple top — and cyan SSL (sell-side) at equal lows. The number is the pool's confidence (touches, tightness, freshness). Price is often drawn toward these levels before reversing. Circles mark liquidity sweeps: a wick ran the pool's stops but the candle closed back inside — a stop hunt, and often the start of the move the raid funded.",
+      swatch: (
+        <span className="flex shrink-0 flex-col gap-[2px]">
+          <span className="h-[2px] w-3.5 rounded-full bg-[#c084fc]" />
+          <span className="h-[2px] w-3.5 rounded-full bg-[#22d3ee]" />
         </span>
       ),
     },

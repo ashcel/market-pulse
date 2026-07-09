@@ -24,7 +24,8 @@ export type ChartIndicatorKey =
   | "plan"
   | "zones"
   | "sdZones"
-  | "sessions";
+  | "sessions"
+  | "liquidity";
 
 interface PreferencesState {
   refreshIntervalMs: number;

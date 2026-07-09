@@ -3,8 +3,9 @@
 // no market feed of its own, so every figure it cites must come from here.
 
 import type { IntentAssessment } from "@/lib/engine/intent";
+import type { LiquidityPool, LiquiditySweep } from "@/lib/engine/liquidity";
 import type { SignalEvaluation } from "@/lib/engine/quant";
-import type { SwingPoint } from "@/lib/engine/structure";
+import type { EqualLevel, SwingPoint } from "@/lib/engine/structure";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
 import type { TrendLines } from "@/lib/engine/analysis";
 import type { BaseZone } from "@/lib/engine/zones";
@@ -91,11 +92,43 @@ function structureLine(s: SignalEvaluation["structure"]): string {
   return `${s.trend} — last swing high ${swingText(s.lastHigh)}, last swing low ${swingText(s.lastLow)}; latest structural break: ${event}`;
 }
 
+function equalLevelsText(levels: EqualLevel[]): string {
+  if (levels.length === 0) return "none";
+  return levels.map((l) => `${num(l.price)} (${l.swings.length} touches)`).join(", ");
+}
+
+function liquidityText(pools: LiquidityPool[], sweeps: LiquiditySweep[]): string {
+  // A swept pool's stops are gone even when swing bookkeeping still reads it
+  // as intact — never present one to the analyst as a live magnet.
+  const sweptPools = new Set(sweeps.map((s) => s.pool));
+  const intact = pools.filter((p) => p.intact && !sweptPools.has(p));
+  if (intact.length === 0) return "none intact";
+  return intact
+    .map(
+      (p) =>
+        `${p.side.toUpperCase()} at ${num(p.price)} (confidence ${p.confidence}/100, ${p.cluster.swings.length} touches)`,
+    )
+    .join("; ");
+}
+
+function sweepsText(sweeps: LiquiditySweep[]): string {
+  if (sweeps.length === 0) return "none";
+  return sweeps
+    .map(
+      (s) =>
+        `${s.side.toUpperCase()} at ${num(s.pool.price)} swept (wick ${num(s.extreme)}, closed back at ${num(s.close)})`,
+    )
+    .join("; ");
+}
+
 function evaluationBlock(e: SignalEvaluation): string {
   const lines = [
     `- Decision: ${humanize(e.decision)} (direction: ${e.direction})`,
     `- Setup: ${humanize(e.setupType)} · Regime: ${humanize(e.regime)} · Confidence: ${e.confidence}/100`,
     `- Swing structure (HH/HL/LH/LL over validated swing legs): ${structureLine(e.structure)}`,
+    `- Equal levels (matching swings where stop liquidity rests): equal highs ${equalLevelsText(e.structure.equalHighs)}; equal lows ${equalLevelsText(e.structure.equalLows)}`,
+    `- Liquidity pools (untapped stop clusters; price is often drawn toward them): ${liquidityText(e.liquidity, e.liquiditySweeps)}`,
+    `- Liquidity sweeps (stop hunts: wick through a pool, close back inside): ${sweepsText(e.liquiditySweeps)}`,
     `- Reason: ${e.reason}`,
     `- Risk plan: entry zone ${num(e.risk.entryLow)}–${num(e.risk.entryHigh)}, stop ${num(e.risk.stop)}, target 1 ${num(e.risk.target1)}, target 2 ${num(e.risk.target2)}`,
     `- Sizing: ${e.risk.positionSize} units, max loss $${num(e.risk.maxDollarLoss)}, reward/risk to T1 ${num(e.risk.rewardRisk1)}R (to T2 ${num(e.risk.rewardRisk2)}R)`,
