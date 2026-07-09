@@ -1,4 +1,5 @@
 import { gradeLocation, type LocationRead } from "./location";
+import type { LiquidityPool } from "./liquidity";
 import type { PerpRead } from "./perp";
 import type { SessionLevel } from "./sessions";
 import type { TokenTimeframe } from "./mock-candles";
@@ -113,9 +114,27 @@ function regimeBias(regime: MarketRegime): TradeDirection {
   return "none";
 }
 
-/** Directional lean of one timeframe: the setup's direction, else the regime's. */
+/** Swing-structure lean of one timeframe: HH/HL → long, LH/LL → short. */
+function structureBias(evaluation: SignalEvaluation): TradeDirection {
+  if (evaluation.structure.trend === "uptrend") return "long";
+  if (evaluation.structure.trend === "downtrend") return "short";
+  return "none";
+}
+
+/**
+ * Directional lean of one timeframe: the setup's direction when there is one.
+ * Otherwise the MA-based regime and the swing-structure read decide together:
+ * either alone may supply the lean, but when both speak and disagree (price
+ * above a rising 20MA while printing LH/LL), that is not a context a trade
+ * should inherit — the honest lean is none.
+ */
 export function timeframeBias(evaluation: SignalEvaluation): TradeDirection {
-  return evaluation.direction !== "none" ? evaluation.direction : regimeBias(evaluation.regime);
+  if (evaluation.direction !== "none") return evaluation.direction;
+  const regime = regimeBias(evaluation.regime);
+  const structure = structureBias(evaluation);
+  if (regime === "none") return structure;
+  if (structure === "none" || structure === regime) return regime;
+  return "none";
 }
 
 function fmtPrice(value: number | null | undefined): string {
@@ -330,6 +349,50 @@ export function assessIntent(
     summary = `Direction is right, but the ${exeTf} trigger isn't confirmed yet. "Not yet" — the unchecked confirmations below are exactly what's missing.`;
   }
 
+  // Higher-timeframe liquidity overlay: the context timeframe's intact pools
+  // mark where resting stops cluster on the horizon that governs this
+  // objective. Entering right below one (long) or right above one (short) is
+  // entering where raids reject, so a favored call trims to caution until the
+  // level resolves. A pool merely on the path to target is the level to
+  // expect a reaction at — noted, never a downgrade.
+  let htfPoolTrim = false;
+  const entryPrice = exe.analytics.lastClose;
+  const opposingPools =
+    direction === "none" || !entryPrice
+      ? []
+      : ctx.liquidity.filter(
+          (pool) =>
+            pool.intact &&
+            (direction === "long"
+              ? pool.side === "bsl" && pool.price > entryPrice
+              : pool.side === "ssl" && pool.price < entryPrice),
+        );
+  const htfPool = opposingPools.reduce<LiquidityPool | null>(
+    (best, pool) =>
+      !best || Math.abs(pool.price - entryPrice) < Math.abs(best.price - entryPrice) ? pool : best,
+    null,
+  );
+  const htfPoolProximate =
+    htfPool !== null &&
+    (Math.abs(htfPool.price - entryPrice) / entryPrice) * 100 <
+      Math.max(0.35, (ctx.analytics.atrPercent ?? 1) * 0.55);
+  if (htfPool) {
+    const sideWord = htfPool.side === "bsl" ? "buy-side" : "sell-side";
+    if (htfPoolProximate) {
+      if (verdict === "favored") {
+        verdict = "caution";
+        htfPoolTrim = true;
+        headline = `${dirWord} ${label} — into ${ctxTf} liquidity, trim size`;
+      }
+      summary = `${summary} Note: an intact ${ctxTf} ${sideWord} liquidity pool sits at ${fmtPrice(htfPool.price)}, right ${direction === "long" ? "above" : "below"} the entry — stop raids reject from these levels, so let it resolve before pressing.`;
+    } else if (
+      exe.risk.direction === direction &&
+      (direction === "long" ? htfPool.price <= exe.risk.target1 : htfPool.price >= exe.risk.target1)
+    ) {
+      summary = `${summary} The first ${ctxTf} liquidity magnet on the path is ${fmtPrice(htfPool.price)} — expect a reaction there.`;
+    }
+  }
+
   // Perp positioning overlay: funding says which side is crowded, and joining
   // the crowd means buying into squeeze risk. When funding is with your
   // direction we caution (extreme funding downgrades a favored call to a
@@ -353,13 +416,23 @@ export function assessIntent(
     }
   }
 
-  const sizeMultiplier = isCounterTrend || crowdedTrim ? 0.5 : 1;
+  const sizeMultiplier = isCounterTrend || crowdedTrim || htfPoolTrim ? 0.5 : 1;
   const plan =
     verdict !== "avoid" && direction !== "none" && exe.risk.direction === direction
       ? scalePlan(exe.risk, sizeMultiplier)
       : null;
 
   const checklist = buildChecklist(def, direction, ctx, exe, location);
+  if (htfPool) {
+    const sideWord = htfPool.side === "bsl" ? "buy-side" : "sell-side";
+    checklist.push({
+      label: `No ${ctxTf} liquidity pool at the entry`,
+      done: !htfPoolProximate,
+      detail: htfPoolProximate
+        ? `An intact ${ctxTf} ${sideWord} pool at ${fmtPrice(htfPool.price)} sits within reach of the entry — the level stop raids reject from.`
+        : `The nearest intact ${ctxTf} ${sideWord} pool (${fmtPrice(htfPool.price)}) leaves the entry room to work.`,
+    });
+  }
   if (perp && direction !== "none" && perp.fundingBias !== "neutral") {
     const crowdedWithYou =
       (direction === "long" && perp.fundingBias === "longs-crowded") ||
