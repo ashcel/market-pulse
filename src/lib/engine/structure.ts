@@ -114,6 +114,26 @@ export interface MarketStructure {
   equalLows: EqualLevel[];
 }
 
+/**
+ * The structure's directional lean: the trend when one exists; in a range the
+ * latest structural break decides while still "live" (its swing is still the
+ * most recent of its kind) — an HH break leans long, an LL break short. This
+ * is the single definition both the signal scoring (structure-alignment
+ * component) and the per-timeframe lean read, so they can never disagree.
+ */
+export function structureLean(structure: MarketStructure): "long" | "short" | "none" {
+  if (structure.trend === "uptrend") return "long";
+  if (structure.trend === "downtrend") return "short";
+  const live =
+    structure.eventSwing !== null &&
+    (structure.eventSwing === structure.lastHigh || structure.eventSwing === structure.lastLow)
+      ? structure.eventSwing
+      : null;
+  if (live?.label === "HH") return "long";
+  if (live?.label === "LL") return "short";
+  return "none";
+}
+
 /** An uptrend prints higher highs and higher lows; a downtrend, the mirror. */
 function trendFrom(highLabel: SwingLabel | null, lowLabel: SwingLabel | null): StructureTrend {
   if (highLabel === "HH" && lowLabel === "HL") return "uptrend";

@@ -33,7 +33,13 @@ function biasStub(
   regime: SignalEvaluation["regime"],
   trend: "uptrend" | "downtrend" | "range",
 ): SignalEvaluation {
-  return stubEval({ direction, regime, structure: { ...BASE.structure, trend } });
+  // Null the event so the structural lean is the trend alone — the mock-data
+  // base evaluation may carry a live BOS/CHoCH that would color range cases.
+  return stubEval({
+    direction,
+    regime,
+    structure: { ...BASE.structure, trend, event: null, eventSwing: null },
+  });
 }
 
 // Real pools built through the real structure engine, at a chosen level.
@@ -53,8 +59,22 @@ function bslPoolAt(price: number): LiquidityPool {
 }
 
 describe("timeframeBias", () => {
-  it("returns the setup direction whenever one exists", () => {
-    expect(timeframeBias(biasStub("short", "trending-up", "uptrend"))).toBe("short");
+  it("returns the setup direction when nothing contradicts it", () => {
+    expect(timeframeBias(biasStub("short", "trending-down", "downtrend"))).toBe("short");
+    expect(timeframeBias(biasStub("long", "range-bound", "range"))).toBe("long");
+  });
+
+  it("suppresses a setup direction the engine vetoes and falls back to the trend read", () => {
+    // The UNI case: a failed-breakout short printed inside a confirmed
+    // uptrend. The engine refuses that trade, so the lean must not be short —
+    // regime and structure agree up, and that agreement is the lean.
+    expect(timeframeBias(biasStub("short", "trending-up", "uptrend"))).toBe("long");
+    expect(timeframeBias(biasStub("short", "range-bound", "uptrend"))).toBe("long");
+    expect(timeframeBias(biasStub("long", "trending-down", "range"))).toBe("short");
+  });
+
+  it("returns none when a vetoed setup leaves regime and structure in conflict", () => {
+    expect(timeframeBias(biasStub("long", "trending-up", "downtrend"))).toBe("none");
   });
 
   it("leans on the regime when structure is silent", () => {
@@ -87,6 +107,9 @@ describe("assessIntent higher-timeframe liquidity", () => {
       decision: "buy-candidate",
       setupType: "breakout",
       regime: "trending-up",
+      // Structure must agree with the long — a structure that fights it would
+      // (correctly) suppress the timeframe's lean and void the setup.
+      structure: { ...BASE.structure, trend: "uptrend", event: null, eventSwing: null },
       confidence: 70,
       analytics: {
         ...BASE.analytics,
@@ -104,6 +127,7 @@ describe("assessIntent higher-timeframe liquidity", () => {
     return stubEval({
       direction: "long",
       regime: "trending-up",
+      structure: { ...BASE.structure, trend: "uptrend", event: null, eventSwing: null },
       liquidity,
       analytics: { ...BASE.analytics, atrPercent: 2 }, // proximity window: 1.1%
     });

@@ -6,7 +6,12 @@ import {
   type LiquidityPool,
   type LiquiditySweep,
 } from "./liquidity";
-import { computeMarketStructure, toAlternatingSwings, type MarketStructure } from "./structure";
+import {
+  computeMarketStructure,
+  structureLean,
+  toAlternatingSwings,
+  type MarketStructure,
+} from "./structure";
 
 export type SignalStatus = "pass" | "fail" | "warning" | "neutral";
 export type TradeDecision =
@@ -124,6 +129,15 @@ export interface SignalEvaluation {
   setupType: SetupType;
   decision: TradeDecision;
   direction: TradeDirection;
+  /**
+   * The timeframe's reconciled directional lean — what bias dots and the
+   * intent layer's context/execution biases should read. `direction` is the
+   * raw setup direction and may be a trade the engine itself refuses (a
+   * counter-trend setup that fails the regime/structure vetoes); `lean` is
+   * that direction only when the engine would actually lean it (see
+   * `directionalLean`).
+   */
+  lean: TradeDirection;
   regime: MarketRegime;
   /** Swing-labeled market structure (HH/HL/LH/LL + trend) behind the setup call. */
   structure: MarketStructure;
@@ -463,6 +477,34 @@ export function buildRiskPlan(
   };
 }
 
+/**
+ * The reconciled directional lean of one timeframe. The setup direction
+ * leads, but a direction the engine itself refuses to trade — one that
+ * fights the confirmed regime or the swing-structure lean, the two hard
+ * vetoes in `evaluateSignal` — must not leak out as the timeframe's lean.
+ * When the setup direction is suppressed (or absent), the lean is whatever
+ * the regime and the structure agree on: either alone may supply it, but
+ * when both speak and disagree the honest lean is none.
+ */
+export function directionalLean(
+  direction: TradeDirection,
+  regime: MarketRegime,
+  structure: MarketStructure,
+): TradeDirection {
+  const regimeLean: TradeDirection =
+    regime === "trending-up" ? "long" : regime === "trending-down" ? "short" : "none";
+  const structLean = structureLean(structure);
+  if (direction !== "none") {
+    const fightsRegime = regimeLean !== "none" && regimeLean !== direction;
+    const fightsStructure = structLean !== "none" && structLean !== direction;
+    if (!fightsRegime && !fightsStructure) return direction;
+  }
+  if (regimeLean === structLean) return regimeLean;
+  if (regimeLean === "none") return structLean;
+  if (structLean === "none") return regimeLean;
+  return "none";
+}
+
 function decisionFromSetup(setup: SetupType): TradeDirection {
   if (setup === "failed-breakout" || setup === "lower-high-rejection") return "short";
   if (
@@ -545,39 +587,29 @@ export function evaluateSignal(
   // Swing structure is the engine's second trend opinion — the HH/HL/LH/LL
   // read the chart draws. The MA-based regime and the swing read can disagree
   // (price above a rising 20MA while printing LH/LL), and until now only the
-  // regime affected the score. A structural break stays "live" only while its
-  // swing is still the most recent of its kind — the same recency read the
-  // presentation layer applies before showing a BOS/CHoCH badge.
-  const structureBias: TradeDirection =
-    structure.trend === "uptrend" ? "long" : structure.trend === "downtrend" ? "short" : "none";
-  const liveEventSwing =
-    structure.eventSwing !== null &&
-    (structure.eventSwing === structure.lastHigh || structure.eventSwing === structure.lastLow)
-      ? structure.eventSwing
-      : null;
-  const liveEventBias: TradeDirection =
-    liveEventSwing?.label === "HH" ? "long" : liveEventSwing?.label === "LL" ? "short" : "none";
+  // regime affected the score. `structureLean` folds the trend and the still-
+  // live BOS/CHoCH into one directional read — the same definition the
+  // per-timeframe lean uses, so the score and the lean can never disagree.
+  const structLean = structureLean(structure);
+  const inTrend = structure.trend !== "range";
   const eventName = structure.event === "choch" ? "CHoCH" : "BOS";
   let structureStatus: SignalStatus;
   let structureNote: string;
   if (direction === "none") {
     structureStatus = "neutral";
     structureNote = "No directional setup to test against swing structure.";
-  } else if (structureBias === direction) {
+  } else if (structLean === direction) {
     structureStatus = "pass";
-    structureNote =
-      structure.trend === "uptrend"
+    structureNote = inTrend
+      ? structure.trend === "uptrend"
         ? "Swing structure agrees: higher highs and higher lows support the long."
-        : "Swing structure agrees: lower highs and lower lows support the short.";
-  } else if (structureBias !== "none") {
+        : "Swing structure agrees: lower highs and lower lows support the short."
+      : `Structure is ranging, but the latest break is a ${eventName} in the ${direction} direction — an early structural turn in the trade's favor.`;
+  } else if (structLean !== "none") {
     structureStatus = "fail";
-    structureNote = `Swing structure prints a ${structure.trend === "uptrend" ? "HH/HL uptrend" : "LH/LL downtrend"} — this ${direction} fights the structural trend.`;
-  } else if (liveEventBias === direction) {
-    structureStatus = "pass";
-    structureNote = `Structure is ranging, but the latest break is a ${eventName} in the ${direction} direction — an early structural turn in the trade's favor.`;
-  } else if (liveEventBias !== "none") {
-    structureStatus = "fail";
-    structureNote = `Structure is ranging and the latest break is a ${eventName} against the ${direction} — the most recent structural evidence points the other way.`;
+    structureNote = inTrend
+      ? `Swing structure prints a ${structure.trend === "uptrend" ? "HH/HL uptrend" : "LH/LL downtrend"} — this ${direction} fights the structural trend.`
+      : `Structure is ranging and the latest break is a ${eventName} against the ${direction} — the most recent structural evidence points the other way.`;
   } else {
     structureStatus = "warning";
     structureNote =
@@ -761,6 +793,7 @@ export function evaluateSignal(
     setupType,
     decision,
     direction,
+    lean: directionalLean(direction, regime, structure),
     regime,
     structure,
     liquidity,

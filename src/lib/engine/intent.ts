@@ -3,6 +3,7 @@ import type { LiquidityPool } from "./liquidity";
 import type { PerpRead } from "./perp";
 import type { SessionLevel } from "./sessions";
 import type { TokenTimeframe } from "./mock-candles";
+import { directionalLean } from "./quant";
 import type { MarketRegime, RiskRewardPlan, SignalEvaluation, TradeDirection } from "./quant";
 import type { BaseZone } from "./zones";
 
@@ -114,27 +115,16 @@ function regimeBias(regime: MarketRegime): TradeDirection {
   return "none";
 }
 
-/** Swing-structure lean of one timeframe: HH/HL → long, LH/LL → short. */
-function structureBias(evaluation: SignalEvaluation): TradeDirection {
-  if (evaluation.structure.trend === "uptrend") return "long";
-  if (evaluation.structure.trend === "downtrend") return "short";
-  return "none";
-}
-
 /**
- * Directional lean of one timeframe: the setup's direction when there is one.
- * Otherwise the MA-based regime and the swing-structure read decide together:
- * either alone may supply the lean, but when both speak and disagree (price
- * above a rising 20MA while printing LH/LL), that is not a context a trade
- * should inherit — the honest lean is none.
+ * Directional lean of one timeframe — delegates to the engine's single
+ * reconciliation (`directionalLean`): the setup direction leads unless the
+ * engine itself vetoes it for fighting the confirmed regime or the swing
+ * structure, in which case the lean falls back to what regime and structure
+ * agree on. Computed from parts (rather than reading `evaluation.lean`) so
+ * it also works on partially stubbed evaluations.
  */
 export function timeframeBias(evaluation: SignalEvaluation): TradeDirection {
-  if (evaluation.direction !== "none") return evaluation.direction;
-  const regime = regimeBias(evaluation.regime);
-  const structure = structureBias(evaluation);
-  if (regime === "none") return structure;
-  if (structure === "none" || structure === regime) return regime;
-  return "none";
+  return directionalLean(evaluation.direction, evaluation.regime, evaluation.structure);
 }
 
 function fmtPrice(value: number | null | undefined): string {

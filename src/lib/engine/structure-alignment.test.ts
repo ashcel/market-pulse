@@ -87,6 +87,8 @@ describe("Structure alignment component", () => {
 
     expect(evaluation.direction).toBe("long");
     expect(evaluation.structure.trend).toBe("uptrend");
+    // Nothing contradicts the setup, so the reconciled lean is the setup.
+    expect(evaluation.lean).toBe("long");
     const component = structureComponent(evaluation);
     expect(component.status).toBe("pass");
     expect(component.score).toBeGreaterThan(0);
@@ -107,6 +109,10 @@ describe("Structure alignment component", () => {
     expect(component.score).toBeLessThan(0);
     expect(evaluation.noTradeReasons).toContain(STRUCTURE_VETO);
     expect(evaluation.decision).not.toBe("short-candidate");
+    // The vetoed short must not leak out as the timeframe's lean: the raw
+    // setup direction stays "short" (it is what was classified), but the
+    // reconciled lean falls back to the HH/HL uptrend the chart shows.
+    expect(evaluation.lean).toBe("long");
   });
 
   it("is neutral with a zero score when there is no directional setup", () => {
