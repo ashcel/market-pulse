@@ -286,7 +286,7 @@ function TokenDetailPage() {
   // buildRiskPlan), falling back to the last closed candle only if that fetch
   // failed — so it's a strictly better fallback than the raw candle close,
   // which reintroduces the per-timeframe staleness this is meant to avoid.
-  const lastClose = live?.price ?? data?.evaluation.risk.entry ?? 0;
+  const lastClose = live?.price ?? data?.evaluation?.risk?.entry ?? 0;
   const change24h = live?.change24h ?? (data ? computeChange24h(data.candles) : 0);
   const name = UNIVERSE.find((u) => u.ticker === symbol)?.name ?? symbol;
   const stats = useMemo(() => (data ? compute24hStats(data.candles) : null), [data]);
@@ -676,7 +676,7 @@ function TokenChart({
   const appliedKeyRef = useRef("");
   const earliestTimeRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
-  const loadOlderRef = useRef<() => void>(() => { });
+  const loadOlderRef = useRef<() => void>(() => {});
 
   const hiddenIndicators = usePreferencesStore((s) => s.hiddenChartIndicators);
   const toggleIndicator = usePreferencesStore((s) => s.toggleChartIndicator);
@@ -892,24 +892,20 @@ function TokenChart({
     const prevLast = lastTimeRef.current;
 
     candleSeries.setData(
-      validCandles.map(
-        (c): CandlestickData<Time> => ({
-          time: c.time as UTCTimestamp,
-          open: c.open,
-          high: c.high,
-          low: c.low,
-          close: c.close,
-        }),
-      ),
+      validCandles.map((c): CandlestickData<Time> => ({
+        time: c.time as UTCTimestamp,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      })),
     );
     volumeSeries.setData(
-      validCandles.map(
-        (c): HistogramData<Time> => ({
-          time: c.time as UTCTimestamp,
-          value: c.volume,
-          color: c.close >= c.open ? "rgba(34,197,94,0.32)" : "rgba(244,63,94,0.32)",
-        }),
-      ),
+      validCandles.map((c): HistogramData<Time> => ({
+        time: c.time as UTCTimestamp,
+        value: c.volume,
+        color: c.close >= c.open ? "rgba(34,197,94,0.32)" : "rgba(244,63,94,0.32)",
+      })),
     );
     const emaFastData = computeEmaSeries(validCandles, EMA_FAST.length) ?? [];
     const emaSlowData = computeEmaSeries(validCandles, EMA_SLOW.length) ?? [];
@@ -947,9 +943,9 @@ function TokenChart({
       series?.setData(
         isValid
           ? [
-            { time: start as UTCTimestamp, value },
-            { time: end as UTCTimestamp, value },
-          ]
+              { time: start as UTCTimestamp, value },
+              { time: end as UTCTimestamp, value },
+            ]
           : [],
       );
     };
@@ -987,14 +983,14 @@ function TokenChart({
     const markers: SeriesMarker<Time>[] = hiddenIndicators.pivots
       ? []
       : (displayPivots || [])
-        .filter((pivot) => pivot && Number.isFinite(pivot.time) && Number.isFinite(pivot.price))
-        .map((pivot) => ({
-          time: pivot.time as UTCTimestamp,
-          position: pivot.kind === "high" ? "aboveBar" : "belowBar",
-          shape: pivot.kind === "high" ? "arrowDown" : "arrowUp",
-          color: pivot.kind === "high" ? "#f59e0b" : "#22c55e",
-          size: 1,
-        }));
+          .filter((pivot) => pivot && Number.isFinite(pivot.time) && Number.isFinite(pivot.price))
+          .map((pivot) => ({
+            time: pivot.time as UTCTimestamp,
+            position: pivot.kind === "high" ? "aboveBar" : "belowBar",
+            shape: pivot.kind === "high" ? "arrowDown" : "arrowUp",
+            color: pivot.kind === "high" ? "#f59e0b" : "#22c55e",
+            size: 1,
+          }));
     markerRef.current?.setMarkers(markers);
   }, [displayPivots, hiddenIndicators.pivots]);
 
@@ -1082,7 +1078,7 @@ function TokenChart({
       </div>
       <ChartLegend
         hidden={hiddenIndicators}
-        planActive={evaluation.risk.direction !== "none"}
+        planActive={evaluation?.risk?.direction !== "none"}
         zonesActive={hasStrongSetup(evaluation)}
         sdActive={baseZones.length > 0}
         sessionsActive={sessionLevels.length > 0 && SESSION_LINE_TIMEFRAMES.includes(timeframe)}
@@ -1094,9 +1090,10 @@ function TokenChart({
 
 // Zones are only drawn when the engine actually wants the trade, not when it
 // merely leans a direction while telling you to wait.
-function hasStrongSetup(evaluation: SignalEvaluation): boolean {
+function hasStrongSetup(evaluation: SignalEvaluation | undefined): boolean {
+  if (!evaluation) return false;
   return (
-    evaluation.risk.direction !== "none" &&
+    evaluation.risk?.direction !== "none" &&
     (evaluation.decision === "buy-candidate" || evaluation.decision === "short-candidate")
   );
 }
@@ -1183,8 +1180,8 @@ function lineSwatch(color: string, dashed = false) {
       style={
         dashed
           ? {
-            backgroundImage: `repeating-linear-gradient(90deg, ${color} 0 3px, transparent 3px 5px)`,
-          }
+              backgroundImage: `repeating-linear-gradient(90deg, ${color} 0 3px, transparent 3px 5px)`,
+            }
           : { backgroundColor: color }
       }
     />
@@ -2190,9 +2187,9 @@ function VerdictBadge({ assessment }: { assessment: IntentAssessment }) {
       className={cn(
         "capitalize",
         verdict === "favored" &&
-        (direction === "short"
-          ? "border-bearish/30 bg-bearish-soft text-bearish"
-          : "border-bullish/30 bg-bullish-soft text-bullish"),
+          (direction === "short"
+            ? "border-bearish/30 bg-bearish-soft text-bearish"
+            : "border-bullish/30 bg-bullish-soft text-bullish"),
         verdict === "caution" && "border-warning/30 bg-warning-soft text-warning",
         verdict === "wait" && "border-info/30 bg-info-soft text-info",
         verdict === "avoid" && "border-border bg-muted text-muted-foreground",
@@ -2210,7 +2207,7 @@ function VerdictDot({ assessment }: { assessment: IntentAssessment | undefined }
         "h-1 w-1 rounded-full",
         !assessment && "bg-muted-foreground/30",
         assessment?.verdict === "favored" &&
-        (assessment.direction === "short" ? "bg-bearish" : "bg-bullish"),
+          (assessment.direction === "short" ? "bg-bearish" : "bg-bullish"),
         assessment?.verdict === "caution" && "bg-warning",
         assessment?.verdict === "wait" && "bg-info",
         assessment?.verdict === "avoid" && "bg-muted-foreground/30",
