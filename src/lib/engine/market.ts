@@ -240,6 +240,24 @@ function signalsFor(scored: ScoredAsset): AssetSignals {
       status: regimeStatus,
       detail: `ATR ${e.analytics.atrPercent ?? "–"}% of price.`,
     },
+    {
+      label: "Structure",
+      value:
+        e.structure.trend === "uptrend"
+          ? "Uptrend (HH/HL)"
+          : e.structure.trend === "downtrend"
+            ? "Downtrend (LH/LL)"
+            : "Range",
+      status:
+        e.structure.trend === "uptrend"
+          ? "bullish"
+          : e.structure.trend === "downtrend"
+            ? "bearish"
+            : "neutral",
+      detail: `Swing legs on 1H bars read ${e.structure.lastHigh?.label ?? "–"} high / ${e.structure.lastLow?.label ?? "–"} low${
+        e.structure.event ? `; latest break: ${e.structure.event === "bos" ? "BOS" : "CHoCH"}` : ""
+      }.`,
+    },
     ...e.components.map((c) => ({
       label: c.name,
       value:

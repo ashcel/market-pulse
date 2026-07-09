@@ -4,6 +4,7 @@
 
 import type { IntentAssessment } from "@/lib/engine/intent";
 import type { SignalEvaluation } from "@/lib/engine/quant";
+import type { SwingPoint } from "@/lib/engine/structure";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
 import type { TrendLines } from "@/lib/engine/analysis";
 import type { BaseZone } from "@/lib/engine/zones";
@@ -77,10 +78,24 @@ function chartStructureBlock(s: ChartStructure): string {
   ].join("\n");
 }
 
+function swingText(swing: SwingPoint | null): string {
+  if (!swing) return "none formed yet";
+  return `${swing.label ?? "first swing"} at ${num(swing.price)}`;
+}
+
+function structureLine(s: SignalEvaluation["structure"]): string {
+  const event =
+    s.event && s.eventSwing
+      ? `${s.event === "bos" ? "BOS (trend-extending break)" : "CHoCH (break against the trend)"} at ${num(s.eventSwing.price)}`
+      : "none yet";
+  return `${s.trend} — last swing high ${swingText(s.lastHigh)}, last swing low ${swingText(s.lastLow)}; latest structural break: ${event}`;
+}
+
 function evaluationBlock(e: SignalEvaluation): string {
   const lines = [
     `- Decision: ${humanize(e.decision)} (direction: ${e.direction})`,
     `- Setup: ${humanize(e.setupType)} · Regime: ${humanize(e.regime)} · Confidence: ${e.confidence}/100`,
+    `- Swing structure (HH/HL/LH/LL over validated swing legs): ${structureLine(e.structure)}`,
     `- Reason: ${e.reason}`,
     `- Risk plan: entry zone ${num(e.risk.entryLow)}–${num(e.risk.entryHigh)}, stop ${num(e.risk.stop)}, target 1 ${num(e.risk.target1)}, target 2 ${num(e.risk.target2)}`,
     `- Sizing: ${e.risk.positionSize} units, max loss $${num(e.risk.maxDollarLoss)}, reward/risk to T1 ${num(e.risk.rewardRisk1)}R (to T2 ${num(e.risk.rewardRisk2)}R)`,
