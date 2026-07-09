@@ -108,6 +108,7 @@ import { TOKEN_TIMEFRAMES } from "@/lib/engine/mock-candles";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
 import { computeBaseZones, SD_ZONE_TIMEFRAMES, type BaseZone } from "@/lib/engine/zones";
 import type { MarketRegime, SignalEvaluation, SignalStatus } from "@/lib/engine/quant";
+import type { MarketStructure } from "@/lib/engine/structure";
 import { formatEntryRange, formatMoney, formatUnits } from "@/lib/format";
 import { computeLeverageMetrics, MAX_LEVERAGE, MIN_LEVERAGE } from "@/lib/leverage";
 import { usePreferencesStore, type ChartIndicatorKey } from "@/stores/preferences";
@@ -438,7 +439,8 @@ function TokenDetailPage() {
                     </div>
                     <span className="text-xs text-muted-foreground">
                       {data.candles.length} {data.source === "live" ? "Binance" : "synthetic"} bars
-                      · {data.displayPivots.length} pivots
+                      · {data.evaluation.structure.swings.length} swings ·{" "}
+                      {structureReading(data.evaluation.structure)}
                     </span>
                   </div>
                   <Badge variant="outline" className="border-info/30 bg-info-soft text-info">
@@ -632,12 +634,22 @@ type IndicatorKey = ChartIndicatorKey;
 // Bars fetched per page when the user drags past the oldest loaded candle.
 const HISTORY_PAGE = 500;
 
+// Most recent swing legs drawn as labeled chart markers; older legs sit
+// outside the story the current structure tells and would only add clutter.
+const MAX_STRUCTURE_MARKERS = 8;
+
+/** One-glance summary of the swing structure for the chart header. */
+function structureReading(structure: MarketStructure): string {
+  if (structure.trend === "uptrend") return "HH/HL uptrend";
+  if (structure.trend === "downtrend") return "LH/LL downtrend";
+  return "range structure";
+}
+
 function TokenChart({
   symbol,
   timeframe,
   market,
   candles,
-  displayPivots,
   trendLines,
   evaluation,
   source,
@@ -980,19 +992,52 @@ function TokenChart({
   ]);
 
   useEffect(() => {
-    const markers: SeriesMarker<Time>[] = hiddenIndicators.pivots
+    // Markers surface the engine's swing structure directly: the most recent
+    // alternation-validated legs, each tagged with its HH/HL/LH/LL label and
+    // any break-of-structure event it produced — the same MarketStructure the
+    // setup classifier reads, so the chart and the verdict tell one story.
+    const swings = evaluation?.structure?.swings ?? [];
+    const swingMarkers: SeriesMarker<Time>[] = hiddenIndicators.pivots
       ? []
-      : (displayPivots || [])
-          .filter((pivot) => pivot && Number.isFinite(pivot.time) && Number.isFinite(pivot.price))
-          .map((pivot) => ({
-            time: pivot.time as UTCTimestamp,
-            position: pivot.kind === "high" ? "aboveBar" : "belowBar",
-            shape: pivot.kind === "high" ? "arrowDown" : "arrowUp",
-            color: pivot.kind === "high" ? "#f59e0b" : "#22c55e",
+      : swings
+          .slice(-MAX_STRUCTURE_MARKERS)
+          .filter((swing) => Number.isFinite(swing.time) && Number.isFinite(swing.price))
+          .map((swing) => {
+            const tags = [
+              swing.label,
+              swing.event ? (swing.event === "bos" ? "BOS" : "CHoCH") : null,
+              swing.equal ? (swing.equal === "eqh" ? "EQH" : "EQL") : null,
+            ].filter((tag): tag is string => tag !== null);
+            return {
+              time: swing.time as UTCTimestamp,
+              position: swing.kind === "high" ? "aboveBar" : "belowBar",
+              shape: swing.kind === "high" ? "arrowDown" : "arrowUp",
+              color: swing.kind === "high" ? "#f59e0b" : "#22c55e",
+              size: 1,
+              text: tags.length ? tags.join(" ") : undefined,
+            } satisfies SeriesMarker<Time>;
+          });
+    // Sweep markers ride the liquidity toggle with the pool lines they raid:
+    // a circle at the stop-hunt candle, on the side the wick reached into.
+    const sweepMarkers: SeriesMarker<Time>[] = hiddenIndicators.liquidity
+      ? []
+      : (evaluation?.liquiditySweeps ?? [])
+          .filter((sweep) => Number.isFinite(sweep.time))
+          .map((sweep) => ({
+            time: sweep.time as UTCTimestamp,
+            position: sweep.side === "bsl" ? "aboveBar" : "belowBar",
+            shape: "circle",
+            color: sweep.side === "bsl" ? "#c084fc" : "#22d3ee",
             size: 1,
+            text: sweep.side === "bsl" ? "BSL sweep" : "SSL sweep",
           }));
+    // setMarkers replaces the whole set, and lightweight-charts requires
+    // ascending time — merge both families before handing them over.
+    const markers = [...swingMarkers, ...sweepMarkers].sort(
+      (a, b) => (a.time as number) - (b.time as number),
+    );
     markerRef.current?.setMarkers(markers);
-  }, [displayPivots, hiddenIndicators.pivots]);
+  }, [evaluation, hiddenIndicators.pivots, hiddenIndicators.liquidity]);
 
   useEffect(() => {
     emaFastSeriesRef.current?.applyOptions({ visible: !hiddenIndicators.emaFast });
@@ -1017,6 +1062,46 @@ function TokenChart({
     if (!hiddenIndicators.zones) zones.push(...computeSetupZones(candles, evaluation));
     zonesPrimitiveRef.current?.setZones(zones);
   }, [candles, evaluation, baseZones, hiddenIndicators.zones, hiddenIndicators.sdZones]);
+
+  // Intact liquidity pools drawn as labeled horizontal price lines: purple
+  // buy-side (BSL) lines at equal-high clusters, cyan sell-side (SSL) at
+  // equal-low clusters, each titled with its confidence. Spent pools
+  // (intact: false) are engine history, not chart furniture — skipped.
+  useEffect(() => {
+    const series = candleSeriesRef.current;
+    if (!series || hiddenIndicators.liquidity) return;
+
+    const lines: IPriceLine[] = [];
+    // A swept pool's stops are gone even when swing bookkeeping still calls it
+    // intact (the raid wick may never confirm as a pivot) — don't draw it.
+    const sweptPools = new Set((evaluation?.liquiditySweeps ?? []).map((sweep) => sweep.pool));
+    for (const pool of evaluation?.liquidity ?? []) {
+      if (!pool.intact || sweptPools.has(pool) || !Number.isFinite(pool.price)) continue;
+      lines.push(
+        series.createPriceLine({
+          price: pool.price,
+          color: pool.side === "bsl" ? "#c084fc" : "#22d3ee",
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: `${pool.side === "bsl" ? "BSL" : "SSL"} ${pool.confidence}`,
+        }),
+      );
+    }
+
+    // Same teardown discipline as the session-level lines below: remove only
+    // from this effect's series, and tolerate a chart already disposed.
+    return () => {
+      if (!chartRef.current || !candleSeriesRef.current) return;
+      for (const line of lines) {
+        try {
+          series.removePriceLine(line);
+        } catch {
+          /* series already disposed by chart teardown */
+        }
+      }
+    };
+  }, [evaluation, hiddenIndicators.liquidity]);
 
   // Session high/low levels drawn as labeled horizontal price lines. Rebuilt
   // whenever the levels, timeframe, or visibility toggle change; skipped on
@@ -1228,12 +1313,23 @@ const LEGEND_ENTRIES: Array<{ key: IndicatorKey; label: string; hint: string; sw
     },
     {
       key: "pivots",
-      label: "Swing points",
-      hint: "Arrows mark confirmed swing points: amber ▼ above swing highs, green ▲ below swing lows. Trend lines and setups are built from these.",
+      label: "Swing structure",
+      hint: "Arrows mark the confirmed swing legs (amber ▼ highs, green ▲ lows), each labeled against the prior swing of its kind: HH/HL = higher high/low, LH/LL = lower high/low. BOS tags a break that extends the trend; CHoCH a break against it — the first structural hint of a reversal. EQH/EQL mark equal highs/lows — matching swing levels where stop-loss liquidity tends to rest. Trend lines and setups are built from these.",
       swatch: (
         <span className="flex shrink-0 items-center gap-0.5 text-[8px] leading-none">
           <span className="text-[#f59e0b]">▼</span>
           <span className="text-[#22c55e]">▲</span>
+        </span>
+      ),
+    },
+    {
+      key: "liquidity",
+      label: "Liquidity",
+      hint: "Dashed horizontal lines at intact liquidity pools: purple BSL (buy-side) at equal highs — stop orders resting above a double/triple top — and cyan SSL (sell-side) at equal lows. The number is the pool's confidence (touches, tightness, freshness). Price is often drawn toward these levels before reversing. Circles mark liquidity sweeps: a wick ran the pool's stops but the candle closed back inside — a stop hunt, and often the start of the move the raid funded.",
+      swatch: (
+        <span className="flex shrink-0 flex-col gap-[2px]">
+          <span className="h-[2px] w-3.5 rounded-full bg-[#c084fc]" />
+          <span className="h-[2px] w-3.5 rounded-full bg-[#22d3ee]" />
         </span>
       ),
     },
@@ -1793,7 +1889,7 @@ function AssistantPanel({
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5">
                   <CardEyebrow>Conditions · {active.definition.executionTimeframe}</CardEyebrow>
-                  <InfoHint text="The market's current condition in plain words — trend, momentum, volume, volatility — with the exact ATR and volume readings below. Bigger ATR means wilder swings." />
+                  <InfoHint text="The market's current condition in plain words — trend, momentum, volume, volatility, and the swing structure (higher or lower highs and lows) the engine reads from the chart — with the exact ATR and volume readings below. Bigger ATR means wilder swings." />
                 </div>
                 <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
                   {keyInsights(active.execution).map((row) => (
@@ -2288,6 +2384,8 @@ interface InsightRow {
   value: string;
   tone: "bullish" | "bearish" | "warning" | "neutral";
   dir: "up" | "down" | "flat";
+  /** Span the full grid row — for the structure summary, which needs the width. */
+  wide?: boolean;
 }
 
 function keyInsights(evaluation: SignalEvaluation): InsightRow[] {
@@ -2320,13 +2418,50 @@ function keyInsights(evaluation: SignalEvaluation): InsightRow[] {
         ? { label: "Volatility (ATR)", value: "Medium", tone: "warning", dir: "flat" }
         : { label: "Volatility (ATR)", value: "High", tone: "bearish", dir: "up" };
 
-  return [trend, momentum, volume, volatility];
+  // Swing structure is a separate read from the regime above: the regime is
+  // MA/ATR-derived, structure is the HH/HL/LH/LL sequence of validated swing
+  // legs. A break event is only news while it sits on the most recent swing.
+  const s = evaluation.structure;
+  const eventCurrent =
+    s.event && s.eventSwing && (s.eventSwing === s.lastHigh || s.eventSwing === s.lastLow);
+  const eventNote = eventCurrent ? (s.event === "bos" ? " · BOS" : " · CHoCH") : "";
+  const structure: InsightRow =
+    s.trend === "uptrend"
+      ? {
+          label: "Structure",
+          value: `Higher highs & higher lows${eventNote}`,
+          tone: "bullish",
+          dir: "up",
+          wide: true,
+        }
+      : s.trend === "downtrend"
+        ? {
+            label: "Structure",
+            value: `Lower highs & lower lows${eventNote}`,
+            tone: "bearish",
+            dir: "down",
+            wide: true,
+          }
+        : {
+            label: "Structure",
+            value: `Range — ${s.lastHigh?.label ?? "–"} high / ${s.lastLow?.label ?? "–"} low${eventNote}`,
+            tone: "neutral",
+            dir: "flat",
+            wide: true,
+          };
+
+  return [trend, momentum, volume, volatility, structure];
 }
 
-function KeyInsightBox({ label, value, tone, dir }: InsightRow) {
+function KeyInsightBox({ label, value, tone, dir, wide }: InsightRow) {
   const DirIcon = dir === "up" ? TrendingUp : dir === "down" ? TrendingDown : MoveRight;
   return (
-    <div className="rounded-lg border border-border bg-surface p-2">
+    <div
+      className={cn(
+        "rounded-lg border border-border bg-surface p-2",
+        wide && "col-span-2 sm:col-span-4",
+      )}
+    >
       <div className="text-[9px] font-semibold uppercase leading-tight tracking-wider text-muted-foreground">
         {label}
       </div>

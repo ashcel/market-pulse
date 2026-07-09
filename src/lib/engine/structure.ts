@@ -22,6 +22,17 @@ export type StructureTrend = "uptrend" | "downtrend" | "range";
  */
 export type StructureEvent = "bos" | "choch";
 
+/** An equal high (EQH) or equal low (EQL) — matching swing levels. */
+export type EqualKind = "eqh" | "eql";
+
+/**
+ * How close two same-kind swing prices must be, as a fraction of the cluster
+ * anchor's price, to read as equal. "Equal" highs in practice are rarely
+ * tick-identical — the pair of highs a trader calls a double top differ by a
+ * hair, and the liquidity resting above them is what matters.
+ */
+export const EQUAL_LEVEL_TOLERANCE = 0.001;
+
 export interface SwingPoint extends PivotPoint {
   /**
    * This swing relative to the previous swing of the same kind: HH/LH for
@@ -42,6 +53,29 @@ export interface SwingPoint extends PivotPoint {
    * latest one.
    */
   event: StructureEvent | null;
+  /**
+   * Set when this swing's price matches the anchor (first member) of the
+   * current run of consecutive same-kind swings within the equality
+   * tolerance — an EQH/EQL. Only the *later* swing(s) of a cluster carry the
+   * flag, never retroactively the first: a completed swing's record must not
+   * change as future swings arrive (the same replay-safety rule labels and
+   * events follow). Equality is a separate lens from the label — a marginal
+   * break just above the prior high is an HH by label and still an EQH by
+   * tolerance.
+   */
+  equal: EqualKind | null;
+}
+
+export interface EqualLevel {
+  kind: EqualKind;
+  /**
+   * The liquidity line: the most extreme price among the cluster's swings —
+   * the highest of the equal highs, the lowest of the equal lows. That edge
+   * is where resting stops actually sit.
+   */
+  price: number;
+  /** Member swings in time order; always at least two. */
+  swings: SwingPoint[];
 }
 
 export interface MarketStructure {
@@ -68,6 +102,16 @@ export interface MarketStructure {
   event: StructureEvent | null;
   /** The swing that produced `event`; null when `event` is null. */
   eventSwing: SwingPoint | null;
+  /**
+   * Clusters of *consecutive* swing highs whose prices all match the cluster's
+   * first high within the equality tolerance — double/triple tops. Alternation
+   * guarantees an opposite leg between members, so a flat shelf of raw pivots
+   * inside one leg (collapsed by `toAlternatingSwings`) never reads as equal
+   * highs. A cluster still forming at the series end is included.
+   */
+  equalHighs: EqualLevel[];
+  /** Mirror of `equalHighs` for swing lows — double/triple bottoms. */
+  equalLows: EqualLevel[];
 }
 
 /** An uptrend prints higher highs and higher lows; a downtrend, the mirror. */
@@ -118,13 +162,36 @@ export function toAlternatingSwings(pivots: PivotPoint[]): PivotPoint[] {
  * full pivot set from `computePivots` — this is replay-safe, so backtests can
  * rebuild structure from a bar-limited window.
  */
-export function computeMarketStructure(pivots: PivotPoint[]): MarketStructure {
+export function computeMarketStructure(
+  pivots: PivotPoint[],
+  equalTolerance: number = EQUAL_LEVEL_TOLERANCE,
+): MarketStructure {
   const swings: SwingPoint[] = [];
   let lastHigh: SwingPoint | null = null;
   let lastLow: SwingPoint | null = null;
   let trend: StructureTrend = "range";
   let event: StructureEvent | null = null;
   let eventSwing: SwingPoint | null = null;
+
+  // Equal-level runs: the current chain of consecutive same-kind swings still
+  // within tolerance of the chain's first member (its anchor). Comparing
+  // against the anchor rather than the previous swing keeps a chain from
+  // drifting one tolerance per step. Runs close into clusters when a swing
+  // falls outside tolerance, or at the end of the series (a still-forming
+  // double top is exactly what a consumer wants to see now).
+  const equalHighs: EqualLevel[] = [];
+  const equalLows: EqualLevel[] = [];
+  let highRun: SwingPoint[] = [];
+  let lowRun: SwingPoint[] = [];
+  const closeRun = (run: SwingPoint[], kind: EqualKind, out: EqualLevel[]) => {
+    if (run.length < 2) return;
+    const prices = run.map((s) => s.price);
+    out.push({
+      kind,
+      price: kind === "eqh" ? Math.max(...prices) : Math.min(...prices),
+      swings: [...run],
+    });
+  };
 
   for (const pivot of toAlternatingSwings(pivots)) {
     // The extreme label (HH/LL) needs a strict break of the prior same-kind
@@ -151,18 +218,43 @@ export function computeMarketStructure(pivots: PivotPoint[]): MarketStructure {
       swingEvent = reverses ? "choch" : "bos";
     }
 
-    const swing: SwingPoint = { ...pivot, label, event: swingEvent };
+    // Equality against the current run's anchor. Flagged on the later swing
+    // only — retroactively flagging the anchor would rewrite a completed
+    // swing's record when future data arrives (see SwingPoint.equal).
+    const run = pivot.kind === "high" ? highRun : lowRun;
+    const anchor = run[0];
+    const matchesAnchor =
+      anchor !== undefined && Math.abs(pivot.price - anchor.price) <= anchor.price * equalTolerance;
+    const equal: EqualKind | null = matchesAnchor ? (pivot.kind === "high" ? "eqh" : "eql") : null;
+
+    const swing: SwingPoint = { ...pivot, label, event: swingEvent, equal };
     swings.push(swing);
     if (swingEvent) {
       event = swingEvent;
       eventSwing = swing;
     }
 
-    if (pivot.kind === "high") lastHigh = swing;
-    else lastLow = swing;
+    if (pivot.kind === "high") {
+      if (matchesAnchor) highRun.push(swing);
+      else {
+        closeRun(highRun, "eqh", equalHighs);
+        highRun = [swing];
+      }
+      lastHigh = swing;
+    } else {
+      if (matchesAnchor) lowRun.push(swing);
+      else {
+        closeRun(lowRun, "eql", equalLows);
+        lowRun = [swing];
+      }
+      lastLow = swing;
+    }
 
     trend = trendFrom(lastHigh?.label ?? null, lastLow?.label ?? null);
   }
 
-  return { swings, trend, lastHigh, lastLow, event, eventSwing };
+  closeRun(highRun, "eqh", equalHighs);
+  closeRun(lowRun, "eql", equalLows);
+
+  return { swings, trend, lastHigh, lastLow, event, eventSwing, equalHighs, equalLows };
 }
