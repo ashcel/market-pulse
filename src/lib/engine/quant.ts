@@ -223,7 +223,9 @@ function nearestSupport(candles: Candle[], pivots: PivotPoint[]): number | null 
     .filter((p) => p.kind === "low" && p.price < close)
     .map((p) => p.price)
     .sort((a, b) => b - a);
-  return supports[0] ?? Math.min(...candles.slice(-20).map((c) => c.low));
+  // Exclude current candle: use previous 20, not last 20 (which includes current)
+  const prevCandles = candles.slice(-21, -1);
+  return supports[0] ?? (prevCandles.length ? Math.min(...prevCandles.map((c) => c.low)) : close);
 }
 
 function nearestResistance(candles: Candle[], pivots: PivotPoint[]): number | null {
@@ -233,7 +235,9 @@ function nearestResistance(candles: Candle[], pivots: PivotPoint[]): number | nu
     .filter((p) => p.kind === "high" && p.price > close)
     .map((p) => p.price)
     .sort((a, b) => a - b);
-  return resistances[0] ?? Math.max(...candles.slice(-20).map((c) => c.high));
+  // Exclude current candle: use previous 20, not last 20 (which includes current)
+  const prevCandles = candles.slice(-21, -1);
+  return resistances[0] ?? (prevCandles.length ? Math.max(...prevCandles.map((c) => c.high)) : close);
 }
 
 export function analyticsFor(candles: Candle[], pivots: PivotPoint[]): AnalyticsSummary {
