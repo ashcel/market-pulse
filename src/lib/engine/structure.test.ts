@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { computeMarketStructure } from "./structure";
+import { computePivots } from "./analysis";
+import { generateMockCandles } from "./mock-candles";
+import { computeMarketStructure, toAlternatingSwings } from "./structure";
 import type { PivotPoint } from "./types";
 
 // Build a pivot sequence from [kind, price] pairs with monotonic times, so the
@@ -147,6 +149,34 @@ describe("computeMarketStructure", () => {
     expect(s.eventSwing).toBe(s.swings[6]);
   });
 
+  // --- Classification runs on alternating legs, not raw same-kind adjacency --
+
+  it("does not fabricate a swing label from a lower pivot inside the same leg", () => {
+    // high30 then high25 with no low between: 25 is inside the 30 leg, not a
+    // lower-high swing. Raw same-kind comparison would label it LH; the model
+    // must collapse the run and keep 30, so lastHigh stays HH.
+    const s = computeMarketStructure(
+      pivots(["high", 10], ["low", 5], ["high", 30], ["high", 25], ["low", 3]),
+    );
+
+    expect(s.swings.map((w) => [w.kind, w.price, w.label])).toEqual([
+      ["high", 10, null],
+      ["low", 5, null],
+      ["high", 30, "HH"],
+      ["low", 3, "LL"],
+    ]);
+    expect(s.lastHigh?.label).toBe("HH");
+  });
+
+  it("keeps swings strictly alternating for real confirmed pivots", () => {
+    const s = computeMarketStructure(computePivots(generateMockCandles("DOGE", "1H", 500)));
+
+    expect(s.swings.length).toBeGreaterThan(1);
+    for (let i = 1; i < s.swings.length; i++) {
+      expect(s.swings[i].kind).not.toBe(s.swings[i - 1].kind);
+    }
+  });
+
   // --- Replay safety: a prefix reproduces the live prefix exactly ------------
 
   it("produces prefix-identical swings (replay equals live)", () => {
@@ -166,5 +196,68 @@ describe("computeMarketStructure", () => {
       const prefix = computeMarketStructure(pivots(...seq.slice(0, k)));
       expect(prefix.swings).toEqual(full.swings.slice(0, k));
     }
+  });
+});
+
+describe("toAlternatingSwings", () => {
+  it("collapses a run of highs to the highest and a run of lows to the lowest", () => {
+    const legs = toAlternatingSwings(
+      pivots(["low", 10], ["high", 20], ["high", 25], ["high", 22], ["low", 12]),
+    );
+
+    expect(legs.map((l) => [l.kind, l.price])).toEqual([
+      ["low", 10],
+      ["high", 25],
+      ["low", 12],
+    ]);
+  });
+
+  it("keeps the lowest of consecutive lows", () => {
+    const legs = toAlternatingSwings(
+      pivots(["high", 30], ["low", 20], ["low", 15], ["low", 18], ["high", 25]),
+    );
+
+    expect(legs.map((l) => [l.kind, l.price])).toEqual([
+      ["high", 30],
+      ["low", 15],
+      ["high", 25],
+    ]);
+  });
+
+  it("breaks ties toward the earlier pivot in a run", () => {
+    // Two equal highs in one leg: keep the first-formed (time 2), drop time 3.
+    const legs = toAlternatingSwings(pivots(["low", 10], ["high", 20], ["high", 20]));
+
+    expect(legs).toHaveLength(2);
+    expect(legs[1].time).toBe(2);
+  });
+
+  it("emits a strictly alternating sequence even from runs on both sides", () => {
+    const legs = toAlternatingSwings(
+      pivots(
+        ["high", 5],
+        ["high", 8],
+        ["high", 6],
+        ["low", 3],
+        ["low", 1],
+        ["high", 9],
+        ["low", 2],
+        ["low", 4],
+      ),
+    );
+
+    for (let i = 1; i < legs.length; i++) {
+      expect(legs[i].kind).not.toBe(legs[i - 1].kind);
+    }
+    expect(legs.map((l) => [l.kind, l.price])).toEqual([
+      ["high", 8],
+      ["low", 1],
+      ["high", 9],
+      ["low", 2],
+    ]);
+  });
+
+  it("returns an empty sequence for no pivots", () => {
+    expect(toAlternatingSwings([])).toEqual([]);
   });
 });

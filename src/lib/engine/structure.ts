@@ -45,7 +45,12 @@ export interface SwingPoint extends PivotPoint {
 }
 
 export interface MarketStructure {
-  /** Every pivot in time order, each tagged with its swing label. */
+  /**
+   * The swing legs in time order — a *strictly alternating* high/low sequence,
+   * each tagged with its swing label. Consecutive same-kind pivots are collapsed
+   * to the leg extreme first (see `toAlternatingSwings`), so classification
+   * compares real alternating legs rather than raw same-kind adjacency.
+   */
   swings: SwingPoint[];
   /** Structural state as of the most recent swings. */
   trend: StructureTrend;
@@ -73,10 +78,45 @@ function trendFrom(highLabel: SwingLabel | null, lowLabel: SwingLabel | null): S
 }
 
 /**
- * Walk the confirmed pivots in time order and label each swing against the
- * previous swing of its kind, maintaining the running trend and the latest
- * structural break. Pass the full pivot set from `computePivots` — this is
- * replay-safe, so backtests can rebuild structure from a bar-limited window.
+ * Collapse confirmed pivots into a strictly alternating high/low/high/low
+ * sequence. `computePivots` can emit consecutive same-kind pivots — a run of
+ * local highs with no confirmed low between them — but those belong to a single
+ * swing leg, not a progression of legs. Comparing them same-kind ("this high vs.
+ * the previous high") would fabricate an HH/LH from noise inside one leg. So we
+ * keep only each run's extreme: the highest high, the lowest low.
+ *
+ * The result is what makes HH/HL/LH/LL classification trustworthy — every label
+ * is a comparison of genuine, alternation-validated swing legs. The pass is a
+ * pure forward fold (no lookahead): the current, still-forming leg's extreme can
+ * still change as more same-kind pivots confirm, exactly as it would live, but
+ * every completed leg (one with an opposite-kind leg after it) is frozen.
+ *
+ * Ties keep the earlier pivot, so the output is deterministic.
+ */
+export function toAlternatingSwings(pivots: PivotPoint[]): PivotPoint[] {
+  const legs: PivotPoint[] = [];
+  for (const pivot of pivots) {
+    const current = legs[legs.length - 1];
+    if (!current || current.kind !== pivot.kind) {
+      legs.push(pivot);
+      continue;
+    }
+    // Same kind as the running leg: extend it only if this pivot is the more
+    // extreme extreme. `>`/`<` (not `>=`/`<=`) is what makes ties keep the
+    // earlier pivot already in `legs`.
+    const extendsLeg =
+      pivot.kind === "high" ? pivot.price > current.price : pivot.price < current.price;
+    if (extendsLeg) legs[legs.length - 1] = pivot;
+  }
+  return legs;
+}
+
+/**
+ * Normalize the confirmed pivots into alternating swing legs (see
+ * `toAlternatingSwings`), then label each leg against the previous leg of its
+ * kind, maintaining the running trend and the latest structural break. Pass the
+ * full pivot set from `computePivots` — this is replay-safe, so backtests can
+ * rebuild structure from a bar-limited window.
  */
 export function computeMarketStructure(pivots: PivotPoint[]): MarketStructure {
   const swings: SwingPoint[] = [];
@@ -86,7 +126,7 @@ export function computeMarketStructure(pivots: PivotPoint[]): MarketStructure {
   let event: StructureEvent | null = null;
   let eventSwing: SwingPoint | null = null;
 
-  for (const pivot of pivots) {
+  for (const pivot of toAlternatingSwings(pivots)) {
     // The extreme label (HH/LL) needs a strict break of the prior same-kind
     // swing; an equal level takes the internal label (LH/HL). See SwingPoint.
     let label: SwingLabel | null = null;
