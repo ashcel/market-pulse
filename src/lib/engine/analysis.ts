@@ -1,3 +1,4 @@
+import { toAlternatingSwings } from "./structure";
 import type { Candle, PivotPoint } from "./types";
 
 export interface TrendLinePoint {
@@ -128,19 +129,27 @@ function projectLine(
   return out;
 }
 
+/**
+ * Anchors trend lines on alternation-validated swing legs (see
+ * `toAlternatingSwings`) rather than raw same-kind pivots, so a run of local
+ * highs with no confirmed low between them collapses to its extreme first —
+ * the same fix `computeMarketStructure` applies for swing classification,
+ * applied here so the drawn line doesn't connect two points from one leg.
+ */
 export function computeTrendLines(candles: Candle[], pivots: PivotPoint[]): TrendLines {
   const indexByTime = new Map<number, number>();
   for (let i = 0; i < candles.length; i++) indexByTime.set(candles[i].time, i);
+  const swings = toAlternatingSwings(pivots);
   return {
     support: projectLine(
       candles,
       indexByTime,
-      pivots.filter((p) => p.kind === "low"),
+      swings.filter((p) => p.kind === "low"),
     ),
     resistance: projectLine(
       candles,
       indexByTime,
-      pivots.filter((p) => p.kind === "high"),
+      swings.filter((p) => p.kind === "high"),
     ),
   };
 }
