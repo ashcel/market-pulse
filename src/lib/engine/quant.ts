@@ -1,5 +1,11 @@
 import type { Candle, PivotPoint } from "./types";
 import { computePivots } from "./analysis";
+import {
+  computeLiquidityPools,
+  detectLiquiditySweeps,
+  type LiquidityPool,
+  type LiquiditySweep,
+} from "./liquidity";
 import { computeMarketStructure, toAlternatingSwings, type MarketStructure } from "./structure";
 
 export type SignalStatus = "pass" | "fail" | "warning" | "neutral";
@@ -121,6 +127,10 @@ export interface SignalEvaluation {
   regime: MarketRegime;
   /** Swing-labeled market structure (HH/HL/LH/LL + trend) behind the setup call. */
   structure: MarketStructure;
+  /** Liquidity pools derived from the structure's EQH/EQL clusters, strongest first. */
+  liquidity: LiquidityPool[];
+  /** Stop hunts on those pools: wick through the level, close back inside (time order). */
+  liquiditySweeps: LiquiditySweep[];
   confidence: number;
   components: SignalComponent[];
   noTradeReasons: string[];
@@ -462,6 +472,7 @@ export function evaluateSignal(
   const current = last(candles);
   const analytics = analyticsFor(candles, pivots);
   const structure = computeMarketStructure(pivots);
+  const liquidity = computeLiquidityPools(structure);
   const regime = classifyRegime(candles);
   const setupType = classifySetup(candles, pivots, regime, structure);
   const direction = decisionFromSetup(setupType);
@@ -618,6 +629,8 @@ export function evaluateSignal(
     direction,
     regime,
     structure,
+    liquidity,
+    liquiditySweeps: detectLiquiditySweeps(liquidity, candles),
     confidence,
     components,
     noTradeReasons,
