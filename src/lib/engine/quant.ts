@@ -301,11 +301,24 @@ export function classifyRegime(candles: Candle[]): MarketRegime {
   return "mean-reversion";
 }
 
+/**
+ * A sweep classifies the setup only while its candle is among this many most
+ * recent closed bars — a raid from further back is history, not a trigger.
+ */
+export const SWEEP_SETUP_RECENCY_BARS = 3;
+
+function sweepIsRecent(sweep: LiquiditySweep, candles: Candle[]): boolean {
+  if (candles.length === 0) return false;
+  const cutoff = candles[Math.max(0, candles.length - SWEEP_SETUP_RECENCY_BARS)].time;
+  return sweep.time >= cutoff;
+}
+
 export function classifySetup(
   candles: Candle[],
   pivots: PivotPoint[],
   regime: MarketRegime,
   structure: MarketStructure = computeMarketStructure(pivots),
+  sweeps: LiquiditySweep[] = detectLiquiditySweeps(computeLiquidityPools(structure), candles),
 ): SetupType {
   const current = last(candles);
   const prev = candles.length > 1 ? candles[candles.length - 2] : null;
@@ -318,6 +331,19 @@ export function classifySetup(
 
   if (resistance && prev.close <= resistance && current.close > resistance && volumeRatio >= 1.2) {
     return "breakout";
+  }
+  // A recent liquidity sweep is the principled version of the raw checks
+  // below: the level is a pool (stops actually rest there, not just any
+  // nearby pivot), and first-touch-decides already separated raid from
+  // acceptance. Buy-side stops raided and rejected traps breakout longs —
+  // the failed-breakout short; sell-side raided and rejected is the flush
+  // that clears sellers — the capitulation-reversal long. A fresh acceptance
+  // on the current bar (the breakout branch above) still outranks a raid
+  // from a bar or two back.
+  const latestSweep = last(sweeps); // sweeps arrive time-ordered
+  const recentSweep = latestSweep && sweepIsRecent(latestSweep, candles) ? latestSweep : null;
+  if (recentSweep) {
+    return recentSweep.side === "bsl" ? "failed-breakout" : "capitulation-reversal";
   }
   if (resistance && prev.high > resistance && current.close < resistance) {
     return "failed-breakout";
@@ -473,8 +499,9 @@ export function evaluateSignal(
   const analytics = analyticsFor(candles, pivots);
   const structure = computeMarketStructure(pivots);
   const liquidity = computeLiquidityPools(structure);
+  const liquiditySweeps = detectLiquiditySweeps(liquidity, candles);
   const regime = classifyRegime(candles);
-  const setupType = classifySetup(candles, pivots, regime, structure);
+  const setupType = classifySetup(candles, pivots, regime, structure, liquiditySweeps);
   const direction = decisionFromSetup(setupType);
   const risk = buildRiskPlan(candles, pivots, direction, settings, livePrice);
   const components: SignalComponent[] = [];
@@ -620,6 +647,54 @@ export function evaluateSignal(
         : "Price has enough room to the next nearby structure level.",
   );
 
+  // Liquidity context: pools mark where resting stops cluster. Entering a
+  // long just below an intact buy-side pool is the textbook stop-hunt entry —
+  // the raid through the level rejects and traps the buyer — so it warns with
+  // the same proximity scale the S/R check uses. The mirror positive: a
+  // recent sweep on the trade's far side means the stops that would have
+  // fueled a move against it were just cleared.
+  const poolProximityPct = Math.max(structureFloor, (analytics.atrPercent ?? 1) * 0.55);
+  const poolAhead =
+    direction === "none"
+      ? undefined
+      : liquidity.find((pool) => {
+          if (!pool.intact || analytics.lastClose <= 0) return false;
+          const distancePct =
+            (Math.abs(pool.price - analytics.lastClose) / analytics.lastClose) * 100;
+          if (direction === "long")
+            return (
+              pool.side === "bsl" &&
+              pool.price > analytics.lastClose &&
+              distancePct < poolProximityPct
+            );
+          return (
+            pool.side === "ssl" &&
+            pool.price < analytics.lastClose &&
+            distancePct < poolProximityPct
+          );
+        });
+  const supportiveSweep =
+    direction === "none"
+      ? undefined
+      : liquiditySweeps.find(
+          (sweep) =>
+            sweep.side === (direction === "long" ? "ssl" : "bsl") && sweepIsRecent(sweep, candles),
+        );
+  add(
+    "Liquidity context",
+    direction === "none" ? "neutral" : poolAhead ? "warning" : "pass",
+    direction === "none" ? 0 : statusScore(poolAhead ? "warning" : "pass", 10, -6),
+    direction === "none"
+      ? "No directional setup to test against resting liquidity."
+      : poolAhead
+        ? direction === "long"
+          ? `Long entry sits just below an intact buy-side liquidity pool at ${roundPrice(poolAhead.price)} — the level stop raids reject from.`
+          : `Short entry sits just above an intact sell-side liquidity pool at ${roundPrice(poolAhead.price)} — the level stop raids reject from.`
+        : supportiveSweep
+          ? `The ${supportiveSweep.side === "ssl" ? "sell-side stops below" : "buy-side stops above"} were just swept and rejected — the fuel for a move against this trade is spent.`
+          : "No intact liquidity pool sits in the trade's immediate path.",
+  );
+
   const extension =
     analytics.sma20 && analytics.atr14
       ? Math.abs(analytics.lastClose - analytics.sma20) / analytics.atr14
@@ -648,6 +723,12 @@ export function evaluateSignal(
     noTradeReasons.push("Reward/risk is below the configured minimum.");
   if (nearResistance) noTradeReasons.push("Price is too close to resistance for a long trade.");
   if (nearSupport) noTradeReasons.push("Price is too close to support for a short trade.");
+  if (poolAhead)
+    noTradeReasons.push(
+      direction === "long"
+        ? "Long entry sits just below an intact buy-side liquidity pool."
+        : "Short entry sits just above an intact sell-side liquidity pool.",
+    );
   if (!volumeOk) noTradeReasons.push("Volume confirmation is missing.");
   if (extended)
     noTradeReasons.push("Price is extended more than the configured ATR distance from mean.");
@@ -683,7 +764,7 @@ export function evaluateSignal(
     regime,
     structure,
     liquidity,
-    liquiditySweeps: detectLiquiditySweeps(liquidity, candles),
+    liquiditySweeps,
     confidence,
     components,
     noTradeReasons,
