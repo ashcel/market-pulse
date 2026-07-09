@@ -18,11 +18,7 @@ import type { Candle } from "./types";
  */
 
 export type ShadowSignalStatus =
-  | "active"
-  | "target1-hit"
-  | "target2-hit"
-  | "stopped-out"
-  | "expired";
+  "active" | "target1-hit" | "target2-hit" | "stopped-out" | "expired";
 
 export interface ShadowSignal {
   id: string;

@@ -142,15 +142,13 @@ export async function fetchBinancePriceDirect(
 }
 
 export const fetchBinanceKlinesServer = createServerFn({ method: "GET" })
-  .validator(
-    (data: BinanceKlinesInput): BinanceKlinesInput => ({
-      symbol: typeof data?.symbol === "string" ? data.symbol : "",
-      timeframe: isTokenTimeframe(data?.timeframe) ? data.timeframe : "4H",
-      limit: normalizeLimit(data?.limit),
-      endTime: normalizeEndTime(data?.endTime),
-      market: normalizeMarket(data?.market),
-    }),
-  )
+  .validator((data: BinanceKlinesInput): BinanceKlinesInput => ({
+    symbol: typeof data?.symbol === "string" ? data.symbol : "",
+    timeframe: isTokenTimeframe(data?.timeframe) ? data.timeframe : "4H",
+    limit: normalizeLimit(data?.limit),
+    endTime: normalizeEndTime(data?.endTime),
+    market: normalizeMarket(data?.market),
+  }))
   .handler(async ({ data }) => fetchBinanceKlinesDirect(data));
 
 export async function fetchBinanceKlines(
