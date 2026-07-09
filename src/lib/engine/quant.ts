@@ -1,13 +1,10 @@
 import type { Candle, PivotPoint } from "./types";
 import { computePivots } from "./analysis";
+import { computeMarketStructure, type MarketStructure } from "./structure";
 
 export type SignalStatus = "pass" | "fail" | "warning" | "neutral";
 export type TradeDecision =
-  | "buy-candidate"
-  | "short-candidate"
-  | "wait"
-  | "no-trade"
-  | "invalidated";
+  "buy-candidate" | "short-candidate" | "wait" | "no-trade" | "invalidated";
 export type SetupType =
   | "breakout"
   | "failed-breakout"
@@ -122,6 +119,8 @@ export interface SignalEvaluation {
   decision: TradeDecision;
   direction: TradeDirection;
   regime: MarketRegime;
+  /** Swing-labeled market structure (HH/HL/LH/LL + trend) behind the setup call. */
+  structure: MarketStructure;
   confidence: number;
   components: SignalComponent[];
   noTradeReasons: string[];
@@ -212,10 +211,6 @@ function slope(values: number[]): number {
   return (values[values.length - 1] - values[0]) / values.length;
 }
 
-function recentPivots(pivots: PivotPoint[], kind: PivotPoint["kind"]): PivotPoint[] {
-  return pivots.filter((p) => p.kind === kind).slice(-3);
-}
-
 function nearestSupport(candles: Candle[], pivots: PivotPoint[]): number | null {
   const close = last(candles)?.close;
   if (!isFiniteNumber(close)) return null;
@@ -237,7 +232,9 @@ function nearestResistance(candles: Candle[], pivots: PivotPoint[]): number | nu
     .sort((a, b) => a - b);
   // Exclude current candle: use previous 20, not last 20 (which includes current)
   const prevCandles = candles.slice(-21, -1);
-  return resistances[0] ?? (prevCandles.length ? Math.max(...prevCandles.map((c) => c.high)) : close);
+  return (
+    resistances[0] ?? (prevCandles.length ? Math.max(...prevCandles.map((c) => c.high)) : close)
+  );
 }
 
 export function analyticsFor(candles: Candle[], pivots: PivotPoint[]): AnalyticsSummary {
@@ -298,6 +295,7 @@ export function classifySetup(
   candles: Candle[],
   pivots: PivotPoint[],
   regime: MarketRegime,
+  structure: MarketStructure = computeMarketStructure(pivots),
 ): SetupType {
   const current = last(candles);
   const prev = candles.length > 1 ? candles[candles.length - 2] : null;
@@ -306,8 +304,6 @@ export function classifySetup(
   const resistance = nearestResistance(candles, pivots);
   const atr14 = atr(candles, 14) ?? current.close * 0.02;
   const ma20 = sma(candles, 20);
-  const lows = recentPivots(pivots, "low");
-  const highs = recentPivots(pivots, "high");
   const volumeRatio = analyticsFor(candles, pivots).volumeRatio ?? 1;
 
   if (resistance && prev.close <= resistance && current.close > resistance && volumeRatio >= 1.2) {
@@ -320,10 +316,12 @@ export function classifySetup(
   if (ma20 && current.close > ma20 && current.low <= ma20 * 1.01 && current.close > current.open) {
     return "pullback-continuation";
   }
-  if (lows.length >= 2 && lows[lows.length - 1].price > lows[lows.length - 2].price) {
+  // Structure carries the swing comparison now: the most recent low being a
+  // higher-low, or the most recent high a lower-high, off the maintained state.
+  if (structure.lastLow?.label === "HL") {
     return "higher-low-continuation";
   }
-  if (highs.length >= 2 && highs[highs.length - 1].price < highs[highs.length - 2].price) {
+  if (structure.lastHigh?.label === "LH") {
     return "lower-high-rejection";
   }
   if (support && current.low < support - atr14 * 0.35 && current.close > support) {
@@ -455,8 +453,9 @@ export function evaluateSignal(
 ): SignalEvaluation {
   const current = last(candles);
   const analytics = analyticsFor(candles, pivots);
+  const structure = computeMarketStructure(pivots);
   const regime = classifyRegime(candles);
-  const setupType = classifySetup(candles, pivots, regime);
+  const setupType = classifySetup(candles, pivots, regime, structure);
   const direction = decisionFromSetup(setupType);
   const risk = buildRiskPlan(candles, pivots, direction, settings, livePrice);
   const components: SignalComponent[] = [];
@@ -610,6 +609,7 @@ export function evaluateSignal(
     decision,
     direction,
     regime,
+    structure,
     confidence,
     components,
     noTradeReasons,
