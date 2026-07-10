@@ -67,6 +67,7 @@ function evaluateTimeframes(
   livePrice?: number,
 ): TimeframeAlignmentEntry[] {
   return candlesByTimeframe.map(([timeframe, candles]) => {
+    const zones = SD_ZONE_TIMEFRAMES.includes(timeframe) ? computeBaseZones(candles) : [];
     const evaluation = evaluateSignal(
       symbol,
       candles,
@@ -74,13 +75,14 @@ function evaluateTimeframes(
       settings,
       undefined,
       livePrice,
+      zones,
     );
     return {
       timeframe,
       direction: evaluation.direction,
       decision: evaluation.decision,
       evaluation,
-      zones: SD_ZONE_TIMEFRAMES.includes(timeframe) ? computeBaseZones(candles) : [],
+      zones,
     };
   });
 }
