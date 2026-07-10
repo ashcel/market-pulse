@@ -23,13 +23,13 @@ import {
 export const Route = createFileRoute("/rankings")({
   head: () => ({
     meta: [
-      { title: "Rankings — IQ" },
+      { title: "Rankings — Market Pulse" },
       {
         name: "description",
-        content: "Sortable, filterable rankings across every asset IQ tracks.",
+        content: "Sortable, filterable rankings across every asset Market Pulse tracks.",
       },
-      { property: "og:title", content: "Rankings — IQ" },
-      { property: "og:description", content: "IQ score, momentum, strength, and technical rank." },
+      { property: "og:title", content: "Rankings — Market Pulse" },
+      { property: "og:description", content: "Market Pulse score, momentum, strength, and technical rank." },
     ],
   }),
   component: RankingsPage,

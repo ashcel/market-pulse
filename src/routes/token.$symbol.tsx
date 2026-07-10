@@ -149,7 +149,7 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/token/$symbol")({
   head: ({ params }) => ({
     meta: [
-      { title: `${params.symbol.toUpperCase()} — Token Signal | IQ` },
+      { title: `${params.symbol.toUpperCase()} — Token Signal | Market Pulse` },
       {
         name: "description",
         content: `Quant signal engine, risk plan, and deterministic analyst memo for ${params.symbol.toUpperCase()}.`,

@@ -16,13 +16,13 @@ import {
 export const Route = createFileRoute("/markets")({
   head: () => ({
     meta: [
-      { title: "Markets — IQ" },
+      { title: "Markets — Market Pulse" },
       {
         name: "description",
         content: "Full market overview across crypto, stocks, ETFs, commodities, and FX.",
       },
-      { property: "og:title", content: "Markets — IQ" },
-      { property: "og:description", content: "Live view of every asset IQ tracks." },
+      { property: "og:title", content: "Markets — Market Pulse" },
+      { property: "og:description", content: "Live view of every asset Market Pulse tracks." },
     ],
   }),
   component: MarketsPage,
@@ -44,7 +44,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     target: "grid",
     title: "Market cards",
-    body: "Every tracked asset with live price, 24-hour change, and a mini trend line, ranked by IQ score (the engine's 0–100 quality rating). Click any card to open the full chart, signal, and trade plan for that token.",
+    body: "Every tracked asset with live price, 24-hour change, and a mini trend line, ranked by Market Pulse score (the engine's 0–100 quality rating). Click any card to open the full chart, signal, and trade plan for that token.",
   },
 ];
 
@@ -59,7 +59,7 @@ function MarketsPage() {
       <PageHeader
         eyebrow="Overview"
         title="Markets"
-        subtitle="Live Binance snapshot across the tracked universe, ranked by IQ score."
+        subtitle="Live Binance snapshot across the tracked universe, ranked by Market Pulse score."
         action={<HelpButton onClick={tour.start} />}
       />
 

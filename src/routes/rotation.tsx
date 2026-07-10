@@ -15,12 +15,12 @@ import {
 export const Route = createFileRoute("/rotation")({
   head: () => ({
     meta: [
-      { title: "Capital Rotation — IQ" },
+      { title: "Capital Rotation — Market Pulse" },
       {
         name: "description",
         content: "Where money is flowing across sectors and asset classes today.",
       },
-      { property: "og:title", content: "Capital Rotation — IQ" },
+      { property: "og:title", content: "Capital Rotation — Market Pulse" },
       { property: "og:description", content: "Follow the smart money across sectors." },
     ],
   }),

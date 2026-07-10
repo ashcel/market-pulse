@@ -86,14 +86,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "IQ — Market Intelligence" },
+      { title: "Market Pulse" },
       {
         name: "description",
         content:
           "IQ is a mobile-first market intelligence platform. Understand today's regime, capital rotation, and technical structure in under 10 seconds.",
       },
       { name: "author", content: "HeyDewi" },
-      { property: "og:title", content: "IQ — Market Intelligence" },
+      { property: "og:title", content: "Market Pulse" },
       {
         property: "og:description",
         content:

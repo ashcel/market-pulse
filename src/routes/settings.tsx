@@ -28,10 +28,10 @@ import { useState } from "react";
 export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
-      { title: "Settings — IQ" },
-      { name: "description", content: "Manage your IQ preferences, watchlist, and notifications." },
-      { property: "og:title", content: "Settings — IQ" },
-      { property: "og:description", content: "Tune IQ to your workflow." },
+      { title: "Settings — Market Pulse" },
+      { name: "description", content: "Manage your Market Pulse preferences, watchlist, and notifications." },
+      { property: "og:title", content: "Settings — Market Pulse" },
+      { property: "og:description", content: "Tune Market Pulse to your workflow." },
     ],
   }),
   component: SettingsPage,

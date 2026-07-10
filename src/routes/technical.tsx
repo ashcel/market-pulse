@@ -19,9 +19,9 @@ import {
 export const Route = createFileRoute("/technical")({
   head: () => ({
     meta: [
-      { title: "Technical — IQ" },
+      { title: "Technical — Market Pulse" },
       { name: "description", content: "Chart + smart-money signals per asset." },
-      { property: "og:title", content: "Technical — IQ" },
+      { property: "og:title", content: "Technical — Market Pulse" },
       {
         property: "og:description",
         content: "Structure, order blocks, EMAs, volume, and ATR at a glance.",
