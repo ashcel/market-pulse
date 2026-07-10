@@ -92,6 +92,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useLiveKline } from "@/hooks/useLiveKline";
 import { useLivePrice } from "@/hooks/useLivePrice";
 import {
   usePerpContext,
@@ -349,6 +350,13 @@ function TokenDetailPage() {
   const marketOutlook = useMemo(() => describeMarketOutlook(evalsByTimeframe), [evalsByTimeframe]);
   const data = signal.data;
   const live = useLivePrice(symbol, data?.source === "live", marketType);
+  // The forming candle Binance computes for this exact timeframe, straight
+  // from the kline WS stream — takes priority over the REST-polled
+  // liveCandle (only refetched on useTokenSignal's ~30-60s cadence), so the
+  // chart's last bar for whichever timeframe is open stays genuinely live
+  // instead of lagging behind higher timeframes' slower REST cadence.
+  const liveKline = useLiveKline(symbol, timeframe, data?.source === "live", marketType);
+  const liveCandle = liveKline ?? data?.liveCandle ?? null;
   // `risk.entry` already anchors on the REST-fetched live price (see
   // buildRiskPlan), falling back to the last closed candle only if that fetch
   // failed — so it's a strictly better fallback than the raw candle close,
@@ -502,6 +510,7 @@ function TokenDetailPage() {
                     {data?.candles.length > 0 && (
                       <TokenChart
                         {...data}
+                        liveCandle={liveCandle}
                         symbol={symbol}
                         timeframe={timeframe}
                         market={marketType}

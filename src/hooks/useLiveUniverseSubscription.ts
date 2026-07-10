@@ -17,7 +17,7 @@ export function useLiveUniverseSubscription(): void {
   useEffect(() => {
     const ids = UNIVERSE.map((entry) => `universe:${entry.ticker}`);
     UNIVERSE.forEach((entry, i) => {
-      registerLiveInterest(ids[i], { market: marketType, ticker: entry.ticker });
+      registerLiveInterest(ids[i], { kind: "ticker", market: marketType, ticker: entry.ticker });
     });
     return () => {
       for (const id of ids) unregisterLiveInterest(id);

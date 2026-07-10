@@ -1,26 +1,36 @@
+import { klineKey, useLiveKlineStore } from "@/stores/live-klines";
 import { useLivePriceStore } from "@/stores/live-prices";
 
-import type { MarketType } from "./binance";
+import { BINANCE_INTERVALS, type MarketType } from "./binance";
+import type { TokenTimeframe } from "./mock-candles";
 import { resolveExchangeSymbol } from "./symbol-map";
 
 /**
- * Binance-specific multiplexed live-price feed. Deliberately named for the
+ * Binance-specific multiplexed live feed. Deliberately named for the
  * provider it actually talks to rather than "provider-agnostic" — the
- * combined-stream URL shape, the miniTicker envelope, and MarketType's
+ * combined-stream URL shape, the miniTicker/kline envelopes, and MarketType's
  * spot/perp split are all Binance vocabulary. A second exchange would need
  * its own module and a real adapter seam designed once it exists, not a
  * speculative one guessed at now.
  *
- * Every consumer (useLivePrice, the universe-wide dashboard subscription)
- * registers a single ticker+market "want" under its own stable id via
+ * Carries two kinds of stream, multiplexed onto the same two sockets (one
+ * per market):
+ *  - "ticker" (miniTicker): last price + 24h change, written to live-prices.ts.
+ *    Used app-wide (dashboard overlay, token header, tracker R-multiple).
+ *  - "kline" (kline_<interval>): the actual forming-candle OHLCV Binance
+ *    computes for one specific symbol+interval, written to live-klines.ts.
+ *    Only ever wanted for whichever timeframe is currently open on the
+ *    token page — miniTicker alone can't give a correct per-interval bar.
+ *
+ * Every consumer registers a single want under its own stable id via
  * registerLiveInterest/unregisterLiveInterest. Replacing or deleting a
  * caller's own entry is idempotent, so there's no refcount to drift under
- * React StrictMode's mount→cleanup→mount double-invoke. Two sockets total
- * exist at any time (one per market) — reconciled by closing and reopening
- * with the full desired stream list embedded in the connect URL, since the
- * whole registry only changes at human-navigation pace (opening a token
- * page, following/removing a tracked signal, flipping the market switch),
- * not at tick pace. That trades a sub-second gap in ticks across a
+ * React StrictMode's mount→cleanup→mount double-invoke. Reconciliation
+ * closes and reopens the affected market's socket with the full desired
+ * stream list embedded in the connect URL, since the whole registry only
+ * changes at human-navigation pace (opening a token page, switching its
+ * timeframe, following/removing a tracked signal, flipping the market
+ * switch), not at tick pace. That trades a sub-second gap in ticks across a
  * reconnect for not needing the incremental SUBSCRIBE/UNSUBSCRIBE protocol,
  * request-id tracking, or an idle-teardown grace timer at all.
  */
@@ -32,21 +42,24 @@ const WS_BASE: Record<MarketType, string> = {
 
 const MAX_RECONNECT_ATTEMPTS = 5;
 
-interface Want {
-  market: MarketType;
-  ticker: string;
-}
+export type LiveWant =
+  | { kind: "ticker"; market: MarketType; ticker: string }
+  | { kind: "kline"; market: MarketType; ticker: string; timeframe: TokenTimeframe };
 
 // callerId -> single want. The union of these values (per market) is the
 // desired subscription set — recomputed from scratch on every registry
 // change, never incremented/decremented.
-const registry = new Map<string, Want>();
+const registry = new Map<string, LiveWant>();
+
+type ResolvedWant =
+  | { kind: "ticker"; ticker: string; priceScale: number }
+  | { kind: "kline"; ticker: string; timeframe: TokenTimeframe; priceScale: number };
 
 interface MarketSocket {
   socket: WebSocket | null;
   streams: string[];
-  /** Exchange symbol (upper) -> internal ticker/scale, matching `streams`. */
-  symbolToTicker: Map<string, { ticker: string; priceScale: number }>;
+  /** Exact exchange stream name (e.g. "btcusdt@miniticker") -> resolved want. */
+  streamToWant: Map<string, ResolvedWant>;
   reconnectAttempts: number;
   reconnectTimer: ReturnType<typeof setTimeout> | null;
 }
@@ -55,7 +68,7 @@ function emptySocket(): MarketSocket {
   return {
     socket: null,
     streams: [],
-    symbolToTicker: new Map(),
+    streamToWant: new Map(),
     reconnectAttempts: 0,
     reconnectTimer: null,
   };
@@ -66,14 +79,45 @@ const sockets: Record<MarketType, MarketSocket> = {
   perp: emptySocket(),
 };
 
-function wantedFor(market: MarketType): Map<string, { ticker: string; priceScale: number }> {
-  const map = new Map<string, { ticker: string; priceScale: number }>();
+function streamNameFor(want: LiveWant): { stream: string; resolved: ResolvedWant } {
+  const { symbol, priceScale } = resolveExchangeSymbol(want.ticker, want.market);
+  const ticker = want.ticker.toUpperCase();
+  if (want.kind === "ticker") {
+    return {
+      stream: `${symbol.toLowerCase()}@miniTicker`.toLowerCase(),
+      resolved: { kind: "ticker", ticker, priceScale },
+    };
+  }
+  const interval = BINANCE_INTERVALS[want.timeframe];
+  return {
+    stream: `${symbol.toLowerCase()}@kline_${interval}`.toLowerCase(),
+    resolved: { kind: "kline", ticker, timeframe: want.timeframe, priceScale },
+  };
+}
+
+function wantedFor(market: MarketType): Map<string, ResolvedWant> {
+  const map = new Map<string, ResolvedWant>();
   for (const want of registry.values()) {
     if (want.market !== market) continue;
-    const { symbol, priceScale } = resolveExchangeSymbol(want.ticker, market);
-    map.set(symbol.toUpperCase(), { ticker: want.ticker.toUpperCase(), priceScale });
+    const { stream, resolved } = streamNameFor(want);
+    map.set(stream, resolved);
   }
   return map;
+}
+
+function clearStaleStreams(
+  market: MarketType,
+  previous: Map<string, ResolvedWant>,
+  next: Map<string, ResolvedWant>,
+): void {
+  for (const [stream, want] of previous) {
+    if (next.has(stream)) continue;
+    if (want.kind === "ticker") {
+      useLivePriceStore.getState().clearTick(market, want.ticker);
+    } else {
+      useLiveKlineStore.getState().clearKline(klineKey(market, want.ticker, want.timeframe));
+    }
+  }
 }
 
 function teardown(market: MarketType): void {
@@ -90,26 +134,30 @@ function teardown(market: MarketType): void {
 function reconcile(market: MarketType): void {
   if (typeof WebSocket === "undefined") return;
 
-  const symbolToTicker = wantedFor(market);
-  const streams = [...symbolToTicker.keys()].map((s) => `${s.toLowerCase()}@miniTicker`).sort();
+  const streamToWant = wantedFor(market);
+  const streams = [...streamToWant.keys()].sort();
 
   const state = sockets[market];
   const unchanged =
     streams.length === state.streams.length && streams.every((s, i) => s === state.streams[i]);
   if (unchanged) return;
 
-  // Prior subscribers' ticks go stale the moment they're no longer wanted.
-  for (const { ticker } of state.symbolToTicker.values()) {
-    if (![...symbolToTicker.values()].some((w) => w.ticker === ticker)) {
-      useLivePriceStore.getState().clearTick(market, ticker);
-    }
-  }
+  clearStaleStreams(market, state.streamToWant, streamToWant);
 
   teardown(market);
   state.streams = streams;
-  state.symbolToTicker = symbolToTicker;
+  state.streamToWant = streamToWant;
   if (streams.length === 0) return;
   connect(market);
+}
+
+interface TickerFrame {
+  c?: string;
+  o?: string;
+}
+
+interface KlineFrame {
+  k?: { t?: number; o?: string; h?: string; l?: string; c?: string; v?: string; x?: boolean };
 }
 
 function connect(market: MarketType): void {
@@ -122,20 +170,41 @@ function connect(market: MarketType): void {
     try {
       const payload = JSON.parse(event.data as string) as {
         stream?: string;
-        data?: { c?: string; o?: string };
+        data?: TickerFrame & KlineFrame;
       };
-      const exchangeSymbol = payload.stream?.split("@")[0]?.toUpperCase();
-      const mapped = exchangeSymbol ? state.symbolToTicker.get(exchangeSymbol) : undefined;
-      if (!mapped) return;
+      const streamName = payload.stream?.toLowerCase();
+      const want = streamName ? state.streamToWant.get(streamName) : undefined;
+      if (!want || !payload.data) return;
 
-      const price = Number(payload.data?.c);
-      const open = Number(payload.data?.o);
-      if (!Number.isFinite(price) || !Number.isFinite(open) || open === 0) return;
+      if (want.kind === "ticker") {
+        const price = Number(payload.data.c);
+        const open = Number(payload.data.o);
+        if (!Number.isFinite(price) || !Number.isFinite(open) || open === 0) return;
+        useLivePriceStore.getState().setTick(market, want.ticker, {
+          price: price / want.priceScale,
+          change24h: Number((((price - open) / open) * 100).toFixed(2)),
+          updatedAt: Date.now(),
+        });
+        return;
+      }
 
-      useLivePriceStore.getState().setTick(market, mapped.ticker, {
-        price: price / mapped.priceScale,
-        change24h: Number((((price - open) / open) * 100).toFixed(2)),
-        updatedAt: Date.now(),
+      const k = payload.data.k;
+      if (!k) return;
+      const open = Number(k.o);
+      const high = Number(k.h);
+      const low = Number(k.l);
+      const close = Number(k.c);
+      const volume = Number(k.v);
+      const time = Math.floor(Number(k.t) / 1000);
+      if (![open, high, low, close, volume, time].every(Number.isFinite)) return;
+      useLiveKlineStore.getState().setKline(klineKey(market, want.ticker, want.timeframe), {
+        time,
+        open: open / want.priceScale,
+        high: high / want.priceScale,
+        low: low / want.priceScale,
+        close: close / want.priceScale,
+        volume: volume * want.priceScale,
+        closed: k.x === true,
       });
     } catch {
       // Ignore malformed frames.
@@ -147,7 +216,7 @@ function connect(market: MarketType): void {
     if (state.streams.length === 0 || state.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
     state.reconnectAttempts++;
     const delay = Math.min(30_000, 1_000 * 2 ** state.reconnectAttempts);
-    // Reconnecting always re-reads state.streams/symbolToTicker live (not a
+    // Reconnecting always re-reads state.streams/streamToWant live (not a
     // value captured when this timer was scheduled), so a want registered
     // mid-outage is never silently missed.
     state.reconnectTimer = setTimeout(() => connect(market), delay);
@@ -155,8 +224,8 @@ function connect(market: MarketType): void {
   socket.onerror = () => socket.close();
 }
 
-/** Registers (or replaces) a single caller's live-price interest. Idempotent. */
-export function registerLiveInterest(callerId: string, want: Want): void {
+/** Registers (or replaces) a single caller's live-feed interest. Idempotent. */
+export function registerLiveInterest(callerId: string, want: LiveWant): void {
   if (typeof WebSocket === "undefined") return;
   const previous = registry.get(callerId);
   registry.set(callerId, want);

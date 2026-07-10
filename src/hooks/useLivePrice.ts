@@ -28,7 +28,7 @@ export function useLivePrice(
       unregisterLiveInterest(id);
       return;
     }
-    registerLiveInterest(id, { market, ticker });
+    registerLiveInterest(id, { kind: "ticker", market, ticker });
     return () => unregisterLiveInterest(id);
   }, [id, enabled, ticker, market]);
 
