@@ -10,7 +10,7 @@ so **Phase 1 inherits Phase 0's posture end to end** — everything lands as
 derived views plus inert surfacing, validated on annotation fidelity against
 the Dreimann fixtures. The two verdict-affecting deliverables §9 originally
 assigned to this phase — the fallback-guarded **target cap** and the
-**targets-required veto (G10)** — are *built, computed, and displayed* here,
+**targets-required veto (G10)** — are _built, computed, and displayed_ here,
 but consumed by no decision. They graduate in an explicit post-0.5 gate (see
 "After this phase").
 
@@ -18,7 +18,7 @@ Scope contract for the whole phase:
 
 - **No verdict impact.** No decision, score, veto, target, `SetupType`, or
   intent verdict changes. `RiskRewardPlan` is not modified — the POI-anchored
-  plan is a *sibling* read, never a replacement. The backtest/hysteresis/shadow
+  plan is a _sibling_ read, never a replacement. The backtest/hysteresis/shadow
   keyspace is untouched (R2); the one shadow-schema change is an additive
   optional annotation field that keys nothing.
 - **Derived views only.** New modules follow the `strength.ts` / `liquidity.ts`
@@ -50,7 +50,7 @@ Repo conventions: discretionary rule choices get an EDR in `docs/decisions/`
 
 **Responsibility:** answer "what is price drawn toward?" for a direction — as
 a **ranked list of candidate objectives**, best first, with the top-ranked
-candidate being the *preferred* objective — and **absence (empty list) as a
+candidate being the _preferred_ objective — and **absence (empty list) as a
 first-class outcome** (the input to G10 later). Plus its EDR.
 
 Returning the full ranked list rather than a single winner is deliberate
@@ -75,7 +75,7 @@ export interface ObjectiveCandidate {
   direction: "long" | "short";
   /** The swing whose resting liquidity is the draw (weak high above / weak low below). */
   swing: SwingPoint;
-  strength: SwingStrength;      // per the EDR's eligibility rule
+  strength: SwingStrength; // per the EDR's eligibility rule
   /** The liquidity line: the coinciding intact pool's price when one exists, else the swing's. */
   price: number;
   /** Intact EQH/EQL pool coinciding with the swing, when the draw is a stacked-stops level. */
@@ -131,17 +131,17 @@ export function resolveObjectives(
     empty when everything above is strong or taken; first-swing edge cases.
   - **Replay safety:** deterministic over identical input; prefix-window sweep
     (structure over growing pivot windows) shows the resolution at bar k uses
-    only bars ≤ k — the ranking may legitimately *change* as structure
+    only bars ≤ k — the ranking may legitimately _change_ as structure
     prints, but never from future data.
   - **Annotation fidelity (the phase bar):** per fixture, build the execution
     structure as-of the labeled entry time and resolve the long objectives;
     where `labels.json` sets `withinWindow: true` and `claimsWeakStructure:
-    true`, the **preferred** candidate's price must sit within the label's
+true`, the **preferred** candidate's price must sit within the label's
     `tolerancePct` of the TP and its swing must derive weak/unresolved (the
     trader's TP matching a deeper-ranked candidate instead is a finding for
     the EDR — it means the ranking key, not eligibility, disagrees). Fixtures
     with `claimsWeakStructure: false` (zec-tp's already-recorded divergence:
-    the engine reads that high strong as-of entry) assert the *documented*
+    the engine reads that high strong as-of entry) assert the _documented_
     behavior from the EDR — a divergence is a finding to resolve or record,
     never a fixture edit.
 - **Validation criteria:** suite green; diff shows only the three new files.
@@ -173,9 +173,9 @@ zones so Phase 3 can widen the input type without reshaping consumers.
 ```ts
 export interface AnticipatoryPlan {
   direction: "long" | "short";
-  zone: BaseZone;               // the POI the limit rests at
-  entry: number;                // proximal edge — where the limit fills first
-  stop: number;                 // beyond the distal edge (see EDR)
+  zone: BaseZone; // the POI the limit rests at
+  entry: number; // proximal edge — where the limit fills first
+  stop: number; // beyond the distal edge (see EDR)
   /** The preferred objective (`objectives[0]`): no objective → no plan (G10's shape). */
   objective: ObjectiveCandidate;
   riskPerUnit: number;
@@ -222,7 +222,7 @@ once the harness can measure alternatives):**
   `entryPosition: null`.
 - **Entry** = proximal edge (first price a resting limit fills at).
 - **Stop** = beyond the **distal edge** — the zone's full wick extreme, which
-  is precisely the ZEC-SL lesson: his stop sat *inside* the POI's liquidity
+  is precisely the ZEC-SL lesson: his stop sat _inside_ the POI's liquidity
   noise and was swept before TP. No ATR buffer constant — a tuned buffer is
   a threshold, and thresholds don't ship against these fixtures (R5). The
   EDR records "distal edge, no buffer" as the initial rule and names the
@@ -318,7 +318,7 @@ their tests.
     names the preferred level and its strength, and notes how many further
     draws sit behind it.
   - **"Limit entry available at a POI in ctx discount"** — done iff the plan
-    exists *and* `classifyPrice(ctx.dealingRange, plan.entry)` is `discount`
+    exists _and_ `classifyPrice(ctx.dealingRange, plan.entry)` is `discount`
     for longs / `premium` for shorts (Dreimann gates the POI against the
     **context** range; `entryPosition` on the plan is the execution-TF read).
 - Shadow: `ShadowSignal` gains one additive optional field —

@@ -36,10 +36,7 @@
     "executionTimeframe": "15m",
     "contextTimeframe": "4h",
     "direction": "long",
-    "playbook": [
-      "pro-swing",
-      "pro-internal"
-    ],
+    "playbook": ["pro-swing", "pro-internal"],
     "outcome": "tp",
     "entry": {
       "type": "market",
@@ -68,10 +65,7 @@
     "executionTimeframe": "4h",
     "contextTimeframe": "4h",
     "direction": "long",
-    "playbook": [
-      "pro-swing",
-      "pro-internal"
-    ],
+    "playbook": ["pro-swing", "pro-internal"],
     "outcome": "sl",
     "entry": {
       "type": "limit",
@@ -100,10 +94,7 @@
     "executionTimeframe": "1h",
     "contextTimeframe": "4h",
     "direction": "long",
-    "playbook": [
-      "pro-swing",
-      "counter-internal"
-    ],
+    "playbook": ["pro-swing", "counter-internal"],
     "outcome": "sl",
     "entry": {
       "type": "limit",
@@ -132,9 +123,7 @@
     "executionTimeframe": "1h",
     "contextTimeframe": "4h",
     "direction": "long",
-    "playbook": [
-      "pro-swing"
-    ],
+    "playbook": ["pro-swing"],
     "outcome": "tp-partial",
     "entry": {
       "type": "limit",
@@ -163,9 +152,7 @@
     "executionTimeframe": "15m",
     "contextTimeframe": "4h",
     "direction": "long",
-    "playbook": [
-      "pro-swing"
-    ],
+    "playbook": ["pro-swing"],
     "outcome": "tp",
     "entry": {
       "type": "limit",

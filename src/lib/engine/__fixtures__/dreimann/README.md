@@ -14,14 +14,14 @@ sample, not a tuning set.
 
 ## Trades
 
-| Fixture    | Chart                 | Symbol · TF (exec) | Window (UTC)        | Entry              | Stop    | Objective            | Outcome |
-| ---------- | --------------------- | ------------------ | ------------------- | ------------------ | ------- | -------------------- | ------- |
-| `zec-tp`   | `zec_hit_tp.png`      | ZECUSDT · 15m      | Jul 05 → Jul 10     | market 462.74      | 454.73  | 487.0 (weak high)    | TP      |
-| `trx-tp3`  | `trx_hit_tp_max.png`  | TRXUSDT · 15m      | Jul 05 → Jul 10     | market 0.32782     | 0.32653 | 0.33181 (weak high)  | TP3     |
-| `zec-sl`   | `zec_hit_sl.png`      | ZECUSDT · 4h       | Jun 15 → Jul 09     | limit 450.49       | 446.05  | 463.79 (weak high)   | SL      |
-| `ethfi-sl` | `ethfi_hit_sl.png`    | ETHFIUSDT · 1h     | Jun 28 → Jul 10     | limit 0.4245       | 0.4078  | 0.4746 (beyond window) | SL    |
-| `jup-tp`   | `jup_hit_tp.png`      | JUPUSDT · 1h       | Jun 25 → Jul 08     | limit 0.2340       | 0.2281  | 0.2519 (weak high)   | TP (2R) |
-| `fet-tp`   | `fet_hit_tp_max.png`  | FETUSDT · 15m      | Jun 28 → Jul 04     | limit 0.1773\*     | 0.1755\* | 0.1827\* (weak high) | TP      |
+| Fixture    | Chart                | Symbol · TF (exec) | Window (UTC)    | Entry          | Stop     | Objective              | Outcome |
+| ---------- | -------------------- | ------------------ | --------------- | -------------- | -------- | ---------------------- | ------- |
+| `zec-tp`   | `zec_hit_tp.png`     | ZECUSDT · 15m      | Jul 05 → Jul 10 | market 462.74  | 454.73   | 487.0 (weak high)      | TP      |
+| `trx-tp3`  | `trx_hit_tp_max.png` | TRXUSDT · 15m      | Jul 05 → Jul 10 | market 0.32782 | 0.32653  | 0.33181 (weak high)    | TP3     |
+| `zec-sl`   | `zec_hit_sl.png`     | ZECUSDT · 4h       | Jun 15 → Jul 09 | limit 450.49   | 446.05   | 463.79 (weak high)     | SL      |
+| `ethfi-sl` | `ethfi_hit_sl.png`   | ETHFIUSDT · 1h     | Jun 28 → Jul 10 | limit 0.4245   | 0.4078   | 0.4746 (beyond window) | SL      |
+| `jup-tp`   | `jup_hit_tp.png`     | JUPUSDT · 1h       | Jun 25 → Jul 08 | limit 0.2340   | 0.2281   | 0.2519 (weak high)     | TP (2R) |
+| `fet-tp`   | `fet_hit_tp_max.png` | FETUSDT · 15m      | Jun 28 → Jul 04 | limit 0.1773\* | 0.1755\* | 0.1827\* (weak high)   | TP      |
 
 Every fixture also carries a `4h` context series with extra left margin so H4
 structure can form before the chart window opens.

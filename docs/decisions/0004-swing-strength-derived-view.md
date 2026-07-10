@@ -6,9 +6,9 @@
 
 ## Problem
 
-Objective selection in the Dreimann framework targets *weak structure*: "a swing that produced a BOS is strong (protected); one that failed to is weak (target)." The engine's swings carry HH/HL/LH/LL labels but no notion of proven vs. failed, so "objective = the opposing weak high" is unrepresentable (gap G2).
+Objective selection in the Dreimann framework targets _weak structure_: "a swing that produced a BOS is strong (protected); one that failed to is weak (target)." The engine's swings carry HH/HL/LH/LL labels but no notion of proven vs. failed, so "objective = the opposing weak high" is unrepresentable (gap G2).
 
-Strength is the engine's first *forward-looking* per-swing property — a high's type depends on what happens after it. Every existing per-swing field (`label`, `event`, `equal`) is backward-looking and frozen at swing completion, and `hysteresis`/`shadow` rely on that append-only record. Storing strength on `SwingPoint` would break that invariant (risk R1).
+Strength is the engine's first _forward-looking_ per-swing property — a high's type depends on what happens after it. Every existing per-swing field (`label`, `event`, `equal`) is backward-looking and frozen at swing completion, and `hysteresis`/`shadow` rely on that append-only record. Storing strength on `SwingPoint` would break that invariant (risk R1).
 
 ## The chosen rule (leg-scoped, first-verdict-decides)
 
@@ -22,13 +22,13 @@ Strict inequalities throughout (an EQH/EQL retest is not a break), matching the 
 
 ## Why this rule and not "any later break"
 
-The first draft resolved a high **strong** if *any* later low broke the prior low before the high was taken. On the fixtures that over-grants strength badly: in a volatile range most highs eventually sit above some structural break and read strong — including highs whose own push down had already failed. A later break has its own origin swing; crediting it to an earlier high answers the wrong question. The leg-scoped rule is the literal reading of "produced a BOS / failed to", and it is what reproduced the trader's annotations (below). "Taken out" was also dropped as a *weakness trigger*: being taken confirms a weak high but is not what makes it weak — the failed counter-leg is, and that settles earlier and append-only.
+The first draft resolved a high **strong** if _any_ later low broke the prior low before the high was taken. On the fixtures that over-grants strength badly: in a volatile range most highs eventually sit above some structural break and read strong — including highs whose own push down had already failed. A later break has its own origin swing; crediting it to an earlier high answers the wrong question. The leg-scoped rule is the literal reading of "produced a BOS / failed to", and it is what reproduced the trader's annotations (below). "Taken out" was also dropped as a _weakness trigger_: being taken confirms a weak high but is not what makes it weak — the failed counter-leg is, and that settles earlier and append-only.
 
 ## Replay properties
 
 - **Derived view, zero stored state** (R1 Alt A): a pure function of `MarketStructure`, like `computeLiquidityPools`' `intact`. Bar-limited window in ⇒ what was knowable then, out.
 - **Append-only under a stable pivot substrate** (pinned by test): within any window span where `pivotWindow(n)` is constant, a resolved strength never changes across growing windows. When `pivotWindow` steps (every 40 bars) the pivot set itself reshuffles — a pre-existing engine-wide property (EDR 0003: "cross-window object permanence is not promised"), not something this view can repair.
-- `judgedBy` identity can be refined while the resolving leg is still the series' final, still-forming leg (its extreme pivot may be replaced by a deeper one); the strength *value* it delivered cannot change.
+- `judgedBy` identity can be refined while the resolving leg is still the series' final, still-forming leg (its extreme pivot may be replaced by a deeper one); the strength _value_ it delivered cannot change.
 
 ## Trade-offs accepted
 
