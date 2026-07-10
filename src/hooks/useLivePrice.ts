@@ -1,70 +1,37 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId } from "react";
 
+import { registerLiveInterest, unregisterLiveInterest } from "@/lib/engine/binance-live-feed";
 import type { MarketType } from "@/lib/engine/binance";
+import { normalizeTicker } from "@/lib/engine/symbol-map";
+import { tickKey, useLivePriceStore } from "@/stores/live-prices";
 
 export interface LivePrice {
   price: number;
   change24h: number;
 }
 
-// miniTicker frames share the same `c`/`o` shape on both hosts.
-const WS_BASE: Record<MarketType, string> = {
-  spot: "wss://stream.binance.com:9443/ws",
-  perp: "wss://fstream.binance.com/ws",
-};
-
 /**
- * Streams last price + 24h change from Binance's miniTicker WebSocket (spot or
- * USDⓈ-M perpetual futures). Returns null until the first tick (callers should
- * fall back to REST data). Reconnects with capped backoff; disable for
- * demo/synthetic symbols.
+ * Live last price + 24h change (spot or USDⓈ-M perpetual futures), backed by
+ * the shared multiplexed feed in binance-live-feed.ts. Returns null until
+ * the first tick — callers should fall back to REST data until then.
  */
 export function useLivePrice(
   symbol: string,
   enabled: boolean,
   market: MarketType = "spot",
 ): LivePrice | null {
-  const [tick, setTick] = useState<LivePrice | null>(null);
+  const id = useId();
+  const ticker = normalizeTicker(symbol);
 
   useEffect(() => {
-    setTick(null);
-    if (!enabled || typeof WebSocket === "undefined") return;
+    if (!enabled || !ticker) {
+      unregisterLiveInterest(id);
+      return;
+    }
+    registerLiveInterest(id, { market, ticker });
+    return () => unregisterLiveInterest(id);
+  }, [id, enabled, ticker, market]);
 
-    const stream = `${symbol.toLowerCase()}usdt@miniTicker`;
-    let socket: WebSocket | null = null;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
-    let attempts = 0;
-    let closed = false;
-
-    const connect = () => {
-      socket = new WebSocket(`${WS_BASE[market]}/${stream}`);
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data as string) as { c?: string; o?: string };
-          const price = Number(data.c);
-          const open = Number(data.o);
-          if (!Number.isFinite(price) || !Number.isFinite(open) || open === 0) return;
-          attempts = 0;
-          setTick({ price, change24h: Number((((price - open) / open) * 100).toFixed(2)) });
-        } catch {
-          // Ignore malformed frames.
-        }
-      };
-      socket.onclose = () => {
-        if (closed || attempts >= 5) return;
-        attempts++;
-        retryTimer = setTimeout(connect, Math.min(30_000, 1_000 * 2 ** attempts));
-      };
-      socket.onerror = () => socket?.close();
-    };
-
-    connect();
-    return () => {
-      closed = true;
-      if (retryTimer) clearTimeout(retryTimer);
-      socket?.close();
-    };
-  }, [symbol, enabled, market]);
-
-  return tick;
+  const tick = useLivePriceStore((s) => s.ticks[tickKey(market, ticker)]);
+  return tick ? { price: tick.price, change24h: tick.change24h } : null;
 }
