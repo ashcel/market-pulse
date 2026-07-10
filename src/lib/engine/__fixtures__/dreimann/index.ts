@@ -36,6 +36,13 @@ export interface DreimannObjectiveLabel {
   withinWindow: boolean;
   /** Price tolerance (percent) when matching the objective to a derived swing. */
   tolerancePct: number;
+  /**
+   * True only where the source material explicitly calls the objective weak
+   * structure ("Objective hit weak structure"). Fidelity tests assert the
+   * weak-high read only on these; elsewhere the objective is a TP level whose
+   * structural type the trader never claimed.
+   */
+  claimsWeakStructure: boolean;
   source: string;
 }
 
