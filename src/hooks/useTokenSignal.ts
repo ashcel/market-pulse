@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { useLivePrice } from "@/hooks/useLivePrice";
 import { fetchTimeframeAlignment } from "@/lib/engine/alignment";
 import { computePivots, computeTrendLines, selectDisplayPivots } from "@/lib/engine/analysis";
 import {
@@ -75,6 +76,22 @@ export function useTokenSignal(
     stopMethod: risk.stopMethod,
   };
 
+  // Anchor price is shared per symbol+market, deliberately NOT per timeframe.
+  // Each timeframe used to fetch its own copy of fetchBinancePrice on its own
+  // schedule, so re-visiting a tab that hadn't refetched in a while showed a
+  // different "current price" than a freshly-fetched one — the exact bug the
+  // old inline comments here claimed was already handled. A live WS tick (see
+  // useLivePrice/binance-live-feed.ts), which is also keyed by symbol+market
+  // only, takes priority over the REST fallback whenever one has arrived.
+  const live = useLivePrice(symbol, true, market);
+  const anchorQuery = useQuery({
+    queryKey: ["live-anchor-price", symbol.toUpperCase(), market],
+    queryFn: () => fetchBinancePrice(symbol, market),
+    staleTime: 30_000,
+    refetchInterval: refreshIntervalMs > 0 ? Math.max(refreshIntervalMs, 30_000) : false,
+  });
+  const anchorPrice = live?.price ?? anchorQuery.data ?? undefined;
+
   return useQuery({
     queryKey: [
       "token-signal",
@@ -89,39 +106,33 @@ export function useTokenSignal(
     staleTime: 60_000,
     refetchInterval: refreshIntervalMs > 0 ? Math.max(refreshIntervalMs, 30_000) : false,
     queryFn: async (): Promise<TokenSignalData> => {
-      const [history, livePrice] = await Promise.all([
-        fetchBinanceKlines(symbol, timeframe, BACKTEST_CANDLE_LIMIT, undefined, market),
-        fetchBinancePrice(symbol, market),
-      ]);
+      const history = await fetchBinanceKlines(
+        symbol,
+        timeframe,
+        BACKTEST_CANDLE_LIMIT,
+        undefined,
+        market,
+      );
       if (history.length > 0) {
         // Trade off the last closed bar, not the one still forming — see
-        // dropUnclosedCandle. The risk plan's entry still anchors on
-        // `livePrice` so switching timeframes doesn't quote a different
-        // "current price" per bar's staleness.
+        // dropUnclosedCandle. The risk plan's entry anchors on the shared
+        // anchorPrice so every timeframe quotes the same "current price".
         const closed = dropUnclosedCandle(history);
         const candles = closed.slice(-CHART_CANDLE_LIMIT);
         const forming = closed.length < history.length ? history[history.length - 1] : null;
-        // Pin the forming candle's close to the same live price the risk plan
+        // Pin the forming candle's close to the same anchor the risk plan
         // uses, so the chart's last bar and the entry/stop/target lines meet
         // exactly instead of leaving a gap the size of one bar's drift.
         const liveCandle =
-          forming && livePrice
+          forming && anchorPrice
             ? {
                 ...forming,
-                close: livePrice,
-                high: Math.max(forming.high, livePrice),
-                low: Math.min(forming.low, livePrice),
+                close: anchorPrice,
+                high: Math.max(forming.high, anchorPrice),
+                low: Math.min(forming.low, anchorPrice),
               }
             : forming;
-        return buildSignalData(
-          symbol,
-          candles,
-          closed,
-          "live",
-          settings,
-          livePrice ?? undefined,
-          liveCandle,
-        );
+        return buildSignalData(symbol, candles, closed, "live", settings, anchorPrice, liveCandle);
       }
 
       const demoHistory = generateMockCandles(symbol, timeframe, BACKTEST_CANDLE_LIMIT);
