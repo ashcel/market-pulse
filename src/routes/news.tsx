@@ -16,12 +16,12 @@ import {
 export const Route = createFileRoute("/news")({
   head: () => ({
     meta: [
-      { title: "News Impact — IQ" },
+      { title: "News Impact — Market Pulse" },
       {
         name: "description",
         content: "Only news that moves markets — filtered by impact and affected assets.",
       },
-      { property: "og:title", content: "News Impact — IQ" },
+      { property: "og:title", content: "News Impact — Market Pulse" },
       {
         property: "og:description",
         content: "Signal-first news with expected direction and affected assets.",

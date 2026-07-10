@@ -35,12 +35,12 @@ function humanize(value: string): string {
 export const Route = createFileRoute("/tracker")({
   head: () => ({
     meta: [
-      { title: "Signal Tracker — IQ" },
+      { title: "Signal Tracker — Market Pulse" },
       {
         name: "description",
         content: "Forward-test the signals you've followed against live price.",
       },
-      { property: "og:title", content: "Signal Tracker — IQ" },
+      { property: "og:title", content: "Signal Tracker — Market Pulse" },
       {
         property: "og:description",
         content: "No backtest hindsight — just what actually happened after you followed a call.",

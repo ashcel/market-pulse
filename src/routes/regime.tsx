@@ -24,12 +24,12 @@ import {
 export const Route = createFileRoute("/regime")({
   head: () => ({
     meta: [
-      { title: "Market Regime — IQ" },
+      { title: "Market Regime — Market Pulse" },
       {
         name: "description",
         content: "Today's market regime: trend, breadth, volatility, liquidity, and macro.",
       },
-      { property: "og:title", content: "Market Regime — IQ" },
+      { property: "og:title", content: "Market Regime — Market Pulse" },
       { property: "og:description", content: "Is it Risk On, Risk Off, or Neutral today?" },
     ],
   }),

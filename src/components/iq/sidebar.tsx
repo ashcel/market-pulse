@@ -33,9 +33,9 @@ export function IqLogo({ className }: { className?: string }) {
         <Sparkles className="h-4 w-4" strokeWidth={2.5} />
       </div>
       <div className="leading-tight">
-        <div className="text-base font-semibold tracking-tight">IQ</div>
+        <div className="text-base font-semibold tracking-tight">Market Pulse</div>
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-          Market Intelligence
+          Crypto Market Intelligence
         </div>
       </div>
     </div>
@@ -88,7 +88,7 @@ export function Sidebar() {
       <div className="mt-auto space-y-3 pt-6">
         <div className="rounded-xl border border-sidebar-border bg-surface p-4">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold">IQ Pro</span>
+            <span className="text-sm font-semibold">Market Pulse Pro</span>
             <span className="rounded-md bg-info px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-background">
               Pro
             </span>

@@ -36,13 +36,13 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Dashboard — IQ Market Intelligence" },
+      { title: "Dashboard — Market Pulse" },
       {
         name: "description",
         content:
           "Your morning market briefing: regime, capital rotation, top assets, news, and sector flow.",
       },
-      { property: "og:title", content: "Dashboard — IQ Market Intelligence" },
+      { property: "og:title", content: "Dashboard — Market Pulse" },
       {
         property: "og:description",
         content: "Understand today's market regime and where capital is flowing.",
@@ -78,7 +78,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     target: "top-assets",
     title: "Top assets",
-    body: "The strongest assets by IQ score — a 0–100 blend of trend, momentum, volume, and technical quality. Click any row for the full chart and trade plan.",
+    body: "The strongest assets by Market Pulse score — a 0–100 blend of trend, momentum, volume, and technical quality. Click any row for the full chart and trade plan.",
   },
   {
     target: "news",
