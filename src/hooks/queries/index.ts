@@ -1,10 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 
 import { fetchMacroSnapshot } from "@/lib/engine/macro";
 import { fetchMarketSnapshot, type MarketSnapshot } from "@/lib/engine/market";
 import { fetchNews } from "@/lib/engine/news";
 import { fetchTradableTickers } from "@/lib/engine/symbols";
 import { usePreferencesStore } from "@/stores/preferences";
+import { tickKey, useLivePriceStore } from "@/stores/live-prices";
+import type { Asset } from "@/lib/types";
 
 /**
  * One live snapshot feeds every dashboard surface: assets, regime, rotation,
@@ -26,10 +29,35 @@ function useMarketSnapshot<T = MarketSnapshot>(select?: (snapshot: MarketSnapsho
 export const useSnapshotMeta = () =>
   useMarketSnapshot((s) => ({ source: s.source, updatedAt: s.updatedAt }));
 
-export const useAssets = () => useMarketSnapshot((s) => s.assets);
+/**
+ * REST assets overlaid with live WS ticks (see binance-live-feed.ts /
+ * useLiveUniverseSubscription) for whichever ticker+market a tick has
+ * arrived for. REST stays the bootstrap/fallback — a tick only overrides
+ * price/change24h once one exists, so this degrades to plain REST data
+ * exactly as before if the feed hasn't ticked yet (or is unreachable).
+ */
+export const useAssets = () => {
+  const marketType = usePreferencesStore((s) => s.marketType);
+  const ticks = useLivePriceStore((s) => s.ticks);
+  const query = useMarketSnapshot((s) => s.assets);
+  const data = useMemo(() => {
+    if (!query.data) return query.data;
+    return query.data.map((asset): Asset => {
+      const tick = ticks[tickKey(marketType, asset.ticker)];
+      return tick ? { ...asset, price: tick.price, change24h: tick.change24h } : asset;
+    });
+  }, [query.data, ticks, marketType]);
+  return { ...query, data };
+};
 
-export const useTopAssets = (n = 5) =>
-  useMarketSnapshot((s) => [...s.assets].sort((a, b) => b.score - a.score).slice(0, n));
+export const useTopAssets = (n = 5) => {
+  const { data: assets, ...rest } = useAssets();
+  const data = useMemo(
+    () => (assets ? [...assets].sort((a, b) => b.score - a.score).slice(0, n) : assets),
+    [assets, n],
+  );
+  return { ...rest, data };
+};
 
 export const useRegime = () => useMarketSnapshot((s) => s.regime);
 

@@ -16,6 +16,7 @@ import { TopBar } from "../components/iq/top-bar";
 import { BottomNav } from "../components/iq/bottom-nav";
 import { ThemeSync } from "../components/iq/theme-sync";
 import { Toaster } from "../components/ui/sonner";
+import { useLiveUniverseSubscription } from "../hooks/useLiveUniverseSubscription";
 import { useNotificationStream } from "../hooks/useNotificationStream";
 import { useSignalSettlement } from "../hooks/useSignalSettlement";
 import { useTriggerAlerts } from "../hooks/useTriggerAlerts";
@@ -138,6 +139,7 @@ function RootComponent() {
   useNotificationStream();
   useSignalSettlement();
   useTriggerAlerts();
+  useLiveUniverseSubscription();
 
   return (
     <QueryClientProvider client={queryClient}>
