@@ -1,0 +1,57 @@
+{
+  "window": {
+    "first": "2026-05-29T16:00:00.000Z",
+    "last": "2026-07-10T06:00:00.000Z",
+    "bars": 999
+  },
+  "population": {
+    "inScopeUnits": 139,
+    "bothFired": 0,
+    "disagreement": 139,
+    "crossTfDecisions": 117,
+    "nestedDecisions": 22
+  },
+  "arms": {
+    "crossTf": {
+      "trades": 117,
+      "wins": 14,
+      "losses": 36,
+      "censored": 67,
+      "meanR": -0.21395615930797507
+    },
+    "nested": {
+      "trades": 22,
+      "wins": 1,
+      "losses": 2,
+      "censored": 19,
+      "meanR": -0.21833405475578999
+    }
+  },
+  "gateA": {
+    "divergencePct": 100,
+    "threshold": 10,
+    "pass": true
+  },
+  "gateB": {
+    "meanDeltaR": 0.146,
+    "threshold": 0.15,
+    "ci90": [
+      0.056,
+      0.238
+    ],
+    "resolvedCrossTf": 50,
+    "resolvedNested": 3,
+    "sampleFloor": 50,
+    "pass": false
+  },
+  "gateC": {
+    "fullStreamDeltaR": 0.146,
+    "half1DeltaR": 0.135,
+    "half2DeltaR": 0.163,
+    "assetsWithDisagreements": 18,
+    "assetsNestedPositive": 15,
+    "pass": true
+  }
+}
+
+VERDICT: CROSS-TF WINS (incumbent retained)
