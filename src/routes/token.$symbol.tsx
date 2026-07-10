@@ -508,6 +508,7 @@ function TokenDetailPage() {
                         {data.candles.length} {data.source === "live" ? "Binance" : "synthetic"}{" "}
                         bars · {data.evaluation.structure.swings.length} swings ·{" "}
                         {structureReading(data.evaluation.structure)}
+                        {equilibriumReading(data.evaluation)}
                       </span>
                     </div>
                     <Badge variant="outline" className="border-info/30 bg-info-soft text-info">
@@ -724,6 +725,18 @@ function structureReading(structure: MarketStructure): string {
   if (structure.trend === "uptrend") return "HH/HL uptrend";
   if (structure.trend === "downtrend") return "LH/LL downtrend";
   return "range structure";
+}
+
+/**
+ * Passive premium/discount read of this chart timeframe's dealing range
+ * (Phase 0 instrumentation — annotation only, no verdict behind it). Empty
+ * until the engine has a range to measure against.
+ */
+function equilibriumReading(evaluation: SignalEvaluation): string {
+  const { dealingRange, pricePosition } = evaluation;
+  if (!dealingRange || !pricePosition) return "";
+  const range = `${formatMoney(dealingRange.low.price)}–${formatMoney(dealingRange.high.price)}`;
+  return ` · ${pricePosition} of ${range}`;
 }
 
 function humanSetup(setup: SetupType): string {
