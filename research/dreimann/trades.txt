@@ -1,0 +1,165 @@
+# Trade: ZEC
+
+Status: TP
+
+TradingView:
+https://www.tradingview.com/x/D3jkiMWh/
+
+Entry
+- Type: Market
+
+Risk
+- SL: 454.73
+- TP: 487
+- RR: 2.8R
+
+Notes
+-
+
+Chart: zec_hit_tp.png
+
+# Trade: TRX
+
+Status: TP3
+
+TradingView:
+https://www.tradingview.com/x/4awjS1O5/
+
+Objective
+- M15 sudah shifting bullish untuk alignment dengan H4.
+- Objective hit weak structure.
+
+Playbook
+- Pro Swing
+- Pro Internal
+
+Entry
+- Type: Market
+
+Risk
+- SL: 0.32653
+- TP: 0.33181
+- RR: 3R
+
+Notes
+-
+
+Chart: trx_hit_tp_max.png
+
+# Trade: ZEC
+
+Status: SL
+Note: Would have reached TP without stop.
+
+TradingView:
+https://www.tradingview.com/x/PDKfSE9G/
+
+Objective
+- H4 dan M15 align bullish.
+- Objective hit weak structure H4.
+
+Playbook
+- Pro Swing
+- Pro Internal
+
+Observations
+- Liquidity di kiri dan kanan.
+- POI expected to be respected.
+
+Entry
+- Type: Limit
+- Price: 450.49
+
+Risk
+- SL: 446.05
+- TP: 463.79
+- RR: 3R
+
+Chart: zec_hit_sl.png
+
+# Trade: ETHFI
+
+Status: SL
+
+TradingView:
+https://www.tradingview.com/x/jqgjSW6U/
+
+Playbook
+- Pro Swing
+- Counter Internal
+
+Entry
+- Type: Limit
+- Price: 0.4245
+
+Risk
+- SL: 0.4078
+- TP: 0.4746
+- RR: 3R
+
+Chart: ethfi_hit_sl.png
+
+# Trade: JUP
+
+Status: TP (2R)
+
+TradingView:
+https://www.tradingview.com/x/Rcw7nmyn/
+
+Objective
+- Play H4 uptrend.
+- Risky because bullish BOS on H4 may already have completed and pullback could happen.
+
+Entry
+- Type: Limit
+- Price: 0.2340
+
+Risk
+- SL: 0.2281
+- TP: 0.2519
+- RR: 3R
+
+Chart: jup_hit_tp.png
+
+# Trade: FET
+
+Status: TP (3R)
+
+TradingView:
+https://www.tradingview.com/x/xgUwFrnZ/
+
+Objective
+- Play MTF swing pullback.
+
+Entry
+- Type: Limit
+- Price: 0.1708
+
+Risk
+- SL: 0.1673
+- TP: 0.1813
+- RR: 3R
+
+Chart: fet_hit_tp_max.png
+
+# Trade: HYPE
+
+Status: TP (3R)
+
+TradingView:
+https://www.tradingview.com/x/oTJPmFAW/
+
+Objective
+- Anticipate end of H4 pullback.
+
+Risk Notes
+- High risk.
+- Entry near US market open.
+
+Entry
+- Type: Limit
+
+Risk
+- RR: 3R
+
+Chart: hype_tp_max.png
