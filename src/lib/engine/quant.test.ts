@@ -1,28 +1,51 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import * as analysis from "./analysis";
 import { computePivots, pivotWindow } from "./analysis";
 import { generateMockCandles } from "./mock-candles";
-import type { Candle } from "./types";
+import type { Candle, PivotPoint } from "./types";
+
+// Captured before any module mock is installed, so the wrapper below always
+// calls the genuine implementation (never itself via a rewritten binding).
+const actualComputePivots = analysis.computePivots;
+
+// The replay-oracle test needs to observe what runBacktest passes to
+// computePivots. Vitest gives us doMock/doUnmock; bun's vitest-compat `vi`
+// has neither, but bun:test's mock.module can install the same wrapper. Bun
+// cannot uninstall a module mock, so the wrapper routes through a recorder
+// toggle: with the recorder unset it is a pure passthrough, keeping every
+// other test's behavior identical even while the wrapper stays installed.
+let recordPivotInput: ((candles: Candle[]) => void) | null = null;
+
+async function installComputePivotsRecorder(): Promise<void> {
+  const wrapped = {
+    ...analysis,
+    computePivots: (candles: Candle[]): PivotPoint[] => {
+      recordPivotInput?.(candles);
+      return actualComputePivots(candles);
+    },
+  };
+  if (typeof vi.doMock === "function") {
+    vi.doMock("./analysis", () => wrapped);
+  } else {
+    const { mock } = await import("bun:test");
+    mock.module("./analysis", () => wrapped);
+  }
+}
 
 describe("runBacktest replay pivot safety", () => {
   afterEach(() => {
-    vi.doUnmock("./analysis");
-    vi.resetModules();
+    recordPivotInput = null;
+    // Full uninstall where the runner supports it (vitest); under bun the
+    // wrapper stays but is a passthrough once the recorder is cleared.
+    vi.doUnmock?.("./analysis");
+    vi.resetModules?.();
   });
 
   it("uses computePivots(candles.slice(0, i + 1)) as the replay oracle", async () => {
     const pivotInputs: Candle[][] = [];
-
-    vi.doMock("./analysis", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("./analysis")>();
-      return {
-        ...actual,
-        computePivots: (candles: Candle[]) => {
-          pivotInputs.push(candles);
-          return actual.computePivots(candles);
-        },
-      };
-    });
+    recordPivotInput = (candles) => pivotInputs.push(candles);
+    await installComputePivotsRecorder();
 
     const { runBacktest } = await import("./quant");
     const candles = generateMockCandles("BTC", "1H", 70);
