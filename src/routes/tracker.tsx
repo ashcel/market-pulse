@@ -300,7 +300,7 @@ function TrackedSignalRow({ signal }: { signal: TrackedSignal }) {
   const applyPriceUpdate = useTrackedSignalsStore((s) => s.applyPriceUpdate);
   const remove = useTrackedSignalsStore((s) => s.remove);
   const terminal = isTerminalStatus(signal.status);
-  const live = useLivePrice(signal.symbol, !terminal);
+  const live = useLivePrice(signal.symbol, !terminal, signal.market ?? "spot");
 
   useEffect(() => {
     if (live?.price) applyPriceUpdate(signal.id, live.price);
