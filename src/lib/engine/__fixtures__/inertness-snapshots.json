@@ -1,0 +1,736 @@
+[
+ {
+  "case": {
+   "symbol": "BTC",
+   "timeframe": "1H",
+   "bars": 240
+  },
+  "surface": {
+   "symbol": "BTC",
+   "setupType": "lower-high-rejection",
+   "decision": "no-trade",
+   "direction": "short",
+   "lean": "short",
+   "regime": "choppy",
+   "confidence": 100,
+   "components": [
+    {
+     "name": "Trend alignment",
+     "status": "pass",
+     "score": 20,
+     "explanation": "The current regime supports a short thesis."
+    },
+    {
+     "name": "Structure alignment",
+     "status": "pass",
+     "score": 15,
+     "explanation": "Swing structure agrees: lower highs and lower lows support the short."
+    },
+    {
+     "name": "Volume confirmation",
+     "status": "pass",
+     "score": 15,
+     "explanation": "Current volume is 1.29x the 20-bar average."
+    },
+    {
+     "name": "Candle close confirmation",
+     "status": "warning",
+     "score": -5,
+     "explanation": "The latest candle has not confirmed with a decisive close."
+    },
+    {
+     "name": "Reward/risk",
+     "status": "pass",
+     "score": 18,
+     "explanation": "Target 1 offers 1.8R, above the 1.8R minimum."
+    },
+    {
+     "name": "Support/resistance location",
+     "status": "pass",
+     "score": 12,
+     "explanation": "Price has enough room to the next nearby structure level."
+    },
+    {
+     "name": "Liquidity context",
+     "status": "pass",
+     "score": 10,
+     "explanation": "No intact liquidity pool sits in the trade's immediate path."
+    },
+    {
+     "name": "Extension from mean",
+     "status": "pass",
+     "score": 8,
+     "explanation": "Price is not excessively extended from its 20-period mean."
+    }
+   ],
+   "noTradeReasons": [
+    "Market regime is choppy/noisy."
+   ],
+   "reason": "Market regime is choppy/noisy.",
+   "risk": {
+    "direction": "short",
+    "entry": 71981.02,
+    "entryLow": 71981.02,
+    "entryHigh": 73755.35,
+    "stop": 92127.97,
+    "target1": 35716.51,
+    "target2": 11540.17,
+    "riskPerUnit": 20146.95,
+    "rewardPerUnit1": 36264.51,
+    "rewardPerUnit2": 60440.85,
+    "rewardRisk1": 1.8,
+    "rewardRisk2": 3,
+    "maxDollarRisk": 750,
+    "positionSize": 0.037226,
+    "maxDollarLoss": 749.99,
+    "estimatedGain1": 1349.98,
+    "estimatedGain2": 2249.97,
+    "invalidation": 92127.97
+   },
+   "analytics": {
+    "lastClose": 71981.02,
+    "changePercent": 0.28,
+    "sma20": 72140.95,
+    "sma50": 78246.62,
+    "atr14": 1613.03,
+    "atrPercent": 2.24,
+    "avgVolume20": 2821380,
+    "volumeRatio": 1.29,
+    "support": 70396.3,
+    "resistance": 92127.97,
+    "distanceToSupportPercent": 2.2,
+    "distanceToResistancePercent": 27.99
+   },
+   "backtest": {
+    "strategyName": "Lower High Rejection",
+    "strategyVersion": "SetupReplay_v2",
+    "totalTrades": 115,
+    "winRate": 67,
+    "averageWin": 1,
+    "averageLoss": 0.78,
+    "profitFactor": 2.6,
+    "expectancy": 0.41,
+    "maxDrawdown": 28.84,
+    "averageR": 0.41,
+    "bestTradeR": 1.2,
+    "worstTradeR": -1,
+    "consecutiveWins": 49,
+    "consecutiveLosses": 32,
+    "lowSample": false
+   },
+   "strategyVersion": "QuantDeskSignal_v1"
+  }
+ },
+ {
+  "case": {
+   "symbol": "BTC",
+   "timeframe": "4H",
+   "bars": 400
+  },
+  "surface": {
+   "symbol": "BTC",
+   "setupType": "no-clear-setup",
+   "decision": "no-trade",
+   "direction": "none",
+   "lean": "short",
+   "regime": "mean-reversion",
+   "confidence": 61,
+   "components": [
+    {
+     "name": "Trend alignment",
+     "status": "neutral",
+     "score": 0,
+     "explanation": "No directional setup is strong enough to require trend confirmation."
+    },
+    {
+     "name": "Structure alignment",
+     "status": "neutral",
+     "score": 0,
+     "explanation": "No directional setup to test against swing structure."
+    },
+    {
+     "name": "Volume confirmation",
+     "status": "warning",
+     "score": -6,
+     "explanation": "Volume is not yet meaningfully above the 20-bar average."
+    },
+    {
+     "name": "Candle close confirmation",
+     "status": "pass",
+     "score": 12,
+     "explanation": "The latest candle closed decisively in the upper half of its range."
+    },
+    {
+     "name": "Reward/risk",
+     "status": "neutral",
+     "score": 0,
+     "explanation": "No trade plan is active."
+    },
+    {
+     "name": "Support/resistance location",
+     "status": "pass",
+     "score": 12,
+     "explanation": "Price has enough room to the next nearby structure level."
+    },
+    {
+     "name": "Liquidity context",
+     "status": "neutral",
+     "score": 0,
+     "explanation": "No directional setup to test against resting liquidity."
+    },
+    {
+     "name": "Extension from mean",
+     "status": "pass",
+     "score": 8,
+     "explanation": "Price is not excessively extended from its 20-period mean."
+    }
+   ],
+   "noTradeReasons": [
+    "No clear setup is classified.",
+    "Volume confirmation is missing."
+   ],
+   "reason": "No clear setup is classified.",
+   "risk": {
+    "direction": "none",
+    "entry": 137364.83,
+    "entryLow": 137364.83,
+    "entryHigh": 137364.83,
+    "stop": 137364.83,
+    "target1": 137364.83,
+    "target2": 137364.83,
+    "riskPerUnit": 0,
+    "rewardPerUnit1": 0,
+    "rewardPerUnit2": 0,
+    "rewardRisk1": 0,
+    "rewardRisk2": 0,
+    "maxDollarRisk": 750,
+    "positionSize": 0,
+    "maxDollarLoss": 0,
+    "estimatedGain1": 0,
+    "estimatedGain2": 0,
+    "invalidation": 137364.83
+   },
+   "analytics": {
+    "lastClose": 137364.83,
+    "changePercent": 0.94,
+    "sma20": 128848.66,
+    "sma50": 137029.8,
+    "atr14": 4068.88,
+    "atrPercent": 2.96,
+    "avgVolume20": 2709950,
+    "volumeRatio": 0.7,
+    "support": 124207.35,
+    "resistance": 145579.8,
+    "distanceToSupportPercent": 9.58,
+    "distanceToResistancePercent": 5.98
+   },
+   "backtest": {
+    "strategyName": "No Clear Setup",
+    "strategyVersion": "SetupReplay_v2",
+    "totalTrades": 0,
+    "winRate": 0,
+    "averageWin": 0,
+    "averageLoss": 0,
+    "profitFactor": 0,
+    "expectancy": 0,
+    "maxDrawdown": 0,
+    "averageR": 0,
+    "bestTradeR": 0,
+    "worstTradeR": 0,
+    "consecutiveWins": 0,
+    "consecutiveLosses": 0,
+    "lowSample": false
+   },
+   "strategyVersion": "QuantDeskSignal_v1"
+  }
+ },
+ {
+  "case": {
+   "symbol": "ETH",
+   "timeframe": "1H",
+   "bars": 240
+  },
+  "surface": {
+   "symbol": "ETH",
+   "setupType": "lower-high-rejection",
+   "decision": "no-trade",
+   "direction": "short",
+   "lean": "short",
+   "regime": "mean-reversion",
+   "confidence": 97,
+   "components": [
+    {
+     "name": "Trend alignment",
+     "status": "warning",
+     "score": -8,
+     "explanation": "The current regime does not cleanly support a short thesis."
+    },
+    {
+     "name": "Structure alignment",
+     "status": "pass",
+     "score": 15,
+     "explanation": "Swing structure agrees: lower highs and lower lows support the short."
+    },
+    {
+     "name": "Volume confirmation",
+     "status": "pass",
+     "score": 15,
+     "explanation": "Current volume is 1.3x the 20-bar average."
+    },
+    {
+     "name": "Candle close confirmation",
+     "status": "pass",
+     "score": 12,
+     "explanation": "The latest candle closed decisively in the lower half of its range."
+    },
+    {
+     "name": "Reward/risk",
+     "status": "pass",
+     "score": 18,
+     "explanation": "Target 1 offers 1.8R, above the 1.8R minimum."
+    },
+    {
+     "name": "Support/resistance location",
+     "status": "warning",
+     "score": -8,
+     "explanation": "Short entry is close to nearby support."
+    },
+    {
+     "name": "Liquidity context",
+     "status": "pass",
+     "score": 10,
+     "explanation": "No intact liquidity pool sits in the trade's immediate path."
+    },
+    {
+     "name": "Extension from mean",
+     "status": "pass",
+     "score": 8,
+     "explanation": "Price is not excessively extended from its 20-period mean."
+    }
+   ],
+   "noTradeReasons": [
+    "Price is too close to support for a short trade."
+   ],
+   "reason": "Price is too close to support for a short trade.",
+   "risk": {
+    "direction": "short",
+    "entry": 4411.41,
+    "entryLow": 4411.41,
+    "entryHigh": 4495.96,
+    "stop": 4913.65,
+    "target1": 3507.38,
+    "target2": 2904.69,
+    "riskPerUnit": 502.24,
+    "rewardPerUnit1": 904.03,
+    "rewardPerUnit2": 1506.72,
+    "rewardRisk1": 1.8,
+    "rewardRisk2": 3,
+    "maxDollarRisk": 750,
+    "positionSize": 1.49331,
+    "maxDollarLoss": 750,
+    "estimatedGain1": 1350,
+    "estimatedGain2": 2250,
+    "invalidation": 4913.65
+   },
+   "analytics": {
+    "lastClose": 4411.41,
+    "changePercent": -0.17,
+    "sma20": 4435.2,
+    "sma50": 4214.37,
+    "atr14": 76.8621,
+    "atrPercent": 1.74,
+    "avgVolume20": 2758428,
+    "volumeRatio": 1.3,
+    "support": 4406.7,
+    "resistance": 4913.65,
+    "distanceToSupportPercent": 0.11,
+    "distanceToResistancePercent": 11.39
+   },
+   "backtest": {
+    "strategyName": "Lower High Rejection",
+    "strategyVersion": "SetupReplay_v2",
+    "totalTrades": 77,
+    "winRate": 55.8,
+    "averageWin": 0.99,
+    "averageLoss": 0.8,
+    "profitFactor": 1.55,
+    "expectancy": 0.2,
+    "maxDrawdown": 27.3,
+    "averageR": 0.2,
+    "bestTradeR": 1.2,
+    "worstTradeR": -1,
+    "consecutiveWins": 36,
+    "consecutiveLosses": 33,
+    "lowSample": false
+   },
+   "strategyVersion": "QuantDeskSignal_v1"
+  }
+ },
+ {
+  "case": {
+   "symbol": "SOL",
+   "timeframe": "4H",
+   "bars": 400
+  },
+  "surface": {
+   "symbol": "SOL",
+   "setupType": "higher-low-continuation",
+   "decision": "no-trade",
+   "direction": "long",
+   "lean": "long",
+   "regime": "mean-reversion",
+   "confidence": 96,
+   "components": [
+    {
+     "name": "Trend alignment",
+     "status": "warning",
+     "score": -8,
+     "explanation": "The current regime does not cleanly support a long thesis."
+    },
+    {
+     "name": "Structure alignment",
+     "status": "pass",
+     "score": 15,
+     "explanation": "Swing structure agrees: higher highs and higher lows support the long."
+    },
+    {
+     "name": "Volume confirmation",
+     "status": "warning",
+     "score": -6,
+     "explanation": "Volume is not yet meaningfully above the 20-bar average."
+    },
+    {
+     "name": "Candle close confirmation",
+     "status": "pass",
+     "score": 12,
+     "explanation": "The latest candle closed decisively in the upper half of its range."
+    },
+    {
+     "name": "Reward/risk",
+     "status": "pass",
+     "score": 18,
+     "explanation": "Target 1 offers 1.8R, above the 1.8R minimum."
+    },
+    {
+     "name": "Support/resistance location",
+     "status": "pass",
+     "score": 12,
+     "explanation": "Price has enough room to the next nearby structure level."
+    },
+    {
+     "name": "Liquidity context",
+     "status": "pass",
+     "score": 10,
+     "explanation": "No intact liquidity pool sits in the trade's immediate path."
+    },
+    {
+     "name": "Extension from mean",
+     "status": "pass",
+     "score": 8,
+     "explanation": "Price is not excessively extended from its 20-period mean."
+    }
+   ],
+   "noTradeReasons": [
+    "Volume confirmation is missing."
+   ],
+   "reason": "Volume confirmation is missing.",
+   "risk": {
+    "direction": "long",
+    "entry": 720.46,
+    "entryLow": 695.9,
+    "entryHigh": 720.46,
+    "stop": 618.64,
+    "target1": 903.74,
+    "target2": 1025.93,
+    "riskPerUnit": 101.82,
+    "rewardPerUnit1": 183.28,
+    "rewardPerUnit2": 305.47,
+    "rewardRisk1": 1.8,
+    "rewardRisk2": 3,
+    "maxDollarRisk": 750,
+    "positionSize": 7.365723,
+    "maxDollarLoss": 750,
+    "estimatedGain1": 1350,
+    "estimatedGain2": 2250,
+    "invalidation": 618.64
+   },
+   "analytics": {
+    "lastClose": 720.46,
+    "changePercent": 1.07,
+    "sma20": 661.64,
+    "sma50": 674.14,
+    "atr14": 22.3296,
+    "atrPercent": 3.1,
+    "avgVolume20": 3979553,
+    "volumeRatio": 0.87,
+    "support": 618.64,
+    "resistance": 772.93,
+    "distanceToSupportPercent": 14.13,
+    "distanceToResistancePercent": 7.28
+   },
+   "backtest": {
+    "strategyName": "Higher Low Continuation",
+    "strategyVersion": "SetupReplay_v2",
+    "totalTrades": 227,
+    "winRate": 50.2,
+    "averageWin": 1,
+    "averageLoss": 0.81,
+    "profitFactor": 1.25,
+    "expectancy": 0.1,
+    "maxDrawdown": 33.68,
+    "averageR": 0.1,
+    "bestTradeR": 1.2,
+    "worstTradeR": -1,
+    "consecutiveWins": 39,
+    "consecutiveLosses": 38,
+    "lowSample": false
+   },
+   "strategyVersion": "QuantDeskSignal_v1"
+  }
+ },
+ {
+  "case": {
+   "symbol": "DOGE",
+   "timeframe": "1H",
+   "bars": 320
+  },
+  "surface": {
+   "symbol": "DOGE",
+   "setupType": "lower-high-rejection",
+   "decision": "no-trade",
+   "direction": "short",
+   "lean": "short",
+   "regime": "trending-down",
+   "confidence": 100,
+   "components": [
+    {
+     "name": "Trend alignment",
+     "status": "pass",
+     "score": 20,
+     "explanation": "The current regime supports a short thesis."
+    },
+    {
+     "name": "Structure alignment",
+     "status": "pass",
+     "score": 15,
+     "explanation": "Swing structure agrees: lower highs and lower lows support the short."
+    },
+    {
+     "name": "Volume confirmation",
+     "status": "warning",
+     "score": -6,
+     "explanation": "Volume is not yet meaningfully above the 20-bar average."
+    },
+    {
+     "name": "Candle close confirmation",
+     "status": "warning",
+     "score": -5,
+     "explanation": "The latest candle has not confirmed with a decisive close."
+    },
+    {
+     "name": "Reward/risk",
+     "status": "pass",
+     "score": 18,
+     "explanation": "Target 1 offers 1.8R, above the 1.8R minimum."
+    },
+    {
+     "name": "Support/resistance location",
+     "status": "pass",
+     "score": 12,
+     "explanation": "Price has enough room to the next nearby structure level."
+    },
+    {
+     "name": "Liquidity context",
+     "status": "pass",
+     "score": 10,
+     "explanation": "No intact liquidity pool sits in the trade's immediate path."
+    },
+    {
+     "name": "Extension from mean",
+     "status": "pass",
+     "score": 8,
+     "explanation": "Price is not excessively extended from its 20-period mean."
+    }
+   ],
+   "noTradeReasons": [
+    "Volume confirmation is missing."
+   ],
+   "reason": "Volume confirmation is missing.",
+   "risk": {
+    "direction": "short",
+    "entry": 0.2835,
+    "entryLow": 0.2835,
+    "entryHigh": 0.290142,
+    "stop": 0.35842,
+    "target1": 0.148644,
+    "target2": 0.05874,
+    "riskPerUnit": 0.07492,
+    "rewardPerUnit1": 0.134856,
+    "rewardPerUnit2": 0.22476,
+    "rewardRisk1": 1.8,
+    "rewardRisk2": 3,
+    "maxDollarRisk": 750,
+    "positionSize": 10010.678057,
+    "maxDollarLoss": 750,
+    "estimatedGain1": 1350,
+    "estimatedGain2": 2250,
+    "invalidation": 0.35842
+   },
+   "analytics": {
+    "lastClose": 0.2835,
+    "changePercent": -0.21,
+    "sma20": 0.288186,
+    "sma50": 0.315076,
+    "atr14": 0.0060386,
+    "atrPercent": 2.13,
+    "avgVolume20": 6852041,
+    "volumeRatio": 0.53,
+    "support": 0.27862,
+    "resistance": 0.35842,
+    "distanceToSupportPercent": 1.72,
+    "distanceToResistancePercent": 26.43
+   },
+   "backtest": {
+    "strategyName": "Lower High Rejection",
+    "strategyVersion": "SetupReplay_v2",
+    "totalTrades": 187,
+    "winRate": 64.2,
+    "averageWin": 1.01,
+    "averageLoss": 0.79,
+    "profitFactor": 2.29,
+    "expectancy": 0.37,
+    "maxDrawdown": 27.9,
+    "averageR": 0.37,
+    "bestTradeR": 1.2,
+    "worstTradeR": -1,
+    "consecutiveWins": 42,
+    "consecutiveLosses": 31,
+    "lowSample": false
+   },
+   "strategyVersion": "QuantDeskSignal_v1"
+  }
+ },
+ {
+  "case": {
+   "symbol": "PEPE",
+   "timeframe": "4H",
+   "bars": 320
+  },
+  "surface": {
+   "symbol": "PEPE",
+   "setupType": "lower-high-rejection",
+   "decision": "no-trade",
+   "direction": "short",
+   "lean": "none",
+   "regime": "trending-up",
+   "confidence": 79,
+   "components": [
+    {
+     "name": "Trend alignment",
+     "status": "fail",
+     "score": -8,
+     "explanation": "This short setup fights a confirmed trending-up regime — that's the wrong side of the tape."
+    },
+    {
+     "name": "Structure alignment",
+     "status": "pass",
+     "score": 15,
+     "explanation": "Swing structure agrees: lower highs and lower lows support the short."
+    },
+    {
+     "name": "Volume confirmation",
+     "status": "warning",
+     "score": -6,
+     "explanation": "Volume is not yet meaningfully above the 20-bar average."
+    },
+    {
+     "name": "Candle close confirmation",
+     "status": "warning",
+     "score": -5,
+     "explanation": "The latest candle has not confirmed with a decisive close."
+    },
+    {
+     "name": "Reward/risk",
+     "status": "pass",
+     "score": 18,
+     "explanation": "Target 1 offers 1.8R, above the 1.8R minimum."
+    },
+    {
+     "name": "Support/resistance location",
+     "status": "pass",
+     "score": 12,
+     "explanation": "Price has enough room to the next nearby structure level."
+    },
+    {
+     "name": "Liquidity context",
+     "status": "pass",
+     "score": 10,
+     "explanation": "No intact liquidity pool sits in the trade's immediate path."
+    },
+    {
+     "name": "Extension from mean",
+     "status": "pass",
+     "score": 8,
+     "explanation": "Price is not excessively extended from its 20-period mean."
+    }
+   ],
+   "noTradeReasons": [
+    "Setup direction is against the confirmed trending-up regime.",
+    "Volume confirmation is missing."
+   ],
+   "reason": "Setup direction is against the confirmed trending-up regime.",
+   "risk": {
+    "direction": "short",
+    "entry": 140.43,
+    "entryLow": 140.43,
+    "entryHigh": 145.16,
+    "stop": 176.95,
+    "target1": 74.6942,
+    "target2": 30.869,
+    "riskPerUnit": 36.521,
+    "rewardPerUnit1": 65.7378,
+    "rewardPerUnit2": 109.56,
+    "rewardRisk1": 1.8,
+    "rewardRisk2": 3,
+    "maxDollarRisk": 750,
+    "positionSize": 20.53613,
+    "maxDollarLoss": 750,
+    "estimatedGain1": 1350,
+    "estimatedGain2": 2250,
+    "invalidation": 176.95
+   },
+   "analytics": {
+    "lastClose": 140.43,
+    "changePercent": 0.46,
+    "sma20": 132.48,
+    "sma50": 131.75,
+    "atr14": 4.2991,
+    "atrPercent": 3.06,
+    "avgVolume20": 1626693,
+    "volumeRatio": 0.88,
+    "support": 118.03,
+    "resistance": 176.95,
+    "distanceToSupportPercent": 15.96,
+    "distanceToResistancePercent": 26.01
+   },
+   "backtest": {
+    "strategyName": "Lower High Rejection",
+    "strategyVersion": "SetupReplay_v2",
+    "totalTrades": 238,
+    "winRate": 57.6,
+    "averageWin": 1.03,
+    "averageLoss": 0.88,
+    "profitFactor": 1.6,
+    "expectancy": 0.22,
+    "maxDrawdown": 28.7,
+    "averageR": 0.22,
+    "bestTradeR": 1.2,
+    "worstTradeR": -1,
+    "consecutiveWins": 47,
+    "consecutiveLosses": 32,
+    "lowSample": false
+   },
+   "strategyVersion": "QuantDeskSignal_v1"
+  }
+ }
+]

@@ -1,11 +1,18 @@
 import type { Candle, PivotPoint } from "./types";
 import { computePivots } from "./analysis";
 import {
+  classifyPrice,
+  computeDealingRange,
+  type DealingRange,
+  type PricePosition,
+} from "./equilibrium";
+import {
   computeLiquidityPools,
   detectLiquiditySweeps,
   type LiquidityPool,
   type LiquiditySweep,
 } from "./liquidity";
+import { deriveSwingStrength, type SwingStrengthEntry } from "./strength";
 import {
   computeMarketStructure,
   structureLean,
@@ -168,6 +175,16 @@ export interface SignalEvaluation {
   liquidity: LiquidityPool[];
   /** Stop hunts on those pools: wick through the level, close back inside (time order). */
   liquiditySweeps: LiquiditySweep[];
+  /**
+   * Strong/weak typing over `structure.swings`, one entry per swing (Phase 0
+   * instrumentation — exposed for the UI and later phases, read by no
+   * decision, score, or veto; see EDR 0004).
+   */
+  swingStrength: SwingStrengthEntry[];
+  /** Active dealing range from the last strong swing; null until one exists (EDR 0005). */
+  dealingRange: DealingRange | null;
+  /** Where the evaluated price sits in that range; null exactly when `dealingRange` is. */
+  pricePosition: PricePosition | null;
   confidence: number;
   components: SignalComponent[];
   noTradeReasons: string[];
@@ -576,6 +593,12 @@ export function evaluateSignal(
   const structure = computeMarketStructure(pivots);
   const liquidity = computeLiquidityPools(structure);
   const liquiditySweeps = detectLiquiditySweeps(liquidity, candles);
+  // Phase 0 instrumentation: derived views only, read by nothing below.
+  const swingStrength = deriveSwingStrength(structure);
+  const dealingRange = computeDealingRange(structure);
+  const positionPrice = livePrice ?? current?.close;
+  const pricePosition =
+    dealingRange && positionPrice !== undefined ? classifyPrice(dealingRange, positionPrice) : null;
   const regime = classifyRegime(candles);
   const setupType = classifySetup(candles, pivots, regime, structure, liquiditySweeps);
   const direction = decisionFromSetup(setupType);
@@ -832,6 +855,9 @@ export function evaluateSignal(
     structure,
     liquidity,
     liquiditySweeps,
+    swingStrength,
+    dealingRange,
+    pricePosition,
     confidence,
     components,
     noTradeReasons,
