@@ -1,0 +1,42 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Guard: only run from the real repo, not forks
+    if: github.repository == 'ashcel/market-pulse'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /home/ubuntu/code/personal/market-pulse
+            git pull origin main
+            export PATH="$HOME/.bun/bin:$PATH"
+            bun install
+            bun run build
+            sudo systemctl restart market-pulse
+            echo "Deployed $(date -u +%Y-%m-%dT%H:%M:%SZ)"
