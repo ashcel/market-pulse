@@ -10,6 +10,7 @@ import {
 import { CRYPTO_RISK_SETTINGS } from "./crypto-config";
 import { generateMockCandles, TOKEN_TIMEFRAMES } from "./mock-candles";
 import { evaluateSignal } from "./quant";
+import { normalizeTicker } from "./symbol-map";
 import { computeBaseZones, SD_ZONE_TIMEFRAMES, type BaseZone } from "./zones";
 import type { TokenTimeframe } from "./mock-candles";
 import type { RiskSettings, SignalEvaluation, TradeDecision, TradeDirection } from "./quant";
@@ -104,7 +105,7 @@ async function computeAlignment(
   risk: RiskOverrides,
   market: MarketType,
 ): Promise<TimeframeAlignmentEntry[]> {
-  const ticker = symbol.replace(/[^a-z0-9]/gi, "").toUpperCase();
+  const ticker = normalizeTicker(symbol);
   if (!ticker) return [];
   const settings: RiskSettings = { ...CRYPTO_RISK_SETTINGS, ...risk };
 
