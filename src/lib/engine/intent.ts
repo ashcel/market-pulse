@@ -1,6 +1,9 @@
+import { classifyPrice } from "./equilibrium";
 import { gradeLocation, type LocationRead } from "./location";
 import type { LiquidityPool } from "./liquidity";
+import { resolveObjectives } from "./objectives";
 import type { PerpRead } from "./perp";
+import { buildAnticipatoryPlan, type AnticipatoryPlan } from "./poi";
 import type { SessionLevel } from "./sessions";
 import type { TokenTimeframe } from "./mock-candles";
 import { directionalLean } from "./quant";
@@ -101,6 +104,14 @@ export interface IntentAssessment {
   execution: SignalEvaluation;
   /** Execution-timeframe plan (size-adjusted), or null when there is nothing to execute. */
   plan: RiskRewardPlan | null;
+  /**
+   * The anticipatory limit-at-POI read for this assessment's direction:
+   * entry/stop/RR measured from the POI, not the live price (EDR 0009).
+   * Passive context next to `plan`, read by no verdict; per-unit geometry
+   * only, so there is no position sizing for `sizeMultiplier` to scale.
+   * Inert until Phase 0.5 grades it.
+   */
+  anticipatoryPlan: AnticipatoryPlan | null;
   /** Where price sits vs. structure for this direction; null when unavailable or standing aside. */
   location: LocationRead | null;
 }
@@ -434,6 +445,66 @@ export function assessIntent(
     });
   }
 
+  // Phase 1 overlay (inert): the draw-on-liquidity objective and the
+  // limit-at-POI plan for this assessment's direction — shown where the
+  // verdict is explained, read by no verdict (EDR 0008/0009). The execution
+  // evaluation carries its own setup-direction read; when this assessment
+  // trades another side (trend horizons take the context bias), the same
+  // derived views are re-resolved for the side actually being assessed.
+  let anticipatoryPlan: AnticipatoryPlan | null = null;
+  if (direction !== "none" && entryPrice) {
+    const objectives =
+      exe.objectives[0]?.direction === direction
+        ? exe.objectives
+        : resolveObjectives(exe.structure, exe.liquidity, direction, entryPrice);
+    anticipatoryPlan =
+      exe.anticipatoryPlan?.direction === direction
+        ? exe.anticipatoryPlan
+        : buildAnticipatoryPlan(
+            zonesByTimeframe?.[def.executionTimeframe] ?? [],
+            direction,
+            entryPrice,
+            exe.dealingRange,
+            objectives,
+          );
+
+    // G10 displayed, not enforced: a trade with no clean draw has no target
+    // worth the name — surfaced so the record can accumulate before any veto.
+    const preferred = objectives[0];
+    const drawWord = direction === "long" ? "high" : "low";
+    checklist.push({
+      label: "Clean liquidity objective exists",
+      done: preferred !== undefined,
+      detail: preferred
+        ? `The nearest draw is ${fmtPrice(preferred.price)} — a ${preferred.strength} ${drawWord}${preferred.pool ? " with pooled stops" : ""}${
+            objectives.length > 1
+              ? `, with ${objectives.length - 1} further draw${objectives.length > 2 ? "s" : ""} behind it`
+              : ""
+          }.`
+        : `No untaken weak ${drawWord} ${direction === "long" ? "above" : "below"} for price to be drawn toward — no clean target for this ${label}.`,
+    });
+
+    // Dreimann gates the POI against the CONTEXT range ("long only in
+    // discount" of the tide's range); entryPosition on the plan itself is the
+    // execution-timeframe read.
+    const wantedSide = direction === "long" ? "discount" : "premium";
+    const ctxPosition =
+      anticipatoryPlan && ctx.dealingRange
+        ? classifyPrice(ctx.dealingRange, anticipatoryPlan.entry)
+        : null;
+    checklist.push({
+      label: `Limit entry at a POI in ${ctxTf} ${wantedSide}`,
+      done: ctxPosition === wantedSide,
+      detail: !anticipatoryPlan
+        ? `No ${direction === "long" ? "demand" : "supply"} zone currently offers a resting limit with a clean objective.`
+        : ctx.dealingRange === null
+          ? `A limit could rest at ${fmtPrice(anticipatoryPlan.entry)} (${anticipatoryPlan.zone.freshness} ${anticipatoryPlan.zone.kind}), but ${ctxTf} has no dealing range yet to judge ${wantedSide} against.`
+          : ctxPosition === wantedSide
+            ? `A limit at ${fmtPrice(anticipatoryPlan.entry)} (${anticipatoryPlan.zone.freshness} ${anticipatoryPlan.zone.kind}) rests in ${ctxTf} ${wantedSide}: stop ${fmtPrice(anticipatoryPlan.stop)}, objective ${fmtPrice(anticipatoryPlan.objective.price)}, ~${anticipatoryPlan.rewardRisk.toFixed(1)}R from the limit.`
+            : `The best POI limit (${fmtPrice(anticipatoryPlan.entry)}) sits in ${ctxTf} ${ctxPosition ?? "an unknown position"} — not the ${wantedSide}-side entry this framework takes.`,
+    });
+  }
+
   return {
     intent: def.intent,
     definition: def,
@@ -451,6 +522,7 @@ export function assessIntent(
     context: ctx,
     execution: exe,
     plan,
+    anticipatoryPlan,
     location,
   };
 }

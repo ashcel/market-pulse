@@ -40,6 +40,15 @@ export interface ShadowSignal {
   closedAt?: string;
   closePrice?: number;
   resultR?: number;
+  /**
+   * Whether a clean draw-on-liquidity objective existed for the call's
+   * direction when it was adopted (Phase 1 annotation; EDR 0008). Keys
+   * nothing — the setupType|regime keyspace is untouched and records
+   * predating the field settle unchanged. Exists so the Phase 0.5 analysis
+   * can ask "do favored calls without a clean objective underperform?"
+   * before G10 ever vetoes anything.
+   */
+  objectiveResolved?: boolean;
 }
 
 /** Below this many settled shadow trades a combo's record is noise, not evidence. */
@@ -77,6 +86,7 @@ export function buildShadowSignal(
     target2: plan.target2,
     confidence: assessment.confidence,
     openedAt: nowIso,
+    objectiveResolved: assessment.execution.objectives.length > 0,
   };
 }
 
