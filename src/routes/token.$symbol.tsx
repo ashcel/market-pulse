@@ -63,6 +63,7 @@ import { toast } from "sonner";
 
 import { Link } from "@tanstack/react-router";
 
+import { AnticipatoryReadCard } from "@/components/iq/anticipatory-read-card";
 import { AssetIcon } from "@/components/iq/asset-icon";
 import { Change } from "@/components/iq/change";
 import { ZonesPrimitive, type PriceZone } from "@/components/iq/chart-zones";
@@ -544,6 +545,7 @@ function TokenDetailPage() {
               perp={perp}
               sessionLevels={sessionLevels}
               price={lastClose}
+              liveData={data.source === "live"}
               onSelect={setTradingIntent}
               activeTab={activeTab}
               onTabChange={setActiveTab}
@@ -1848,6 +1850,7 @@ function AssistantPanel({
   perp,
   sessionLevels,
   price,
+  liveData,
   onSelect,
   activeTab,
   onTabChange,
@@ -1861,6 +1864,8 @@ function AssistantPanel({
   perp: PerpRead | null;
   sessionLevels: SessionLevel[];
   price: number;
+  /** Whether the candles are real Binance data — the anticipatory read renders only on live data. */
+  liveData: boolean;
   onSelect: (intent: TradingIntent) => void;
   activeTab: string;
   onTabChange: (tab: string) => void;
@@ -2251,6 +2256,13 @@ function AssistantPanel({
                   </p>
                 )}
               </div>
+
+              {liveData && active.anticipatoryPlan && (
+                <AnticipatoryReadCard
+                  plan={active.anticipatoryPlan}
+                  timeframe={active.definition.executionTimeframe}
+                />
+              )}
 
               {active.location && (
                 <LocationRow
