@@ -29,7 +29,10 @@ export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
       { title: "Settings — Market Pulse" },
-      { name: "description", content: "Manage your Market Pulse preferences, watchlist, and notifications." },
+      {
+        name: "description",
+        content: "Manage your Market Pulse preferences, watchlist, and notifications.",
+      },
       { property: "og:title", content: "Settings — Market Pulse" },
       { property: "og:description", content: "Tune Market Pulse to your workflow." },
     ],

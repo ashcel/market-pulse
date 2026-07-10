@@ -6,11 +6,11 @@
 
 ## Problem
 
-EDR 0006's follow-up fix (shared `anchorQuery`/`useLivePrice` per symbol+market in `useTokenSignal`) synchronized the *entry price* across timeframe tabs, but not the klines themselves. Each timeframe's forming candle still came from `useTokenSignal`'s own REST refetch (~30-60s cadence per the query's `refetchInterval`) — so a higher timeframe (4H/1D/1W), which the user visits less often and whose bar spans much longer, visibly lagged behind what the market was actually doing between refetches. Reported directly: "the klines doesn't seem to be the same for higher TF."
+EDR 0006's follow-up fix (shared `anchorQuery`/`useLivePrice` per symbol+market in `useTokenSignal`) synchronized the _entry price_ across timeframe tabs, but not the klines themselves. Each timeframe's forming candle still came from `useTokenSignal`'s own REST refetch (~30-60s cadence per the query's `refetchInterval`) — so a higher timeframe (4H/1D/1W), which the user visits less often and whose bar spans much longer, visibly lagged behind what the market was actually doing between refetches. Reported directly: "the klines doesn't seem to be the same for higher TF."
 
 ## The chosen fix
 
-**Reuse EDR 0006's feed manager; add a second stream kind rather than a third socket.** `binance-live-feed.ts`'s `LiveWant` becomes a discriminated union: `{kind:"ticker"}` (the existing miniTicker want) and `{kind:"kline"; timeframe}` (new). Both kinds resolve to a stream name and are multiplexed onto the *same* two per-market sockets, sharing one connect URL, one reconnect path, one teardown — the whole point of EDR 0006's registry/reconcile design was that adding a new "thing to want" shouldn't require new infrastructure, only a new variant of `Want`.
+**Reuse EDR 0006's feed manager; add a second stream kind rather than a third socket.** `binance-live-feed.ts`'s `LiveWant` becomes a discriminated union: `{kind:"ticker"}` (the existing miniTicker want) and `{kind:"kline"; timeframe}` (new). Both kinds resolve to a stream name and are multiplexed onto the _same_ two per-market sockets, sharing one connect URL, one reconnect path, one teardown — the whole point of EDR 0006's registry/reconcile design was that adding a new "thing to want" shouldn't require new infrastructure, only a new variant of `Want`.
 
 `{kind:"kline"}` resolves to Binance's `<symbol>@kline_<interval>` stream, which reports the actual forming-candle OHLCV Binance computes for that one symbol+interval — something miniTicker structurally cannot provide (it only carries last price + 24h-ago open, no per-bar high/low/open). The internal registry/store key changed from the Binance interval string to the app's own `TokenTimeframe` (`"4H"` not `"4h"`) so the write side (feed manager) and read side (`useLiveKline`) can't drift on which vocabulary they're keying by — caught in review before shipping.
 
@@ -20,7 +20,7 @@ EDR 0006's follow-up fix (shared `anchorQuery`/`useLivePrice` per symbol+market 
 
 ## Why the engine evaluation itself doesn't re-run per tick
 
-`evaluateSignal` (`quant.ts`) calls `runBacktest` over up to 1000 candles on every invocation — a real cost, not free. Recomputing it on every WS tick (roughly once a second) was considered and rejected: it would turn a bounded, ~30-60s-cadence computation into a continuous one for no benefit the ticket asked for. The live kline only overrides the *chart's rendered last bar*; the risk plan, backtest stats, and structure/regime classification stay on `useTokenSignal`'s existing REST refetch schedule, now anchored by EDR 0006's shared per-symbol+market price so it's at least consistent across tabs even between refetches.
+`evaluateSignal` (`quant.ts`) calls `runBacktest` over up to 1000 candles on every invocation — a real cost, not free. Recomputing it on every WS tick (roughly once a second) was considered and rejected: it would turn a bounded, ~30-60s-cadence computation into a continuous one for no benefit the ticket asked for. The live kline only overrides the _chart's rendered last bar_; the risk plan, backtest stats, and structure/regime classification stay on `useTokenSignal`'s existing REST refetch schedule, now anchored by EDR 0006's shared per-symbol+market price so it's at least consistent across tabs even between refetches.
 
 ## What was rejected
 
