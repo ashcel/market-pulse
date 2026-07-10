@@ -29,7 +29,10 @@ export const Route = createFileRoute("/rankings")({
         content: "Sortable, filterable rankings across every asset Market Pulse tracks.",
       },
       { property: "og:title", content: "Rankings — Market Pulse" },
-      { property: "og:description", content: "Market Pulse score, momentum, strength, and technical rank." },
+      {
+        property: "og:description",
+        content: "Market Pulse score, momentum, strength, and technical rank.",
+      },
     ],
   }),
   component: RankingsPage,
