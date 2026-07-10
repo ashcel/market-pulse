@@ -11,7 +11,7 @@ import type {
   VolatilityData,
 } from "../types";
 import { computePivots } from "./analysis";
-import { dropUnclosedCandle, fetchBinanceKlinesDirect } from "./binance";
+import { dropUnclosedCandle, fetchBinanceKlinesDirect, type MarketType } from "./binance";
 import { CRYPTO_RISK_SETTINGS } from "./crypto-config";
 import { generateMockCandles } from "./mock-candles";
 import { classifyRegime, evaluateSignal } from "./quant";
@@ -534,14 +534,20 @@ export function buildDemoSnapshot(): MarketSnapshot {
   return buildSnapshot(hourly, generateMockCandles("BTC", "1D", 120), "demo", null);
 }
 
-let snapshotCache: { at: number; data: MarketSnapshot } | null = null;
+// One cache entry per market — spot and perp refresh independently, so
+// toggling the nav-bar switch doesn't invalidate the mode you just left.
+const snapshotCache: Record<MarketType, { at: number; data: MarketSnapshot } | null> = {
+  spot: null,
+  perp: null,
+};
 let fngCache: { at: number; value: number | null } | null = null;
 const SNAPSHOT_TTL_MS = 45_000;
 const FNG_TTL_MS = 30 * 60_000;
 
-async function computeSnapshot(): Promise<MarketSnapshot> {
+async function computeSnapshot(market: MarketType = "spot"): Promise<MarketSnapshot> {
   const now = Date.now();
-  if (snapshotCache && now - snapshotCache.at < SNAPSHOT_TTL_MS) return snapshotCache.data;
+  const cached = snapshotCache[market];
+  if (cached && now - cached.at < SNAPSHOT_TTL_MS) return cached.data;
 
   const [hourlyResults, btcDailyLive] = await Promise.all([
     Promise.all(
@@ -550,11 +556,12 @@ async function computeSnapshot(): Promise<MarketSnapshot> {
           symbol: entry.ticker,
           timeframe: "1H",
           limit: 200,
+          market,
         });
         return [entry.ticker, dropUnclosedCandle(candles)] as const;
       }),
     ),
-    fetchBinanceKlinesDirect({ symbol: "BTC", timeframe: "1D", limit: 120 }).then(
+    fetchBinanceKlinesDirect({ symbol: "BTC", timeframe: "1D", limit: 120, market }).then(
       dropUnclosedCandle,
     ),
   ]);
@@ -572,21 +579,26 @@ async function computeSnapshot(): Promise<MarketSnapshot> {
     }
   }
 
+  // A UNIVERSE ticker Binance doesn't list on this market (or that fails to
+  // fetch) simply falls back to its own mock candles inside buildSnapshot —
+  // partial per-asset failure never has to fail the whole snapshot.
   const source: MarketSnapshot["source"] = liveCount >= UNIVERSE.length / 2 ? "live" : "demo";
   const btcDaily = btcDailyLive.length >= 40 ? btcDailyLive : generateMockCandles("BTC", "1D", 120);
   const snapshot = buildSnapshot(hourly, btcDaily, source, fngCache.value);
-  snapshotCache = { at: now, data: snapshot };
+  snapshotCache[market] = { at: now, data: snapshot };
   return snapshot;
 }
 
-export const fetchMarketSnapshotServer = createServerFn({ method: "GET" }).handler(async () =>
-  computeSnapshot(),
-);
+export const fetchMarketSnapshotServer = createServerFn({ method: "GET" })
+  .validator((data: { market?: MarketType }) => ({
+    market: data?.market === "perp" ? ("perp" as const) : ("spot" as const),
+  }))
+  .handler(async ({ data }) => computeSnapshot(data.market));
 
 /** Client-facing helper: server snapshot, falling back to a deterministic demo build. */
-export async function fetchMarketSnapshot(): Promise<MarketSnapshot> {
+export async function fetchMarketSnapshot(market: MarketType = "spot"): Promise<MarketSnapshot> {
   try {
-    return await fetchMarketSnapshotServer();
+    return await fetchMarketSnapshotServer({ data: { market } });
   } catch {
     return buildDemoSnapshot();
   }
