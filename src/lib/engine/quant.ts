@@ -1,12 +1,24 @@
 import type { Candle, PivotPoint } from "./types";
 import { computePivots } from "./analysis";
 import {
+  classifyPrice,
+  computeDealingRange,
+  type DealingRange,
+  type PricePosition,
+} from "./equilibrium";
+import {
   computeLiquidityPools,
   detectLiquiditySweeps,
   type LiquidityPool,
   type LiquiditySweep,
 } from "./liquidity";
-import { computeMarketStructure, toAlternatingSwings, type MarketStructure } from "./structure";
+import { deriveSwingStrength, type SwingStrengthEntry } from "./strength";
+import {
+  computeMarketStructure,
+  structureLean,
+  toAlternatingSwings,
+  type MarketStructure,
+} from "./structure";
 
 export type SignalStatus = "pass" | "fail" | "warning" | "neutral";
 export type TradeDecision =
@@ -112,6 +124,29 @@ export interface BacktestSummary {
 /** Below this many replayed trades, win rate/expectancy are noise, not signal. */
 export const MIN_RELIABLE_BACKTEST_TRADES = 10;
 
+export type RiskGrade = "low" | "medium" | "high";
+
+/** ATR% bands for the risk grade: below `medium` is calm, above `high` is wild. */
+const RISK_GRADE_ATR_BANDS = { medium: 2.2, high: 4.5 };
+
+/**
+ * The single risk-level read for UI chips: volatility (ATR as a % of price)
+ * sets the base grade, and a counter-trend trade bumps it one level — wrong-
+ * way exposure in a calm market still isn't low-risk. Null when there is no
+ * ATR read to grade.
+ */
+export function gradeRisk(atrPercent: number | null, counterTrend = false): RiskGrade | null {
+  if (atrPercent === null || !Number.isFinite(atrPercent)) return null;
+  const base: RiskGrade =
+    atrPercent < RISK_GRADE_ATR_BANDS.medium
+      ? "low"
+      : atrPercent < RISK_GRADE_ATR_BANDS.high
+        ? "medium"
+        : "high";
+  if (!counterTrend) return base;
+  return base === "low" ? "medium" : "high";
+}
+
 function humanizeSetup(setup: SetupType): string {
   return setup
     .split("-")
@@ -124,6 +159,15 @@ export interface SignalEvaluation {
   setupType: SetupType;
   decision: TradeDecision;
   direction: TradeDirection;
+  /**
+   * The timeframe's reconciled directional lean — what bias dots and the
+   * intent layer's context/execution biases should read. `direction` is the
+   * raw setup direction and may be a trade the engine itself refuses (a
+   * counter-trend setup that fails the regime/structure vetoes); `lean` is
+   * that direction only when the engine would actually lean it (see
+   * `directionalLean`).
+   */
+  lean: TradeDirection;
   regime: MarketRegime;
   /** Swing-labeled market structure (HH/HL/LH/LL + trend) behind the setup call. */
   structure: MarketStructure;
@@ -131,6 +175,16 @@ export interface SignalEvaluation {
   liquidity: LiquidityPool[];
   /** Stop hunts on those pools: wick through the level, close back inside (time order). */
   liquiditySweeps: LiquiditySweep[];
+  /**
+   * Strong/weak typing over `structure.swings`, one entry per swing (Phase 0
+   * instrumentation — exposed for the UI and later phases, read by no
+   * decision, score, or veto; see EDR 0004).
+   */
+  swingStrength: SwingStrengthEntry[];
+  /** Active dealing range from the last strong swing; null until one exists (EDR 0005). */
+  dealingRange: DealingRange | null;
+  /** Where the evaluated price sits in that range; null exactly when `dealingRange` is. */
+  pricePosition: PricePosition | null;
   confidence: number;
   components: SignalComponent[];
   noTradeReasons: string[];
@@ -301,11 +355,36 @@ export function classifyRegime(candles: Candle[]): MarketRegime {
   return "mean-reversion";
 }
 
+/**
+ * A sweep classifies the setup only while its candle is among this many most
+ * recent closed bars — a raid from further back is history, not a trigger.
+ */
+export const SWEEP_SETUP_RECENCY_BARS = 3;
+
+function sweepIsRecent(sweep: LiquiditySweep, candles: Candle[]): boolean {
+  if (candles.length === 0) return false;
+  const cutoff = candles[Math.max(0, candles.length - SWEEP_SETUP_RECENCY_BARS)].time;
+  return sweep.time >= cutoff;
+}
+
+/**
+ * The latest sweep that is still live trigger material — within
+ * SWEEP_SETUP_RECENCY_BARS closed bars of the newest candle. This is the
+ * single "is the sweep still news?" rule: setup classification and any UI
+ * liquidity read must share it, so a chip never headlines a raid the engine
+ * already treats as history.
+ */
+export function currentSweep(sweeps: LiquiditySweep[], candles: Candle[]): LiquiditySweep | null {
+  const latest = last(sweeps); // sweeps arrive time-ordered
+  return latest && sweepIsRecent(latest, candles) ? latest : null;
+}
+
 export function classifySetup(
   candles: Candle[],
   pivots: PivotPoint[],
   regime: MarketRegime,
   structure: MarketStructure = computeMarketStructure(pivots),
+  sweeps: LiquiditySweep[] = detectLiquiditySweeps(computeLiquidityPools(structure), candles),
 ): SetupType {
   const current = last(candles);
   const prev = candles.length > 1 ? candles[candles.length - 2] : null;
@@ -318,6 +397,18 @@ export function classifySetup(
 
   if (resistance && prev.close <= resistance && current.close > resistance && volumeRatio >= 1.2) {
     return "breakout";
+  }
+  // A recent liquidity sweep is the principled version of the raw checks
+  // below: the level is a pool (stops actually rest there, not just any
+  // nearby pivot), and first-touch-decides already separated raid from
+  // acceptance. Buy-side stops raided and rejected traps breakout longs —
+  // the failed-breakout short; sell-side raided and rejected is the flush
+  // that clears sellers — the capitulation-reversal long. A fresh acceptance
+  // on the current bar (the breakout branch above) still outranks a raid
+  // from a bar or two back.
+  const recentSweep = currentSweep(sweeps, candles);
+  if (recentSweep) {
+    return recentSweep.side === "bsl" ? "failed-breakout" : "capitulation-reversal";
   }
   if (resistance && prev.high > resistance && current.close < resistance) {
     return "failed-breakout";
@@ -437,6 +528,34 @@ export function buildRiskPlan(
   };
 }
 
+/**
+ * The reconciled directional lean of one timeframe. The setup direction
+ * leads, but a direction the engine itself refuses to trade — one that
+ * fights the confirmed regime or the swing-structure lean, the two hard
+ * vetoes in `evaluateSignal` — must not leak out as the timeframe's lean.
+ * When the setup direction is suppressed (or absent), the lean is whatever
+ * the regime and the structure agree on: either alone may supply it, but
+ * when both speak and disagree the honest lean is none.
+ */
+export function directionalLean(
+  direction: TradeDirection,
+  regime: MarketRegime,
+  structure: MarketStructure,
+): TradeDirection {
+  const regimeLean: TradeDirection =
+    regime === "trending-up" ? "long" : regime === "trending-down" ? "short" : "none";
+  const structLean = structureLean(structure);
+  if (direction !== "none") {
+    const fightsRegime = regimeLean !== "none" && regimeLean !== direction;
+    const fightsStructure = structLean !== "none" && structLean !== direction;
+    if (!fightsRegime && !fightsStructure) return direction;
+  }
+  if (regimeLean === structLean) return regimeLean;
+  if (regimeLean === "none") return structLean;
+  if (structLean === "none") return regimeLean;
+  return "none";
+}
+
 function decisionFromSetup(setup: SetupType): TradeDirection {
   if (setup === "failed-breakout" || setup === "lower-high-rejection") return "short";
   if (
@@ -473,8 +592,15 @@ export function evaluateSignal(
   const analytics = analyticsFor(candles, pivots);
   const structure = computeMarketStructure(pivots);
   const liquidity = computeLiquidityPools(structure);
+  const liquiditySweeps = detectLiquiditySweeps(liquidity, candles);
+  // Phase 0 instrumentation: derived views only, read by nothing below.
+  const swingStrength = deriveSwingStrength(structure);
+  const dealingRange = computeDealingRange(structure);
+  const positionPrice = livePrice ?? current?.close;
+  const pricePosition =
+    dealingRange && positionPrice !== undefined ? classifyPrice(dealingRange, positionPrice) : null;
   const regime = classifyRegime(candles);
-  const setupType = classifySetup(candles, pivots, regime, structure);
+  const setupType = classifySetup(candles, pivots, regime, structure, liquiditySweeps);
   const direction = decisionFromSetup(setupType);
   const risk = buildRiskPlan(candles, pivots, direction, settings, livePrice);
   const components: SignalComponent[] = [];
@@ -513,6 +639,44 @@ export function evaluateSignal(
         : againstConfirmedTrend
           ? `This ${direction} setup fights a confirmed ${regime} regime — that's the wrong side of the tape.`
           : `The current regime does not cleanly support a ${direction} thesis.`,
+  );
+
+  // Swing structure is the engine's second trend opinion — the HH/HL/LH/LL
+  // read the chart draws. The MA-based regime and the swing read can disagree
+  // (price above a rising 20MA while printing LH/LL), and until now only the
+  // regime affected the score. `structureLean` folds the trend and the still-
+  // live BOS/CHoCH into one directional read — the same definition the
+  // per-timeframe lean uses, so the score and the lean can never disagree.
+  const structLean = structureLean(structure);
+  const inTrend = structure.trend !== "range";
+  const eventName = structure.event === "choch" ? "CHoCH" : "BOS";
+  let structureStatus: SignalStatus;
+  let structureNote: string;
+  if (direction === "none") {
+    structureStatus = "neutral";
+    structureNote = "No directional setup to test against swing structure.";
+  } else if (structLean === direction) {
+    structureStatus = "pass";
+    structureNote = inTrend
+      ? structure.trend === "uptrend"
+        ? "Swing structure agrees: higher highs and higher lows support the long."
+        : "Swing structure agrees: lower highs and lower lows support the short."
+      : `Structure is ranging, but the latest break is a ${eventName} in the ${direction} direction — an early structural turn in the trade's favor.`;
+  } else if (structLean !== "none") {
+    structureStatus = "fail";
+    structureNote = inTrend
+      ? `Swing structure prints a ${structure.trend === "uptrend" ? "HH/HL uptrend" : "LH/LL downtrend"} — this ${direction} fights the structural trend.`
+      : `Structure is ranging and the latest break is a ${eventName} against the ${direction} — the most recent structural evidence points the other way.`;
+  } else {
+    structureStatus = "warning";
+    structureNote =
+      "Swing structure is range-bound — no HH/HL or LH/LL sequence confirms this direction yet.";
+  }
+  add(
+    "Structure alignment",
+    structureStatus,
+    direction === "none" ? 0 : statusScore(structureStatus, 15, -8),
+    structureNote,
   );
 
   const volumeOk = (analytics.volumeRatio ?? 0) >= 1.15;
@@ -572,6 +736,54 @@ export function evaluateSignal(
         : "Price has enough room to the next nearby structure level.",
   );
 
+  // Liquidity context: pools mark where resting stops cluster. Entering a
+  // long just below an intact buy-side pool is the textbook stop-hunt entry —
+  // the raid through the level rejects and traps the buyer — so it warns with
+  // the same proximity scale the S/R check uses. The mirror positive: a
+  // recent sweep on the trade's far side means the stops that would have
+  // fueled a move against it were just cleared.
+  const poolProximityPct = Math.max(structureFloor, (analytics.atrPercent ?? 1) * 0.55);
+  const poolAhead =
+    direction === "none"
+      ? undefined
+      : liquidity.find((pool) => {
+          if (!pool.intact || analytics.lastClose <= 0) return false;
+          const distancePct =
+            (Math.abs(pool.price - analytics.lastClose) / analytics.lastClose) * 100;
+          if (direction === "long")
+            return (
+              pool.side === "bsl" &&
+              pool.price > analytics.lastClose &&
+              distancePct < poolProximityPct
+            );
+          return (
+            pool.side === "ssl" &&
+            pool.price < analytics.lastClose &&
+            distancePct < poolProximityPct
+          );
+        });
+  const supportiveSweep =
+    direction === "none"
+      ? undefined
+      : liquiditySweeps.find(
+          (sweep) =>
+            sweep.side === (direction === "long" ? "ssl" : "bsl") && sweepIsRecent(sweep, candles),
+        );
+  add(
+    "Liquidity context",
+    direction === "none" ? "neutral" : poolAhead ? "warning" : "pass",
+    direction === "none" ? 0 : statusScore(poolAhead ? "warning" : "pass", 10, -6),
+    direction === "none"
+      ? "No directional setup to test against resting liquidity."
+      : poolAhead
+        ? direction === "long"
+          ? `Long entry sits just below an intact buy-side liquidity pool at ${roundPrice(poolAhead.price)} — the level stop raids reject from.`
+          : `Short entry sits just above an intact sell-side liquidity pool at ${roundPrice(poolAhead.price)} — the level stop raids reject from.`
+        : supportiveSweep
+          ? `The ${supportiveSweep.side === "ssl" ? "sell-side stops below" : "buy-side stops above"} were just swept and rejected — the fuel for a move against this trade is spent.`
+          : "No intact liquidity pool sits in the trade's immediate path.",
+  );
+
   const extension =
     analytics.sma20 && analytics.atr14
       ? Math.abs(analytics.lastClose - analytics.sma20) / analytics.atr14
@@ -591,10 +803,21 @@ export function evaluateSignal(
   if (regime === "choppy") noTradeReasons.push("Market regime is choppy/noisy.");
   if (againstConfirmedTrend)
     noTradeReasons.push(`Setup direction is against the confirmed ${regime} regime.`);
+  // Fighting the swing structure is the same hard veto as fighting the regime:
+  // the discretionary trader does not take the long while the chart prints
+  // LH/LL, whatever the moving averages say.
+  if (structureStatus === "fail")
+    noTradeReasons.push("Setup direction fights the swing-structure read.");
   if (!rrOk && direction !== "none")
     noTradeReasons.push("Reward/risk is below the configured minimum.");
   if (nearResistance) noTradeReasons.push("Price is too close to resistance for a long trade.");
   if (nearSupport) noTradeReasons.push("Price is too close to support for a short trade.");
+  if (poolAhead)
+    noTradeReasons.push(
+      direction === "long"
+        ? "Long entry sits just below an intact buy-side liquidity pool."
+        : "Short entry sits just above an intact sell-side liquidity pool.",
+    );
   if (!volumeOk) noTradeReasons.push("Volume confirmation is missing.");
   if (extended)
     noTradeReasons.push("Price is extended more than the configured ATR distance from mean.");
@@ -627,10 +850,14 @@ export function evaluateSignal(
     setupType,
     decision,
     direction,
+    lean: directionalLean(direction, regime, structure),
     regime,
     structure,
     liquidity,
-    liquiditySweeps: detectLiquiditySweeps(liquidity, candles),
+    liquiditySweeps,
+    swingStrength,
+    dealingRange,
+    pricePosition,
     confidence,
     components,
     noTradeReasons,

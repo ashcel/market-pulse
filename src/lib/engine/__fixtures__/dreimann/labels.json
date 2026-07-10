@@ -1,0 +1,190 @@
+{
+  "$comment": "Hand-transcribed ground truth for the Dreimann example trades (research/dreimann/*.png + trades.txt). These labels are the acceptance bar for Phase 0 annotation-fidelity tests — LOGIC CORRECTNESS ONLY. No numeric threshold may ever be tuned against them (risk R5 in research/analysis.md). Times marked approx* are read off the charts and pinned to the first fixture bar consistent with them; prices come from trades.txt or the chart position tool as noted in each source field.",
+  "zec-tp": {
+    "chart": "zec_hit_tp.png",
+    "tradingview": "https://www.tradingview.com/x/D3jkiMWh/",
+    "symbol": "ZECUSDT",
+    "executionTimeframe": "15m",
+    "contextTimeframe": "4h",
+    "direction": "long",
+    "playbook": [],
+    "outcome": "tp",
+    "entry": {
+      "type": "market",
+      "price": 462.74,
+      "approxTimeUtc": "2026-07-09T12:45:00Z",
+      "source": "chart position tool at 462.74; first 15m bar trading through that level on Jul 9"
+    },
+    "stop": {
+      "price": 454.73,
+      "source": "trades.txt"
+    },
+    "objective": {
+      "price": 487.0,
+      "kind": "weak-high",
+      "withinWindow": true,
+      "tolerancePct": 1.0,
+      "source": "trades.txt TP 487; sits just under the Jul 8 (UTC) swing highs on the execution chart. trades.txt makes no weak-structure claim for this trade; the engine reads that high as strong as-of entry (its pullback broke the prior low) — recorded as an observed divergence, not asserted",
+      "claimsWeakStructure": false
+    },
+    "notes": "Screenshot taken at entry (Jul 9 ~15:00Z, price 466.21); TP printed later — max high after entry in the fixture is 496.49."
+  },
+  "trx-tp3": {
+    "chart": "trx_hit_tp_max.png",
+    "tradingview": "https://www.tradingview.com/x/4awjS1O5/",
+    "symbol": "TRXUSDT",
+    "executionTimeframe": "15m",
+    "contextTimeframe": "4h",
+    "direction": "long",
+    "playbook": [
+      "pro-swing",
+      "pro-internal"
+    ],
+    "outcome": "tp",
+    "entry": {
+      "type": "market",
+      "price": 0.32782,
+      "approxTimeUtc": "2026-07-09T02:30:00Z",
+      "source": "chart position tool at 0.32782; box opens ~09:30 UTC+7 on Jul 9"
+    },
+    "stop": {
+      "price": 0.32653,
+      "source": "trades.txt"
+    },
+    "objective": {
+      "price": 0.33181,
+      "kind": "weak-high",
+      "withinWindow": true,
+      "tolerancePct": 1.0,
+      "source": "trades.txt TP 0.33181; 'Objective hit weak structure' — under the Jul 8 (UTC) swing highs ~0.3320-0.3329",
+      "claimsWeakStructure": true
+    },
+    "notes": "'M15 sudah shifting bullish untuk alignment dengan H4' — the i.mss label on the chart marks the internal shift at ~0.3296 on Jul 8. TP zone reached the same day (max high 0.33248)."
+  },
+  "zec-sl": {
+    "chart": "zec_hit_sl.png",
+    "tradingview": "https://www.tradingview.com/x/PDKfSE9G/",
+    "symbol": "ZECUSDT",
+    "executionTimeframe": "4h",
+    "contextTimeframe": "4h",
+    "direction": "long",
+    "playbook": [
+      "pro-swing",
+      "pro-internal"
+    ],
+    "outcome": "sl",
+    "entry": {
+      "type": "limit",
+      "price": 450.49,
+      "approxTimeUtc": "2026-07-07T04:00:00Z",
+      "source": "trades.txt limit 450.49; chart stop box opens ~12:00 UTC+7 Jul 7, inside the 04:00Z 4h bar. Price traded through the level repeatedly Jul 6-7, so the fill bar is approximate"
+    },
+    "stop": {
+      "price": 446.05,
+      "source": "trades.txt"
+    },
+    "objective": {
+      "price": 476.9,
+      "kind": "weak-high",
+      "withinWindow": true,
+      "tolerancePct": 1.0,
+      "source": "the chart's dotted weak-structure line at ~476.9, drawn from the Jul 4 (UTC) 4h swing high and extended right — 'Objective hit weak structure H4'. The TP (463.79, chart box top 464.79) was set conservatively below the objective",
+      "claimsWeakStructure": true
+    },
+    "notes": "The instructive loss: 'Would have reached TP without stop.' POI was respected but the stop sat inside its liquidity — the Jul 7 04:00Z 4h bar wicked to 443.82 (through SL 446.05) then the 12:00Z bar rallied to 496.5, through TP 463.79 and the weak-high objective alike. Liquidity noted on both sides ('Liquidity di kiri dan kanan')."
+  },
+  "ethfi-sl": {
+    "chart": "ethfi_hit_sl.png",
+    "tradingview": "https://www.tradingview.com/x/jqgjSW6U/",
+    "symbol": "ETHFIUSDT",
+    "executionTimeframe": "1h",
+    "contextTimeframe": "4h",
+    "direction": "long",
+    "playbook": [
+      "pro-swing",
+      "counter-internal"
+    ],
+    "outcome": "sl",
+    "entry": {
+      "type": "limit",
+      "price": 0.4245,
+      "approxTimeUtc": "2026-07-07T14:00:00Z",
+      "source": "trades.txt limit 0.4245; first 1h bar trading through the level on Jul 7"
+    },
+    "stop": {
+      "price": 0.4078,
+      "source": "trades.txt"
+    },
+    "objective": {
+      "price": 0.4746,
+      "kind": "beyond-window",
+      "withinWindow": false,
+      "tolerancePct": 1.0,
+      "source": "trades.txt TP 0.4746 — above every high in the fetched window (max 0.457); the referenced structure is older/higher-TF, so this objective is excluded from weak-high fidelity assertions",
+      "claimsWeakStructure": false
+    },
+    "notes": "The framework's own lower-probability case: with the swing but against the live internal (Counter Internal). Internal stayed bearish and the stop was hit — price fell to 0.3877."
+  },
+  "jup-tp": {
+    "chart": "jup_hit_tp.png",
+    "tradingview": "https://www.tradingview.com/x/Rcw7nmyn/",
+    "symbol": "JUPUSDT",
+    "executionTimeframe": "1h",
+    "contextTimeframe": "4h",
+    "direction": "long",
+    "playbook": [
+      "pro-swing"
+    ],
+    "outcome": "tp-partial",
+    "entry": {
+      "type": "limit",
+      "price": 0.234,
+      "approxTimeUtc": "2026-07-04T09:00:00Z",
+      "source": "trades.txt limit 0.2340; first 1h bar trading through the level on Jul 4"
+    },
+    "stop": {
+      "price": 0.2281,
+      "source": "trades.txt"
+    },
+    "objective": {
+      "price": 0.2519,
+      "kind": "weak-high",
+      "withinWindow": true,
+      "tolerancePct": 1.5,
+      "source": "trades.txt TP 0.2519; under the Jul 3 (UTC) swing-high cluster ~0.25-0.2534",
+      "claimsWeakStructure": false
+    },
+    "notes": "'Play H4 uptrend', flagged risky because the bullish H4 BOS may already have completed. Exited at 2R (~0.2458); the full objective was not reached in the window (max high 0.2495)."
+  },
+  "fet-tp": {
+    "chart": "fet_hit_tp_max.png",
+    "tradingview": "https://www.tradingview.com/x/xgUwFrnZ/",
+    "symbol": "FETUSDT",
+    "executionTimeframe": "15m",
+    "contextTimeframe": "4h",
+    "direction": "long",
+    "playbook": [
+      "pro-swing"
+    ],
+    "outcome": "tp",
+    "entry": {
+      "type": "limit",
+      "price": 0.1773,
+      "approxTimeUtc": "2026-07-01T21:00:00Z",
+      "source": "chart position tool at 0.1773; first 15m bar trading through it inside the chart's POI box. NOTE: trades.txt records entry 0.1708 / SL 0.1673 / TP 0.1813, which do not match this chart's position tool (0.1773 / 0.1755 / 0.1827) — chart-visible levels are used here, see README"
+    },
+    "stop": {
+      "price": 0.1755,
+      "source": "chart position tool (trades.txt says 0.1673 — see entry note)"
+    },
+    "objective": {
+      "price": 0.1827,
+      "kind": "weak-high",
+      "withinWindow": true,
+      "tolerancePct": 1.0,
+      "source": "chart position-tool top 0.1827; under the Jul 1 (UTC) swing high 0.1826",
+      "claimsWeakStructure": false
+    },
+    "notes": "'Play MTF swing pullback.' TP printed on Jul 2 — max high after entry 0.1907."
+  }
+}

@@ -5,6 +5,12 @@ interface ConfidenceGaugeProps {
   size?: number;
   label?: string;
   showValue?: boolean;
+  /**
+   * CSS color overriding the value-based tint. Use when the gauge sits next
+   * to a verdict: the ring then echoes the verdict's color instead of scoring
+   * the number on its own green/amber/red scale.
+   */
+  tone?: string;
 }
 
 export function ConfidenceGauge({
@@ -12,13 +18,15 @@ export function ConfidenceGauge({
   size = 88,
   label,
   showValue = true,
+  tone: toneOverride,
 }: ConfidenceGaugeProps) {
   const tone =
-    value >= 70
+    toneOverride ??
+    (value >= 70
       ? "var(--color-bullish)"
       : value >= 45
         ? "var(--color-warning)"
-        : "var(--color-bearish)";
+        : "var(--color-bearish)");
   const data = [{ name: "v", value, fill: tone }];
   return (
     <div className="relative" style={{ width: size, height: size }}>
