@@ -1,5 +1,6 @@
 import { Search, Sun, Moon, Menu } from "lucide-react";
 import { useUiStore } from "@/stores/ui";
+import { usePreferencesStore } from "@/stores/preferences";
 import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Link, useRouterState } from "@tanstack/react-router";
@@ -10,6 +11,8 @@ import { cn } from "@/lib/utils";
 
 export function TopBar() {
   const { theme, toggleTheme } = useUiStore();
+  const marketType = usePreferencesStore((s) => s.marketType);
+  const setMarketType = usePreferencesStore((s) => s.setMarketType);
   const [mounted, setMounted] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -38,6 +41,24 @@ export function TopBar() {
       <SearchCommand open={searchOpen} onOpenChange={setSearchOpen} />
 
       <div className="ml-auto flex items-center gap-1">
+        <div className="mr-1 hidden items-center rounded-md border border-border bg-surface p-0.5 text-xs sm:flex">
+          {(["spot", "perp"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMarketType(m)}
+              title={m === "spot" ? "Binance spot" : "Binance USDⓈ-M perpetual futures"}
+              className={cn(
+                "h-8 rounded px-2.5 font-semibold transition-colors",
+                marketType === m
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {m === "spot" ? "Spot" : "Perp"}
+            </button>
+          ))}
+        </div>
         <button
           onClick={() => setSearchOpen(true)}
           className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground lg:hidden"
