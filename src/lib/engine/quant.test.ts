@@ -28,7 +28,12 @@ async function installComputePivotsRecorder(): Promise<void> {
   if (typeof vi.doMock === "function") {
     vi.doMock("./analysis", () => wrapped);
   } else {
-    const { mock } = await import("bun:test");
+    // Non-literal specifier so tsc doesn't require bun-types to resolve the
+    // module; bun resolves it at runtime, and vitest never reaches this branch.
+    const bunTestSpecifier = "bun:test";
+    const { mock } = (await import(bunTestSpecifier)) as {
+      mock: { module: (specifier: string, factory: () => unknown) => void };
+    };
     mock.module("./analysis", () => wrapped);
   }
 }
