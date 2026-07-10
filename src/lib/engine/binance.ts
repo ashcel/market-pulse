@@ -5,7 +5,8 @@ import type { TokenTimeframe } from "./mock-candles";
 import { resolveExchangeSymbol } from "./symbol-map";
 import type { Candle } from "./types";
 
-const BINANCE_INTERVALS: Record<TokenTimeframe, string> = {
+/** Binance's kline interval string per app timeframe — also used by the kline WS stream name. */
+export const BINANCE_INTERVALS: Record<TokenTimeframe, string> = {
   "15M": "15m",
   "30M": "30m",
   "1H": "1h",
