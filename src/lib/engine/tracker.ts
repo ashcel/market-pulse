@@ -36,6 +36,10 @@ export interface TrackedSignal {
   closePrice?: number;
   closedAt?: string;
   resultR?: number;
+  /** Provenance — engine version / config / commit at follow time (Phase A). */
+  engineVersion?: string;
+  configHash?: string;
+  gitSha?: string;
 }
 
 function round(value: number, digits = 2): number {

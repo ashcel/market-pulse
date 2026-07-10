@@ -1,0 +1,23 @@
+# Local + VPS Postgres for the forward-test system of record (Phase B).
+# The web app and worker connect via DATABASE_URL (see .env.example).
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: market-pulse-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: hermes3369
+      POSTGRES_DB: market_pulse
+    ports:
+      - "5435:5432"
+    volumes:
+      - market_pulse_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d market_pulse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  market_pulse_pgdata:

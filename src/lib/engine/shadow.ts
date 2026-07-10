@@ -2,6 +2,7 @@ import { INTENT_MAX_HOLD_BARS } from "./hysteresis";
 import { scalePlan } from "./intent";
 import { STEP_SECONDS } from "./mock-candles";
 import { walkExitLevels } from "./tracker";
+import { currentProvenance } from "./version";
 import type { MarketType } from "./binance";
 import type { ReconcileEntry } from "./hysteresis";
 import type { IntentAssessment, TradingIntent } from "./intent";
@@ -49,6 +50,16 @@ export interface ShadowSignal {
    * before G10 ever vetoes anything.
    */
   objectiveResolved?: boolean;
+  /**
+   * Provenance — which engine version / config / commit produced this record.
+   * Stamped at `open()`; every stats query segments by `engineVersion` so an
+   * engine change splits the record instead of pooling incompatible
+   * behaviours. Optional because records predating provenance (Phase A) carry
+   * none and are excluded from current-version stats.
+   */
+  engineVersion?: string;
+  configHash?: string;
+  gitSha?: string;
 }
 
 /** Below this many settled shadow trades a combo's record is noise, not evidence. */
@@ -87,6 +98,7 @@ export function buildShadowSignal(
     confidence: assessment.confidence,
     openedAt: nowIso,
     objectiveResolved: assessment.execution.objectives.length > 0,
+    ...currentProvenance(),
   };
 }
 
@@ -186,10 +198,22 @@ export interface ShadowComboStat {
   demoted: boolean;
 }
 
-/** Live record per setup-type × regime combo, most-traded first. */
-export function shadowComboStats(signals: ShadowSignal[]): ShadowComboStat[] {
+/**
+ * Live record per setup-type × regime combo, most-traded first. When
+ * `engineVersion` is given the record is segmented to that engine — the whole
+ * point of provenance: a change in engine behaviour must not pool into one
+ * hit-rate. Omit it (tests, aggregate views) to pool every version.
+ */
+export function shadowComboStats(
+  signals: ShadowSignal[],
+  engineVersion?: string,
+): ShadowComboStat[] {
+  const scoped =
+    engineVersion === undefined
+      ? signals
+      : signals.filter((s) => s.engineVersion === engineVersion);
   const buckets = new Map<string, { setupType: SetupType; regime: MarketRegime; r: number[] }>();
-  for (const s of signals) {
+  for (const s of scoped) {
     if (s.status === "active") continue;
     const key = `${s.setupType}|${s.regime}`;
     const bucket = buckets.get(key) ?? { setupType: s.setupType, regime: s.regime, r: [] };

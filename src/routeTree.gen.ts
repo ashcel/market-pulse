@@ -17,10 +17,13 @@ import { Route as RegimeRouteImport } from './routes/regime'
 import { Route as RankingsRouteImport } from './routes/rankings'
 import { Route as NewsRouteImport } from './routes/news'
 import { Route as MarketsRouteImport } from './routes/markets'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TokenSymbolRouteImport } from './routes/token.$symbol'
 import { Route as ApiNotificationsRouteImport } from './routes/api/notifications'
 import { Route as ApiKlinesRouteImport } from './routes/api/klines'
+import { Route as ApiForwardTestRouteImport } from './routes/api/forward-test'
+import { Route as ApiAuthRouteImport } from './routes/api/auth'
 
 const TrackerRoute = TrackerRouteImport.update({
   id: '/tracker',
@@ -62,6 +65,11 @@ const MarketsRoute = MarketsRouteImport.update({
   path: '/markets',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -82,9 +90,20 @@ const ApiKlinesRoute = ApiKlinesRouteImport.update({
   path: '/api/klines',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiForwardTestRoute = ApiForwardTestRouteImport.update({
+  id: '/api/forward-test',
+  path: '/api/forward-test',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthRoute = ApiAuthRouteImport.update({
+  id: '/api/auth',
+  path: '/api/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
   '/news': typeof NewsRoute
   '/rankings': typeof RankingsRoute
@@ -93,12 +112,15 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
+  '/api/auth': typeof ApiAuthRoute
+  '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
   '/token/$symbol': typeof TokenSymbolRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
   '/news': typeof NewsRoute
   '/rankings': typeof RankingsRoute
@@ -107,6 +129,8 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
+  '/api/auth': typeof ApiAuthRoute
+  '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
   '/token/$symbol': typeof TokenSymbolRoute
@@ -114,6 +138,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
   '/news': typeof NewsRoute
   '/rankings': typeof RankingsRoute
@@ -122,6 +147,8 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
+  '/api/auth': typeof ApiAuthRoute
+  '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
   '/token/$symbol': typeof TokenSymbolRoute
@@ -130,6 +157,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/login'
     | '/markets'
     | '/news'
     | '/rankings'
@@ -138,12 +166,15 @@ export interface FileRouteTypes {
     | '/settings'
     | '/technical'
     | '/tracker'
+    | '/api/auth'
+    | '/api/forward-test'
     | '/api/klines'
     | '/api/notifications'
     | '/token/$symbol'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/login'
     | '/markets'
     | '/news'
     | '/rankings'
@@ -152,12 +183,15 @@ export interface FileRouteTypes {
     | '/settings'
     | '/technical'
     | '/tracker'
+    | '/api/auth'
+    | '/api/forward-test'
     | '/api/klines'
     | '/api/notifications'
     | '/token/$symbol'
   id:
     | '__root__'
     | '/'
+    | '/login'
     | '/markets'
     | '/news'
     | '/rankings'
@@ -166,6 +200,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/technical'
     | '/tracker'
+    | '/api/auth'
+    | '/api/forward-test'
     | '/api/klines'
     | '/api/notifications'
     | '/token/$symbol'
@@ -173,6 +209,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LoginRoute: typeof LoginRoute
   MarketsRoute: typeof MarketsRoute
   NewsRoute: typeof NewsRoute
   RankingsRoute: typeof RankingsRoute
@@ -181,6 +218,8 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   TechnicalRoute: typeof TechnicalRoute
   TrackerRoute: typeof TrackerRoute
+  ApiAuthRoute: typeof ApiAuthRoute
+  ApiForwardTestRoute: typeof ApiForwardTestRoute
   ApiKlinesRoute: typeof ApiKlinesRoute
   ApiNotificationsRoute: typeof ApiNotificationsRoute
   TokenSymbolRoute: typeof TokenSymbolRoute
@@ -244,6 +283,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MarketsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -272,11 +318,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiKlinesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/forward-test': {
+      id: '/api/forward-test'
+      path: '/api/forward-test'
+      fullPath: '/api/forward-test'
+      preLoaderRoute: typeof ApiForwardTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth': {
+      id: '/api/auth'
+      path: '/api/auth'
+      fullPath: '/api/auth'
+      preLoaderRoute: typeof ApiAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LoginRoute: LoginRoute,
   MarketsRoute: MarketsRoute,
   NewsRoute: NewsRoute,
   RankingsRoute: RankingsRoute,
@@ -285,6 +346,8 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   TechnicalRoute: TechnicalRoute,
   TrackerRoute: TrackerRoute,
+  ApiAuthRoute: ApiAuthRoute,
+  ApiForwardTestRoute: ApiForwardTestRoute,
   ApiKlinesRoute: ApiKlinesRoute,
   ApiNotificationsRoute: ApiNotificationsRoute,
   TokenSymbolRoute: TokenSymbolRoute,

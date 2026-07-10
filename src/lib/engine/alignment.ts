@@ -102,7 +102,7 @@ export function buildDemoAlignment(
 const alignmentCache = new Map<string, { at: number; data: TimeframeAlignmentEntry[] }>();
 const ALIGNMENT_TTL_MS = 60_000;
 
-async function computeAlignment(
+export async function computeAlignment(
   symbol: string,
   risk: RiskOverrides,
   market: MarketType,

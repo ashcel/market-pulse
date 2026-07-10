@@ -1,5 +1,6 @@
 import { INTENT_MAX_HOLD_BARS } from "./hysteresis";
 import { STEP_SECONDS } from "./mock-candles";
+import { currentProvenance } from "./version";
 import type { MarketType } from "./binance";
 import type { IntentAssessment, IntentVerdict, TradingIntent } from "./intent";
 import type { TokenTimeframe } from "./mock-candles";
@@ -74,6 +75,10 @@ export interface AnticipatorySignal {
   closePrice?: number;
   /** Realized R measured from the limit; absent for never-filled — no position, no R. */
   resultR?: number;
+  /** Provenance — which engine version / config / commit produced this record (Phase A). */
+  engineVersion?: string;
+  configHash?: string;
+  gitSha?: string;
 }
 
 function round(value: number, digits = 2): number {
@@ -112,6 +117,7 @@ export function buildAnticipatorySignal(
     zoneFreshness: plan.zone.freshness,
     rewardRisk: round(plan.rewardRisk),
     openedAt: nowIso,
+    ...currentProvenance(),
   };
 }
 
