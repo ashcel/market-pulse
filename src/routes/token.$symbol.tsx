@@ -309,7 +309,6 @@ function TokenDetailPage() {
   const tradingIntent = usePreferencesStore((s) => s.tradingIntent);
   const setTradingIntent = usePreferencesStore((s) => s.setTradingIntent);
   const marketType = usePreferencesStore((s) => s.marketType);
-  const setMarketType = usePreferencesStore((s) => s.setMarketType);
   const signal = useTokenSignal(symbol, timeframe, marketType);
   const alignment = useTimeframeAlignment(symbol, marketType);
   const perpQuery = usePerpContext(symbol, marketType);
@@ -429,24 +428,6 @@ function TokenDetailPage() {
         )}
 
         <div className="ml-auto flex items-center gap-4">
-          <div className="flex rounded-md border border-border bg-surface p-0.5 text-xs">
-            {(["spot", "perp"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMarketType(m)}
-                title={m === "spot" ? "Binance spot" : "Binance USDⓈ-M perpetual futures"}
-                className={cn(
-                  "h-9 rounded px-3 font-semibold transition-colors",
-                  marketType === m
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {m === "spot" ? "Spot" : "Perp"}
-              </button>
-            ))}
-          </div>
           <div className="grid grid-cols-6 rounded-md border border-border bg-surface p-0.5 text-xs">
             {TIMEFRAMES.map((item) => (
               <button
