@@ -1,11 +1,14 @@
 import { useEffect, useRef } from "react";
 
+import { isOpenAnticipatoryStatus, settleAnticipatorySignal } from "@/lib/engine/anticipatory";
 import { dropUnclosedCandle, fetchBinanceKlines } from "@/lib/engine/binance";
 import { STEP_SECONDS } from "@/lib/engine/mock-candles";
 import { settleShadowSignal } from "@/lib/engine/shadow";
 import { isTerminalStatus, settleTrackedSignalWithCandles } from "@/lib/engine/tracker";
+import { useAnticipatorySignalsStore } from "@/stores/anticipatory-signals";
 import { useShadowSignalsStore } from "@/stores/shadow-signals";
 import { useTrackedSignalsStore } from "@/stores/tracked-signals";
+import type { AnticipatorySignal } from "@/lib/engine/anticipatory";
 import type { MarketType } from "@/lib/engine/binance";
 import type { ShadowSignal } from "@/lib/engine/shadow";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
@@ -21,13 +24,18 @@ interface SettlementGroup {
   earliestSec: number;
   shadow: ShadowSignal[];
   tracked: TrackedSignal[];
+  anticipatory: AnticipatorySignal[];
 }
 
 function groupKey(symbol: string, timeframe: TokenTimeframe, market: MarketType): string {
   return `${symbol}:${timeframe}:${market}`;
 }
 
-function collectGroups(shadow: ShadowSignal[], tracked: TrackedSignal[]): SettlementGroup[] {
+function collectGroups(
+  shadow: ShadowSignal[],
+  tracked: TrackedSignal[],
+  anticipatory: AnticipatorySignal[],
+): SettlementGroup[] {
   const groups = new Map<string, SettlementGroup>();
   const add = (
     symbol: string,
@@ -46,6 +54,7 @@ function collectGroups(shadow: ShadowSignal[], tracked: TrackedSignal[]): Settle
       earliestSec: openedSec,
       shadow: [],
       tracked: [],
+      anticipatory: [],
     };
     group.earliestSec = Math.min(group.earliestSec, openedSec);
     assign(group);
@@ -55,6 +64,8 @@ function collectGroups(shadow: ShadowSignal[], tracked: TrackedSignal[]): Settle
   for (const s of shadow) add(s.symbol, s.timeframe, s.market, s.openedAt, (g) => g.shadow.push(s));
   for (const s of tracked)
     add(s.symbol, s.timeframe, s.market ?? "spot", s.followedAt, (g) => g.tracked.push(s));
+  for (const s of anticipatory)
+    add(s.symbol, s.timeframe, s.market, s.openedAt, (g) => g.anticipatory.push(s));
   return [...groups.values()];
 }
 
@@ -77,12 +88,18 @@ export function useSignalSettlement() {
       .map((item) => item.id)
       .join(","),
   );
-  const openKey = `${shadowOpenKey}|${trackedOpenKey}`;
+  const anticipatoryOpenKey = useAnticipatorySignalsStore((s) =>
+    s.signals
+      .filter((item) => isOpenAnticipatoryStatus(item.status))
+      .map((item) => item.id)
+      .join(","),
+  );
+  const openKey = `${shadowOpenKey}|${trackedOpenKey}|${anticipatoryOpenKey}`;
   const running = useRef(false);
   const lastRun = useRef(0);
 
   useEffect(() => {
-    if (openKey === "|") return;
+    if (openKey === "||") return;
 
     const settle = async () => {
       if (running.current || Date.now() - lastRun.current < MIN_RUN_GAP_MS) return;
@@ -95,10 +112,14 @@ export function useSignalSettlement() {
         const tracked = useTrackedSignalsStore
           .getState()
           .signals.filter((s) => !isTerminalStatus(s.status));
+        const anticipatory = useAnticipatorySignalsStore
+          .getState()
+          .signals.filter((s) => isOpenAnticipatoryStatus(s.status));
         const applyShadowPatch = useShadowSignalsStore.getState().applyPatch;
         const applySettlement = useTrackedSignalsStore.getState().applySettlement;
+        const applyAnticipatoryPatch = useAnticipatorySignalsStore.getState().applyPatch;
 
-        for (const group of collectGroups(shadow, tracked)) {
+        for (const group of collectGroups(shadow, tracked, anticipatory)) {
           const step = STEP_SECONDS[group.timeframe];
           const elapsedBars = Math.ceil((Date.now() / 1000 - group.earliestSec) / step) + 3;
           const limit = Math.min(1000, Math.max(10, elapsedBars));
@@ -114,6 +135,10 @@ export function useSignalSettlement() {
           for (const signal of group.tracked) {
             const patch = settleTrackedSignalWithCandles(signal, candles);
             if (patch) applySettlement(signal.id, patch);
+          }
+          for (const signal of group.anticipatory) {
+            const patch = settleAnticipatorySignal(signal, candles);
+            if (patch) applyAnticipatoryPatch(signal.id, patch);
           }
         }
       } finally {

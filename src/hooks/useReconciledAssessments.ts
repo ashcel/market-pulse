@@ -1,8 +1,10 @@
 import { useEffect, useMemo } from "react";
 
+import { buildAnticipatorySignal } from "@/lib/engine/anticipatory";
 import { assessIntents, type ZonesByTimeframe } from "@/lib/engine/intent";
 import { reconcileHolds, type DisplayIntentAssessment } from "@/lib/engine/hysteresis";
 import { applyRecordAdjustment, buildShadowSignal, shadowComboStats } from "@/lib/engine/shadow";
+import { useAnticipatorySignalsStore } from "@/stores/anticipatory-signals";
 import { useShadowSignalsStore } from "@/stores/shadow-signals";
 import { useVerdictHoldsStore } from "@/stores/verdict-holds";
 import type { MarketType } from "@/lib/engine/binance";
@@ -31,6 +33,7 @@ export function useReconciledAssessments(
   const applyHolds = useVerdictHoldsStore((s) => s.applyHolds);
   const shadowSignals = useShadowSignalsStore((s) => s.signals);
   const openShadow = useShadowSignalsStore((s) => s.open);
+  const openAnticipatory = useAnticipatorySignalsStore((s) => s.open);
 
   const comboStats = useMemo(() => shadowComboStats(shadowSignals), [shadowSignals]);
 
@@ -51,7 +54,16 @@ export function useReconciledAssessments(
       const input = buildShadowSignal(assessment, symbol, market, new Date().toISOString());
       if (input) openShadow(input);
     }
-  }, [ready, result, applyHolds, openShadow, symbol, market]);
+    // Phase 0.5: every displayed assessment with an anticipatory plan opens a
+    // fill-model record — at any verdict stage, since a resting limit exists
+    // precisely while the trigger is unconfirmed. The store ignores the call
+    // while the same symbol/market/intent record is still open, so the plan
+    // is frozen at adoption (EDR 0010). Measurement only; read by no verdict.
+    for (const assessment of result.display) {
+      const input = buildAnticipatorySignal(assessment, symbol, market, new Date().toISOString());
+      if (input) openAnticipatory(input);
+    }
+  }, [ready, result, applyHolds, openShadow, openAnticipatory, symbol, market]);
 
   return result?.display ?? [];
 }
