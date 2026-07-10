@@ -9,6 +9,7 @@ import { Change } from "@/components/iq/change";
 import { formatPrice } from "@/components/iq/market-card";
 import { useAssets, useBinanceTickers } from "@/hooks/queries";
 import { UNIVERSE } from "@/lib/engine/market";
+import { normalizeTicker } from "@/lib/engine/symbol-map";
 import type { Asset } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useSearchStore } from "@/stores/search";
@@ -77,7 +78,7 @@ export function SearchCommand({
     );
   }, [trimmed]);
 
-  const freeSymbol = trimmed.replace(/[^a-z0-9]/gi, "").toUpperCase();
+  const freeSymbol = normalizeTicker(trimmed);
 
   // Autocomplete over every tradable Binance USDT pair beyond the universe.
   const directoryMatches = useMemo(() => {

@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
+import { normalizeTicker } from "./symbol-map";
+
 interface ExchangeInfoSymbol {
   status: string;
   baseAsset: string;
@@ -45,7 +47,7 @@ export type TickerCheck = "valid" | "invalid" | "unknown";
 export const checkTradableTicker = createServerFn({ method: "GET" })
   .validator((ticker: string): string => (typeof ticker === "string" ? ticker : ""))
   .handler(async ({ data }): Promise<TickerCheck> => {
-    const ticker = data.replace(/[^a-z0-9]/gi, "").toUpperCase();
+    const ticker = normalizeTicker(data);
     if (!ticker) return "invalid";
     const tickers = await loadTradableTickers();
     if (!tickers) return "unknown";

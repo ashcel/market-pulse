@@ -103,6 +103,7 @@ import {
 import type { PerpRead } from "@/lib/engine/perp";
 import type { SessionLevel } from "@/lib/engine/sessions";
 import type { TradeDirection } from "@/lib/engine/quant";
+import { normalizeTicker } from "@/lib/engine/symbol-map";
 import {
   describeMarketOutlook,
   INTENTS,
@@ -157,7 +158,7 @@ export const Route = createFileRoute("/token/$symbol")({
   // 404 for pairs Binance doesn't list. "unknown" (directory unreachable)
   // falls through so the demo-candle path still covers offline use.
   loader: async ({ params }) => {
-    const symbol = params.symbol.replace(/[^a-z0-9]/gi, "").toUpperCase();
+    const symbol = normalizeTicker(params.symbol);
     if (UNIVERSE.some((u) => u.ticker === symbol)) return;
     if ((await checkTradableTicker({ data: symbol })) === "invalid") throw notFound();
   },
@@ -167,7 +168,7 @@ export const Route = createFileRoute("/token/$symbol")({
 
 function TokenNotFound() {
   const { symbol } = Route.useParams();
-  const ticker = symbol.replace(/[^a-z0-9]/gi, "").toUpperCase();
+  const ticker = normalizeTicker(symbol);
   return (
     <div className="flex min-h-[60vh] items-center justify-center px-4">
       <div className="max-w-md text-center">

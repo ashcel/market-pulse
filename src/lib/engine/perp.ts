@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { fetchBinanceKlinesDirect } from "./binance";
+import { resolveExchangeSymbol } from "./symbol-map";
 
 /**
  * Perpetual-futures positioning context: funding rate + open interest, the two
@@ -134,10 +135,6 @@ function num(value: unknown): number {
   return Number.isFinite(n) ? n : NaN;
 }
 
-function normalizeSymbol(symbol: string): string {
-  return symbol.replace(/[^a-z0-9]/gi, "").toUpperCase();
-}
-
 /**
  * Fetch and interpret the live perp positioning context for a symbol. Any leg
  * failing (network, delisted-on-futures, bad payload) collapses to null so the
@@ -145,15 +142,14 @@ function normalizeSymbol(symbol: string): string {
  * either, and the verdict must still stand without it.
  */
 export async function fetchPerpContextDirect(symbol: string): Promise<PerpRead | null> {
-  const ticker = normalizeSymbol(symbol);
-  if (!ticker) return null;
-  const pair = `${ticker}USDT`;
+  const { symbol: pair, priceScale } = resolveExchangeSymbol(symbol, "perp");
+  if (pair === "USDT") return null;
 
   try {
     const [premiumRes, oiRes, candles] = await Promise.all([
       fetch(`${FAPI_BASE}/fapi/v1/premiumIndex?symbol=${pair}`),
       fetch(`${FAPI_BASE}/futures/data/openInterestHist?symbol=${pair}&period=1h&limit=24`),
-      fetchBinanceKlinesDirect({ symbol: ticker, timeframe: "1H", limit: 24, market: "perp" }),
+      fetchBinanceKlinesDirect({ symbol, timeframe: "1H", limit: 24, market: "perp" }),
     ]);
 
     if (!premiumRes.ok) return null;
@@ -163,7 +159,7 @@ export async function fetchPerpContextDirect(symbol: string): Promise<PerpRead |
       markPrice?: string;
     };
     const fundingRate = num(premium.lastFundingRate);
-    const markPrice = num(premium.markPrice);
+    const markPrice = num(premium.markPrice) / priceScale;
     if (!Number.isFinite(fundingRate) || !Number.isFinite(markPrice)) return null;
 
     // Open-interest history is best-effort: if it fails we still return funding

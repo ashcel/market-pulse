@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { isTokenTimeframe } from "./mock-candles";
 import type { TokenTimeframe } from "./mock-candles";
+import { resolveExchangeSymbol } from "./symbol-map";
 import type { Candle } from "./types";
 
 const BINANCE_INTERVALS: Record<TokenTimeframe, string> = {
@@ -38,10 +39,6 @@ export interface BinanceKlinesInput {
 }
 
 type BinanceKlineRow = [number, string, string, string, string, string, number, ...unknown[]];
-
-function normalizeSymbol(symbol: string): string {
-  return symbol.replace(/[^a-z0-9]/gi, "").toUpperCase();
-}
 
 function normalizeLimit(limit: unknown): number {
   if (typeof limit !== "number" || !Number.isFinite(limit)) return 200;
@@ -87,6 +84,26 @@ function parseBinanceKlines(payload: unknown): Candle[] {
   });
 }
 
+/**
+ * Binance quotes some futures bases (1000PEPE etc., see symbol-map.ts) as a
+ * fixed multiple of the real token. Divide price fields back to real
+ * per-token USDT so every downstream consumer (quant engine, chart, display)
+ * sees the same units regardless of market — base-asset volume is in
+ * contract units, so it's multiplied the other way; quoteVolume is already
+ * real USDT notional and untouched (price × quantity cancels the scale).
+ */
+function applyPriceScale(candles: Candle[], priceScale: number): Candle[] {
+  if (priceScale === 1) return candles;
+  return candles.map((c) => ({
+    ...c,
+    open: c.open / priceScale,
+    high: c.high / priceScale,
+    low: c.low / priceScale,
+    close: c.close / priceScale,
+    volume: c.volume * priceScale,
+  }));
+}
+
 export async function fetchBinanceKlinesDirect({
   symbol,
   timeframe,
@@ -94,12 +111,13 @@ export async function fetchBinanceKlinesDirect({
   endTime,
   market,
 }: BinanceKlinesInput): Promise<Candle[]> {
-  const ticker = normalizeSymbol(symbol);
   const interval = BINANCE_INTERVALS[timeframe];
-  if (!ticker || !interval) return [];
+  const resolvedMarket = normalizeMarket(market);
+  const { symbol: exchangeSymbol, priceScale } = resolveExchangeSymbol(symbol, resolvedMarket);
+  if (exchangeSymbol === "USDT" || !interval) return [];
 
   const params = new URLSearchParams({
-    symbol: `${ticker}USDT`,
+    symbol: exchangeSymbol,
     interval,
     limit: String(normalizeLimit(limit)),
   });
@@ -107,11 +125,9 @@ export async function fetchBinanceKlinesDirect({
   if (normalizedEndTime !== undefined) params.set("endTime", String(normalizedEndTime));
 
   try {
-    const response = await fetch(
-      `${REST_BASE[normalizeMarket(market)]}/klines?${params.toString()}`,
-    );
+    const response = await fetch(`${REST_BASE[resolvedMarket]}/klines?${params.toString()}`);
     if (!response.ok) return [];
-    return parseBinanceKlines(await response.json());
+    return applyPriceScale(parseBinanceKlines(await response.json()), priceScale);
   } catch {
     return [];
   }
@@ -126,16 +142,17 @@ export async function fetchBinancePriceDirect(
   symbol: string,
   market?: MarketType,
 ): Promise<number | null> {
-  const ticker = normalizeSymbol(symbol);
-  if (!ticker) return null;
+  const resolvedMarket = normalizeMarket(market);
+  const { symbol: exchangeSymbol, priceScale } = resolveExchangeSymbol(symbol, resolvedMarket);
+  if (exchangeSymbol === "USDT") return null;
   try {
     const response = await fetch(
-      `${REST_BASE[normalizeMarket(market)]}/ticker/price?symbol=${ticker}USDT`,
+      `${REST_BASE[resolvedMarket]}/ticker/price?symbol=${exchangeSymbol}`,
     );
     if (!response.ok) return null;
     const data = (await response.json()) as { price?: string };
     const price = Number.parseFloat(data.price ?? "");
-    return Number.isFinite(price) && price > 0 ? price : null;
+    return Number.isFinite(price) && price > 0 ? price / priceScale : null;
   } catch {
     return null;
   }
