@@ -17,9 +17,10 @@ import type { Asset } from "@/lib/types";
  */
 function useMarketSnapshot<T = MarketSnapshot>(select?: (snapshot: MarketSnapshot) => T) {
   const refreshIntervalMs = usePreferencesStore((s) => s.refreshIntervalMs);
+  const marketType = usePreferencesStore((s) => s.marketType);
   return useQuery({
-    queryKey: ["market-snapshot"],
-    queryFn: fetchMarketSnapshot,
+    queryKey: ["market-snapshot", marketType],
+    queryFn: () => fetchMarketSnapshot(marketType),
     staleTime: 30_000,
     refetchInterval: refreshIntervalMs > 0 ? refreshIntervalMs : false,
     select,
