@@ -6,12 +6,12 @@
 
 ## Problem
 
-The engine derives support/resistance levels from raw confirmed pivots (`computePivots`). Raw pivots can contain *same-kind runs* — consecutive highs (or lows) with no confirmed opposite pivot between them, typically because a shallow pullback after a steep thrust cannot confirm as a pivot (pre-thrust bars inside its ±k window are more extreme). The run's members belong to a single swing leg.
+The engine derives support/resistance levels from raw confirmed pivots (`computePivots`). Raw pivots can contain _same-kind runs_ — consecutive highs (or lows) with no confirmed opposite pivot between them, typically because a shallow pullback after a steep thrust cannot confirm as a pivot (pre-thrust bars inside its ±k window are more extreme). The run's members belong to a single swing leg.
 
 This creates a tension between two consumers of "the nearest level":
 
-- **Proximity logic** (distance-to-structure warnings, entry-location grading, retest detection) wants the *nearest touch* — the first place price historically reacted, even if it's an interior member of a leg.
-- **Stop placement** wants the *defended level* — the leg extreme that buyers/sellers actually held. A stop at an interior touch (e.g. the newest low of a `50 → 48 → 52` down-leg at 52) is a wick-out magnet: price can sweep it without violating the structure the trade is premised on. The defended level for that leg is 48.
+- **Proximity logic** (distance-to-structure warnings, entry-location grading, retest detection) wants the _nearest touch_ — the first place price historically reacted, even if it's an interior member of a leg.
+- **Stop placement** wants the _defended level_ — the leg extreme that buyers/sellers actually held. A stop at an interior touch (e.g. the newest low of a `50 → 48 → 52` down-leg at 52) is a wick-out magnet: price can sweep it without violating the structure the trade is premised on. The defended level for that leg is 48.
 
 Before this change, the swing stop method anchored on the nearest raw pivot — the proximity answer applied to the stop question.
 
@@ -19,13 +19,13 @@ Before this change, the swing stop method anchored on the nearest raw pivot — 
 
 1. **Wholesale migration of `nearestSupport`/`nearestResistance` to alternation-collapsed swings** (the original proposal). Every S/R consumer — analytics distances, setup classification thresholds, risk plan, location grading, intent trigger levels — would have read leg extremes. **Rejected on fixture evidence** (see below).
 2. **Status quo** (raw pivots everywhere). Rejected: keeps the wick-out stop, the one scenario where the raw answer is demonstrably wrong.
-3. **Anchor stops on `structure.lastLow`/`lastHigh`** (the most recent labeled swing from `computeMarketStructure`). Rejected: the most recent swing low can sit *above* current price after a breakdown, requiring extra guards, and it isn't necessarily the nearest defended level below entry. Selecting "nearest collapsed swing on the correct side" via the existing `nearestSupport`/`nearestResistance` helpers is both simpler and more correct.
-4. **Add a buffer below the defended level** (e.g. stop = level − 0.1·ATR). Deferred: the current convention places stops *at* the level; changing that is a separate decision with its own evidence bar, and bundling it would muddy attribution of behavior changes.
+3. **Anchor stops on `structure.lastLow`/`lastHigh`** (the most recent labeled swing from `computeMarketStructure`). Rejected: the most recent swing low can sit _above_ current price after a breakdown, requiring extra guards, and it isn't necessarily the nearest defended level below entry. Selecting "nearest collapsed swing on the correct side" via the existing `nearestSupport`/`nearestResistance` helpers is both simpler and more correct.
+4. **Add a buffer below the defended level** (e.g. stop = level − 0.1·ATR). Deferred: the current convention places stops _at_ the level; changing that is a separate decision with its own evidence bar, and bundling it would muddy attribution of behavior changes.
 5. **Cap stop width** (fall back to the raw level when the defended extreme is more than N·ATR away). Deferred: dollar risk is invariant under stop width (sizing shrinks instead), and the census showed no pathological widths on deterministic data. A cap adds a discontinuity for no demonstrated need.
 
 ## Evidence
 
-The decision was driven by adversarial fixtures built *before* implementation (`sr-candidates.test.ts`), constructed after a design review challenged the wholesale migration ("assume the algorithm is incorrect until proven otherwise"):
+The decision was driven by adversarial fixtures built _before_ implementation (`sr-candidates.test.ts`), constructed after a design review challenged the wholesale migration ("assume the algorithm is incorrect until proven otherwise"):
 
 - **Scenarios A/B (right-edge runs from unconfirmed pullbacks):** raw pivots keep the nearer, still-meaningful level (a broken-then-lost polarity level; the first demand shelf); collapsing discards it. Raw wins for proximity.
 - **Scenario C (tight cluster of run highs):** raw reports the supply band's proximal edge — the honest "you are at resistance" read; collapsed hides it. The theoretical collapsed benefit (no premature breakout call inside the band) cannot materialize: pivot-derived resistance sits above close by construction, so `classifySetup`'s breakout branch is only reachable via the candle fallback, which alternation-collapsing does not change.
@@ -44,7 +44,7 @@ Raw levels remain the inputs to `target1`, the entry zone, `analyticsFor`, `clas
 ## Why this approach
 
 - **The evidence is per-consumer, so the fix is per-consumer.** Scenario D is the only case where collapsed swings beat raw pivots, and the stop is the only consumer living in that case.
-- **Provable safety envelope.** The subset invariant guarantees stops never *tighten* — the change can only widen a stop past a weak interior level, never create a new wick-out. Dollar risk is invariant (`positionSize = maxDollarRisk / riskPerUnit`), so a wider stop shrinks size, not the loss budget.
+- **Provable safety envelope.** The subset invariant guarantees stops never _tighten_ — the change can only widen a stop past a weak interior level, never create a new wick-out. Dollar risk is invariant (`positionSize = maxDollarRisk / riskPerUnit`), so a wider stop shrinks size, not the loss budget.
 - **No decision flips at shipped settings.** `target1 = max(resistance, entry + 1.8·riskPerUnit)` structurally floors reward/risk at 1.8, above both shipped minimums (1.6 crypto, 1.8 default), so the R:R gate cannot fail from a wider stop and `decision`/`setupType`/`confidence` are unchanged at defaults. Only plan geometry moves. (Users who manually set `minimumRewardRisk > 1.8` can see flips on resistance-bound targets — accepted.)
 - **Replay determinism preserved.** `toAlternatingSwings` is a pure forward fold with deterministic tie-breaks; identical inputs produce identical plans (tested).
 
@@ -57,7 +57,7 @@ Raw levels remain the inputs to `target1`, the entry zone, `analyticsFor`, `clas
 
 ## What was intentionally rejected
 
-The **wholesale S/R migration** — moving all of `nearestSupport`/`nearestResistance` to collapsed swings. The fixtures showed it degrades every proximity-facing consumer (mutes at-resistance warnings, discards polarity levels and first demand shelves) to fix a problem only the stop has. The premise "interior run pivots are noise" was imported from swing *labeling* (where same-kind adjacency comparison genuinely fabricates HH/LH) into level *selection* (which never makes that comparison) — the fixtures falsified the transfer. Do not resurrect the wholesale swap without new evidence; `computeTrendLines` is the other legitimate collapsed-swing consumer (it anchors legs, not proximity).
+The **wholesale S/R migration** — moving all of `nearestSupport`/`nearestResistance` to collapsed swings. The fixtures showed it degrades every proximity-facing consumer (mutes at-resistance warnings, discards polarity levels and first demand shelves) to fix a problem only the stop has. The premise "interior run pivots are noise" was imported from swing _labeling_ (where same-kind adjacency comparison genuinely fabricates HH/LH) into level _selection_ (which never makes that comparison) — the fixtures falsified the transfer. Do not resurrect the wholesale swap without new evidence; `computeTrendLines` is the other legitimate collapsed-swing consumer (it anchors legs, not proximity).
 
 ## Risks
 
@@ -75,7 +75,7 @@ The **wholesale S/R migration** — moving all of `nearestSupport`/`nearestResis
 ## Revisit when
 
 - Live usage shows pathological stop widths (many ATRs) — add the width cap (alternative 5) with real distributions as evidence.
-- Evidence emerges that stops *at* the level get run by exact-touch sweeps — revisit the buffer (alternative 4) as its own decision.
+- Evidence emerges that stops _at_ the level get run by exact-touch sweeps — revisit the buffer (alternative 4) as its own decision.
 - `runBacktest` is ever migrated to replay `buildRiskPlan` stops instead of its own ATR stop — re-run the win-rate/expectancy comparison this change couldn't get.
 - Supply/demand zones (`zones.ts`) become the primary S/R representation — zone edges may supersede both raw pivots and leg extremes as stop anchors, retiring this distinction entirely.
 - Shadow-record setup×regime stats shift anomalously after the deploy date — the pre/post population mix is the first suspect.

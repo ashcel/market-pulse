@@ -2,7 +2,7 @@
 
 - **Status:** Accepted, implemented (2026-07-10)
 - **Scope:** `computeDealingRange` / `classifyPrice` in `src/lib/engine/equilibrium.ts`. Phase 0 instrumentation: no verdict, score, or keyspace impact.
-- **Depends on:** EDR 0004 (swing strength) — the range is anchored to a *strong* swing by definition; validated against the Dreimann ground-truth fixtures.
+- **Depends on:** EDR 0004 (swing strength) — the range is anchored to a _strong_ swing by definition; validated against the Dreimann ground-truth fixtures.
 
 ## Problem
 
@@ -16,16 +16,16 @@ Derived view, zero stored state, same replay convention as `strength.ts`/`liquid
 
 ## Why anchored, not [last strong low, last strong high]
 
-The research sketch (analysis.md §6) paired the last strong low with the last strong high. On the ground-truth fixtures that pairing **inverts in trends**: on zec-sl's 4h context as-of entry, the last strong high (429.25, from Jun 26) sits *below* the last strong low (425.08 → later 437.44), yielding a nonsense or empty range exactly where the trader was reading discount. The anchored form — last defended level to the extreme dealt since — reproduces the ranges the charts were drawn over:
+The research sketch (analysis.md §6) paired the last strong low with the last strong high. On the ground-truth fixtures that pairing **inverts in trends**: on zec-sl's 4h context as-of entry, the last strong high (429.25, from Jun 26) sits _below_ the last strong low (425.08 → later 437.44), yielding a nonsense or empty range exactly where the trader was reading discount. The anchored form — last defended level to the extreme dealt since — reproduces the ranges the charts were drawn over:
 
-| Trade | 4h range as-of entry | Entry | Read |
-|---|---|---|---|
-| zec-sl | 425.08 → 476.74 (eq 450.91) | 450.49 | **discount** (by 0.09% — the chart's own razor-thin read) |
-| trx-tp3 | 0.32613 → 0.33289 | 0.32782 | **discount** |
-| zec-tp | 443.82 → 511.99 | 462.74 | discount (observed; no trader claim) |
-| ethfi-sl | 0.4108 → 0.4565 | 0.4245 | discount (observed; no trader claim) |
-| jup-tp | 0.1987 → 0.2534 | 0.2340 | **premium — matching the trader's own note** ("risky because bullish BOS on H4 may already have completed") |
-| fet-tp | 0.1675 → 0.1826 | 0.1773 | premium (observed; no trader claim) |
+| Trade    | 4h range as-of entry        | Entry   | Read                                                                                                        |
+| -------- | --------------------------- | ------- | ----------------------------------------------------------------------------------------------------------- |
+| zec-sl   | 425.08 → 476.74 (eq 450.91) | 450.49  | **discount** (by 0.09% — the chart's own razor-thin read)                                                   |
+| trx-tp3  | 0.32613 → 0.33289           | 0.32782 | **discount**                                                                                                |
+| zec-tp   | 443.82 → 511.99             | 462.74  | discount (observed; no trader claim)                                                                        |
+| ethfi-sl | 0.4108 → 0.4565             | 0.4245  | discount (observed; no trader claim)                                                                        |
+| jup-tp   | 0.1987 → 0.2534             | 0.2340  | **premium — matching the trader's own note** ("risky because bullish BOS on H4 may already have completed") |
+| fet-tp   | 0.1675 → 0.1826             | 0.1773  | premium (observed; no trader claim)                                                                         |
 
 The two canonical weak-structure trades read discount; the one trade the trader himself flagged as chasing reads premium. That correspondence is the fidelity evidence.
 
@@ -33,7 +33,7 @@ The two canonical weak-structure trades read discount; the one trade the trader 
 
 - **Exact midpoint, no equilibrium band.** A band is a tunable threshold; this layer ships none (R5 — nothing here may be tuned against the fixtures). Consumers wanting a band can build one on the exposed midpoint.
 - **The range keeps its anchor even after price leaves the range.** Re-anchoring waits for a new strong swing to prove itself — deliberately lagging, never anticipating.
-- **Extreme = most extreme opposite *swing*, not raw candle wick.** Swing space throughout, consistent with EDR 0004; candle truth stays in `liquidity.ts`.
+- **Extreme = most extreme opposite _swing_, not raw candle wick.** Swing space throughout, consistent with EDR 0004; candle truth stays in `liquidity.ts`.
 - **Degenerate guard:** if the extreme ends up on the wrong side of the anchor (possible only in pathological/deserialized inputs), return null rather than an inverted range.
 
 ## What was intentionally rejected

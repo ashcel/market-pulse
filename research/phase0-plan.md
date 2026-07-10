@@ -13,11 +13,11 @@ Scope contract for the whole phase:
 
 - **No verdict impact.** No decision, score, veto, target, `SetupType`, or intent
   verdict changes. The backtest/hysteresis/shadow keyspace is untouched (R2).
-- **No `SwingPoint` schema change.** Strength is a *derived view* computed at
+- **No `SwingPoint` schema change.** Strength is a _derived view_ computed at
   read time, never a stored field (R1). `structure.ts` is not edited.
 - **Validation bar = annotation fidelity on the 7 Dreimann charts** (logic
-  correctness: do we label the same pivots?), explicitly *not* expectancy and
-  *not* threshold tuning (R5 firewall).
+  correctness: do we label the same pivots?), explicitly _not_ expectancy and
+  _not_ threshold tuning (R5 firewall).
 
 Baseline before commit 1 (record in the PR description):
 
@@ -99,9 +99,9 @@ so — do not substitute another venue's data silently.
   later commit is judged on, so they must be reviewed as data, not code.
   Reviewer spot-checks at least 2 charts end to end.
 - **Expected output:** `bun test` passes with the new smoke test; `git diff
-  --stat` shows only fixture/script/test additions.
-- **R5 firewall (recorded in the README):** these fixtures validate *logic
-  correctness only*. No numeric threshold may ever be tuned against them.
+--stat` shows only fixture/script/test additions.
+- **R5 firewall (recorded in the README):** these fixtures validate _logic
+  correctness only_. No numeric threshold may ever be tuned against them.
 
 ---
 
@@ -123,7 +123,7 @@ EDR.
 export type SwingStrength = "strong" | "weak" | "unresolved";
 
 export interface SwingStrengthEntry {
-  swing: SwingPoint;          // same object as structure.swings[i]
+  swing: SwingPoint; // same object as structure.swings[i]
   strength: SwingStrength;
   resolvedBy: SwingPoint | null; // the swing whose break settled it
 }
@@ -187,8 +187,8 @@ exports only.
 
 ```ts
 export interface DealingRange {
-  low: SwingPoint;    // most recent strong swing low
-  high: SwingPoint;   // most recent strong swing high
+  low: SwingPoint; // most recent strong swing low
+  high: SwingPoint; // most recent strong swing high
   equilibrium: number; // (high.price + low.price) / 2
 }
 
@@ -198,7 +198,7 @@ export function computeDealingRange(structure: MarketStructure): DealingRange | 
 export function classifyPrice(range: DealingRange, price: number): PricePosition;
 ```
 
-Returns `null` when no strong low *and* strong high exist yet (early series,
+Returns `null` when no strong low _and_ strong high exist yet (early series,
 pure one-way trend) — **absence is a first-class outcome** consumers must
 handle; do not fabricate a range from unresolved swings.
 
@@ -206,7 +206,7 @@ The EDR must record the discretionary choices the analysis flags (§6
 "needs-research"): range = most recent strong low + most recent strong high
 even if price has since left the range; exact-midpoint comparison (`> eq` =
 premium, `< eq` = discount, `=== eq` = equilibrium) with no band; behavior
-when the strong high precedes the strong low. These are recorded as *initial*
+when the strong high precedes the strong low. These are recorded as _initial_
 choices revisable in later phases — Phase 0 only needs them deterministic and
 documented.
 

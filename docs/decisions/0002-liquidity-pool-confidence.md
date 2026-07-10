@@ -13,7 +13,7 @@ Equal highs and equal lows are not just chart patterns — they are order-book f
 A new pure module `liquidity.ts` maps each EQH cluster to a BSL pool and each EQL cluster to an SSL pool:
 
 - **Level** = the cluster's extreme (`EqualLevel.price`) — the highest of the equal highs / lowest of the equal lows, because that edge is where the resting stops actually sit.
-- **`intact`** = no *later swing* has traded beyond the level. A later swing high above a BSL line triggered those stops; the pool is spent. This is structural bookkeeping from swings only — deliberately **not** sweep detection (no wick-through analysis, no reclaim semantics, no events).
+- **`intact`** = no _later swing_ has traded beyond the level. A later swing high above a BSL line triggered those stops; the pool is spent. This is structural bookkeeping from swings only — deliberately **not** sweep detection (no wick-through analysis, no reclaim semantics, no events).
 - **`confidence`** (0–100) = a weighted blend of three normalized components, each exposed on the pool object so any consumer can answer "why this score" without re-deriving anything.
 
 Pools are exposed on `SignalEvaluation.liquidity` (strongest first), drawn as dashed horizontal price lines on the token chart (purple BSL / cyan SSL, titled with confidence, intact pools only, own legend toggle), and fed to the AI analyst prompt.
@@ -22,17 +22,17 @@ Pools are exposed on `SignalEvaluation.liquidity` (strongest first), drawn as da
 
 `confidence = round(100 · (0.40·touches + 0.25·tightness + 0.35·recency))`
 
-| Component | Formula | Rationale |
-|---|---|---|
-| `touches` | `clamp01(0.5 + (n−2)·0.35)` → 2 touches = 0.5, 3 = 0.85, 4+ = 1 | Every additional test of the level that *failed to break it* leaves another layer of stops behind it. A double top is the baseline pattern, not the ceiling. |
+| Component   | Formula                                                                                      | Rationale                                                                                                                                                                                                                                                         |
+| ----------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `touches`   | `clamp01(0.5 + (n−2)·0.35)` → 2 touches = 0.5, 3 = 0.85, 4+ = 1                              | Every additional test of the level that _failed to break it_ leaves another layer of stops behind it. A double top is the baseline pattern, not the ceiling.                                                                                                      |
 | `tightness` | `clamp01(1 − span/anchor/(2·tolerance))` → tick-identical = 1, at the tolerance envelope = 0 | The cleaner the level, the more precisely orders stack at one price rather than smearing across a band. Scaled by the same tolerance the cluster was detected with, so the score is meaningful at any tolerance setting (zero tolerance ⇒ all members exact ⇒ 1). |
-| `recency` | `(lastMemberIndex + 1) / swingCount` | Old pools decay: orders get repositioned, and the market that built the shelf is gone. Swing-indexed rather than wall-clock so the score is timeframe-agnostic and needs no candle data. |
+| `recency`   | `(lastMemberIndex + 1) / swingCount`                                                         | Old pools decay: orders get repositioned, and the market that built the shelf is gone. Swing-indexed rather than wall-clock so the score is timeframe-agnostic and needs no candle data.                                                                          |
 
 Weights: touches dominate (0.40) because stacked stops are the essence of a pool; recency (0.35) outweighs tightness (0.25) because a stale shelf, however clean, is less likely to still hold orders than a fresh, slightly ragged one.
 
 ## Why this approach
 
-- **Derived, not detected.** The module adds no second detection pass and no state — it is a pure projection of `MarketStructure`. Determinism and replay safety are therefore *inherited*, not re-proven: the pool set at any historical point is a function of the swings that existed then (the prefix test in `liquidity.test.ts` pins `intact` flipping at exactly the swing that runs the stops, and cluster membership never changing retroactively).
+- **Derived, not detected.** The module adds no second detection pass and no state — it is a pure projection of `MarketStructure`. Determinism and replay safety are therefore _inherited_, not re-proven: the pool set at any historical point is a function of the swings that existed then (the prefix test in `liquidity.test.ts` pins `intact` flipping at exactly the swing that runs the stops, and cluster membership never changing retroactively).
 - **Explainable by construction.** Every input is already on the cluster/structure objects (member count, member prices, swing positions); the components are exposed and the blend is a documented linear formula, round-trip-verified by test. There is no fitted model and nothing to drift.
 - **Engine-only inputs, by requirement.** Volume, order-book depth, or funding data would all sharpen the score but live outside the structure layer; keeping the model structure-pure means every consumer of `SignalEvaluation` (backtest replays included) gets identical pools with no new data dependencies.
 
