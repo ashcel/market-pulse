@@ -1,3 +1,6 @@
+import { createServerFn } from "@tanstack/react-start";
+
+import { dropUnclosedCandle, fetchBinanceKlinesDirect, type MarketType } from "./binance";
 import type { Candle } from "./types";
 
 /**
@@ -106,6 +109,34 @@ export function computeSessionLevels(
     (l): l is SessionLevel => l !== undefined,
   );
 }
+
+const SESSION_LEVELS_CANDLE_LIMIT = 168; // a week of 1H candles
+
+/**
+ * Fetch a week of 1H candles and compute session levels — the one path both
+ * the server worker and the token-page UI (via `fetchSessionLevelsServer`
+ * below) run, so a shadow/anticipatory record's session levels are provably
+ * the same input the UI would have shown for the same symbol.
+ */
+export async function fetchSessionLevels(
+  symbol: string,
+  market: MarketType,
+): Promise<SessionLevel[]> {
+  const candles = await fetchBinanceKlinesDirect({
+    symbol,
+    timeframe: "1H",
+    limit: SESSION_LEVELS_CANDLE_LIMIT,
+    market,
+  });
+  return candles.length > 0 ? computeSessionLevels(dropUnclosedCandle(candles)) : [];
+}
+
+export const fetchSessionLevelsServer = createServerFn({ method: "GET" })
+  .validator((data: { symbol: string; market?: MarketType }) => ({
+    symbol: typeof data?.symbol === "string" ? data.symbol : "",
+    market: (data?.market === "perp" ? "perp" : "spot") as MarketType,
+  }))
+  .handler(async ({ data }) => fetchSessionLevels(data.symbol, data.market));
 
 /** One horizontal price a session prints — its high or its low. */
 export interface SessionPrice {

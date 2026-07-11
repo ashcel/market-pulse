@@ -1,0 +1,55 @@
+{
+  "window": {
+    "first": "2026-05-29T22:00:00.000Z",
+    "last": "2026-07-10T12:00:00.000Z",
+    "bars": 999
+  },
+  "population": {
+    "inScopeUnits": 260,
+    "bothFired": 1,
+    "disagreement": 259,
+    "chochDecisions": 116,
+    "hlbDecisions": 145
+  },
+  "arms": {
+    "choch": {
+      "trades": 116,
+      "wins": 14,
+      "losses": 39,
+      "censored": 63,
+      "meanR": -0.2488173361495283
+    },
+    "hlb": {
+      "trades": 145,
+      "wins": 21,
+      "losses": 43,
+      "censored": 81,
+      "meanR": -0.19226139866381403
+    }
+  },
+  "gateA": {
+    "divergencePct": 99.6,
+    "threshold": 10,
+    "pass": true
+  },
+  "gateB": {
+    "meanDeltaR": 0.005,
+    "threshold": 0.15,
+    "ci90": [
+      -0.07,
+      0.08
+    ],
+    "resolvedChoch": 53,
+    "resolvedHlb": 63,
+    "sampleFloor": 50,
+    "pass": false
+  },
+  "gateC": {
+    "fullStreamDeltaR": 0.004,
+    "half1DeltaR": -0.003,
+    "half2DeltaR": 0.015,
+    "assetsWithDisagreements": 18,
+    "assetsHlbPositive": 8,
+    "pass": false
+  }
+}

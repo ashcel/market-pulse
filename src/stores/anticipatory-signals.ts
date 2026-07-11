@@ -56,6 +56,14 @@ export const useAnticipatorySignalsStore = create<AnticipatorySignalsState>()(
           signals: s.signals.map((item) => (item.id === id ? { ...item, ...patch } : item)),
         })),
     }),
-    { name: "iq-anticipatory-signals" },
+    {
+      name: "iq-anticipatory-signals",
+      // v1 (WS5 cutover): the browser no longer opens these records — the
+      // autonomous worker is the sole writer. Bumping with no `migrate`
+      // discards the old client-accumulated record (unversioned, biased —
+      // it only ever saw symbols a tester happened to have open) rather than
+      // reading it back as if it were still authoritative.
+      version: 1,
+    },
   ),
 );

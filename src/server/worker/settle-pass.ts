@@ -33,10 +33,10 @@ function key(symbol: string, tf: TokenTimeframe, market: MarketType): string {
 
 /**
  * One settlement pass over every open record (Phase C). The exact kline-walk
- * catch-up `useSignalSettlement` did client-side — same pure settlement
- * functions — but run in the worker so records settle whether or not a browser
- * is open. Walking real intrabar highs/lows since each record opened also makes
- * worker restarts self-healing.
+ * catch-up the client used to do (WS5: retired with `useSignalSettlement`) —
+ * same pure settlement functions — but run in the worker so records settle
+ * whether or not a browser is open. Walking real intrabar highs/lows since
+ * each record opened also makes worker restarts self-healing.
  */
 export async function runSettlePass(): Promise<{ settled: number }> {
   const [shadow, anticipatory, tracked] = await Promise.all([

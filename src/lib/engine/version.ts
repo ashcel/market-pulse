@@ -8,11 +8,12 @@ import { INTENT_MAX_HOLD_BARS } from "./hysteresis";
  * hit-rate.
  *
  * Semver intent: major = trigger/decision semantics, minor = additive signal,
- * patch = fix. Stays `0.x` while the i.mss trigger question
- * (research/phase2-spike.md) is open; the freeze to `1.0.0` is what starts the
- * *official* forward-test clock (Phase E of the backend design).
+ * patch = fix. `1.0.0` marks the freeze — the i.mss trigger question is closed
+ * (phase3-spike.md verdict: CHoCH retained), and the official forward-test
+ * clock starts here. Stats from `1.0.0` onward are *evidence*; prior versions
+ * are *shakeout*.
  */
-export const ENGINE_VERSION = "0.9.0-dev";
+export const ENGINE_VERSION = "1.0.0";
 
 /**
  * Build/commit SHA for exact traceability. Injected at build time —
@@ -71,4 +72,24 @@ export interface Provenance {
 
 export function currentProvenance(): Provenance {
   return { engineVersion: ENGINE_VERSION, configHash: configHash(), gitSha: gitSha() };
+}
+
+/**
+ * Guards the one place provenance actually matters: right before a
+ * shadow/anticipatory/tracked record is persisted. `buildShadowSignal` et al.
+ * always spread `currentProvenance()` in, so a missing field here means the
+ * caller bypassed that path — silently writing `""` would pool a mis-stamped
+ * record into every `engineVersion`-segmented stat forever. Fail loudly
+ * instead of defaulting.
+ */
+export function assertProvenance<T extends Partial<Provenance>>(
+  input: T,
+): asserts input is T & Provenance {
+  if (!input.engineVersion || !input.configHash || !input.gitSha) {
+    throw new Error(
+      "Refusing to persist a forward-test record with incomplete provenance " +
+        `(engineVersion=${input.engineVersion || "∅"}, configHash=${input.configHash || "∅"}, ` +
+        `gitSha=${input.gitSha || "∅"}).`,
+    );
+  }
 }

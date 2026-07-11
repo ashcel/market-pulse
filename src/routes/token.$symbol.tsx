@@ -125,6 +125,7 @@ import { checkTradableTicker } from "@/lib/engine/symbols";
 import { TOKEN_TIMEFRAMES } from "@/lib/engine/mock-candles";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
 import { computeBaseZones, SD_ZONE_TIMEFRAMES, type BaseZone } from "@/lib/engine/zones";
+import { validateSetupFreshness, type SetupValidityResult } from "@/lib/engine/setup-validity";
 import { currentSweep, gradeRisk } from "@/lib/engine/quant";
 import type {
   MarketRegime,
@@ -365,6 +366,24 @@ function TokenDetailPage() {
   // failed — so it's a strictly better fallback than the raw candle close,
   // which reintroduces the per-timeframe staleness this is meant to avoid.
   const lastClose = live?.price ?? data?.evaluation?.risk?.entry ?? 0;
+  // Setup validity: suppress stale/invalidated plans from the chart and Follow
+  // button when live price has already touched the stop or moved so far past
+  // the entry zone that R:R is negative. The engine core grades from closed
+  // bars; this is the live-price gate the UI layer owns.
+  const setupValidity: SetupValidityResult | null = activeAssessment?.plan
+    ? validateSetupFreshness(
+        {
+          direction: activeAssessment.direction === "long" ? "long" : "short",
+          entry: activeAssessment.plan.entry,
+          entryLow: activeAssessment.plan.entryLow,
+          entryHigh: activeAssessment.plan.entryHigh,
+          stop: activeAssessment.plan.stop,
+          target1: activeAssessment.plan.target1,
+          target2: activeAssessment.plan.target2,
+        },
+        lastClose,
+      )
+    : null;
   const change24h = live?.change24h ?? (data ? computeChange24h(data.candles) : 0);
   const name = UNIVERSE.find((u) => u.ticker === symbol)?.name ?? symbol;
   const stats = useMemo(() => (data ? compute24hStats(data.candles) : null), [data]);
@@ -521,8 +540,9 @@ function TokenDetailPage() {
                         plan={activeAssessment?.plan ?? null}
                         planTimeframe={activeAssessment?.definition.executionTimeframe ?? null}
                         planStrong={
-                          activeAssessment?.verdict === "favored" ||
-                          activeAssessment?.verdict === "caution"
+                          (activeAssessment?.verdict === "favored" ||
+                            activeAssessment?.verdict === "caution") &&
+                          setupValidity?.valid !== false
                         }
                       />
                     )}
@@ -548,6 +568,7 @@ function TokenDetailPage() {
               sessionLevels={sessionLevels}
               price={lastClose}
               liveData={data.source === "live"}
+              setupValidity={setupValidity}
               onSelect={setTradingIntent}
               activeTab={activeTab}
               onTabChange={setActiveTab}
@@ -1853,6 +1874,7 @@ function AssistantPanel({
   sessionLevels,
   price,
   liveData,
+  setupValidity,
   onSelect,
   activeTab,
   onTabChange,
@@ -1868,6 +1890,8 @@ function AssistantPanel({
   price: number;
   /** Whether the candles are real Binance data — the anticipatory read renders only on live data. */
   liveData: boolean;
+  /** Whether the plan is still valid at the live price (null when no plan). */
+  setupValidity: SetupValidityResult | null;
   onSelect: (intent: TradingIntent) => void;
   activeTab: string;
   onTabChange: (tab: string) => void;
@@ -1891,6 +1915,12 @@ function AssistantPanel({
 
   const confirmFollow = () => {
     if (!active?.plan || active.direction === "none") return;
+    // Safety re-check: the setup may have invalidated while the dialog was open.
+    if (setupValidity && !setupValidity.valid) {
+      toast.error(setupValidity.reason ?? "This setup is no longer valid.");
+      setFollowDialogOpen(false);
+      return;
+    }
     const entryPrice = Number.parseFloat(entryPriceInput);
     if (!Number.isFinite(entryPrice) || entryPrice <= 0) {
       toast.error("Enter a valid entry price.");
@@ -2228,7 +2258,12 @@ function AssistantPanel({
                       </>
                     )}
                     <SizingNote multiplier={active.sizeMultiplier} />
-                    {(active.verdict === "favored" || active.verdict === "caution") &&
+                    {setupValidity && !setupValidity.valid ? (
+                      <div className="flex w-full items-center gap-1.5 rounded-md border border-warning/30 bg-warning-soft px-2.5 py-2 text-xs text-warning">
+                        <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
+                        <span>{setupValidity.reason ?? "Setup no longer valid at current price."}</span>
+                      </div>
+                    ) : (active.verdict === "favored" || active.verdict === "caution") &&
                       active.direction !== "none" &&
                       (hasOpenSignal(symbol, active.intent, active.direction) ? (
                         <Button

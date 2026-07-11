@@ -1,5 +1,5 @@
 import { sql } from "../db/client";
-import { finishEngineRun, startEngineRun } from "../db/repo";
+import { countOpenRecords, finishEngineRun, startEngineRun } from "../db/repo";
 import { runEvalPass } from "./eval-pass";
 import { runSettlePass } from "./settle-pass";
 import { UNIVERSE } from "@/lib/engine/market";
@@ -26,16 +26,21 @@ export async function runOnce(): Promise<void> {
   try {
     const evalResult = await runEvalPass(runId);
     const settleResult = await runSettlePass();
+    const open = await countOpenRecords();
     await finishEngineRun(
       runId,
       "ok",
       `evaluated=${evalResult.evaluated} shadowOpened=${evalResult.shadowOpened} ` +
         `anticipatoryOpened=${evalResult.anticipatoryOpened} settled=${settleResult.settled}`,
     );
+    // One line per pass — this is the heartbeat `/api/forward-test?view=health`
+    // reports on: as long as this keeps appearing in `journalctl -u
+    // market-pulse-worker`, the worker is alive and the record is growing.
     console.log(
       `[worker] pass ok in ${Date.now() - startedAt}ms — ` +
         `evaluated=${evalResult.evaluated} shadow+=${evalResult.shadowOpened} ` +
         `anticipatory+=${evalResult.anticipatoryOpened} settled=${settleResult.settled} ` +
+        `open(shadow=${open.shadow} anticipatory=${open.anticipatory} tracked=${open.tracked}) ` +
         `(engine ${prov.engineVersion} / cfg ${prov.configHash})`,
     );
   } catch (err) {

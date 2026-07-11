@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { isTokenTimeframe } from "./mock-candles";
 import type { TokenTimeframe } from "./mock-candles";
+import { binanceLimiter, klineWeight, TICKER_PRICE_WEIGHT } from "./rate-limit";
 import { resolveExchangeSymbol } from "./symbol-map";
 import type { Candle } from "./types";
 
@@ -117,15 +118,17 @@ export async function fetchBinanceKlinesDirect({
   const { symbol: exchangeSymbol, priceScale } = resolveExchangeSymbol(symbol, resolvedMarket);
   if (exchangeSymbol === "USDT" || !interval) return [];
 
+  const normalizedLimit = normalizeLimit(limit);
   const params = new URLSearchParams({
     symbol: exchangeSymbol,
     interval,
-    limit: String(normalizeLimit(limit)),
+    limit: String(normalizedLimit),
   });
   const normalizedEndTime = normalizeEndTime(endTime);
   if (normalizedEndTime !== undefined) params.set("endTime", String(normalizedEndTime));
 
   try {
+    await binanceLimiter.acquire(klineWeight(normalizedLimit));
     const response = await fetch(`${REST_BASE[resolvedMarket]}/klines?${params.toString()}`);
     if (!response.ok) return [];
     return applyPriceScale(parseBinanceKlines(await response.json()), priceScale);
@@ -147,6 +150,7 @@ export async function fetchBinancePriceDirect(
   const { symbol: exchangeSymbol, priceScale } = resolveExchangeSymbol(symbol, resolvedMarket);
   if (exchangeSymbol === "USDT") return null;
   try {
+    await binanceLimiter.acquire(TICKER_PRICE_WEIGHT);
     const response = await fetch(
       `${REST_BASE[resolvedMarket]}/ticker/price?symbol=${exchangeSymbol}`,
     );

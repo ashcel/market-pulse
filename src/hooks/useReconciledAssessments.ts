@@ -3,10 +3,7 @@ import { useEffect, useMemo } from "react";
 import { evaluateSymbol } from "@/lib/engine/evaluate";
 import { type DisplayIntentAssessment } from "@/lib/engine/hysteresis";
 import { type ZonesByTimeframe } from "@/lib/engine/intent";
-import { shadowComboStats } from "@/lib/engine/shadow";
-import { ENGINE_VERSION } from "@/lib/engine/version";
-import { useAnticipatorySignalsStore } from "@/stores/anticipatory-signals";
-import { useShadowSignalsStore } from "@/stores/shadow-signals";
+import { useForwardTestRecord } from "@/hooks/useForwardTestRecord";
 import { useVerdictHoldsStore } from "@/stores/verdict-holds";
 import type { MarketType } from "@/lib/engine/binance";
 import type { PerpRead } from "@/lib/engine/perp";
@@ -18,11 +15,10 @@ import type { TokenTimeframe } from "@/lib/engine/mock-candles";
  * The full decision pipeline for one token, wrapping the framework-free
  * `evaluateSymbol` (shared verbatim with the server worker) in React state:
  * raw per-intent assessments → live shadow-record adjustment (demote combos
- * with a proven bad record) → verdict hysteresis. The two persistence effects
- * run after render: adopt/refresh the held verdicts, and open shadow +
- * anticipatory records. Combo stats are segmented to the current
- * `ENGINE_VERSION` so a proven-negative record from an older engine can't
- * demote the current one.
+ * with a proven bad record) → verdict hysteresis. Combo stats come read-only
+ * from the server's forward-test record (WS5) — the autonomous worker is the
+ * sole writer of shadow/anticipatory records now, so this hook only adopts
+ * held verdicts locally and otherwise just displays the server's read.
  */
 export function useReconciledAssessments(
   symbol: string,
@@ -35,14 +31,8 @@ export function useReconciledAssessments(
 ): DisplayIntentAssessment[] {
   const holds = useVerdictHoldsStore((s) => s.holds);
   const applyHolds = useVerdictHoldsStore((s) => s.applyHolds);
-  const shadowSignals = useShadowSignalsStore((s) => s.signals);
-  const openShadow = useShadowSignalsStore((s) => s.open);
-  const openAnticipatory = useAnticipatorySignalsStore((s) => s.open);
-
-  const comboStats = useMemo(
-    () => shadowComboStats(shadowSignals, ENGINE_VERSION),
-    [shadowSignals],
-  );
+  const { data: forwardTest } = useForwardTestRecord();
+  const comboStats = forwardTest?.shadow.combos ?? [];
 
   const result = useMemo(() => {
     return evaluateSymbol({
@@ -64,14 +54,7 @@ export function useReconciledAssessments(
   useEffect(() => {
     if (!ready || !result) return;
     if (Object.keys(result.holdUpdates).length > 0) applyHolds(result.holdUpdates);
-    for (const input of result.shadowToOpen) openShadow(input);
-    // Phase 0.5: every displayed assessment with an anticipatory plan opens a
-    // fill-model record — at any verdict stage, since a resting limit exists
-    // precisely while the trigger is unconfirmed. The store ignores the call
-    // while the same symbol/market/intent record is still open, so the plan
-    // is frozen at adoption (EDR 0010). Measurement only; read by no verdict.
-    for (const input of result.anticipatoryToOpen) openAnticipatory(input);
-  }, [ready, result, applyHolds, openShadow, openAnticipatory]);
+  }, [ready, result, applyHolds]);
 
   return result?.display ?? [];
 }

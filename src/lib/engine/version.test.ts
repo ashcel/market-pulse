@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { shadowComboStats, type ShadowSignal } from "./shadow";
-import { configHash, currentProvenance, ENGINE_VERSION } from "./version";
+import { assertProvenance, configHash, currentProvenance, ENGINE_VERSION } from "./version";
 
 describe("provenance", () => {
   it("configHash is deterministic across calls", () => {
@@ -14,6 +14,43 @@ describe("provenance", () => {
     expect(p.engineVersion).toBe(ENGINE_VERSION);
     expect(p.configHash).toBe(configHash());
     expect(typeof p.gitSha).toBe("string");
+  });
+});
+
+// WS2 — provenance completeness. `assertProvenance` is the last guard before
+// a shadow/anticipatory/tracked record hits the DB (see repo.ts's
+// `openShadow`/`openAnticipatory`/`followTracked`); it must pass every record
+// the engine actually builds and reject anything with a blank field instead
+// of the old silent `?? ""` fallback that would have pooled a mis-stamped row
+// into `engineVersion`-segmented stats forever.
+describe("assertProvenance", () => {
+  it("passes currentProvenance() — the real stamp every build*Signal call spreads in", () => {
+    expect(() => assertProvenance(currentProvenance())).not.toThrow();
+  });
+
+  it("throws when engineVersion is missing or blank", () => {
+    expect(() => assertProvenance({ configHash: "abc", gitSha: "def" })).toThrow(/provenance/i);
+    expect(() => assertProvenance({ engineVersion: "", configHash: "abc", gitSha: "def" })).toThrow(
+      /provenance/i,
+    );
+  });
+
+  it("throws when configHash is missing or blank", () => {
+    expect(() => assertProvenance({ engineVersion: "1.0.0", gitSha: "def" })).toThrow(
+      /provenance/i,
+    );
+  });
+
+  it("throws when gitSha is missing or blank", () => {
+    expect(() => assertProvenance({ engineVersion: "1.0.0", configHash: "abc" })).toThrow(
+      /provenance/i,
+    );
+  });
+
+  it("accepts gitSha's dev fallback of 'unknown' — that's a deliberate non-blank default", () => {
+    expect(() =>
+      assertProvenance({ engineVersion: "1.0.0", configHash: "abc", gitSha: "unknown" }),
+    ).not.toThrow();
   });
 });
 

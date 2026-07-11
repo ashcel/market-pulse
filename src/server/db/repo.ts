@@ -3,6 +3,7 @@ import type { AnticipatoryOpenInput, ShadowOpenInput } from "@/lib/engine/evalua
 import type { HeldVerdict } from "@/lib/engine/hysteresis";
 import type { AnticipatorySignal } from "@/lib/engine/anticipatory";
 import type { MarketType } from "@/lib/engine/binance";
+import { assertProvenance } from "@/lib/engine/version";
 import type { Provenance } from "@/lib/engine/version";
 import type { ShadowSignal } from "@/lib/engine/shadow";
 import type { TrackedSignal } from "@/lib/engine/tracker";
@@ -55,6 +56,30 @@ export async function listRecentRuns(limit = 20): Promise<EngineRunRow[]> {
   }));
 }
 
+export interface OpenRecordCounts {
+  shadow: number;
+  anticipatory: number;
+  tracked: number;
+}
+
+/** One round trip for the counts behind `/api/forward-test?view=health` — the
+ * same "still open" definitions `listOpenShadow`/`listOpenAnticipatory`/
+ * `listOpenTracked` use, without pulling full rows just to `.length` them. */
+export async function countOpenRecords(): Promise<OpenRecordCounts> {
+  const [row] = await sql<{ shadow: number; anticipatory: number; tracked: number }[]>`
+    select
+      (select count(*) from shadow_signal where status = 'active') as shadow,
+      (select count(*) from anticipatory_signal where status in ('pending', 'filled'))
+        as anticipatory,
+      (select count(*) from tracked_signal where status = 'active') as tracked
+  `;
+  return {
+    shadow: Number(row.shadow),
+    anticipatory: Number(row.anticipatory),
+    tracked: Number(row.tracked),
+  };
+}
+
 // ── Shadow record ────────────────────────────────────────────────────────────
 
 function rowToShadow(r: Record<string, unknown>): ShadowSignal {
@@ -86,6 +111,7 @@ function rowToShadow(r: Record<string, unknown>): ShadowSignal {
 
 /** Opens a shadow record; the partial unique index no-ops a still-open duplicate. */
 export async function openShadow(input: ShadowOpenInput, engineRunId: string): Promise<void> {
+  assertProvenance(input);
   await sql`
     insert into shadow_signal (
       symbol, market, intent, direction, setup_type, regime, timeframe,
@@ -96,8 +122,8 @@ export async function openShadow(input: ShadowOpenInput, engineRunId: string): P
       ${input.setupType}, ${input.regime}, ${input.timeframe},
       ${input.entry}, ${input.stop}, ${input.target1}, ${input.target2},
       ${input.confidence}, ${input.objectiveResolved ?? null},
-      ${input.openedAt}, ${input.engineVersion ?? ""}, ${input.configHash ?? ""},
-      ${input.gitSha ?? ""}, ${engineRunId}
+      ${input.openedAt}, ${input.engineVersion}, ${input.configHash},
+      ${input.gitSha}, ${engineRunId}
     )
     on conflict do nothing
   `;
@@ -161,6 +187,7 @@ export async function openAnticipatory(
   input: AnticipatoryOpenInput,
   engineRunId: string,
 ): Promise<void> {
+  assertProvenance(input);
   await sql`
     insert into anticipatory_signal (
       symbol, market, intent, direction, setup_type, regime, timeframe, verdict,
@@ -171,7 +198,7 @@ export async function openAnticipatory(
       ${input.setupType}, ${input.regime}, ${input.timeframe}, ${input.verdict},
       ${input.entry}, ${input.stop}, ${input.objective}, ${input.objectiveStrength},
       ${input.zoneFreshness}, ${input.rewardRisk}, ${input.openedAt},
-      ${input.engineVersion ?? ""}, ${input.configHash ?? ""}, ${input.gitSha ?? ""}, ${engineRunId}
+      ${input.engineVersion}, ${input.configHash}, ${input.gitSha}, ${engineRunId}
     )
     on conflict do nothing
   `;
@@ -240,6 +267,7 @@ export async function followTracked(
   sessionToken: string | null,
   input: FollowInput,
 ): Promise<string> {
+  assertProvenance(input);
   const [row] = await sql<{ id: string }[]>`
     insert into tracked_signal (
       owner_id, session_id, symbol, intent, direction, setup_type, timeframe, market,
@@ -250,7 +278,7 @@ export async function followTracked(
       ${input.setupType}, ${input.timeframe}, ${input.market ?? null},
       ${input.entryLow}, ${input.entryHigh}, ${input.entryPrice}, ${input.stop},
       ${input.target1}, ${input.target2}, ${input.confidenceAtFollow},
-      ${input.engineVersion ?? ""}, ${input.configHash ?? ""}, ${input.gitSha ?? ""}
+      ${input.engineVersion}, ${input.configHash}, ${input.gitSha}
     )
     returning id
   `;
