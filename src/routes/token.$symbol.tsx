@@ -2845,7 +2845,7 @@ function ReadStrengthGauge({ assessment }: { assessment: DisplayIntentAssessment
       <span className="mt-0.5 flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">
         Read strength
         <InfoHint
-          text={`How strongly the engine's evidence points in one direction — not a 'take the trade' score. The verdict word is the action. ${meaning}`}
+          text={`How strongly the engine's evidence points in one direction — signal strength, not a win probability. The verdict word is the action. ${meaning}`}
         />
       </span>
     </div>
@@ -3583,7 +3583,7 @@ function deterministicFallback(req: {
       : []),
     `- **Setup:** ${e.setupType.replaceAll("-", " ")}`,
     `- **Regime:** ${e.regime.replaceAll("-", " ")}`,
-    `- **Confidence:** ${e.confidence}/100`,
+    `- **Signal strength:** ${e.confidence}/100`,
     `- **Risk plan:** entry zone \`${e.risk.entryLow}–${e.risk.entryHigh}\`, stop \`${e.risk.stop}\`, target 1 \`${e.risk.target1}\`, target 2 \`${e.risk.target2}\``,
     `- **Position:** ${e.risk.positionSize} units, max loss \`${e.risk.maxDollarLoss}\`, target 1 reward \`${e.risk.rewardRisk1}R\``,
   ];

@@ -68,7 +68,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     target: "setups",
     title: "Actionable setups",
-    body: "Tokens where the signal engine currently sees a trade — long or short — ranked by confidence. Click one to open its full analysis. When this is empty, the engine says wait: sitting out is a position too.",
+    body: "Tokens where the signal engine currently sees a trade — long or short — ranked by signal strength. Click one to open its full analysis. When this is empty, the engine says wait: sitting out is a position too.",
   },
   {
     target: "overview",
