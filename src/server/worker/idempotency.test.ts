@@ -88,7 +88,6 @@ async function cleanup(): Promise<void> {
 afterEach(cleanup);
 afterAll(async () => {
   await cleanup();
-  await sql.end();
 });
 
 describe("worker restart idempotency (WS4)", () => {

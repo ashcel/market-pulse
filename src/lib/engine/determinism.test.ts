@@ -54,11 +54,10 @@ describe("evaluateSymbol is a pure function of its input (no hidden clock)", () 
   it("is unaffected by the real wall clock — only `nowMs` matters", () => {
     const input = baseInput();
 
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date(Date.UTC(2020, 0, 1)));
+    vi.useFakeTimers({ now: new Date(Date.UTC(2020, 0, 1)), shouldAdvanceTime: false });
     const early = evaluateSymbol(structuredClone(input));
 
-    vi.setSystemTime(new Date(Date.UTC(2030, 0, 1)));
+    vi.useFakeTimers({ now: new Date(Date.UTC(2030, 0, 1)), shouldAdvanceTime: false });
     const late = evaluateSymbol(structuredClone(input));
 
     expect(late).toEqual(early);
@@ -144,10 +143,9 @@ describe("settlement functions are pure over (signal, closedBars)", () => {
   });
 
   it("settleShadowSignal ignores the real wall clock", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date(Date.UTC(2020, 0, 1)));
+    vi.useFakeTimers({ now: new Date(Date.UTC(2020, 0, 1)), shouldAdvanceTime: false });
     const early = settleShadowSignal(structuredClone(shadowSignal), structuredClone(shadowBars));
-    vi.setSystemTime(new Date(Date.UTC(2030, 0, 1)));
+    vi.useFakeTimers({ now: new Date(Date.UTC(2030, 0, 1)), shouldAdvanceTime: false });
     const late = settleShadowSignal(structuredClone(shadowSignal), structuredClone(shadowBars));
     vi.useRealTimers();
     expect(late).toEqual(early);

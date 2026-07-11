@@ -85,7 +85,6 @@ afterEach(async () => {
 
 afterAll(async () => {
   await cleanup();
-  await sql.end();
 });
 
 describe("dedup correctness — shadow_active_uniq", () => {
