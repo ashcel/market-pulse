@@ -165,7 +165,13 @@ export const Route = createFileRoute("/token/$symbol")({
   loader: async ({ params }) => {
     const symbol = normalizeTicker(params.symbol);
     if (UNIVERSE.some((u) => u.ticker === symbol)) return;
-    if ((await checkTradableTicker({ data: symbol })) === "invalid") throw notFound();
+    // Check both spot and perp — the user may switch to perp mode in the UI.
+    // If the ticker is valid on either market, don't 404.
+    const [spot, perp] = await Promise.all([
+      checkTradableTicker({ data: { ticker: symbol, market: "spot" } }),
+      checkTradableTicker({ data: { ticker: symbol, market: "perp" } }),
+    ]);
+    if (spot === "invalid" && perp === "invalid") throw notFound();
   },
   notFoundComponent: TokenNotFound,
   component: TokenDetailPage,

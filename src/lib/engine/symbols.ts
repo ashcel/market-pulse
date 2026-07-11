@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
-import { normalizeTicker } from "./symbol-map";
+import type { MarketType } from "./binance";
+import { normalizeTicker, resolveExchangeSymbol } from "./symbol-map";
 
 interface ExchangeInfoSymbol {
   status: string;
@@ -8,17 +9,23 @@ interface ExchangeInfoSymbol {
   quoteAsset: string;
 }
 
-// Base assets of every TRADING Binance USDT spot pair. Cached server-side;
-// the listing set changes rarely, and stale data is served if a refresh fails.
-let cache: { tickers: string[]; fetchedAt: number } | null = null;
+// Base assets of every TRADING Binance USDT pair, per market type. Cached
+// server-side; the listing set changes rarely, and stale data is served if a
+// refresh fails. Spot and futures have independent caches because the listed
+// bases differ (e.g. PEPE on spot vs 1000PEPE on perp).
+interface TickerCache {
+  spot: { tickers: string[]; fetchedAt: number } | null;
+  perp: { tickers: string[]; fetchedAt: number } | null;
+}
+const cache: TickerCache = { spot: null, perp: null };
 const CACHE_TTL_MS = 60 * 60_000;
 
-async function loadTradableTickers(): Promise<string[] | null> {
-  if (cache && Date.now() - cache.fetchedAt < CACHE_TTL_MS) return cache.tickers;
+async function loadSpotTickers(): Promise<string[] | null> {
+  if (cache.spot && Date.now() - cache.spot.fetchedAt < CACHE_TTL_MS) return cache.spot.tickers;
 
   try {
     const response = await fetch("https://api.binance.com/api/v3/exchangeInfo");
-    if (!response.ok) return cache?.tickers ?? null;
+    if (!response.ok) return cache.spot?.tickers ?? null;
     const payload = (await response.json()) as { symbols?: ExchangeInfoSymbol[] };
     const tickers = [
       ...new Set(
@@ -27,29 +34,64 @@ async function loadTradableTickers(): Promise<string[] | null> {
           .map((s) => s.baseAsset),
       ),
     ].sort();
-    if (tickers.length === 0) return cache?.tickers ?? null;
-    cache = { tickers, fetchedAt: Date.now() };
+    if (tickers.length === 0) return cache.spot?.tickers ?? null;
+    cache.spot = { tickers, fetchedAt: Date.now() };
     return tickers;
   } catch {
-    return cache?.tickers ?? null;
+    return cache.spot?.tickers ?? null;
+  }
+}
+
+async function loadPerpTickers(): Promise<string[] | null> {
+  if (cache.perp && Date.now() - cache.perp.fetchedAt < CACHE_TTL_MS) return cache.perp.tickers;
+
+  try {
+    const response = await fetch("https://fapi.binance.com/fapi/v1/exchangeInfo");
+    if (!response.ok) return cache.perp?.tickers ?? null;
+    const payload = (await response.json()) as { symbols?: ExchangeInfoSymbol[] };
+    const tickers = [
+      ...new Set(
+        (payload.symbols ?? [])
+          .filter((s) => s.status === "TRADING" && s.quoteAsset === "USDT")
+          .map((s) => s.baseAsset),
+      ),
+    ].sort();
+    if (tickers.length === 0) return cache.perp?.tickers ?? null;
+    cache.perp = { tickers, fetchedAt: Date.now() };
+    return tickers;
+  } catch {
+    return cache.perp?.tickers ?? null;
   }
 }
 
 /** All tradable USDT spot base tickers, or null when Binance is unreachable. */
-export const fetchTradableTickers = createServerFn({ method: "GET" }).handler(loadTradableTickers);
+export const fetchTradableTickers = createServerFn({ method: "GET" }).handler(loadSpotTickers);
 
 export type TickerCheck = "valid" | "invalid" | "unknown";
 
 /**
- * Whether `${ticker}USDT` is a live Binance USDT spot pair.
+ * Whether `${ticker}USDT` is a live Binance USDT pair on the given market.
+ * Spot checks the spot exchangeInfo; perp checks the futures exchangeInfo and
+ * resolves the base-asset override (e.g. PEPE → 1000PEPE on futures).
  * "unknown" means the directory could not be fetched, so the caller should not 404.
  */
 export const checkTradableTicker = createServerFn({ method: "GET" })
-  .validator((ticker: string): string => (typeof ticker === "string" ? ticker : ""))
+  .validator((input: { ticker: string; market?: MarketType }): { ticker: string; market?: MarketType } =>
+    typeof input === "object" && input !== null ? input : { ticker: "" },
+  )
   .handler(async ({ data }): Promise<TickerCheck> => {
-    const ticker = normalizeTicker(data);
+    const ticker = normalizeTicker(data.ticker);
     if (!ticker) return "invalid";
-    const tickers = await loadTradableTickers();
+    const market: MarketType = data.market ?? "spot";
+    const tickers = market === "perp" ? await loadPerpTickers() : await loadSpotTickers();
     if (!tickers) return "unknown";
+    // On perp, the listed base may be a scaled alias (PEPE → 1000PEPE).
+    // resolveExchangeSymbol returns the exchange-facing base, so the check
+    // works against the actual futures listing.
+    if (market === "perp") {
+      const resolved = resolveExchangeSymbol(ticker, "perp");
+      const baseSymbol = resolved.symbol.replace(/USDT$/, "");
+      return tickers.includes(baseSymbol) ? "valid" : "invalid";
+    }
     return tickers.includes(ticker) ? "valid" : "invalid";
   });
