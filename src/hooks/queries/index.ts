@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { fetchMacroSnapshot } from "@/lib/engine/macro";
 import { fetchMarketSnapshot, type MarketSnapshot } from "@/lib/engine/market";
 import { fetchNews } from "@/lib/engine/news";
-import { fetchTradableTickers } from "@/lib/engine/symbols";
+import { fetchAllTradableTickers, fetchTradableTickers } from "@/lib/engine/symbols";
 import { usePreferencesStore } from "@/stores/preferences";
 import { tickKey, useLivePriceStore } from "@/stores/live-prices";
 import type { Asset } from "@/lib/types";
@@ -75,12 +75,12 @@ export const useVolatility = () => useMarketSnapshot((s) => s.volatility);
 export const useSignals = (ticker = "BTC") =>
   useMarketSnapshot((s) => s.assetSignals[ticker.toUpperCase()] ?? s.assetSignals.BTC);
 
-// Every tradable Binance USDT base ticker (or null while offline), for search
-// autocomplete. The listing set changes rarely, so it refreshes hourly at most.
+// Every tradable Binance USDT base ticker (spot + perp, for search
+// autocomplete of perp-only pairs like LAB).
 export const useBinanceTickers = (enabled = true) =>
   useQuery({
     queryKey: ["binance-tickers"],
-    queryFn: () => fetchTradableTickers(),
+    queryFn: () => fetchAllTradableTickers(),
     staleTime: 60 * 60_000,
     gcTime: 60 * 60_000,
     enabled,

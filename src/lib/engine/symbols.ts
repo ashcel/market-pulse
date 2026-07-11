@@ -67,6 +67,19 @@ async function loadPerpTickers(): Promise<string[] | null> {
 /** All tradable USDT spot base tickers, or null when Binance is unreachable. */
 export const fetchTradableTickers = createServerFn({ method: "GET" }).handler(loadSpotTickers);
 
+/**
+ * All tradable USDT base tickers across both spot *and* perp markets, merged
+ * and deduplicated. Used by the search autocomplete so perp-only pairs like
+ * LAB show up when the user types them.
+ */
+export const fetchAllTradableTickers = createServerFn({ method: "GET" }).handler(async () => {
+  const [spot, perp] = await Promise.all([loadSpotTickers(), loadPerpTickers()]);
+  const set = new Set<string>();
+  if (spot) for (const t of spot) set.add(t);
+  if (perp) for (const t of perp) set.add(t);
+  return set.size > 0 ? [...set].sort() : null;
+});
+
 export type TickerCheck = "valid" | "invalid" | "unknown";
 
 /**
