@@ -6,9 +6,10 @@ import type { RssItemRaw } from "./news";
  * per-token events a holder needs to know about: unlocks, security incidents,
  * regulatory actions, exchange listings/delistings, protocol upgrades.
  * Framework-free and pure; the worker ingests, Postgres stores, the event
- * watcher notifies. Matching runs over the full WORKER_UNIVERSE (50 tokens),
- * not just the dashboard's 18 — relevance filtering happens at notification
- * time, never here.
+ * watcher notifies. Matching runs over the full WORKER_UNIVERSE (50 tokens)
+ * by name or ticker, plus — via `extraTickers` — the whole Binance tradable
+ * directory ticker-only, so discovery-layer tokens get event coverage too.
+ * Relevance filtering happens at notification time, never here.
  */
 
 export type TokenEventKind =
@@ -94,11 +95,55 @@ const MATCHERS: AssetMatcher[] = WORKER_UNIVERSE.map((entry) => ({
   nameRe: new RegExp(`\\b${escapeRe(entry.name)}\\b`, "i"),
 }));
 
-/** Tickers whose token this text is about (name or ticker mention, ≤4 to cap broad roundups). */
-export function detectEventAssets(text: string): string[] {
+const UNIVERSE_TICKERS = new Set(WORKER_UNIVERSE.map((u) => u.ticker));
+
+/**
+ * Real Binance bases that are also everyday crypto-news vocabulary in
+ * uppercase — matching them ticker-only would tag nearly every article.
+ * (Universe tokens are unaffected: they also match by full name.)
+ */
+const EXTRA_TICKER_STOPLIST = new Set(["AI", "NFT", "ID", "DAO", "MEME", "ACT", "NOT", "WHY"]);
+
+// The directory has ~600 bases and the pass runs every few minutes — compile
+// each ticker's pattern once, not once per article.
+const extraTickerReCache = new Map<string, RegExp>();
+
+function extraTickerRe(ticker: string): RegExp {
+  let re = extraTickerReCache.get(ticker);
+  if (!re) {
+    re = new RegExp(`\\b${escapeRe(ticker)}\\b`);
+    extraTickerReCache.set(ticker, re);
+  }
+  return re;
+}
+
+/**
+ * Directory tickers (out-of-universe) match on the EXACT uppercase ticker
+ * only, regardless of length: we have no display names for them, and
+ * case-insensitive matching over 600 bases would false-positive on common
+ * words (SAND, MASK, BOND...). Crypto headlines write tickers uppercase, so
+ * this catches the mentions that matter. 1-char bases (T, W...) are skipped —
+ * a bare capital letter is noise, not a mention.
+ */
+function isMatchableExtra(ticker: string): boolean {
+  return ticker.length >= 2 && !UNIVERSE_TICKERS.has(ticker) && !EXTRA_TICKER_STOPLIST.has(ticker);
+}
+
+/**
+ * Tickers whose token this text is about (≤4 to cap broad roundups). Universe
+ * tokens match by name or ticker; `extraTickers` (e.g. the full Binance
+ * tradable directory) match ticker-only, uppercase-exact.
+ */
+export function detectEventAssets(text: string, extraTickers: readonly string[] = []): string[] {
   const found: string[] = [];
   for (const m of MATCHERS) {
     if (m.tickerRe.test(text) || m.nameRe.test(text)) found.push(m.ticker);
+    if (found.length >= 4) return found;
+  }
+  for (const raw of extraTickers) {
+    const ticker = raw.toUpperCase();
+    if (!isMatchableExtra(ticker)) continue;
+    if (extraTickerRe(ticker).test(text)) found.push(ticker);
     if (found.length >= 4) break;
   }
   return found;
@@ -119,18 +164,21 @@ function hash(s: string): string {
  * one kind (first matching rule) across up to 4 matched assets; items with no
  * asset match or no kind match produce nothing — event alerts must be
  * token-specific, so there is deliberately no "Crypto"-wide fallback.
+ * `extraTickers` widens asset detection beyond the worker universe (see
+ * detectEventAssets) so discovery-layer tokens accumulate event history too.
  */
 export function classifyTokenEvents(
   items: RssItemRaw[],
   source: string,
   now = Date.now(),
+  extraTickers: readonly string[] = [],
 ): TokenEventInput[] {
   const events: TokenEventInput[] = [];
   for (const item of items) {
     const text = `${item.headline} ${item.description}`;
     const rule = KIND_RULES.find((r) => r.pattern.test(text));
     if (!rule) continue;
-    const assets = detectEventAssets(text);
+    const assets = detectEventAssets(text, extraTickers);
     if (assets.length === 0) continue;
 
     const articleKey = item.guid ?? item.url ?? hash(item.headline);

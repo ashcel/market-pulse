@@ -68,6 +68,18 @@ async function loadPerpTickers(): Promise<string[] | null> {
 export const fetchTradableTickers = createServerFn({ method: "GET" }).handler(loadSpotTickers);
 
 /**
+ * Plain (non-serverFn) spot ∪ perp directory for server-side callers like the
+ * worker's event pass, which runs outside a request context.
+ */
+export async function loadAllTradableTickersDirect(): Promise<string[]> {
+  const [spot, perp] = await Promise.all([loadSpotTickers(), loadPerpTickers()]);
+  const set = new Set<string>();
+  if (spot) for (const t of spot) set.add(t);
+  if (perp) for (const t of perp) set.add(t);
+  return [...set].sort();
+}
+
+/**
  * All tradable USDT base tickers across both spot *and* perp markets, merged
  * and deduplicated. Used by the search autocomplete so perp-only pairs like
  * LAB show up when the user types them.

@@ -35,6 +35,35 @@ describe("detectEventAssets", () => {
     expect(detectEventAssets("Celestia unlock schedule published")).toContain("TIA");
     expect(detectEventAssets("Arbitrum DAO vote passes")).toContain("ARB");
   });
+
+  it("matches out-of-universe directory tickers, uppercase-exact only", () => {
+    const directory = ["DEXE", "SXT", "SAND", "T"];
+    expect(detectEventAssets("DEXE announces vesting cliff", directory)).toContain("DEXE");
+    // Lowercase/prose forms of directory tickers never match — no names to
+    // disambiguate with, so exact uppercase is the contract.
+    expect(detectEventAssets("children play in the sand by the beach", directory)).toEqual([]);
+    expect(detectEventAssets("dexe protocol update", directory)).toEqual([]);
+    // 1-char bases are never matched — a bare capital letter is noise.
+    expect(detectEventAssets("Model T production halted", directory)).toEqual([]);
+  });
+
+  it("stoplists uppercase acronyms that double as Binance bases", () => {
+    const directory = ["AI", "NFT", "ID", "DEXE"];
+    expect(detectEventAssets("AI tokens rally as NFT volumes slide", directory)).toEqual([]);
+  });
+
+  it("universe tokens keep priority and results stay capped at 4", () => {
+    const directory = ["DEXE", "SXT", "OPN", "UTK"];
+    const text = "SOL ETH ARB TIA DEXE SXT all unlock simultaneously";
+    const found = detectEventAssets(text, directory);
+    expect(found).toHaveLength(4);
+    expect(found).toEqual(expect.arrayContaining(["SOL", "ETH", "ARB", "TIA"]));
+  });
+
+  it("does not double-report universe tickers passed in the directory", () => {
+    // The live directory contains SOL etc. too — extras must skip them.
+    expect(detectEventAssets("SOL validators pause network", ["SOL"])).toEqual(["SOL"]);
+  });
 });
 
 describe("classifyTokenEvents", () => {
@@ -73,6 +102,17 @@ describe("classifyTokenEvents", () => {
     expect(a.dedupKey).toBe(b.dedupKey);
     const other = classifyTokenEvents([item("ETH unlock looms")], "other-src")[0];
     expect(other.dedupKey).not.toBe(a.dedupKey);
+  });
+
+  it("produces typed events for out-of-universe tokens via the directory", () => {
+    const events = classifyTokenEvents(
+      [item("DEXE team wallet unlock scheduled for next month")],
+      "cointelegraph",
+      Date.now(),
+      ["DEXE", "SXT"],
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ symbol: "DEXE", kind: "unlock", severity: "warning" });
   });
 
   it("classifies straight from parsed RSS XML end to end", () => {

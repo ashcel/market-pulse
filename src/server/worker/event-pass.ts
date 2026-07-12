@@ -1,4 +1,5 @@
 import { parseRssItems } from "@/lib/engine/news";
+import { loadAllTradableTickersDirect } from "@/lib/engine/symbols";
 import { classifyTokenEvents } from "@/lib/engine/token-events";
 import { insertTokenEvents } from "../db/repo";
 
@@ -28,6 +29,10 @@ const FETCH_TIMEOUT_MS = 10_000;
 export async function runEventPass(): Promise<{ fetched: number; inserted: number }> {
   let fetched = 0;
   let inserted = 0;
+  // Full Binance directory (cached ~1h upstream) widens asset detection to
+  // out-of-universe tokens; an unreachable directory just narrows matching
+  // back to the universe for this pass.
+  const directory = await loadAllTradableTickersDirect();
   for (const source of SOURCES) {
     try {
       const res = await fetch(source.url, {
@@ -36,7 +41,12 @@ export async function runEventPass(): Promise<{ fetched: number; inserted: numbe
         redirect: "follow",
       });
       if (!res.ok) throw new Error(`${res.status}`);
-      const events = classifyTokenEvents(parseRssItems(await res.text()), source.name);
+      const events = classifyTokenEvents(
+        parseRssItems(await res.text()),
+        source.name,
+        Date.now(),
+        directory,
+      );
       fetched += events.length;
       inserted += await insertTokenEvents(events);
     } catch (err) {
