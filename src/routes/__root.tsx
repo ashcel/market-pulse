@@ -133,14 +133,13 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-function RootComponent() {
-  const { queryClient } = Route.useRouteContext();
+function RootContent() {
   useNotificationStream();
   useTriggerAlerts();
   useLiveUniverseSubscription();
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <>
       <ThemeSync />
       <Toaster position="top-right" />
       <div className="flex min-h-screen w-full bg-background">
@@ -153,6 +152,16 @@ function RootComponent() {
         </div>
         <BottomNav />
       </div>
+    </>
+  );
+}
+
+function RootComponent() {
+  const { queryClient } = Route.useRouteContext();
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <RootContent />
     </QueryClientProvider>
   );
 }
