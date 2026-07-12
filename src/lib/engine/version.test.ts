@@ -62,7 +62,7 @@ describe("shadowComboStats engine segmentation", () => {
     intent: "swing",
     direction: "long",
     setupType: "lower-high-rejection",
-    regime: "uptrend",
+    regime: "trending-up",
     timeframe: "4H",
     entry: 100,
     stop: 95,
