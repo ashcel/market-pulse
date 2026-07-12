@@ -211,6 +211,14 @@ export async function listOpenAnticipatory(): Promise<AnticipatorySignal[]> {
   return rows.map((r) => rowToAnticipatory(r as Record<string, unknown>));
 }
 
+/** Full anticipatory record for one engine version — the record report's read. */
+export async function loadAnticipatorySignals(engineVersion?: string): Promise<AnticipatorySignal[]> {
+  const rows = engineVersion
+    ? await sql`select * from anticipatory_signal where engine_version = ${engineVersion}`
+    : await sql`select * from anticipatory_signal`;
+  return rows.map((r) => rowToAnticipatory(r as Record<string, unknown>));
+}
+
 export async function patchAnticipatory(
   id: string,
   patch: Partial<AnticipatorySignal>,
