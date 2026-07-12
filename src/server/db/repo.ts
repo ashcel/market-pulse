@@ -212,7 +212,9 @@ export async function listOpenAnticipatory(): Promise<AnticipatorySignal[]> {
 }
 
 /** Full anticipatory record for one engine version — the record report's read. */
-export async function loadAnticipatorySignals(engineVersion?: string): Promise<AnticipatorySignal[]> {
+export async function loadAnticipatorySignals(
+  engineVersion?: string,
+): Promise<AnticipatorySignal[]> {
   const rows = engineVersion
     ? await sql`select * from anticipatory_signal where engine_version = ${engineVersion}`
     : await sql`select * from anticipatory_signal`;

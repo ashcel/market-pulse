@@ -128,8 +128,13 @@ describe("record boundary: demotion vs what gets recorded (P2.2)", () => {
     const clean = applyRecordAdjustment(favoredAssessment(), []);
 
     const holdDemoted = Object.values(
-      reconcileHolds({ symbol: "BTC", market: "spot", entries: [demoted], holds: {}, nowMs: NOW_MS })
-        .updates,
+      reconcileHolds({
+        symbol: "BTC",
+        market: "spot",
+        entries: [demoted],
+        holds: {},
+        nowMs: NOW_MS,
+      }).updates,
     )[0];
     const holdClean = Object.values(
       reconcileHolds({ symbol: "BTC", market: "spot", entries: [clean], holds: {}, nowMs: NOW_MS })

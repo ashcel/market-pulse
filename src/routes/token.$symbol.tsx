@@ -72,6 +72,7 @@ import { ZonesPrimitive, type PriceZone } from "@/components/iq/chart-zones";
 import { ConfidenceGauge } from "@/components/iq/confidence-gauge";
 import { IqCard, CardEyebrow } from "@/components/iq/iq-card";
 import { MiniChart } from "@/components/iq/mini-chart";
+import { StructureAlignmentCard } from "@/components/iq/structure-alignment-card";
 import {
   HelpButton,
   ProductTour,
@@ -358,6 +359,15 @@ function TokenDetailPage() {
   );
   const activeAssessment = assessments.find((a) => a.intent === tradingIntent) ?? null;
   const marketOutlook = useMemo(() => describeMarketOutlook(evalsByTimeframe), [evalsByTimeframe]);
+  // Per-timeframe market structure for the alignment ladder — a projection of
+  // the same alignment payload, display-only.
+  const structuresByTimeframe = useMemo(() => {
+    const out: Partial<Record<TokenTimeframe, MarketStructure>> = {};
+    for (const [tf, ev] of Object.entries(evalsByTimeframe)) {
+      out[tf as TokenTimeframe] = ev.structure;
+    }
+    return out;
+  }, [evalsByTimeframe]);
   const data = signal.data;
   const live = useLivePrice(symbol, data?.source === "live", marketType);
   // The forming candle Binance computes for this exact timeframe, straight
@@ -570,6 +580,7 @@ function TokenDetailPage() {
               active={activeAssessment}
               activeIntent={tradingIntent}
               marketOutlook={marketOutlook}
+              structuresByTimeframe={structuresByTimeframe}
               perp={perp}
               sessionLevels={sessionLevels}
               price={lastClose}
@@ -1876,6 +1887,7 @@ function AssistantPanel({
   active,
   activeIntent,
   marketOutlook,
+  structuresByTimeframe,
   perp,
   sessionLevels,
   price,
@@ -1891,6 +1903,7 @@ function AssistantPanel({
   active: DisplayIntentAssessment | null;
   activeIntent: TradingIntent;
   marketOutlook: string;
+  structuresByTimeframe: Partial<Record<TokenTimeframe, MarketStructure>>;
   perp: PerpRead | null;
   sessionLevels: SessionLevel[];
   price: number;
@@ -2384,6 +2397,12 @@ function AssistantPanel({
                   />
                 </div>
               </div>
+
+              <StructureAlignmentCard
+                structures={structuresByTimeframe}
+                contextTimeframe={active.definition.contextTimeframe}
+                executionTimeframe={active.definition.executionTimeframe}
+              />
 
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5">
