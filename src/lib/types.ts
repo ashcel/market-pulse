@@ -26,6 +26,11 @@ export interface Asset {
   quoteVolume24h?: number;
   decision?: string;
   setupType?: string;
+  /** Relative strength vs BTC: this asset's % change minus BTC's, 24h / 7d. */
+  rsBtc24h?: number;
+  rsBtc7d?: number;
+  /** Pearson correlation of hourly returns vs BTC over ≤7d; null when history is too thin. */
+  corrBtc7d?: number | null;
 }
 
 export interface MarketRegimeData {

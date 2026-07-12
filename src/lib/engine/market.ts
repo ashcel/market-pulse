@@ -12,6 +12,7 @@ import type {
 } from "../types";
 import { computePivots } from "./analysis";
 import { dropUnclosedCandle, fetchBinanceKlinesDirect, type MarketType } from "./binance";
+import { computeRelativeRead } from "./relative";
 import { CRYPTO_RISK_SETTINGS } from "./crypto-config";
 import { generateMockCandles } from "./mock-candles";
 import { classifyRegime, evaluateSignal } from "./quant";
@@ -541,12 +542,18 @@ function buildSnapshot(
   source: "live" | "demo",
   fearGreed: number | null,
 ): MarketSnapshot {
+  const seriesFor = (ticker: string): Candle[] => {
+    const candles = hourly.get(ticker);
+    return candles && candles.length >= 48 ? candles : generateMockCandles(ticker, "1H");
+  };
+  const btcHourly = seriesFor("BTC");
   const scored = UNIVERSE.map((entry) => {
-    const candles = hourly.get(entry.ticker);
-    return scoreAsset(
-      entry,
-      candles && candles.length >= 48 ? candles : generateMockCandles(entry.ticker, "1H"),
-    );
+    const candles = seriesFor(entry.ticker);
+    const s = scoreAsset(entry, candles);
+    // Relative strength + correlation vs BTC — display-only fields computed
+    // from the exact series the asset was scored on (relative.ts).
+    Object.assign(s.asset, computeRelativeRead(candles, btcHourly));
+    return s;
   });
 
   const { regime, breadth, avgMomentum } = buildRegime(btcDaily, scored);

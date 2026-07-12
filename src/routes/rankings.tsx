@@ -39,7 +39,8 @@ export const Route = createFileRoute("/rankings")({
 });
 
 type Filter = string;
-type SortKey = "score" | "momentum" | "strength" | "volume" | "technical" | "confidence" | "change";
+type SortKey =
+  "score" | "momentum" | "strength" | "volume" | "technical" | "confidence" | "change" | "rs";
 
 const FILTERS: { label: string; value: Filter }[] = [
   { label: "All", value: "all" },
@@ -58,7 +59,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     target: "table",
     title: "The rankings table",
-    body: "Every asset scored 0–100 on momentum, strength, volume, and technical quality, plus the engine's current setup call. Click a column header to sort by it (click again to flip the order), click a row to open that token's full analysis, and use the star at the end of a row to add it to your Favorites.",
+    body: "Every asset scored 0–100 on momentum, strength, volume, and technical quality, plus the engine's current setup call. RS/BTC shows who is actually beating Bitcoin over 7 days (with ρ, the correlation of its hourly moves to BTC's, underneath). Click a column header to sort by it (click again to flip the order), click a row to open that token's full analysis, and use the star at the end of a row to add it to your Favorites.",
   },
 ];
 
@@ -164,6 +165,15 @@ function RankingsPage() {
                   <Th
                     align="right"
                     sortable
+                    active={sortKey === "rs"}
+                    dir={sortDir}
+                    onClick={() => cycleSort("rs")}
+                  >
+                    RS/BTC 7d
+                  </Th>
+                  <Th
+                    align="right"
+                    sortable
                     active={sortKey === "momentum"}
                     dir={sortDir}
                     onClick={() => cycleSort("momentum")}
@@ -258,6 +268,11 @@ function RankingsPage() {
                           <Change value={a.change24h} />
                         </Link>
                       </td>
+                      <td className="text-right">
+                        <Link {...tokenLink} className="block py-3 pr-2 leading-tight">
+                          <RelativeStrengthCell asset={a} />
+                        </Link>
+                      </td>
                       <td className="text-right num">
                         <Link {...tokenLink} className="block py-3 pr-2">
                           {a.momentum}
@@ -324,7 +339,35 @@ function RankingsPage() {
 
 function sortVal(a: Asset, k: SortKey) {
   if (k === "change") return a.change24h;
+  if (k === "rs") return a.rsBtc7d ?? 0;
   return (a[k] as number | undefined) ?? 0;
+}
+
+/**
+ * Relative strength vs BTC (7d % change spread) with the hourly-returns
+ * correlation to BTC beneath it. BTC itself is everyone's baseline: 0.0 / 1.00.
+ */
+function RelativeStrengthCell({ asset }: { asset: Asset }) {
+  if (asset.rsBtc7d === undefined) return <span className="text-xs text-muted-foreground">—</span>;
+  const rs = asset.rsBtc7d;
+  return (
+    <div>
+      <div
+        className={cn(
+          "num text-sm font-semibold",
+          rs > 0 ? "text-bullish" : rs < 0 ? "text-bearish" : "text-muted-foreground",
+        )}
+      >
+        {rs > 0 ? "+" : ""}
+        {rs.toFixed(1)}%
+      </div>
+      <div className="text-[10px] text-muted-foreground">
+        {asset.corrBtc7d !== null && asset.corrBtc7d !== undefined
+          ? `ρ ${asset.corrBtc7d.toFixed(2)}`
+          : "ρ —"}
+      </div>
+    </div>
+  );
 }
 
 function DecisionChip({ decision }: { decision?: string }) {
