@@ -25,3 +25,9 @@ services:
 
 volumes:
   market_pulse_pgdata:
+    # Pin the exact volume name. Without this, each compose flavor prefixes its
+    # own project name (docker-compose v1 vs docker compose v2 differ), and a
+    # recreate can silently attach a FRESH volume — which is precisely how the
+    # forward-test record got orphaned on 2026-07-12. The record lives here;
+    # never let the volume name float.
+    name: market_pulse_pgdata

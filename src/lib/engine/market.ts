@@ -48,6 +48,54 @@ export const UNIVERSE: UniverseEntry[] = [
 
 export const SECTOR_ORDER = ["Majors", "Layer 1", "DeFi", "AI", "Meme"];
 
+/**
+ * Worker-only sampling extension (P2.1, EDR 0011). The forward-test worker
+ * evaluates `WORKER_UNIVERSE` = dashboard `UNIVERSE` + these, roughly tripling
+ * evidence throughput; the dashboard/rotation product surface stays on the
+ * curated 18. Sampling-frame change only — per-symbol decision semantics are
+ * untouched, so no ENGINE_VERSION bump; `engine_run.universe_json` records the
+ * evaluated set per pass and every record carries its symbol, keeping cohorts
+ * separable. Every ticker verified TRADING on BOTH Binance spot and USDS-M
+ * futures on 2026-07-12 (futures 1000x renames handled by symbol-map.ts).
+ */
+export const WORKER_UNIVERSE_EXTENSION: UniverseEntry[] = [
+  { ticker: "LTC", name: "Litecoin", sector: "Layer 1" },
+  { ticker: "BCH", name: "Bitcoin Cash", sector: "Layer 1" },
+  { ticker: "ETC", name: "Ethereum Classic", sector: "Layer 1" },
+  { ticker: "DOT", name: "Polkadot", sector: "Layer 1" },
+  { ticker: "ATOM", name: "Cosmos", sector: "Layer 1" },
+  { ticker: "FIL", name: "Filecoin", sector: "Layer 1" },
+  { ticker: "APT", name: "Aptos", sector: "Layer 1" },
+  { ticker: "ARB", name: "Arbitrum", sector: "Layer 1" },
+  { ticker: "OP", name: "Optimism", sector: "Layer 1" },
+  { ticker: "TRX", name: "TRON", sector: "Layer 1" },
+  { ticker: "XLM", name: "Stellar", sector: "Layer 1" },
+  { ticker: "HBAR", name: "Hedera", sector: "Layer 1" },
+  { ticker: "ICP", name: "Internet Computer", sector: "Layer 1" },
+  { ticker: "TIA", name: "Celestia", sector: "Layer 1" },
+  { ticker: "SEI", name: "Sei", sector: "Layer 1" },
+  { ticker: "ALGO", name: "Algorand", sector: "Layer 1" },
+  { ticker: "STX", name: "Stacks", sector: "Layer 1" },
+  { ticker: "INJ", name: "Injective", sector: "DeFi" },
+  { ticker: "LDO", name: "Lido DAO", sector: "DeFi" },
+  { ticker: "CRV", name: "Curve", sector: "DeFi" },
+  { ticker: "RUNE", name: "THORChain", sector: "DeFi" },
+  { ticker: "ENA", name: "Ethena", sector: "DeFi" },
+  { ticker: "ONDO", name: "Ondo", sector: "DeFi" },
+  { ticker: "JUP", name: "Jupiter", sector: "DeFi" },
+  { ticker: "ETHFI", name: "Ether.fi", sector: "DeFi" },
+  { ticker: "GRT", name: "The Graph", sector: "AI" },
+  { ticker: "WLD", name: "Worldcoin", sector: "AI" },
+  { ticker: "AR", name: "Arweave", sector: "AI" },
+  { ticker: "SHIB", name: "Shiba Inu", sector: "Meme" },
+  { ticker: "BONK", name: "Bonk", sector: "Meme" },
+  { ticker: "IMX", name: "Immutable", sector: "Gaming" },
+  { ticker: "ZEC", name: "Zcash", sector: "Privacy" },
+];
+
+/** The set the forward-test worker actually evaluates. Superset of UNIVERSE. */
+export const WORKER_UNIVERSE: UniverseEntry[] = [...UNIVERSE, ...WORKER_UNIVERSE_EXTENSION];
+
 export function tradingViewSymbol(ticker: string): string {
   return `BINANCE:${ticker.toUpperCase()}USDT`;
 }

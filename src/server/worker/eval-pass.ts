@@ -1,6 +1,6 @@
 import { computeAlignment } from "@/lib/engine/alignment";
 import { evaluateSymbol } from "@/lib/engine/evaluate";
-import { UNIVERSE } from "@/lib/engine/market";
+import { WORKER_UNIVERSE } from "@/lib/engine/market";
 import { fetchPerpContextDirect } from "@/lib/engine/perp";
 import { fetchSessionLevels } from "@/lib/engine/sessions";
 import { shadowComboStats } from "@/lib/engine/shadow";
@@ -84,7 +84,7 @@ export async function runEvalPass(
   let shadowOpened = 0;
   let anticipatoryOpened = 0;
 
-  for (const asset of UNIVERSE) {
+  for (const asset of WORKER_UNIVERSE) {
     const symbol = asset.ticker;
     try {
       const assembled = await assembleEvaluateInputs(symbol, market);

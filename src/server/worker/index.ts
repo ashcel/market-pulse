@@ -2,7 +2,7 @@ import { sql } from "../db/client";
 import { countOpenRecords, finishEngineRun, startEngineRun } from "../db/repo";
 import { runEvalPass } from "./eval-pass";
 import { runSettlePass } from "./settle-pass";
-import { UNIVERSE } from "@/lib/engine/market";
+import { WORKER_UNIVERSE } from "@/lib/engine/market";
 import { currentProvenance } from "@/lib/engine/version";
 
 /**
@@ -22,7 +22,7 @@ const INTERVAL_MS = Number(process.env.WORKER_INTERVAL_MS ?? 5 * 60_000);
 export async function runOnce(): Promise<void> {
   const prov = currentProvenance();
   const runId = await startEngineRun(prov, {
-    symbols: UNIVERSE.map((u) => u.ticker),
+    symbols: WORKER_UNIVERSE.map((u) => u.ticker),
     markets: ["spot", "perp"],
   });
   const startedAt = Date.now();

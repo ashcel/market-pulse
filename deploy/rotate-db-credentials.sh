@@ -53,7 +53,8 @@ EOF
 echo "step6: systemd drop-in installed"
 
 # 7. Recreate the DB container → loopback-only binding takes effect.
-(cd "$REPO" && sudo docker compose up -d)
+(cd "$REPO" && sudo docker-compose up -d)
+echo "step7: DB container recreated"
 
 # 8. Restart consumers.
 sudo systemctl daemon-reload
