@@ -7,10 +7,14 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: hermes3369
+      # Only applied on first init of the data volume. Set POSTGRES_PASSWORD in
+      # an untracked .env next to this file (see .env.example); rotate an
+      # existing volume's password with ALTER USER, not here.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: market_pulse
     ports:
-      - "5435:5432"
+      # Loopback only — the record must never be reachable from the internet.
+      - "127.0.0.1:5435:5432"
     volumes:
       - market_pulse_pgdata:/var/lib/postgresql/data
     healthcheck:

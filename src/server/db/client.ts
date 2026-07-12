@@ -9,6 +9,9 @@ import postgres from "postgres";
  * (docker-compose.yml) next to the systemd units. Connection comes from
  * DATABASE_URL, defaulting to the local dev container on :5435.
  */
+// TODO(rotation): once deploy/rotate-db-credentials.sh has run on the VPS
+// (DATABASE_URL then comes from /etc/market-pulse.env), change this fallback
+// to postgres:postgres — it only exists so prod keeps working pre-rotation.
 const connectionString =
   process.env.DATABASE_URL ?? "postgres://postgres:hermes3369@localhost:5435/market_pulse";
 
