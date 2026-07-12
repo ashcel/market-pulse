@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { Trash2, TrendingDown, TrendingUp } from "lucide-react";
 
 import { AssetIcon } from "@/components/iq/asset-icon";
@@ -9,8 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useForwardTestRecord } from "@/hooks/useForwardTestRecord";
 import { useLivePrice } from "@/hooks/useLivePrice";
+import { useTrackedFollows, useUnfollowSignal } from "@/hooks/useTrackedFollows";
 import { INTENTS } from "@/lib/engine/intent";
 import {
+  evaluateTrackedSignal,
   isTerminalStatus,
   summarizeTrackedSignals,
   type TrackedSignal,
@@ -18,7 +20,6 @@ import {
 } from "@/lib/engine/tracker";
 import { MIN_SHADOW_RECORD_TRADES } from "@/lib/engine/shadow";
 import { formatEntryRange, formatMoney } from "@/lib/format";
-import { useTrackedSignalsStore } from "@/stores/tracked-signals";
 import { cn } from "@/lib/utils";
 
 function humanize(value: string): string {
@@ -71,7 +72,7 @@ const FILTERS: { label: string; value: Filter }[] = [
 const INTENT_LABEL = new Map(INTENTS.map((def) => [def.intent, def.label]));
 
 function TrackerPage() {
-  const signals = useTrackedSignalsStore((s) => s.signals);
+  const { follows: signals, authenticated } = useTrackedFollows();
   const [filter, setFilter] = useState<Filter>("all");
   const summary = summarizeTrackedSignals(signals);
 
@@ -133,7 +134,20 @@ function TrackerPage() {
         ))}
       </div>
 
-      {filtered.length === 0 ? (
+      {!authenticated && signals.length === 0 ? (
+        <IqCard className="space-y-2 text-center text-sm text-muted-foreground">
+          <p>
+            Follows live in your server record now — they settle against real candles even with
+            every browser closed.
+          </p>
+          <p>
+            <Link to="/login" className="font-medium text-info underline-offset-2 hover:underline">
+              Sign in
+            </Link>{" "}
+            to see and follow signals.
+          </p>
+        </IqCard>
+      ) : filtered.length === 0 ? (
         <IqCard className="text-center text-sm text-muted-foreground">
           {signals.length === 0
             ? "Nothing tracked yet — follow a signal from a token's Execution Plan to start forward-testing it here."
@@ -294,15 +308,20 @@ function StatTile({
   );
 }
 
-function TrackedSignalRow({ signal }: { signal: TrackedSignal }) {
-  const applyPriceUpdate = useTrackedSignalsStore((s) => s.applyPriceUpdate);
-  const remove = useTrackedSignalsStore((s) => s.remove);
-  const terminal = isTerminalStatus(signal.status);
-  const live = useLivePrice(signal.symbol, !terminal, signal.market ?? "spot");
+function TrackedSignalRow({ signal: serverSignal }: { signal: TrackedSignal }) {
+  const unfollow = useUnfollowSignal();
+  const serverTerminal = isTerminalStatus(serverSignal.status);
+  const live = useLivePrice(serverSignal.symbol, !serverTerminal, serverSignal.market ?? "spot");
 
-  useEffect(() => {
-    if (live?.price) applyPriceUpdate(signal.id, live.price);
-  }, [live?.price, signal.id, applyPriceUpdate]);
+  // Display-only: a live tick through a level shows the exit immediately, but
+  // the record itself is settled by the worker against real candle highs/lows
+  // — the provisional read is never written anywhere.
+  const provisional =
+    !serverTerminal && live?.price
+      ? evaluateTrackedSignal(serverSignal, live.price, new Date().toISOString())
+      : null;
+  const signal = provisional ? { ...serverSignal, ...provisional } : serverSignal;
+  const terminal = isTerminalStatus(signal.status);
 
   const long = signal.direction === "long";
   const currentPrice = live?.price ?? signal.closePrice ?? signal.entryPrice;
@@ -340,6 +359,7 @@ function TrackedSignalRow({ signal }: { signal: TrackedSignal }) {
 
       <Badge variant="outline" className={cn("shrink-0", STATUS_TONE[signal.status])}>
         {STATUS_LABEL[signal.status]}
+        {provisional ? " · settling" : ""}
       </Badge>
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
@@ -373,7 +393,8 @@ function TrackedSignalRow({ signal }: { signal: TrackedSignal }) {
         variant="ghost"
         size="icon"
         className="ml-auto shrink-0 text-muted-foreground hover:text-bearish"
-        onClick={() => remove(signal.id)}
+        onClick={() => unfollow.mutate(signal.id)}
+        disabled={unfollow.isPending}
         aria-label={`Remove ${signal.symbol} from tracker`}
       >
         <Trash2 className="h-4 w-4" />

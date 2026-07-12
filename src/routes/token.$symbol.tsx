@@ -138,7 +138,7 @@ import type { MarketStructure } from "@/lib/engine/structure";
 import { formatEntryRange, formatMoney, formatUnits } from "@/lib/format";
 import { computeLeverageMetrics, MAX_LEVERAGE, MIN_LEVERAGE } from "@/lib/leverage";
 import { usePreferencesStore, type ChartIndicatorKey } from "@/stores/preferences";
-import { useTrackedSignalsStore } from "@/stores/tracked-signals";
+import { NotSignedInError, useFollowSignal, useTrackedFollows } from "@/hooks/useTrackedFollows";
 import { useAiSettingsStore } from "@/stores/ai-settings";
 import { resolveAiConfig } from "@/lib/ai/providers";
 import { runAiAnalyst, type AiMessage } from "@/lib/ai/client";
@@ -1905,8 +1905,16 @@ function AssistantPanel({
 }) {
   const byIntent = new Map(assessments.map((a) => [a.intent, a]));
   const router = useRouter();
-  const follow = useTrackedSignalsStore((s) => s.follow);
-  const hasOpenSignal = useTrackedSignalsStore((s) => s.hasOpenSignal);
+  const followSignal = useFollowSignal();
+  const { follows } = useTrackedFollows();
+  const hasOpenSignal = (sym: string, intent: TradingIntent, direction: string) =>
+    follows.some(
+      (s) =>
+        s.symbol === sym &&
+        s.intent === intent &&
+        s.direction === direction &&
+        s.status === "active",
+    );
   const marketType = usePreferencesStore((s) => s.marketType);
   const leverage = usePreferencesStore((s) => s.leverage);
   const setLeverage = usePreferencesStore((s) => s.setLeverage);
@@ -1919,7 +1927,7 @@ function AssistantPanel({
     setFollowDialogOpen(true);
   };
 
-  const confirmFollow = () => {
+  const confirmFollow = async () => {
     if (!active?.plan || active.direction === "none") return;
     // Safety re-check: the setup may have invalidated while the dialog was open.
     if (setupValidity && !setupValidity.valid) {
@@ -1932,21 +1940,32 @@ function AssistantPanel({
       toast.error("Enter a valid entry price.");
       return;
     }
-    follow({
-      symbol,
-      intent: active.intent,
-      direction: active.direction,
-      setupType: active.execution.setupType,
-      timeframe: active.definition.executionTimeframe,
-      market: marketType,
-      entryLow: active.plan.entryLow,
-      entryHigh: active.plan.entryHigh,
-      entryPrice,
-      stop: active.plan.stop,
-      target1: active.plan.target1,
-      target2: active.plan.target2,
-      confidenceAtFollow: active.confidence,
-    });
+    try {
+      await followSignal.mutateAsync({
+        symbol,
+        intent: active.intent,
+        direction: active.direction,
+        setupType: active.execution.setupType,
+        timeframe: active.definition.executionTimeframe,
+        market: marketType,
+        entryLow: active.plan.entryLow,
+        entryHigh: active.plan.entryHigh,
+        entryPrice,
+        stop: active.plan.stop,
+        target1: active.plan.target1,
+        target2: active.plan.target2,
+        confidenceAtFollow: active.confidence,
+      });
+    } catch (error) {
+      if (error instanceof NotSignedInError) {
+        toast.error("Sign in to follow signals — follows live in your server record now.", {
+          action: { label: "Sign in", onClick: () => router.navigate({ to: "/login" }) },
+        });
+      } else {
+        toast.error("Couldn't save the follow — check your connection and try again.");
+      }
+      return;
+    }
     setFollowDialogOpen(false);
     toast(`Now tracking ${symbol}`, {
       description: `${active.definition.label} ${active.direction} signal added to the tracker at ${formatMoney(entryPrice)}.`,

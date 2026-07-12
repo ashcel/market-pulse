@@ -1,65 +1,36 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import { evaluateTrackedSignal, type TrackedSignal } from "@/lib/engine/tracker";
-import { currentProvenance } from "@/lib/engine/version";
+import type { TrackedSignal } from "@/lib/engine/tracker";
 
-export type FollowInput = Omit<TrackedSignal, "id" | "followedAt" | "status">;
-
+/**
+ * Offline/instant-paint cache of the user's followed signals (P1.1). The
+ * system of record is Postgres — follows are POSTed to `/api/forward-test`
+ * and settled by the worker; `useTrackedFollows` mirrors the last server
+ * payload here so the tracker page can paint before the query resolves.
+ *
+ * This store never mutates records on its own anymore: no local follow(),
+ * price updates, or settlement — those pretended an authority the browser
+ * no longer has.
+ */
 interface TrackedSignalsState {
   signals: TrackedSignal[];
-  follow: (input: FollowInput) => void;
-  applyPriceUpdate: (id: string, latestPrice: number) => void;
-  /** Merges a kline-based settlement patch (see settleTrackedSignalWithCandles). */
-  applySettlement: (id: string, patch: Partial<TrackedSignal>) => void;
-  remove: (id: string) => void;
-  hasOpenSignal: (
-    symbol: string,
-    intent: TrackedSignal["intent"],
-    direction: TrackedSignal["direction"],
-  ) => boolean;
+  /** Replace the cache with the server's list (called by useTrackedFollows). */
+  setAll: (signals: TrackedSignal[]) => void;
 }
 
 export const useTrackedSignalsStore = create<TrackedSignalsState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       signals: [],
-      follow: (input) =>
-        set((s) => ({
-          signals: [
-            {
-              ...input,
-              id: crypto.randomUUID(),
-              followedAt: new Date().toISOString(),
-              status: "active",
-              ...currentProvenance(),
-            },
-            ...s.signals,
-          ],
-        })),
-      applyPriceUpdate: (id, latestPrice) => {
-        const signal = get().signals.find((s) => s.id === id);
-        if (!signal) return;
-        const patch = evaluateTrackedSignal(signal, latestPrice, new Date().toISOString());
-        if (!patch) return;
-        set((s) => ({
-          signals: s.signals.map((item) => (item.id === id ? { ...item, ...patch } : item)),
-        }));
-      },
-      applySettlement: (id, patch) =>
-        set((s) => ({
-          signals: s.signals.map((item) => (item.id === id ? { ...item, ...patch } : item)),
-        })),
-      remove: (id) => set((s) => ({ signals: s.signals.filter((item) => item.id !== id) })),
-      hasOpenSignal: (symbol, intent, direction) =>
-        get().signals.some(
-          (s) =>
-            s.symbol === symbol &&
-            s.intent === intent &&
-            s.direction === direction &&
-            s.status === "active",
-        ),
+      setAll: (signals) => set({ signals }),
     }),
-    { name: "iq-tracked-signals" },
+    {
+      name: "iq-tracked-signals",
+      // v1: server-owned follows. The unversioned v0 records were local-only
+      // (they never reached the backend and lost their settlement path at the
+      // WS5 cutover) — discard rather than merge them back in as if real.
+      version: 1,
+    },
   ),
 );

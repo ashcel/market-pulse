@@ -317,6 +317,18 @@ export async function listOpenTracked(): Promise<TrackedSignal[]> {
   return rows.map((r) => rowToTracked(r as Record<string, unknown>));
 }
 
+/**
+ * Owner-scoped removal (the tracker page's trash action). Scoping the delete
+ * to `owner_id` in the same statement means a user can only ever remove their
+ * own follows — a foreign id is a silent no-op, reported via the count.
+ */
+export async function deleteTrackedByOwner(ownerId: string, id: string): Promise<boolean> {
+  const result = await sql`
+    delete from tracked_signal where id = ${id} and owner_id = ${ownerId}
+  `;
+  return result.count > 0;
+}
+
 export async function listTrackedByOwner(ownerId: string): Promise<TrackedSignal[]> {
   const rows = await sql`
     select * from tracked_signal where owner_id = ${ownerId} order by followed_at desc

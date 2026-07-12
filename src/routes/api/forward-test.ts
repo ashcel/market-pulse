@@ -1,7 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { isResponse, requireAuth } from "@/server/auth/session";
-import { followTracked, listTrackedByOwner, type FollowInput } from "@/server/db/repo";
+import {
+  deleteTrackedByOwner,
+  followTracked,
+  listTrackedByOwner,
+  type FollowInput,
+} from "@/server/db/repo";
 import { forwardTestStats, healthSnapshot, recentRuns } from "@/server/forward-test/service";
 
 /**
@@ -13,11 +18,12 @@ import { forwardTestStats, healthSnapshot, recentRuns } from "@/server/forward-t
  * record every tester evaluates); `follows` and `POST` are scoped to the
  * session user.
  *
- *   GET  ?view=stats   (default) → global shadow record stats for this engine
- *        ?view=runs             → recent scheduled evaluation passes
- *        ?view=health           → last run age/status + open-record counts (no auth)
- *        ?view=follows          → the current user's tracked signals
- *   POST                        → follow a call (owned by the session user)
+ *   GET    ?view=stats   (default) → global shadow record stats for this engine
+ *          ?view=runs             → recent scheduled evaluation passes
+ *          ?view=health           → last run age/status + open-record counts (no auth)
+ *          ?view=follows          → the current user's tracked signals
+ *   POST                          → follow a call (owned by the session user)
+ *   DELETE ?id=<uuid>             → remove one of the user's own follows
  */
 export const Route = createFileRoute("/api/forward-test")({
   server: {
@@ -45,6 +51,16 @@ export const Route = createFileRoute("/api/forward-test")({
         }
         const id = await followTracked(auth.user.id, auth.sessionToken, input);
         return Response.json({ id });
+      },
+      DELETE: async ({ request }) => {
+        const auth = await requireAuth(request);
+        if (isResponse(auth)) return auth;
+
+        const id = new URL(request.url).searchParams.get("id");
+        if (!id) return Response.json({ error: "missing id" }, { status: 400 });
+        const removed = await deleteTrackedByOwner(auth.user.id, id);
+        if (!removed) return Response.json({ error: "not found" }, { status: 404 });
+        return Response.json({ ok: true });
       },
     },
   },
