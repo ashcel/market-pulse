@@ -66,10 +66,11 @@ export function NotificationBell() {
                 className={cn(
                   "text-sm font-medium",
                   event.type === "setup-found" && "text-bullish",
-                  event.type === "trigger-hit" && "text-info",
+                  (event.type === "trigger-hit" || event.type === "follow-settled") && "text-info",
                   event.type === "worker-health" && "text-warning",
                   event.type !== "setup-found" &&
                     event.type !== "trigger-hit" &&
+                    event.type !== "follow-settled" &&
                     event.type !== "worker-health" &&
                     "text-foreground",
                 )}

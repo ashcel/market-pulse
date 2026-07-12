@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 
 import type { NotificationEvent } from "@/lib/engine/notifications";
@@ -10,9 +11,9 @@ function isAllowed(
   event: NotificationEvent,
   prefs: { regime: boolean; rotation: boolean; highQualitySetup: boolean },
 ): boolean {
-  // Worker-health is an ops alert about the forward-test record itself —
-  // always surfaced, independent of market-notification preferences.
-  if (event.type === "worker-health") return true;
+  // Worker-health (ops alert) and follow-settled (the user's own trade
+  // closing) are always surfaced, independent of market-notification prefs.
+  if (event.type === "worker-health" || event.type === "follow-settled") return true;
   return event.type === "setup-found" ? prefs.highQualitySetup : prefs.regime || prefs.rotation;
 }
 
@@ -20,6 +21,7 @@ function isAllowed(
  * browser Notifications (when granted and the tab is hidden) or in-app toasts otherwise. */
 export function useNotificationStream() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const add = useNotificationsStore((s) => s.add);
   const notifPrefs = usePreferencesStore((s) => s.notifications);
   const prefsRef = useRef(notifPrefs);
@@ -43,8 +45,16 @@ export function useNotificationStream() {
       const isLive = event.createdAt > connectedAt;
       if (!isLive || !isAllowed(event, prefsRef.current)) return;
 
+      if (event.type === "follow-settled") {
+        // The user's own record changed — refresh the tracker's list now
+        // instead of waiting out the refetch interval.
+        queryClient.invalidateQueries({ queryKey: ["forward-test-follows"] });
+      }
+
       presentNotification(event, () => {
-        if (event.type === "worker-health") return router.navigate({ to: "/tracker" });
+        if (event.type === "worker-health" || event.type === "follow-settled") {
+          return router.navigate({ to: "/tracker" });
+        }
         return event.ticker
           ? router.navigate({ to: "/token/$symbol", params: { symbol: event.ticker } })
           : router.navigate({ to: "/regime" });
@@ -54,9 +64,10 @@ export function useNotificationStream() {
     source.addEventListener("bias-summary", handle);
     source.addEventListener("setup-found", handle);
     source.addEventListener("worker-health", handle);
+    source.addEventListener("follow-settled", handle);
 
     return () => {
       source.close();
     };
-  }, [add, router]);
+  }, [add, router, queryClient]);
 }

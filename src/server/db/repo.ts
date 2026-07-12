@@ -336,6 +336,25 @@ export async function listTrackedByOwner(ownerId: string): Promise<TrackedSignal
   return rows.map((r) => rowToTracked(r as Record<string, unknown>));
 }
 
+/** A settled follow together with who owns it — the follow-watch's read model. */
+export interface SettledTrackedRow {
+  signal: TrackedSignal;
+  ownerId: string;
+}
+
+/** Follows settled after `sinceIso`, oldest first (the notification watcher's poll). */
+export async function listSettledTrackedSince(sinceIso: string): Promise<SettledTrackedRow[]> {
+  const rows = await sql`
+    select * from tracked_signal
+    where closed_at is not null and closed_at > ${sinceIso}
+    order by closed_at asc
+  `;
+  return rows.map((r) => ({
+    signal: rowToTracked(r as Record<string, unknown>),
+    ownerId: (r as Record<string, unknown>).owner_id as string,
+  }));
+}
+
 export async function patchTracked(id: string, patch: Partial<TrackedSignal>): Promise<void> {
   await sql`
     update tracked_signal set

@@ -1,6 +1,11 @@
 import { fetchMarketSnapshot } from "./market";
 
-export type NotificationType = "bias-summary" | "setup-found" | "trigger-hit" | "worker-health";
+export type NotificationType =
+  | "bias-summary"
+  | "setup-found"
+  | "trigger-hit"
+  | "worker-health"
+  | "follow-settled";
 
 export interface NotificationEvent {
   id: string;
@@ -9,6 +14,8 @@ export interface NotificationEvent {
   body: string;
   ticker?: string;
   createdAt: string;
+  /** When set, the event is private: only streams to this user's sessions. */
+  ownerId?: string;
 }
 
 const POLL_MS = 60_000;
@@ -23,17 +30,29 @@ const HIGH_QUALITY_WIN_RATE = 30;
 // boundary during a volatile tape re-fires on every poll.
 const RENOTIFY_COOLDOWN_MS = 15 * 60_000;
 
-const subscribers = new Set<(event: NotificationEvent) => void>();
+interface Subscriber {
+  send: (event: NotificationEvent) => void;
+  /** Authenticated user behind this stream, if any — gates owner-scoped events. */
+  userId?: string;
+}
+
+const subscribers = new Set<Subscriber>();
 const recentEvents: NotificationEvent[] = [];
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let lastBiasDate: string | null = null;
 let lastRegimeLabel: string | null = null;
 const lastNotified = new Map<string, { decision: string; at: number }>();
 
+function visibleTo(event: NotificationEvent, userId?: string): boolean {
+  return event.ownerId === undefined || event.ownerId === userId;
+}
+
 function emit(event: NotificationEvent) {
   recentEvents.unshift(event);
   recentEvents.length = Math.min(recentEvents.length, RECENT_LIMIT);
-  for (const send of subscribers) send(event);
+  for (const sub of subscribers) {
+    if (visibleTo(event, sub.userId)) sub.send(event);
+  }
 }
 
 /**
@@ -127,13 +146,24 @@ function stopPollingIfIdle() {
   }
 }
 
-/** Subscribes to live notifications; replays recent buffered events immediately. Returns an unsubscribe fn. */
-export function subscribeToNotifications(send: (event: NotificationEvent) => void): () => void {
-  subscribers.add(send);
+/**
+ * Subscribes to live notifications; replays recent buffered events
+ * immediately. Owner-scoped events (`ownerId` set) are only delivered —
+ * live or replayed — to streams authenticated as that user. Returns an
+ * unsubscribe fn.
+ */
+export function subscribeToNotifications(
+  send: (event: NotificationEvent) => void,
+  userId?: string,
+): () => void {
+  const sub: Subscriber = { send, userId };
+  subscribers.add(sub);
   ensurePolling();
-  for (const event of [...recentEvents].reverse()) send(event);
+  for (const event of [...recentEvents].reverse()) {
+    if (visibleTo(event, userId)) send(event);
+  }
   return () => {
-    subscribers.delete(send);
+    subscribers.delete(sub);
     stopPollingIfIdle();
   };
 }
