@@ -15,9 +15,12 @@ const RELEVANT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
  *
  *   GET ?symbol=BTC          → recent events for one token (public — news-plane
  *                              data with no user content, like the news page)
+ *   GET ?symbols=BTC,SOL,... → last 7d of events for a batch of tokens (public,
+ *                              ≤16 symbols — the discovery scanner's badges)
  *   GET ?view=relevant       → last 7d of events across the caller's watchlist
  *                              + tokens they hold an active followed signal on
  */
+const BATCH_MAX_SYMBOLS = 16;
 export const Route = createFileRoute("/api/token-events")({
   server: {
     handlers: {
@@ -37,6 +40,20 @@ export const Route = createFileRoute("/api/token-events")({
               ...follows.filter((f) => f.status === "active").map((f) => f.symbol),
             ]),
           ];
+          const since = new Date(Date.now() - RELEVANT_WINDOW_MS).toISOString();
+          return Response.json(await listTokenEventsForSymbols(symbols, since));
+        }
+
+        const symbolsParam = url.searchParams.get("symbols");
+        if (symbolsParam !== null) {
+          const symbols = [
+            ...new Set(
+              symbolsParam
+                .split(",")
+                .map((s) => s.trim().toUpperCase())
+                .filter((s) => /^[A-Z0-9]{1,12}$/.test(s)),
+            ),
+          ].slice(0, BATCH_MAX_SYMBOLS);
           const since = new Date(Date.now() - RELEVANT_WINDOW_MS).toISOString();
           return Response.json(await listTokenEventsForSymbols(symbols, since));
         }

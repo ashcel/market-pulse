@@ -12,7 +12,7 @@ import type { TokenEventKind, TokenEventSeverity } from "@/lib/engine/token-even
  * Renders nothing when the token has no recent events.
  */
 
-const KIND_LABEL: Record<TokenEventKind, string> = {
+export const KIND_LABEL: Record<TokenEventKind, string> = {
   unlock: "Unlock",
   security: "Security",
   regulatory: "Regulatory",
@@ -21,7 +21,7 @@ const KIND_LABEL: Record<TokenEventKind, string> = {
   upgrade: "Upgrade",
 };
 
-const SEVERITY_TONE: Record<TokenEventSeverity, string> = {
+export const SEVERITY_TONE: Record<TokenEventSeverity, string> = {
   critical: "border-bearish/30 bg-bearish-soft text-bearish",
   warning: "border-warning/30 bg-warning-soft text-warning",
   info: "border-info/30 bg-info-soft text-info",

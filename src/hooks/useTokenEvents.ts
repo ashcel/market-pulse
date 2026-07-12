@@ -34,6 +34,28 @@ export function useTokenEvents(symbol: string) {
   });
 }
 
+/**
+ * Last-7d events for a batch of tokens in one request (≤16 symbols) — used by
+ * the homepage opportunity scanner for contextual badges. Returns a flat list;
+ * callers group by `symbol`.
+ */
+export function useTokenEventsForSymbols(symbols: string[]) {
+  const key = [...new Set(symbols.map((s) => s.toUpperCase()))].sort();
+  return useQuery<TokenEvent[]>({
+    queryKey: ["token-events", "batch", key.join(",")],
+    enabled: key.length > 0,
+    queryFn: async () => {
+      const res = await fetch(`/api/token-events?symbols=${encodeURIComponent(key.join(","))}`, {
+        credentials: "same-origin",
+      });
+      if (!res.ok) return [];
+      return (await res.json()) as TokenEvent[];
+    },
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+  });
+}
+
 const SYNC_DEBOUNCE_MS = 2_000;
 
 /**

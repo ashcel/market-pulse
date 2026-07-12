@@ -77,3 +77,6 @@ export function klineWeight(limit: number): number {
 
 /** GET /ticker/price weight (single symbol). */
 export const TICKER_PRICE_WEIGHT = 2;
+
+/** GET /ticker/24hr weight when `symbol` is omitted (the full-exchange array). */
+export const TICKER_24H_ALL_WEIGHT = 80;

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
+import { fetchOpportunityScan } from "@/lib/engine/discovery";
 import { fetchMacroSnapshot } from "@/lib/engine/macro";
 import { fetchMarketSnapshot, type MarketSnapshot } from "@/lib/engine/market";
 import { fetchNews } from "@/lib/engine/news";
@@ -84,6 +85,17 @@ export const useBinanceTickers = (enabled = true) =>
     staleTime: 60 * 60_000,
     gcTime: 60 * 60_000,
     enabled,
+  });
+
+// Full-exchange liquidity/volatility/activity discovery scan (spot 24h ticker,
+// cached ~2min server-side). Independent of the market snapshot on purpose:
+// it ranks pairs far beyond the curated UNIVERSE.
+export const useOpportunityScan = () =>
+  useQuery({
+    queryKey: ["opportunity-scan"],
+    queryFn: fetchOpportunityScan,
+    staleTime: 2 * 60_000,
+    refetchInterval: 5 * 60_000,
   });
 
 // Live crypto headlines (Cointelegraph RSS via server fn) with tagged
