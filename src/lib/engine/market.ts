@@ -277,9 +277,10 @@ function signalsFor(scored: ScoredAsset): AssetSignals {
   return {
     signals,
     confidence: e.confidence,
-    backtest: e.backtest.totalTrades > 0
-      ? { winRate: e.backtest.winRate, lowSample: e.backtest.lowSample }
-      : undefined,
+    backtest:
+      e.backtest.totalTrades > 0
+        ? { winRate: e.backtest.winRate, lowSample: e.backtest.lowSample }
+        : undefined,
   };
 }
 

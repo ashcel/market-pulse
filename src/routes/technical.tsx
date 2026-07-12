@@ -104,7 +104,10 @@ function TechnicalPage() {
         </div>
 
         {signalsData ? (
-          <IqCard data-tour="signal-strength" className="flex flex-col items-center gap-4 text-center">
+          <IqCard
+            data-tour="signal-strength"
+            className="flex flex-col items-center gap-4 text-center"
+          >
             <CardEyebrow>Signal Strength</CardEyebrow>
             <ConfidenceGauge value={signalsData.confidence} size={200} label="Overall" />
             <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2">
@@ -115,8 +118,8 @@ function TechnicalPage() {
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              How strongly the engine's evidence points in one direction — not the probability
-              the trade wins. Composite of trend, structure, volume, and risk on live 1H bars.
+              How strongly the engine's evidence points in one direction — not the probability the
+              trade wins. Composite of trend, structure, volume, and risk on live 1H bars.
             </p>
           </IqCard>
         ) : (

@@ -2267,9 +2267,12 @@ function AssistantPanel({
                     {setupValidity && !setupValidity.valid ? (
                       <div className="flex w-full items-center gap-1.5 rounded-md border border-warning/30 bg-warning-soft px-2.5 py-2 text-xs text-warning">
                         <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
-                        <span>{setupValidity.reason ?? "Setup no longer valid at current price."}</span>
+                        <span>
+                          {setupValidity.reason ?? "Setup no longer valid at current price."}
+                        </span>
                       </div>
-                    ) : (active.verdict === "favored" || active.verdict === "caution") &&
+                    ) : (
+                      (active.verdict === "favored" || active.verdict === "caution") &&
                       active.direction !== "none" &&
                       (hasOpenSignal(symbol, active.intent, active.direction) ? (
                         <Button
@@ -2291,7 +2294,8 @@ function AssistantPanel({
                           <Bookmark className="h-3.5 w-3.5" />
                           Follow this signal
                         </Button>
-                      ))}
+                      ))
+                    )}
                   </>
                 ) : (
                   <p className="rounded-lg border border-border bg-surface p-2.5 text-xs leading-relaxed text-muted-foreground">

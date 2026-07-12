@@ -89,8 +89,9 @@ export type TickerCheck = "valid" | "invalid" | "unknown";
  * "unknown" means the directory could not be fetched, so the caller should not 404.
  */
 export const checkTradableTicker = createServerFn({ method: "GET" })
-  .validator((input: { ticker: string; market?: MarketType }): { ticker: string; market?: MarketType } =>
-    typeof input === "object" && input !== null ? input : { ticker: "" },
+  .validator(
+    (input: { ticker: string; market?: MarketType }): { ticker: string; market?: MarketType } =>
+      typeof input === "object" && input !== null ? input : { ticker: "" },
   )
   .handler(async ({ data }): Promise<TickerCheck> => {
     const ticker = normalizeTicker(data.ticker);

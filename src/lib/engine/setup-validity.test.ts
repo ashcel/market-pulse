@@ -196,21 +196,24 @@ describe("validateSetupFreshness", () => {
   });
 
   it("returns valid when plan stop is NaN", () => {
-    expect(
-      validateSetupFreshness({ ...LONG_PLAN, stop: NaN }, 100),
-    ).toEqual({ valid: true, severity: "valid" });
+    expect(validateSetupFreshness({ ...LONG_PLAN, stop: NaN }, 100)).toEqual({
+      valid: true,
+      severity: "valid",
+    });
   });
 
   it("returns valid when plan entry is Infinity", () => {
-    expect(
-      validateSetupFreshness({ ...LONG_PLAN, entry: Infinity }, 100),
-    ).toEqual({ valid: true, severity: "valid" });
+    expect(validateSetupFreshness({ ...LONG_PLAN, entry: Infinity }, 100)).toEqual({
+      valid: true,
+      severity: "valid",
+    });
   });
 
   it("returns valid when riskPerUnit is zero (degenerate plan)", () => {
-    expect(
-      validateSetupFreshness({ ...LONG_PLAN, entry: 100, stop: 100 }, 100),
-    ).toEqual({ valid: true, severity: "valid" });
+    expect(validateSetupFreshness({ ...LONG_PLAN, entry: 100, stop: 100 }, 100)).toEqual({
+      valid: true,
+      severity: "valid",
+    });
   });
 
   // ── Boundary: just inside / just outside ────────────────────────────────
