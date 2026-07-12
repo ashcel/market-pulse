@@ -13,7 +13,7 @@
       "type": "market",
       "price": 462.74,
       "approxTimeUtc": "2026-07-09T12:45:00Z",
-      "source": "chart position tool at 462.74; first 15m bar trading through that level on Jul 9"
+      "source": "chart position tool at 462.74; price crossed the level several times on Jul 9 (first at 00:45Z) — this bar is the first one consistent with the chart's entry-box timing (box opens ~21:00 UTC+7, screenshot 'at entry' ~15:00Z)"
     },
     "stop": {
       "price": 454.73,

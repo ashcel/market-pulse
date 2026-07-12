@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import { evaluateTrackedSignal, type TrackedSignal } from "@/lib/engine/tracker";
+import { currentProvenance } from "@/lib/engine/version";
 
 export type FollowInput = Omit<TrackedSignal, "id" | "followedAt" | "status">;
 
@@ -31,6 +32,7 @@ export const useTrackedSignalsStore = create<TrackedSignalsState>()(
               id: crypto.randomUUID(),
               followedAt: new Date().toISOString(),
               status: "active",
+              ...currentProvenance(),
             },
             ...s.signals,
           ],

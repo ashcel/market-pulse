@@ -10,10 +10,39 @@ Bun is the package manager (`bun.lock`, `bunfig.toml`).
 - `bun run build` — production build (Nitro, `node-server` preset)
 - `bun run lint` — ESLint
 - `bun run format` — Prettier (writes)
+- `bunx vitest run` — the test suite (canonical runner; CI uses `bun test`)
+- `bunx tsc --noEmit` — typecheck
+- `bun run db:migrate` / `db:seed-admin` / `db:invite` — Postgres schema + auth CLIs
+- `bun run worker` (`worker:once` for a single pass) — the forward-test eval+settle loop
 
-There is no test suite.
+DB-integration tests (`repo-invariants`, `idempotency`) need a reachable
+`DATABASE_URL` and self-skip without one.
 
 `bunfig.toml` enforces a 24h supply-chain guard: package versions published less than a day ago are skipped at install. Confirm with the user before adding any package to `minimumReleaseAgeExcludes`.
+
+## Deployment reality
+
+**The VPS this repo is developed on is production.** `market-pulse.service`
+(web, port 3002) and `market-pulse-worker.service` (forward-test worker) are
+live systemd units running out of this working directory; Postgres runs in
+docker (`market-pulse-db`, port 5435, see `docker-compose.yml`). A push to
+`main` triggers `.github/workflows/deploy.yml`, which pulls, rebuilds, runs
+migrations, and restarts both services **in this directory**. Never leave the
+tree broken or on an unmergeable branch. Daily `pg_dump` + a worker health
+probe run from `ubuntu`'s crontab (`deploy/` has the scripts).
+
+## Engine change discipline
+
+`src/lib/engine/version.ts` pins `ENGINE_VERSION` (currently the frozen
+`1.0.0` — the official forward-test clock). Every persisted forward-test
+record is provenance-stamped and all stats segment by engine version, so:
+
+- **Any change to decision or trigger semantics requires a version bump** and
+  restarts the evidence clock. Do not make casual engine edits.
+- Engine behavior changes go through **pre-registered spikes** (hypothesis,
+  frozen gates, then a verdict) — see `research/phase2-spike.md` /
+  `phase3-spike.md` for the pattern and `docs/decisions/` (EDRs) for the
+  decision log.
 
 ## Lovable integration
 
@@ -31,18 +60,33 @@ File-based routing lives in `src/routes/` — do not create `src/pages/` or Next
 
 ## Architecture
 
-Mobile-first crypto market-intelligence dashboard ("IQ"). There are **two live data paths**, both fed by Binance klines with a deterministic demo fallback (`mock-candles.ts`) through the same pipeline:
+Mobile-first crypto decision assistant. Three planes:
 
-1. **Market snapshot** — `src/lib/engine/market.ts` defines the tracked `UNIVERSE` (18 Binance USDT pairs bucketed into Majors/Layer 1/DeFi/AI/Meme sectors) and a server function that computes one `MarketSnapshot` from 1H klines (+ BTC 1D): per-asset quant scores and engine decisions, market regime + pillars + timeline, sector rotation, heatmap, volatility (BTC ATR%), and Fear & Greed sentiment (alternative.me, cached; computed fallback). It caches server-side (~45s). `src/hooks/queries/index.ts` exposes one `useMarketSnapshot` query (refetch interval from the preferences store) and all page hooks (`useAssets`, `useRegime`, `useRotation`, …) are selectors over it — every dashboard page (`index`, `markets`, `rankings`, `regime`, `rotation`, `technical`) reads from this single snapshot. News is still a curated sample in `src/lib/mock/news.ts`.
+### 1. Client dashboard (single market snapshot)
 
-2. **Token signal engine** — `src/lib/engine/` powers the token detail page (`token.$symbol.tsx`) via `src/hooks/useTokenSignal.ts`:
-   - `binance.ts` has three fetch tiers: `fetchBinanceKlinesDirect` (raw fetch to Binance klines, always appends `USDT`, returns `[]` on any failure), `fetchBinanceKlinesServer` (a `createServerFn` wrapper so the call runs server-side), and `fetchBinanceKlines` (the client-facing helper). `/api/klines` exposes the direct fetch as an HTTP endpoint.
-   - `useTokenSignal` fetches live candles, and if that returns empty, falls back to deterministic mock candles (`mock-candles.ts`) with `source: "demo"` — UI should surface live vs. demo.
-   - `analysis.ts` computes prominence-ranked pivots and support/resistance trend lines; `quant.ts` (`evaluateSignal`) is the scoring engine producing trade decisions, setup types, market regimes, and a per-token backtest summary; `crypto-config.ts` holds risk settings. `market.ts` reuses this same engine per universe asset.
+`src/lib/engine/market.ts` defines the tracked `UNIVERSE` (18 Binance USDT pairs bucketed into sectors) and a server function computing one `MarketSnapshot` from 1H klines (per-asset quant scores, regime, rotation, heatmap, volatility, Fear & Greed), cached ~45s server-side. `src/hooks/queries/index.ts` exposes `useMarketSnapshot`; every dashboard page (`index`, `markets`, `rankings`, `regime`, `rotation`, `technical`) is a selector over it. News (`news.ts`) is live Cointelegraph RSS with keyword sentiment (deterministic sample fallback). Live prices/klines overlay via Binance WS (`binance-live-feed.ts`, spot/perp dual-mode).
+
+### 2. Signal engine (token page + worker, one shared pipeline)
+
+`src/lib/engine/` is framework-free and shared verbatim by the browser and the server worker:
+
+- `binance.ts` (fetch tiers + `/api/klines`), `mock-candles.ts` (deterministic demo fallback, `source: "demo"` surfaced in UI).
+- `analysis.ts` (pivots, S/R), `structure.ts` (CHoCH/BOS market structure), `liquidity.ts` / `zones.ts` / `sessions.ts` / `strength.ts` / `equilibrium.ts` (SMC context), `quant.ts` (`evaluateSignal` scoring), `intent.ts` (per-objective assessments: scalp/intraday/swing — verdicts must always say not-yet / wrong-strategy / what-flips-it), `objectives.ts` + `poi.ts` (draw-on-liquidity + POI limit plans), `hysteresis.ts` (verdicts hold until their trigger breaks), `shadow.ts` / `anticipatory.ts` / `tracker.ts` (record building + pure settlement), `evaluate.ts` (`evaluateSymbol` — the one entry point the token page hook `useReconciledAssessments` and the worker both call).
+- Engine resolvers return **ranked candidate lists** (preferred = `[0]`), never a single collapsed winner.
+
+### 3. Server (system of record)
+
+`src/server/` — **server-only; never import from client code** (reached via API routes, server functions, and the worker; the client bundle must stay free of `postgres`):
+
+- `db/` — postgres.js client + hand-written SQL migrations + typed repo (`repo.ts` is the only SQL surface).
+- `worker/` — the autonomous eval+settle loop over the whole universe (sole writer of shadow/anticipatory records; browser is a read-only view via `/api/forward-test` and `useForwardTestRecord`). Spot-only today; hysteresis holds live server-side.
+- `auth/` — invite-only sessions (opaque httpOnly cookies, no passwords).
+- `forward-test/service.ts` — stats/health read models; `health-watch.ts` pushes worker-staleness alerts into the SSE notification stream (`/api/notifications`).
 
 Other structure:
 
-- `src/components/ui/` — shadcn/ui primitives (new-york style, configured in `components.json`); `src/components/iq/` — app-specific components (cards, charts, nav, TradingView widget).
-- `src/stores/` — zustand stores with `persist` middleware (preferences, watchlist, UI state).
-- Styling is Tailwind v4 via `src/styles.css` (CSS variables, dark-mode shell); charts use `lightweight-charts` and `recharts`.
-- Path alias: `@/` → `src/`.
+- `src/components/ui/` — shadcn/ui primitives; `src/components/iq/` — app components.
+- `src/stores/` — zustand `persist` stores; forward-test stores are offline caches, **not** systems of record.
+- `src/lib/ai/` — BYOK AI analyst (OpenRouter/OpenAI/Anthropic/custom); keys stay in the browser, calls go direct to the provider.
+- Styling is Tailwind v4 via `src/styles.css`; charts use `lightweight-charts` and `recharts`. Path alias: `@/` → `src/`.
+- This stack cannot upgrade HTTP connections: **no WebSocket server endpoints** — use SSE for server push.

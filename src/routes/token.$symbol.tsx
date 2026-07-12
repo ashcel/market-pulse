@@ -63,6 +63,9 @@ import { toast } from "sonner";
 
 import { Link } from "@tanstack/react-router";
 
+import { AnticipatoryReadCard } from "@/components/iq/anticipatory-read-card";
+import { summarizeAnticipatoryRecord } from "@/lib/engine/anticipatory";
+import { useAnticipatorySignalsStore } from "@/stores/anticipatory-signals";
 import { AssetIcon } from "@/components/iq/asset-icon";
 import { Change } from "@/components/iq/change";
 import { ZonesPrimitive, type PriceZone } from "@/components/iq/chart-zones";
@@ -122,6 +125,7 @@ import { checkTradableTicker } from "@/lib/engine/symbols";
 import { TOKEN_TIMEFRAMES } from "@/lib/engine/mock-candles";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
 import { computeBaseZones, SD_ZONE_TIMEFRAMES, type BaseZone } from "@/lib/engine/zones";
+import { validateSetupFreshness, type SetupValidityResult } from "@/lib/engine/setup-validity";
 import { currentSweep, gradeRisk } from "@/lib/engine/quant";
 import type {
   MarketRegime,
@@ -161,7 +165,13 @@ export const Route = createFileRoute("/token/$symbol")({
   loader: async ({ params }) => {
     const symbol = normalizeTicker(params.symbol);
     if (UNIVERSE.some((u) => u.ticker === symbol)) return;
-    if ((await checkTradableTicker({ data: symbol })) === "invalid") throw notFound();
+    // Check both spot and perp — the user may switch to perp mode in the UI.
+    // If the ticker is valid on either market, don't 404.
+    const [spot, perp] = await Promise.all([
+      checkTradableTicker({ data: { ticker: symbol, market: "spot" } }),
+      checkTradableTicker({ data: { ticker: symbol, market: "perp" } }),
+    ]);
+    if (spot === "invalid" && perp === "invalid") throw notFound();
   },
   notFoundComponent: TokenNotFound,
   component: TokenDetailPage,
@@ -362,6 +372,24 @@ function TokenDetailPage() {
   // failed — so it's a strictly better fallback than the raw candle close,
   // which reintroduces the per-timeframe staleness this is meant to avoid.
   const lastClose = live?.price ?? data?.evaluation?.risk?.entry ?? 0;
+  // Setup validity: suppress stale/invalidated plans from the chart and Follow
+  // button when live price has already touched the stop or moved so far past
+  // the entry zone that R:R is negative. The engine core grades from closed
+  // bars; this is the live-price gate the UI layer owns.
+  const setupValidity: SetupValidityResult | null = activeAssessment?.plan
+    ? validateSetupFreshness(
+        {
+          direction: activeAssessment.direction === "long" ? "long" : "short",
+          entry: activeAssessment.plan.entry,
+          entryLow: activeAssessment.plan.entryLow,
+          entryHigh: activeAssessment.plan.entryHigh,
+          stop: activeAssessment.plan.stop,
+          target1: activeAssessment.plan.target1,
+          target2: activeAssessment.plan.target2,
+        },
+        lastClose,
+      )
+    : null;
   const change24h = live?.change24h ?? (data ? computeChange24h(data.candles) : 0);
   const name = UNIVERSE.find((u) => u.ticker === symbol)?.name ?? symbol;
   const stats = useMemo(() => (data ? compute24hStats(data.candles) : null), [data]);
@@ -518,8 +546,9 @@ function TokenDetailPage() {
                         plan={activeAssessment?.plan ?? null}
                         planTimeframe={activeAssessment?.definition.executionTimeframe ?? null}
                         planStrong={
-                          activeAssessment?.verdict === "favored" ||
-                          activeAssessment?.verdict === "caution"
+                          (activeAssessment?.verdict === "favored" ||
+                            activeAssessment?.verdict === "caution") &&
+                          setupValidity?.valid !== false
                         }
                       />
                     )}
@@ -544,6 +573,8 @@ function TokenDetailPage() {
               perp={perp}
               sessionLevels={sessionLevels}
               price={lastClose}
+              liveData={data.source === "live"}
+              setupValidity={setupValidity}
               onSelect={setTradingIntent}
               activeTab={activeTab}
               onTabChange={setActiveTab}
@@ -1848,6 +1879,8 @@ function AssistantPanel({
   perp,
   sessionLevels,
   price,
+  liveData,
+  setupValidity,
   onSelect,
   activeTab,
   onTabChange,
@@ -1861,6 +1894,10 @@ function AssistantPanel({
   perp: PerpRead | null;
   sessionLevels: SessionLevel[];
   price: number;
+  /** Whether the candles are real Binance data — the anticipatory read renders only on live data. */
+  liveData: boolean;
+  /** Whether the plan is still valid at the live price (null when no plan). */
+  setupValidity: SetupValidityResult | null;
   onSelect: (intent: TradingIntent) => void;
   activeTab: string;
   onTabChange: (tab: string) => void;
@@ -1884,6 +1921,12 @@ function AssistantPanel({
 
   const confirmFollow = () => {
     if (!active?.plan || active.direction === "none") return;
+    // Safety re-check: the setup may have invalidated while the dialog was open.
+    if (setupValidity && !setupValidity.valid) {
+      toast.error(setupValidity.reason ?? "This setup is no longer valid.");
+      setFollowDialogOpen(false);
+      return;
+    }
     const entryPrice = Number.parseFloat(entryPriceInput);
     if (!Number.isFinite(entryPrice) || entryPrice <= 0) {
       toast.error("Enter a valid entry price.");
@@ -2221,7 +2264,15 @@ function AssistantPanel({
                       </>
                     )}
                     <SizingNote multiplier={active.sizeMultiplier} />
-                    {(active.verdict === "favored" || active.verdict === "caution") &&
+                    {setupValidity && !setupValidity.valid ? (
+                      <div className="flex w-full items-center gap-1.5 rounded-md border border-warning/30 bg-warning-soft px-2.5 py-2 text-xs text-warning">
+                        <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
+                        <span>
+                          {setupValidity.reason ?? "Setup no longer valid at current price."}
+                        </span>
+                      </div>
+                    ) : (
+                      (active.verdict === "favored" || active.verdict === "caution") &&
                       active.direction !== "none" &&
                       (hasOpenSignal(symbol, active.intent, active.direction) ? (
                         <Button
@@ -2243,7 +2294,8 @@ function AssistantPanel({
                           <Bookmark className="h-3.5 w-3.5" />
                           Follow this signal
                         </Button>
-                      ))}
+                      ))
+                    )}
                   </>
                 ) : (
                   <p className="rounded-lg border border-border bg-surface p-2.5 text-xs leading-relaxed text-muted-foreground">
@@ -2251,6 +2303,13 @@ function AssistantPanel({
                   </p>
                 )}
               </div>
+
+              {liveData && active.anticipatoryPlan && (
+                <AnticipatoryReadCard
+                  plan={active.anticipatoryPlan}
+                  timeframe={active.definition.executionTimeframe}
+                />
+              )}
 
               {active.location && (
                 <LocationRow
@@ -2392,6 +2451,8 @@ function AssistantPanel({
                   </div>
                 </div>
               )}
+
+              <AnticipatoryRecordNote />
             </TabsContent>
           </div>
         </Tabs>
@@ -2488,6 +2549,36 @@ function HoldNote({ hold }: { hold: DisplayIntentAssessment["hold"] }) {
     );
   }
   return null;
+}
+
+/**
+ * Compact status line for the Phase 0.5 anticipatory fill-model record —
+ * global across symbols, measurement only, read by no verdict (EDR 0010).
+ * Hidden until at least one record has decided its fill, so the Evidence tab
+ * doesn't advertise an empty ledger.
+ */
+function AnticipatoryRecordNote() {
+  const signals = useAnticipatorySignalsStore((s) => s.signals);
+  const summary = summarizeAnticipatoryRecord(signals);
+  if (summary.filled + summary.neverFilled === 0) return null;
+  return (
+    <div className="flex items-start gap-2 rounded-lg border border-border bg-surface p-2.5 text-[11px] leading-relaxed text-muted-foreground">
+      <History className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <div>
+        <span className="text-[9px] font-semibold uppercase tracking-wider">
+          Anticipatory limit record (all symbols)
+        </span>
+        <p className="mt-0.5">
+          {summary.fillRate}% of resting limits filled ({summary.filled} of{" "}
+          {summary.filled + summary.neverFilled} decided
+          {summary.pending > 0 ? `, ${summary.pending} still resting` : ""}).
+          {summary.settled > 0
+            ? ` Filled positions: ${summary.winRate}% wins, ${summary.averageR >= 0 ? "+" : ""}${summary.averageR}R avg over ${summary.settled} settled${summary.lowSample ? " — small sample, treat as anecdote" : ""}.`
+            : " No filled position has settled yet."}
+        </p>
+      </div>
+    </div>
+  );
 }
 
 function SessionLevelsCard({ levels, price }: { levels: SessionLevel[]; price: number }) {
@@ -2758,7 +2849,7 @@ function ReadStrengthGauge({ assessment }: { assessment: DisplayIntentAssessment
       <span className="mt-0.5 flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">
         Read strength
         <InfoHint
-          text={`How strongly the engine's evidence points in one direction — not a 'take the trade' score. The verdict word is the action. ${meaning}`}
+          text={`How strongly the engine's evidence points in one direction — signal strength, not a win probability. The verdict word is the action. ${meaning}`}
         />
       </span>
     </div>
@@ -3496,7 +3587,7 @@ function deterministicFallback(req: {
       : []),
     `- **Setup:** ${e.setupType.replaceAll("-", " ")}`,
     `- **Regime:** ${e.regime.replaceAll("-", " ")}`,
-    `- **Confidence:** ${e.confidence}/100`,
+    `- **Signal strength:** ${e.confidence}/100`,
     `- **Risk plan:** entry zone \`${e.risk.entryLow}–${e.risk.entryHigh}\`, stop \`${e.risk.stop}\`, target 1 \`${e.risk.target1}\`, target 2 \`${e.risk.target2}\``,
     `- **Position:** ${e.risk.positionSize} units, max loss \`${e.risk.maxDollarLoss}\`, target 1 reward \`${e.risk.rewardRisk1}R\``,
   ];

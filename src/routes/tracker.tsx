@@ -7,6 +7,7 @@ import { IqCard, CardEyebrow } from "@/components/iq/iq-card";
 import { PageHeader } from "@/components/iq/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useForwardTestRecord } from "@/hooks/useForwardTestRecord";
 import { useLivePrice } from "@/hooks/useLivePrice";
 import { INTENTS } from "@/lib/engine/intent";
 import {
@@ -15,13 +16,8 @@ import {
   type TrackedSignal,
   type TrackedSignalStatus,
 } from "@/lib/engine/tracker";
-import {
-  MIN_SHADOW_RECORD_TRADES,
-  shadowComboStats,
-  summarizeShadowRecord,
-} from "@/lib/engine/shadow";
+import { MIN_SHADOW_RECORD_TRADES } from "@/lib/engine/shadow";
 import { formatEntryRange, formatMoney } from "@/lib/format";
-import { useShadowSignalsStore } from "@/stores/shadow-signals";
 import { useTrackedSignalsStore } from "@/stores/tracked-signals";
 import { cn } from "@/lib/utils";
 
@@ -155,9 +151,11 @@ function TrackerPage() {
 }
 
 function EngineRecord() {
-  const signals = useShadowSignalsStore((s) => s.signals);
-  const summary = summarizeShadowRecord(signals);
-  const combos = shadowComboStats(signals);
+  const { data: forwardTest } = useForwardTestRecord();
+  const summary = forwardTest?.shadow.summary;
+  const combos = forwardTest?.shadow.combos ?? [];
+
+  if (!summary) return null;
 
   return (
     <IqCard className="space-y-3">

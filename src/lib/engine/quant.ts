@@ -12,6 +12,8 @@ import {
   type LiquidityPool,
   type LiquiditySweep,
 } from "./liquidity";
+import { resolveObjectives, type ObjectiveCandidate } from "./objectives";
+import { buildAnticipatoryPlan, type AnticipatoryPlan } from "./poi";
 import { deriveSwingStrength, type SwingStrengthEntry } from "./strength";
 import {
   computeMarketStructure,
@@ -19,6 +21,7 @@ import {
   toAlternatingSwings,
   type MarketStructure,
 } from "./structure";
+import type { BaseZone } from "./zones";
 
 export type SignalStatus = "pass" | "fail" | "warning" | "neutral";
 export type TradeDecision =
@@ -185,6 +188,21 @@ export interface SignalEvaluation {
   dealingRange: DealingRange | null;
   /** Where the evaluated price sits in that range; null exactly when `dealingRange` is. */
   pricePosition: PricePosition | null;
+  /**
+   * Ranked draw-on-liquidity candidates for the setup direction (falling back
+   * to the lean), preferred first; empty = no clean target (Phase 1
+   * instrumentation — read by no decision; EDR 0008). Engine/UI consume `[0]`;
+   * the tail is preserved for later trigger policies (TP ladders, Sanos
+   * target plurality, SMT).
+   */
+  objectives: ObjectiveCandidate[];
+  /**
+   * Limit-at-POI plan targeting `objectives[0]`: entry/stop/RR measured from
+   * the POI, not livePrice (EDR 0009). Needs the caller to supply base zones
+   * (`SD_ZONE_TIMEFRAMES`-gated where the timeframe is known); inert until
+   * Phase 0.5 grades it.
+   */
+  anticipatoryPlan: AnticipatoryPlan | null;
   confidence: number;
   components: SignalComponent[];
   noTradeReasons: string[];
@@ -587,6 +605,13 @@ export function evaluateSignal(
   backtestCandles: Candle[] = candles,
   /** Real-time price to anchor the risk plan's entry on; see `buildRiskPlan`. */
   livePrice?: number,
+  /**
+   * Supply/demand zones for the anticipatory POI plan. The caller owns the
+   * `SD_ZONE_TIMEFRAMES` gate — this function doesn't know its timeframe, so
+   * zone-less calls (the default) simply get no plan, never a wrongly-gated
+   * one. `alignment.ts` already computes gated zones per timeframe.
+   */
+  zones: BaseZone[] = [],
 ): SignalEvaluation {
   const current = last(candles);
   const analytics = analyticsFor(candles, pivots);
@@ -845,12 +870,27 @@ export function evaluateSignal(
           ? "A short candidate is forming with bearish structure and acceptable risk controls."
           : "The setup is not mature enough; wait for confirmation.";
 
+  const lean = directionalLean(direction, regime, structure);
+  // Phase 1 instrumentation: the draw-on-liquidity read and the limit-at-POI
+  // plan, computed from views derived above, read by nothing in the decision
+  // path. The setup direction leads; when the engine refuses the setup the
+  // lean still names the side worth mapping a draw for.
+  const objectiveDirection = direction !== "none" ? direction : lean;
+  const objectives =
+    objectiveDirection !== "none" && positionPrice !== undefined
+      ? resolveObjectives(structure, liquidity, objectiveDirection, positionPrice)
+      : [];
+  const anticipatoryPlan =
+    objectiveDirection !== "none" && positionPrice !== undefined
+      ? buildAnticipatoryPlan(zones, objectiveDirection, positionPrice, dealingRange, objectives)
+      : null;
+
   return {
     symbol,
     setupType,
     decision,
     direction,
-    lean: directionalLean(direction, regime, structure),
+    lean,
     regime,
     structure,
     liquidity,
@@ -858,6 +898,8 @@ export function evaluateSignal(
     swingStrength,
     dealingRange,
     pricePosition,
+    objectives,
+    anticipatoryPlan,
     confidence,
     components,
     noTradeReasons,

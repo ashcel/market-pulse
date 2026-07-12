@@ -12,7 +12,7 @@ import {
 import { CRYPTO_RISK_SETTINGS } from "@/lib/engine/crypto-config";
 import { generateMockCandles, type TokenTimeframe } from "@/lib/engine/mock-candles";
 import { fetchPerpContext, type PerpRead } from "@/lib/engine/perp";
-import { computeSessionLevels, type SessionLevel } from "@/lib/engine/sessions";
+import { fetchSessionLevelsServer, type SessionLevel } from "@/lib/engine/sessions";
 import { evaluateSignal } from "@/lib/engine/quant";
 import { usePreferencesStore } from "@/stores/preferences";
 import type { TrendLines } from "@/lib/engine/analysis";
@@ -169,8 +169,11 @@ export function useSessionLevels(symbol: string, market: MarketType) {
   return useQuery<SessionLevel[]>({
     queryKey: ["session-levels", symbol.toUpperCase(), market],
     queryFn: async () => {
-      const candles = await fetchBinanceKlines(symbol, "1H", 168, undefined, market);
-      return candles.length > 0 ? computeSessionLevels(dropUnclosedCandle(candles)) : [];
+      try {
+        return await fetchSessionLevelsServer({ data: { symbol, market } });
+      } catch {
+        return [];
+      }
     },
     staleTime: 5 * 60_000,
     refetchInterval: 5 * 60_000,

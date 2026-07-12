@@ -18,7 +18,6 @@ import { ThemeSync } from "../components/iq/theme-sync";
 import { Toaster } from "../components/ui/sonner";
 import { useLiveUniverseSubscription } from "../hooks/useLiveUniverseSubscription";
 import { useNotificationStream } from "../hooks/useNotificationStream";
-import { useSignalSettlement } from "../hooks/useSignalSettlement";
 import { useTriggerAlerts } from "../hooks/useTriggerAlerts";
 
 function NotFoundComponent() {
@@ -137,7 +136,6 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   useNotificationStream();
-  useSignalSettlement();
   useTriggerAlerts();
   useLiveUniverseSubscription();
 

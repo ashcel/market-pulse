@@ -38,11 +38,13 @@ the algorithm. The objective prices/tolerances and the per-trade
 `claimsWeakStructure` flags are exactly the fields this phase leans on.
 
 Baseline before commit 1 (record in the PR description): `bun test` → **207
-pass / 0 fail** (~26k assertions, 15 files) at `0c22d66`; lint/build clean.
+pass / 0 fail** (~26k assertions, 15 files) at `f39cd74`; lint/build clean.
 Every commit keeps 207 + (new tests) passing with zero new failures.
 
 Repo conventions: discretionary rule choices get an EDR in `docs/decisions/`
-(next number: **0006**); doc comments explain the trading read, not the code.
+(next number: **0008** — 0006/0007 were taken by the live-price architecture
+and live kline stream EDRs after this plan was drafted); doc comments explain
+the trading read, not the code.
 
 ---
 
@@ -64,7 +66,7 @@ nothing downstream breaks when a policy starts reading deeper.
 
 **Files added:** `src/lib/engine/objectives.ts`,
 `src/lib/engine/objectives.test.ts`,
-`docs/decisions/0006-objective-draw-on-liquidity.md`.
+`docs/decisions/0008-objective-draw-on-liquidity.md`.
 **Files touched:** none.
 
 **API (consumes only already-derived views — same dependency shape as
@@ -95,7 +97,7 @@ export function resolveObjectives(
 ): ObjectiveCandidate[];
 ```
 
-**Rule (all choices recorded in EDR 0006 as initial, revisable):**
+**Rule (all choices recorded in EDR 0008 as initial, revisable):**
 
 - Candidates: every eligible swing high strictly above `fromPrice` for a long
   (mirror for shorts). **Ranking = proximity, nearest first** — the draw is
@@ -165,7 +167,7 @@ OB/FVG/zone unification is Phase 3's job (per §9); this module's API takes
 zones so Phase 3 can widen the input type without reshaping consumers.
 
 **Files added:** `src/lib/engine/poi.ts`, `src/lib/engine/poi.test.ts`,
-`docs/decisions/0007-poi-selection-and-limit-stop.md`.
+`docs/decisions/0009-poi-selection-and-limit-stop.md`.
 **Files touched:** none.
 
 **API:**
@@ -208,7 +210,7 @@ candidate, or a TP-ladder plan targeting `[0]`/`[1]`, changes only this
 function's selection line, not the resolver or its consumers. Phase 1's rule
 is simply "target the preferred candidate."
 
-**Rules (EDR 0007 — the "POI selection when several qualify" needs-research
+**Rules (EDR 0009 — the "POI selection when several qualify" needs-research
 item from §7, settled as an initial deterministic choice, explicitly revisable
 once the harness can measure alternatives):**
 
@@ -352,11 +354,11 @@ commit 4.
 1. Commits 1–4 merged; suite green (207 + new, zero new failures).
 2. `labels.json` human-reviewed (the Phase 0 open item), and the
    annotation-fidelity tests reproduce the objective prices and stop ordering
-   on every fixture, with divergences documented in EDRs 0006/0007 rather
+   on every fixture, with divergences documented in EDRs 0008/0009 rather
    than papered over.
 3. Inertness + verdict-inertness regressions prove zero decision drift —
    Phase 1 makes **no** shadow or expectancy claim.
-4. EDRs 0006/0007 record the resolver eligibility, pool-affinity, POI
+4. EDRs 0008/0009 record the resolver eligibility, pool-affinity, POI
    selection order, and stop rule as initial revisable choices.
 
 ## After this phase (queued, in order)

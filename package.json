@@ -10,7 +10,12 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "prettier": "prettier --write ."
+    "prettier": "prettier --write .",
+    "db:migrate": "bun run src/server/db/migrate.ts",
+    "db:seed-admin": "bun run src/server/scripts/seed-admin.ts",
+    "db:invite": "bun run src/server/scripts/mint-invite.ts",
+    "worker": "bun run src/server/worker/index.ts",
+    "worker:once": "bun run src/server/worker/index.ts --once"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -54,6 +59,7 @@
     "input-otp": "^1.4.2",
     "lightweight-charts": "^5.2.0",
     "lucide-react": "^0.575.0",
+    "postgres": "^3.4.9",
     "react": "^19.2.0",
     "react-day-picker": "^9.14.0",
     "react-dom": "^19.2.0",

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { subscribeToNotifications, type NotificationEvent } from "@/lib/engine/notifications";
+import { ensureHealthWatch } from "@/server/health-watch";
 
 const HEARTBEAT_MS = 25_000;
 
@@ -8,6 +9,7 @@ export const Route = createFileRoute("/api/notifications")({
   server: {
     handlers: {
       GET: async ({ request }) => {
+        ensureHealthWatch();
         const encoder = new TextEncoder();
         let unsubscribe: (() => void) | null = null;
         let heartbeat: ReturnType<typeof setInterval> | null = null;

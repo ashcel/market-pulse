@@ -204,7 +204,7 @@ function RankingsPage() {
                     dir={sortDir}
                     onClick={() => cycleSort("confidence")}
                   >
-                    Confidence
+                    Signal
                   </Th>
                   <Th align="right" className="pr-5">
                     Trend

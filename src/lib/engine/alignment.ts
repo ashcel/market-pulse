@@ -67,6 +67,7 @@ function evaluateTimeframes(
   livePrice?: number,
 ): TimeframeAlignmentEntry[] {
   return candlesByTimeframe.map(([timeframe, candles]) => {
+    const zones = SD_ZONE_TIMEFRAMES.includes(timeframe) ? computeBaseZones(candles) : [];
     const evaluation = evaluateSignal(
       symbol,
       candles,
@@ -74,13 +75,14 @@ function evaluateTimeframes(
       settings,
       undefined,
       livePrice,
+      zones,
     );
     return {
       timeframe,
       direction: evaluation.direction,
       decision: evaluation.decision,
       evaluation,
-      zones: SD_ZONE_TIMEFRAMES.includes(timeframe) ? computeBaseZones(candles) : [],
+      zones,
     };
   });
 }
@@ -100,7 +102,7 @@ export function buildDemoAlignment(
 const alignmentCache = new Map<string, { at: number; data: TimeframeAlignmentEntry[] }>();
 const ALIGNMENT_TTL_MS = 60_000;
 
-async function computeAlignment(
+export async function computeAlignment(
   symbol: string,
   risk: RiskOverrides,
   market: MarketType,

@@ -10,6 +10,9 @@ function isAllowed(
   event: NotificationEvent,
   prefs: { regime: boolean; rotation: boolean; highQualitySetup: boolean },
 ): boolean {
+  // Worker-health is an ops alert about the forward-test record itself —
+  // always surfaced, independent of market-notification preferences.
+  if (event.type === "worker-health") return true;
   return event.type === "setup-found" ? prefs.highQualitySetup : prefs.regime || prefs.rotation;
 }
 
@@ -40,15 +43,17 @@ export function useNotificationStream() {
       const isLive = event.createdAt > connectedAt;
       if (!isLive || !isAllowed(event, prefsRef.current)) return;
 
-      presentNotification(event, () =>
-        event.ticker
+      presentNotification(event, () => {
+        if (event.type === "worker-health") return router.navigate({ to: "/tracker" });
+        return event.ticker
           ? router.navigate({ to: "/token/$symbol", params: { symbol: event.ticker } })
-          : router.navigate({ to: "/regime" }),
-      );
+          : router.navigate({ to: "/regime" });
+      });
     };
 
     source.addEventListener("bias-summary", handle);
     source.addEventListener("setup-found", handle);
+    source.addEventListener("worker-health", handle);
 
     return () => {
       source.close();

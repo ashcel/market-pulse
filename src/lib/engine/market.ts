@@ -55,6 +55,8 @@ export function tradingViewSymbol(ticker: string): string {
 export interface AssetSignals {
   signals: Signal[];
   confidence: number;
+  /** Backtest statistics for this ticker's detected setup, when available. */
+  backtest?: { winRate: number; lowSample: boolean };
 }
 
 export interface MarketSnapshot {
@@ -272,7 +274,14 @@ function signalsFor(scored: ScoredAsset): AssetSignals {
       detail: c.explanation,
     })),
   ];
-  return { signals, confidence: e.confidence };
+  return {
+    signals,
+    confidence: e.confidence,
+    backtest:
+      e.backtest.totalTrades > 0
+        ? { winRate: e.backtest.winRate, lowSample: e.backtest.lowSample }
+        : undefined,
+  };
 }
 
 function buildRegime(

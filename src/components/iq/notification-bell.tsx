@@ -67,7 +67,11 @@ export function NotificationBell() {
                   "text-sm font-medium",
                   event.type === "setup-found" && "text-bullish",
                   event.type === "trigger-hit" && "text-info",
-                  event.type !== "setup-found" && event.type !== "trigger-hit" && "text-foreground",
+                  event.type === "worker-health" && "text-warning",
+                  event.type !== "setup-found" &&
+                    event.type !== "trigger-hit" &&
+                    event.type !== "worker-health" &&
+                    "text-foreground",
                 )}
               >
                 {event.title}
