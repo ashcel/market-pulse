@@ -25,6 +25,51 @@ const PHASE3_GATE_N = 150;
 const argIdx = process.argv.indexOf("--engine");
 const engineVersion = argIdx >= 0 ? process.argv[argIdx + 1] : ENGINE_VERSION;
 
+/**
+ * --integrity: counts/provenance/gate-progress ONLY — no outcome aggregates.
+ * This is the only mode permitted against the live 1.0.0 record between the
+ * verdict-protocol registration and its n-gate (research/
+ * verdict-protocol-1.0.0.md §8): interim looks at win rates or R would turn
+ * the pre-registered analysis into a peek-adjusted one.
+ */
+if (process.argv.includes("--integrity")) {
+  const [row] = await sql<
+    {
+      total: number;
+      settled: number;
+      misstamped: number;
+      versions: string;
+      markets: string;
+      last_open: string | null;
+    }[]
+  >`
+    select count(*)::int as total,
+           count(*) filter (where status <> 'active')::int as settled,
+           count(*) filter (where engine_version = '' or config_hash = '' or git_sha = '')::int as misstamped,
+           coalesce(string_agg(distinct engine_version, ','), '') as versions,
+           coalesce(string_agg(distinct market, ','), '') as markets,
+           max(opened_at)::text as last_open
+    from shadow_signal
+  `;
+  const [cohort] = await sql<{ matured_settled: number }[]>`
+    select count(*)::int as matured_settled
+    from shadow_signal
+    where engine_version = ${engineVersion}
+      and market = 'spot'
+      and status <> 'active'
+      and opened_at > '2026-07-12T11:00:00Z'
+  `;
+  console.log(
+    `integrity: total=${row.total} settled=${row.settled} misstamped=${row.misstamped}` +
+      ` versions=[${row.versions}] markets=[${row.markets}] lastOpen=${row.last_open}`,
+  );
+  console.log(
+    `verdict-protocol primary cohort (spot, post-2026-07-12T11:00Z): settled=${cohort.matured_settled}/${PHASE3_GATE_N}`,
+  );
+  await sql.end();
+  process.exit(0);
+}
+
 function pct(x: number): string {
   return `${(x * 100).toFixed(1)}%`;
 }
