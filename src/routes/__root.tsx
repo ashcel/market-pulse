@@ -17,6 +17,7 @@ import { BottomNav } from "../components/iq/bottom-nav";
 import { ThemeSync } from "../components/iq/theme-sync";
 import { Toaster } from "../components/ui/sonner";
 import { useLiveUniverseSubscription } from "../hooks/useLiveUniverseSubscription";
+import { useWatchlistSync } from "../hooks/useTokenEvents";
 import { useNotificationStream } from "../hooks/useNotificationStream";
 import { useTriggerAlerts } from "../hooks/useTriggerAlerts";
 
@@ -137,6 +138,7 @@ function RootContent() {
   useNotificationStream();
   useTriggerAlerts();
   useLiveUniverseSubscription();
+  useWatchlistSync();
 
   return (
     <>

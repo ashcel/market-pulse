@@ -20,6 +20,8 @@ import { Route as MarketsRouteImport } from './routes/markets'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TokenSymbolRouteImport } from './routes/token.$symbol'
+import { Route as ApiWatchlistRouteImport } from './routes/api/watchlist'
+import { Route as ApiTokenEventsRouteImport } from './routes/api/token-events'
 import { Route as ApiNotificationsRouteImport } from './routes/api/notifications'
 import { Route as ApiKlinesRouteImport } from './routes/api/klines'
 import { Route as ApiForwardTestRouteImport } from './routes/api/forward-test'
@@ -80,6 +82,16 @@ const TokenSymbolRoute = TokenSymbolRouteImport.update({
   path: '/token/$symbol',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWatchlistRoute = ApiWatchlistRouteImport.update({
+  id: '/api/watchlist',
+  path: '/api/watchlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTokenEventsRoute = ApiTokenEventsRouteImport.update({
+  id: '/api/token-events',
+  path: '/api/token-events',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiNotificationsRoute = ApiNotificationsRouteImport.update({
   id: '/api/notifications',
   path: '/api/notifications',
@@ -116,6 +128,8 @@ export interface FileRoutesByFullPath {
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
+  '/api/token-events': typeof ApiTokenEventsRoute
+  '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
 }
 export interface FileRoutesByTo {
@@ -133,6 +147,8 @@ export interface FileRoutesByTo {
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
+  '/api/token-events': typeof ApiTokenEventsRoute
+  '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
 }
 export interface FileRoutesById {
@@ -151,6 +167,8 @@ export interface FileRoutesById {
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
+  '/api/token-events': typeof ApiTokenEventsRoute
+  '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
 }
 export interface FileRouteTypes {
@@ -170,6 +188,8 @@ export interface FileRouteTypes {
     | '/api/forward-test'
     | '/api/klines'
     | '/api/notifications'
+    | '/api/token-events'
+    | '/api/watchlist'
     | '/token/$symbol'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -187,6 +207,8 @@ export interface FileRouteTypes {
     | '/api/forward-test'
     | '/api/klines'
     | '/api/notifications'
+    | '/api/token-events'
+    | '/api/watchlist'
     | '/token/$symbol'
   id:
     | '__root__'
@@ -204,6 +226,8 @@ export interface FileRouteTypes {
     | '/api/forward-test'
     | '/api/klines'
     | '/api/notifications'
+    | '/api/token-events'
+    | '/api/watchlist'
     | '/token/$symbol'
   fileRoutesById: FileRoutesById
 }
@@ -222,6 +246,8 @@ export interface RootRouteChildren {
   ApiForwardTestRoute: typeof ApiForwardTestRoute
   ApiKlinesRoute: typeof ApiKlinesRoute
   ApiNotificationsRoute: typeof ApiNotificationsRoute
+  ApiTokenEventsRoute: typeof ApiTokenEventsRoute
+  ApiWatchlistRoute: typeof ApiWatchlistRoute
   TokenSymbolRoute: typeof TokenSymbolRoute
 }
 
@@ -304,6 +330,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TokenSymbolRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/watchlist': {
+      id: '/api/watchlist'
+      path: '/api/watchlist'
+      fullPath: '/api/watchlist'
+      preLoaderRoute: typeof ApiWatchlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/token-events': {
+      id: '/api/token-events'
+      path: '/api/token-events'
+      fullPath: '/api/token-events'
+      preLoaderRoute: typeof ApiTokenEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/notifications': {
       id: '/api/notifications'
       path: '/api/notifications'
@@ -350,6 +390,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiForwardTestRoute: ApiForwardTestRoute,
   ApiKlinesRoute: ApiKlinesRoute,
   ApiNotificationsRoute: ApiNotificationsRoute,
+  ApiTokenEventsRoute: ApiTokenEventsRoute,
+  ApiWatchlistRoute: ApiWatchlistRoute,
   TokenSymbolRoute: TokenSymbolRoute,
 }
 export const routeTree = rootRouteImport

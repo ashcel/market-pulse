@@ -1,6 +1,7 @@
 import { sql } from "../db/client";
 import { countOpenRecords, finishEngineRun, startEngineRun } from "../db/repo";
 import { runEvalPass } from "./eval-pass";
+import { runEventPass } from "./event-pass";
 import { runSettlePass } from "./settle-pass";
 import { WORKER_UNIVERSE } from "@/lib/engine/market";
 import { currentProvenance } from "@/lib/engine/version";
@@ -19,6 +20,12 @@ import { currentProvenance } from "@/lib/engine/version";
  */
 const INTERVAL_MS = Number(process.env.WORKER_INTERVAL_MS ?? 5 * 60_000);
 
+// Token-event ingestion cadence (Phase 2.5). News feeds update on minutes,
+// not seconds — every third-ish tick is plenty, and a worker restart just
+// ingests immediately (dedup makes that a no-op).
+const EVENT_PASS_MS = Number(process.env.EVENT_PASS_INTERVAL_MS ?? 15 * 60_000);
+let lastEventPassAt = 0;
+
 export async function runOnce(): Promise<void> {
   const prov = currentProvenance();
   const runId = await startEngineRun(prov, {
@@ -32,6 +39,19 @@ export async function runOnce(): Promise<void> {
     const spot = await runEvalPass(runId, "spot");
     const perp = await runEvalPass(runId, "perp");
     const settleResult = await runSettlePass();
+
+    // Token events ride the same loop on a slower cadence; a feed failure is
+    // logged inside the pass and must never fail the forward-test tick.
+    let events = "";
+    if (Date.now() - lastEventPassAt >= EVENT_PASS_MS) {
+      lastEventPassAt = Date.now();
+      const eventResult = await runEventPass().catch((err) => {
+        console.error("[events] pass failed:", err);
+        return null;
+      });
+      if (eventResult) events = ` events+=${eventResult.inserted}/${eventResult.fetched}`;
+    }
+
     const open = await countOpenRecords();
     await finishEngineRun(
       runId,
@@ -49,7 +69,7 @@ export async function runOnce(): Promise<void> {
         `evaluated=${spot.evaluated}spot+${perp.evaluated}perp ` +
         `shadow+=${spot.shadowOpened + perp.shadowOpened} ` +
         `anticipatory+=${spot.anticipatoryOpened + perp.anticipatoryOpened} ` +
-        `settled=${settleResult.settled} ` +
+        `settled=${settleResult.settled}${events} ` +
         `open(shadow=${open.shadow} anticipatory=${open.anticipatory} tracked=${open.tracked}) ` +
         `(engine ${prov.engineVersion} / cfg ${prov.configHash})`,
     );

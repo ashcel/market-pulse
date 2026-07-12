@@ -73,6 +73,7 @@ import { ConfidenceGauge } from "@/components/iq/confidence-gauge";
 import { IqCard, CardEyebrow } from "@/components/iq/iq-card";
 import { MiniChart } from "@/components/iq/mini-chart";
 import { StructureAlignmentCard } from "@/components/iq/structure-alignment-card";
+import { TokenEventsCard } from "@/components/iq/token-events-card";
 import {
   HelpButton,
   ProductTour,
@@ -2397,6 +2398,8 @@ function AssistantPanel({
                   />
                 </div>
               </div>
+
+              <TokenEventsCard symbol={symbol} />
 
               <StructureAlignmentCard
                 structures={structuresByTimeframe}

@@ -67,11 +67,13 @@ export function NotificationBell() {
                   "text-sm font-medium",
                   event.type === "setup-found" && "text-bullish",
                   (event.type === "trigger-hit" || event.type === "follow-settled") && "text-info",
-                  event.type === "worker-health" && "text-warning",
+                  (event.type === "worker-health" || event.type === "token-event") &&
+                    "text-warning",
                   event.type !== "setup-found" &&
                     event.type !== "trigger-hit" &&
                     event.type !== "follow-settled" &&
                     event.type !== "worker-health" &&
+                    event.type !== "token-event" &&
                     "text-foreground",
                 )}
               >

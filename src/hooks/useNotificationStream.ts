@@ -11,9 +11,17 @@ function isAllowed(
   event: NotificationEvent,
   prefs: { regime: boolean; rotation: boolean; highQualitySetup: boolean },
 ): boolean {
-  // Worker-health (ops alert) and follow-settled (the user's own trade
-  // closing) are always surfaced, independent of market-notification prefs.
-  if (event.type === "worker-health" || event.type === "follow-settled") return true;
+  // Worker-health (ops alert), follow-settled (the user's own trade closing),
+  // and token-event (unlock/security on a token the user holds or watches —
+  // already relevance-filtered server-side) are always surfaced, independent
+  // of market-notification prefs.
+  if (
+    event.type === "worker-health" ||
+    event.type === "follow-settled" ||
+    event.type === "token-event"
+  ) {
+    return true;
+  }
   return event.type === "setup-found" ? prefs.highQualitySetup : prefs.regime || prefs.rotation;
 }
 
@@ -65,6 +73,7 @@ export function useNotificationStream() {
     source.addEventListener("setup-found", handle);
     source.addEventListener("worker-health", handle);
     source.addEventListener("follow-settled", handle);
+    source.addEventListener("token-event", handle);
 
     return () => {
       source.close();

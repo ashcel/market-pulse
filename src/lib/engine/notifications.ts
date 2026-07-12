@@ -1,7 +1,12 @@
 import { fetchMarketSnapshot } from "./market";
 
 export type NotificationType =
-  "bias-summary" | "setup-found" | "trigger-hit" | "worker-health" | "follow-settled";
+  | "bias-summary"
+  | "setup-found"
+  | "trigger-hit"
+  | "worker-health"
+  | "follow-settled"
+  | "token-event";
 
 export interface NotificationEvent {
   id: string;

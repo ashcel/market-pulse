@@ -7,6 +7,11 @@ import { assertProvenance } from "@/lib/engine/version";
 import type { Provenance } from "@/lib/engine/version";
 import type { ShadowSignal } from "@/lib/engine/shadow";
 import type { TrackedSignal } from "@/lib/engine/tracker";
+import type {
+  TokenEventInput,
+  TokenEventKind,
+  TokenEventSeverity,
+} from "@/lib/engine/token-events";
 
 const iso = (v: Date | string | null): string | undefined =>
   v == null ? undefined : v instanceof Date ? v.toISOString() : v;
@@ -403,4 +408,120 @@ export async function insertBacktestRun(input: BacktestRunInput): Promise<string
     returning id
   `;
   return row.id;
+}
+
+// ── Token events + watchlist (Phase 2.5) ─────────────────────────────────────
+
+export interface TokenEventRow {
+  id: string;
+  symbol: string;
+  kind: TokenEventKind;
+  severity: TokenEventSeverity;
+  title: string;
+  body: string | null;
+  source: string;
+  url: string | null;
+  publishedAt: string;
+  createdAt: string;
+}
+
+function rowToTokenEvent(r: Record<string, unknown>): TokenEventRow {
+  return {
+    id: r.id as string,
+    symbol: r.symbol as string,
+    kind: r.kind as TokenEventKind,
+    severity: r.severity as TokenEventSeverity,
+    title: r.title as string,
+    body: (r.body as string | null) ?? null,
+    source: r.source as string,
+    url: (r.url as string | null) ?? null,
+    publishedAt: iso(r.published_at as Date)!,
+    createdAt: iso(r.created_at as Date)!,
+  };
+}
+
+/** Idempotent bulk insert — the dedup unique index makes re-ingestion a no-op. */
+export async function insertTokenEvents(events: TokenEventInput[]): Promise<number> {
+  let inserted = 0;
+  for (const e of events) {
+    const result = await sql`
+      insert into token_event (
+        symbol, kind, severity, title, body, source, url, published_at, dedup_key
+      ) values (
+        ${e.symbol}, ${e.kind}, ${e.severity}, ${e.title}, ${e.body},
+        ${e.source}, ${e.url}, ${e.publishedAt}, ${e.dedupKey}
+      )
+      on conflict (dedup_key) do nothing
+    `;
+    inserted += result.count;
+  }
+  return inserted;
+}
+
+export async function listTokenEvents(symbol: string, limit = 20): Promise<TokenEventRow[]> {
+  const rows = await sql`
+    select * from token_event
+    where symbol = ${symbol.toUpperCase()}
+    order by published_at desc
+    limit ${limit}
+  `;
+  return rows.map((r) => rowToTokenEvent(r as Record<string, unknown>));
+}
+
+/** Events ingested after `sinceIso`, oldest first — the event watcher's poll. */
+export async function listTokenEventsSince(sinceIso: string): Promise<TokenEventRow[]> {
+  const rows = await sql`
+    select * from token_event where created_at > ${sinceIso} order by created_at asc
+  `;
+  return rows.map((r) => rowToTokenEvent(r as Record<string, unknown>));
+}
+
+/** Recent events for a set of symbols (the "relevant to me" view). */
+export async function listTokenEventsForSymbols(
+  symbols: string[],
+  sinceIso: string,
+  limit = 50,
+): Promise<TokenEventRow[]> {
+  if (symbols.length === 0) return [];
+  const rows = await sql`
+    select * from token_event
+    where symbol in ${sql(symbols.map((s) => s.toUpperCase()))}
+      and published_at > ${sinceIso}
+    order by published_at desc
+    limit ${limit}
+  `;
+  return rows.map((r) => rowToTokenEvent(r as Record<string, unknown>));
+}
+
+/**
+ * Who must be told about an event on `symbol`: owners of an ACTIVE followed
+ * signal on it, plus users watching it server-side. The union is the whole
+ * relevance rule — events are stored for every universe token regardless.
+ */
+export async function tokenEventRecipients(symbol: string): Promise<string[]> {
+  const rows = await sql<{ user_id: string }[]>`
+    select distinct owner_id as user_id from tracked_signal
+      where symbol = ${symbol.toUpperCase()} and status = 'active'
+    union
+    select user_id from user_watchlist where symbol = ${symbol.toUpperCase()}
+  `;
+  return rows.map((r) => r.user_id);
+}
+
+export async function getWatchlist(userId: string): Promise<string[]> {
+  const rows = await sql<{ symbol: string }[]>`
+    select symbol from user_watchlist where user_id = ${userId} order by added_at
+  `;
+  return rows.map((r) => r.symbol);
+}
+
+/** Replace-all sync — the client store's full ticker list is the source shape. */
+export async function putWatchlist(userId: string, symbols: string[]): Promise<void> {
+  const unique = [...new Set(symbols.map((s) => s.toUpperCase()))].slice(0, 200);
+  await sql.begin(async (tx) => {
+    await tx`delete from user_watchlist where user_id = ${userId}`;
+    for (const symbol of unique) {
+      await tx`insert into user_watchlist (user_id, symbol) values (${userId}, ${symbol})`;
+    }
+  });
 }

@@ -70,37 +70,60 @@ function detectImpact(text: string, assets: string[]): Impact {
   return "low";
 }
 
-export function parseRssNews(xml: string, now = Date.now()): NewsItem[] {
-  const items = xml.match(/<item>[\s\S]*?<\/item>/gi) ?? [];
-  const parsed: NewsItem[] = [];
+/** One raw `<item>` from any RSS feed — the shared shape news + token events parse from. */
+export interface RssItemRaw {
+  headline: string;
+  description: string;
+  url: string | null;
+  guid: string | null;
+  /** Epoch ms from pubDate; null when absent/unparseable. */
+  publishedAtMs: number | null;
+}
 
-  for (const item of items.slice(0, MAX_ITEMS)) {
+/** Feed-agnostic RSS item extraction (title/description/link/guid/pubDate). */
+export function parseRssItems(xml: string): RssItemRaw[] {
+  const items = xml.match(/<item>[\s\S]*?<\/item>/gi) ?? [];
+  const parsed: RssItemRaw[] = [];
+  for (const item of items) {
     const title = tagContent(item, "title");
     if (!title) continue;
-    const headline = stripHtml(title);
-    const description = stripHtml(tagContent(item, "description") ?? "");
     const pubDate = tagContent(item, "pubDate");
-    const publishedAt = pubDate ? Date.parse(pubDate) : NaN;
-    const minutesAgo = Number.isFinite(publishedAt)
-      ? Math.max(0, Math.round((now - publishedAt) / 60_000))
-      : 0;
-
-    const text = `${headline} ${description}`;
-    const assets = detectAssets(text);
+    const publishedAtMs = pubDate ? Date.parse(pubDate) : NaN;
     parsed.push({
-      id: tagContent(item, "guid") ?? tagContent(item, "link") ?? headline,
-      headline,
-      impact: detectImpact(text, assets),
-      direction: detectDirection(text),
-      assets,
-      minutesAgo,
-      source: "Cointelegraph",
-      summary:
-        description.length > 220 ? `${description.slice(0, 217)}…` : description || undefined,
+      headline: stripHtml(title),
+      description: stripHtml(tagContent(item, "description") ?? ""),
+      url: tagContent(item, "link"),
+      guid: tagContent(item, "guid"),
+      publishedAtMs: Number.isFinite(publishedAtMs) ? publishedAtMs : null,
     });
   }
-
   return parsed;
+}
+
+export function parseRssNews(xml: string, now = Date.now()): NewsItem[] {
+  return parseRssItems(xml)
+    .slice(0, MAX_ITEMS)
+    .map((item) => {
+      const minutesAgo =
+        item.publishedAtMs !== null
+          ? Math.max(0, Math.round((now - item.publishedAtMs) / 60_000))
+          : 0;
+      const text = `${item.headline} ${item.description}`;
+      const assets = detectAssets(text);
+      return {
+        id: item.guid ?? item.url ?? item.headline,
+        headline: item.headline,
+        impact: detectImpact(text, assets),
+        direction: detectDirection(text),
+        assets,
+        minutesAgo,
+        source: "Cointelegraph",
+        summary:
+          item.description.length > 220
+            ? `${item.description.slice(0, 217)}…`
+            : item.description || undefined,
+      };
+    });
 }
 
 let newsCache: { at: number; items: NewsItem[] } | null = null;
