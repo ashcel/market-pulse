@@ -1,6 +1,7 @@
 import { computeAlignment } from "@/lib/engine/alignment";
 import { evaluateSymbol } from "@/lib/engine/evaluate";
 import { UNIVERSE } from "@/lib/engine/market";
+import { fetchPerpContextDirect } from "@/lib/engine/perp";
 import { fetchSessionLevels } from "@/lib/engine/sessions";
 import { shadowComboStats } from "@/lib/engine/shadow";
 import { ENGINE_VERSION } from "@/lib/engine/version";
@@ -13,6 +14,7 @@ import {
 } from "../db/repo";
 import type { ZonesByTimeframe } from "@/lib/engine/intent";
 import type { MarketType } from "@/lib/engine/binance";
+import type { PerpRead } from "@/lib/engine/perp";
 import type { SignalEvaluation } from "@/lib/engine/quant";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
 
@@ -20,8 +22,8 @@ export interface AssembledInputs {
   evalsByTimeframe: Partial<Record<TokenTimeframe, SignalEvaluation>>;
   zonesByTimeframe: ZonesByTimeframe;
   sessionLevels: Awaited<ReturnType<typeof fetchSessionLevels>>;
-  /** Spot-only for v1 — see `runEvalPass` doc. */
-  perp: null;
+  /** Real funding/OI context in perp mode; null on spot (which has neither). */
+  perp: PerpRead | null;
 }
 
 /**
@@ -37,9 +39,13 @@ export async function assembleEvaluateInputs(
   symbol: string,
   market: MarketType,
 ): Promise<AssembledInputs | null> {
-  const [alignment, sessionLevels] = await Promise.all([
+  const [alignment, sessionLevels, perp] = await Promise.all([
     computeAlignment(symbol, {}, market),
     fetchSessionLevels(symbol, market),
+    // Same source the token page's perp mode reads (fetchPerpContext is just
+    // the createServerFn wrapper over this). Null on any failure — the verdict
+    // must stand without it, exactly as the UI behaves.
+    market === "perp" ? fetchPerpContextDirect(symbol) : Promise.resolve(null),
   ]);
   if (alignment.length === 0) return null;
 
@@ -49,7 +55,7 @@ export async function assembleEvaluateInputs(
     evalsByTimeframe[entry.timeframe] = entry.evaluation;
     zonesByTimeframe[entry.timeframe] = entry.zones;
   }
-  return { evalsByTimeframe, zonesByTimeframe, sessionLevels, perp: null };
+  return { evalsByTimeframe, zonesByTimeframe, sessionLevels, perp };
 }
 
 /**
@@ -59,9 +65,11 @@ export async function assembleEvaluateInputs(
  * shadow/anticipatory record is unbiased. Runs the exact `evaluateSymbol`
  * pipeline the UI uses, stamped with the current engine provenance.
  *
- * Spot-only for v1 (`perp: null` matches the UI's spot read exactly — spot has
- * no funding/OI context to omit). A perp pass is a deliberate later addition
- * with its own `fetchPerpContext` call, not a silent gap in this one.
+ * Called once per market per tick (P1.3): a spot pass (`perp: null`, exactly
+ * the UI's spot read) and a perp pass with real funding/OI context. Records
+ * carry `market`, the dedup indexes include it, and holds are stored per
+ * (symbol, market), so the two passes can't collide — and the perp verdicts
+ * the UI shows in perp mode finally have their own accountability record.
  */
 export async function runEvalPass(
   engineRunId: string,

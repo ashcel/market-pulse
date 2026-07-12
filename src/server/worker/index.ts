@@ -21,25 +21,35 @@ const INTERVAL_MS = Number(process.env.WORKER_INTERVAL_MS ?? 5 * 60_000);
 
 export async function runOnce(): Promise<void> {
   const prov = currentProvenance();
-  const runId = await startEngineRun(prov, { symbols: UNIVERSE.map((u) => u.ticker) });
+  const runId = await startEngineRun(prov, {
+    symbols: UNIVERSE.map((u) => u.ticker),
+    markets: ["spot", "perp"],
+  });
   const startedAt = Date.now();
   try {
-    const evalResult = await runEvalPass(runId);
+    // Two eval passes per tick (P1.3): spot, then perp with real funding/OI
+    // context — so the perp-mode verdicts the UI shows are forward-tested too.
+    const spot = await runEvalPass(runId, "spot");
+    const perp = await runEvalPass(runId, "perp");
     const settleResult = await runSettlePass();
     const open = await countOpenRecords();
     await finishEngineRun(
       runId,
       "ok",
-      `evaluated=${evalResult.evaluated} shadowOpened=${evalResult.shadowOpened} ` +
-        `anticipatoryOpened=${evalResult.anticipatoryOpened} settled=${settleResult.settled}`,
+      `evaluated=${spot.evaluated}+${perp.evaluated}p ` +
+        `shadowOpened=${spot.shadowOpened + perp.shadowOpened} ` +
+        `anticipatoryOpened=${spot.anticipatoryOpened + perp.anticipatoryOpened} ` +
+        `settled=${settleResult.settled}`,
     );
     // One line per pass — this is the heartbeat `/api/forward-test?view=health`
     // reports on: as long as this keeps appearing in `journalctl -u
     // market-pulse-worker`, the worker is alive and the record is growing.
     console.log(
       `[worker] pass ok in ${Date.now() - startedAt}ms — ` +
-        `evaluated=${evalResult.evaluated} shadow+=${evalResult.shadowOpened} ` +
-        `anticipatory+=${evalResult.anticipatoryOpened} settled=${settleResult.settled} ` +
+        `evaluated=${spot.evaluated}spot+${perp.evaluated}perp ` +
+        `shadow+=${spot.shadowOpened + perp.shadowOpened} ` +
+        `anticipatory+=${spot.anticipatoryOpened + perp.anticipatoryOpened} ` +
+        `settled=${settleResult.settled} ` +
         `open(shadow=${open.shadow} anticipatory=${open.anticipatory} tracked=${open.tracked}) ` +
         `(engine ${prov.engineVersion} / cfg ${prov.configHash})`,
     );
