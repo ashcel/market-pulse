@@ -1,6 +1,6 @@
 import { fetchMarketSnapshot } from "./market";
 
-export type NotificationType = "bias-summary" | "setup-found" | "trigger-hit";
+export type NotificationType = "bias-summary" | "setup-found" | "trigger-hit" | "worker-health";
 
 export interface NotificationEvent {
   id: string;
@@ -34,6 +34,16 @@ function emit(event: NotificationEvent) {
   recentEvents.unshift(event);
   recentEvents.length = Math.min(recentEvents.length, RECENT_LIMIT);
   for (const send of subscribers) send(event);
+}
+
+/**
+ * Lets server-side watchers (e.g. the forward-test health watch) push events
+ * into the same SSE stream + replay buffer the market poller uses. Events
+ * emitted while nobody is connected are buffered and replayed on the next
+ * connect, so a transition is never silently dropped.
+ */
+export function publishNotification(event: NotificationEvent): void {
+  emit(event);
 }
 
 function titleCase(slug: string): string {
