@@ -138,10 +138,17 @@ export function ProductTour({
   useEffect(() => {
     if (!open || !step) return;
     onStepChange?.(step.target);
-    // Let the page react (drawer expansion, scroll) before measuring.
+    // Let the page react (drawer expansion, tab switch, scroll) before
+    // measuring — the target may not even be mounted until React flushes the
+    // onStepChange state update, so the scroll is retried inside the timeout.
     const el = document.querySelector(`[data-tour="${step.target}"]`);
     el?.scrollIntoView({ block: "nearest", inline: "nearest" });
-    const timer = setTimeout(measure, 120);
+    const timer = setTimeout(() => {
+      document
+        .querySelector(`[data-tour="${step.target}"]`)
+        ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+      measure();
+    }, 120);
     window.addEventListener("resize", measure);
     window.addEventListener("scroll", measure, true);
     return () => {

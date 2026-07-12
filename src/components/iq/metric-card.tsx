@@ -1,3 +1,6 @@
+import { Link } from "@tanstack/react-router";
+import { ArrowUpRight } from "lucide-react";
+
 import { IqCard, CardEyebrow } from "./iq-card";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
@@ -10,6 +13,8 @@ interface MetricCardProps {
   footerRight?: ReactNode;
   children?: ReactNode;
   className?: string;
+  /** Route this card drills into — the whole card becomes a link. */
+  to?: string;
 }
 
 const accentText: Record<NonNullable<MetricCardProps["accent"]>, string> = {
@@ -28,10 +33,16 @@ export function MetricCard({
   footerRight,
   children,
   className,
+  to,
 }: MetricCardProps) {
-  return (
-    <IqCard interactive className={cn("flex flex-col gap-3", className)}>
-      <CardEyebrow>{label}</CardEyebrow>
+  const card = (
+    <IqCard interactive className={cn("flex h-full flex-col gap-3", className)}>
+      <div className="flex items-start justify-between gap-2">
+        <CardEyebrow>{label}</CardEyebrow>
+        {to && (
+          <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-colors group-hover/metric:text-info" />
+        )}
+      </div>
       <div className={cn("text-2xl font-semibold tracking-tight sm:text-3xl", accentText[accent])}>
         {value}
       </div>
@@ -43,5 +54,12 @@ export function MetricCard({
         </div>
       )}
     </IqCard>
+  );
+
+  if (!to) return card;
+  return (
+    <Link to={to} className="group/metric block h-full">
+      {card}
+    </Link>
   );
 }

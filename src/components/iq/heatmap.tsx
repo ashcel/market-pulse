@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import type { Sector } from "@/lib/types";
 import { CardEyebrow, IqCard } from "./iq-card";
@@ -34,16 +35,21 @@ export function Heatmap({ sectors, className }: { sectors: Sector[]; className?:
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2, delay: i * 0.02 }}
-                    className={cn(
-                      "flex min-h-[54px] flex-col items-center justify-center rounded-lg border px-2 py-2 text-center transition-transform hover:scale-[1.02]",
-                      toneClass(s.change),
-                    )}
                   >
-                    <div className="text-xs font-semibold tracking-wide">{s.ticker}</div>
-                    <div className="num text-[11px] font-medium">
-                      {s.change > 0 ? "+" : ""}
-                      {s.change.toFixed(2)}%
-                    </div>
+                    <Link
+                      to="/token/$symbol"
+                      params={{ symbol: s.ticker }}
+                      className={cn(
+                        "flex min-h-[54px] flex-col items-center justify-center rounded-lg border px-2 py-2 text-center transition-transform hover:scale-[1.02]",
+                        toneClass(s.change),
+                      )}
+                    >
+                      <div className="text-xs font-semibold tracking-wide">{s.ticker}</div>
+                      <div className="num text-[11px] font-medium">
+                        {s.change > 0 ? "+" : ""}
+                        {s.change.toFixed(2)}%
+                      </div>
+                    </Link>
                   </motion.div>
                 ))}
               </div>

@@ -19,11 +19,14 @@ import { IqCard, CardEyebrow } from "@/components/iq/iq-card";
 import { formatPrice } from "@/components/iq/market-card";
 import { Heatmap } from "@/components/iq/heatmap";
 import { MacroStrip } from "@/components/iq/macro-strip";
+import { MarketOpportunitiesCard } from "@/components/iq/market-opportunities-card";
 import { AssetIcon } from "@/components/iq/asset-icon";
 import { StatusBadge } from "@/components/iq/status-badge";
 import { SkeletonCard } from "@/components/iq/skeletons";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Newspaper, Radar, LineChart } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { marketEdge, marketIntentOutlook } from "@/lib/engine/intent";
 import { cn } from "@/lib/utils";
 import {
@@ -52,23 +55,49 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
-const TOUR_SEEN_KEY = "iq-dashboard-tour-v1";
+const TOUR_SEEN_KEY = "iq-dashboard-tour-v2";
+
+type DashboardTab = "opportunities" | "market" | "news";
+
+/** Which tab a tour target lives in; targets outside the tabs map to null. */
+const TAB_FOR_TOUR_TARGET: Record<string, DashboardTab | null> = {
+  hero: null,
+  edge: null,
+  tabs: null,
+  setups: "opportunities",
+  opportunities: "opportunities",
+  macro: "market",
+  overview: "market",
+  "top-assets": "market",
+  heatmap: "market",
+  news: "news",
+};
 
 const TOUR_STEPS: TourStep[] = [
   {
     target: "hero",
     title: "Today's vital signs",
-    body: "Five cards summarising the whole market: the current regime (Risk On / Risk Off / Neutral), where money is rotating, crowd sentiment (Fear & Greed), average signal quality across tracked assets, and how volatile Bitcoin is right now.",
+    body: "Five cards summarising the whole market: regime, money rotation, crowd sentiment, signal quality, and Bitcoin volatility. Each card is a shortcut — click it to open the full page behind the number.",
   },
   {
-    target: "macro",
-    title: "Macro context",
-    body: "The bigger picture beyond crypto — the backdrop that helps explain why the market is risk-on or risk-off today.",
+    target: "edge",
+    title: "Today's edge",
+    body: "One line on what kind of trading today's tape rewards, with a verdict per style: scalps, intraday, swings, trend. Pick a token afterwards for its per-asset verdict.",
+  },
+  {
+    target: "tabs",
+    title: "Three views, no digging",
+    body: "The rest of the dashboard is split by question: Opportunities (where is the action and what is tradable), Market (regime internals, leaders, sector flow), and News (what just happened). Switch tabs instead of scrolling.",
   },
   {
     target: "setups",
     title: "Actionable setups",
     body: "Tokens where the signal engine currently sees a trade — long or short — ranked by signal strength. Click one to open its full analysis. When this is empty, the engine says wait: sitting out is a position too.",
+  },
+  {
+    target: "opportunities",
+    title: "Worth scanning",
+    body: "A liquidity-gated scan of every Binance USDT pair — which tokens have real range, depth, and trade flow right now. It is a discovery list, not a signal: open a token for the engine's actual verdict.",
   },
   {
     target: "overview",
@@ -81,14 +110,14 @@ const TOUR_STEPS: TourStep[] = [
     body: "The strongest assets by Market Pulse score — a 0–100 blend of trend, momentum, volume, and technical quality. Click any row for the full chart and trade plan.",
   },
   {
+    target: "heatmap",
+    title: "Capital flow heatmap",
+    body: "Every tracked sector and its assets coloured by 24-hour performance — green means money flowing in, red means money flowing out. Click a cell to open that token.",
+  },
+  {
     target: "news",
     title: "News highlights",
     body: "Only the news that moves markets, tagged with expected impact and the assets it affects.",
-  },
-  {
-    target: "heatmap",
-    title: "Capital flow heatmap",
-    body: "Every tracked sector and its assets coloured by 24-hour performance — green means money flowing in, red means money flowing out. It's the fastest way to spot which corner of the market is leading.",
   },
 ];
 
@@ -96,8 +125,10 @@ function Dashboard() {
   const greeting = getGreeting();
   const meta = useSnapshotMeta();
   const tour = useProductTour(TOUR_SEEN_KEY);
+  const [tab, setTab] = useState<DashboardTab>("opportunities");
+
   return (
-    <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
+    <div className="mx-auto flex max-w-[1400px] flex-col gap-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -126,21 +157,55 @@ function Dashboard() {
       </header>
 
       <HeroMetrics />
-      <div data-tour="macro">
-        <MacroStrip />
-      </div>
-      <ObjectiveOutlook />
-      <TopSetups />
-      <MarketOverviewStrip />
+      <EdgeStrip />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-        <TopAssets />
-        <NewsHighlights />
-      </div>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as DashboardTab)}>
+        <TabsList
+          data-tour="tabs"
+          className="grid h-auto w-full grid-cols-3 gap-1 rounded-xl border border-border bg-card p-1 sm:w-auto sm:max-w-md"
+        >
+          <TabsTrigger value="opportunities" className="gap-1.5 px-3 py-1.5 text-xs">
+            <Radar className="h-3.5 w-3.5" aria-hidden />
+            Opportunities
+          </TabsTrigger>
+          <TabsTrigger value="market" className="gap-1.5 px-3 py-1.5 text-xs">
+            <LineChart className="h-3.5 w-3.5" aria-hidden />
+            Market
+          </TabsTrigger>
+          <TabsTrigger value="news" className="gap-1.5 px-3 py-1.5 text-xs">
+            <Newspaper className="h-3.5 w-3.5" aria-hidden />
+            News
+          </TabsTrigger>
+        </TabsList>
 
-      <CapitalFlowHeatmap />
+        <TabsContent value="opportunities" className="mt-4 flex flex-col gap-5">
+          <TopSetups />
+          <MarketOpportunitiesCard />
+        </TabsContent>
 
-      <ProductTour steps={TOUR_STEPS} open={tour.open && !!meta.data} onClose={tour.close} />
+        <TabsContent value="market" className="mt-4 flex flex-col gap-5">
+          <div data-tour="macro">
+            <MacroStrip />
+          </div>
+          <MarketOverviewStrip />
+          <TopAssets />
+          <CapitalFlowHeatmap />
+        </TabsContent>
+
+        <TabsContent value="news" className="mt-4">
+          <NewsHighlights />
+        </TabsContent>
+      </Tabs>
+
+      <ProductTour
+        steps={TOUR_STEPS}
+        open={tour.open && !!meta.data}
+        onClose={tour.close}
+        onStepChange={(target) => {
+          const wanted = TAB_FOR_TOUR_TARGET[target];
+          if (wanted) setTab(wanted);
+        }}
+      />
     </div>
   );
 }
@@ -174,6 +239,7 @@ function HeroMetrics() {
       {regime.data ? (
         <MetricCard
           label="Market Regime"
+          to="/regime"
           accent={regimeAccent}
           value={regime.data.regime}
           footerLeft="Confidence"
@@ -201,6 +267,7 @@ function HeroMetrics() {
       {rotation.data ? (
         <MetricCard
           label="Money Rotation"
+          to="/rotation"
           value={
             <div className="flex flex-wrap items-center gap-1 text-lg sm:text-xl">
               {rotation.data.flow.slice(-3).map((n, i, arr) => (
@@ -239,6 +306,7 @@ function HeroMetrics() {
       {sentiment.data ? (
         <MetricCard
           label="Sentiment"
+          to="/news"
           accent={
             sentiment.data.label === "Bullish"
               ? "bullish"
@@ -259,6 +327,7 @@ function HeroMetrics() {
       {technical.data ? (
         <MetricCard
           label="Technical Quality"
+          to="/technical"
           accent={
             technical.data.label === "Strong"
               ? "bullish"
@@ -285,6 +354,7 @@ function HeroMetrics() {
       {volatility.data ? (
         <MetricCard
           label="Volatility"
+          to="/regime"
           accent={
             volatility.data.label === "Low"
               ? "info"
@@ -324,10 +394,11 @@ function FearGreed({ value }: { value: number }) {
   );
 }
 
-// Which trading objectives does today's tape favor? Derived from the market
-// regime + volatility, so a trader knows what kind of trading pays before
-// picking a token; the token page's decision assistant then answers per asset.
-function ObjectiveOutlook() {
+// Which trading objectives does today's tape favor? One compact strip —
+// derived from regime + volatility — so a trader knows what kind of trading
+// pays before picking a token; the token page then answers per asset. Each
+// style chip carries its one-line rationale as a tooltip.
+function EdgeStrip() {
   const regime = useRegime();
   const volatility = useVolatility();
   if (!regime.data || !volatility.data) return null;
@@ -340,20 +411,26 @@ function ObjectiveOutlook() {
   const edge = marketEdge(regime.data.regime, regime.data.trendStrength, volatility.data.label);
 
   return (
-    <IqCard padded={false} className="p-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <CardEyebrow>Today&apos;s Edge</CardEyebrow>
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-          Pick a token for a per-asset verdict
-        </span>
-      </div>
-      <div className="mt-2 text-base font-semibold capitalize">{edge.label}</div>
-      <p className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">{edge.detail}</p>
-      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {entries.map((entry) => (
-          <div key={entry.intent} className="rounded-lg border border-border bg-surface p-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold">{entry.label}</span>
+    <IqCard padded={false} data-tour="edge" className="px-4 py-3">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <CardEyebrow>Today&apos;s Edge</CardEyebrow>
+          <span className="text-sm font-semibold capitalize">{edge.label}</span>
+        </div>
+        <p
+          className="hidden min-w-0 flex-1 truncate text-xs text-muted-foreground lg:block"
+          title={edge.detail}
+        >
+          {edge.detail}
+        </p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {entries.map((entry) => (
+            <span
+              key={entry.intent}
+              title={entry.note}
+              className="flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1"
+            >
+              <span className="text-[11px] font-medium">{entry.label}</span>
               <StatusBadge
                 tone={
                   entry.stance === "favored"
@@ -365,11 +442,13 @@ function ObjectiveOutlook() {
               >
                 {entry.stance}
               </StatusBadge>
-            </div>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">{entry.note}</p>
-          </div>
-        ))}
+            </span>
+          ))}
+        </div>
       </div>
+      <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground lg:hidden">
+        {edge.detail}
+      </p>
     </IqCard>
   );
 }
@@ -457,9 +536,11 @@ function MarketOverviewStrip() {
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         {shown
           ? shown.map((a) => (
-              <div
+              <Link
                 key={a.id}
-                className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3"
+                to="/token/$symbol"
+                params={{ symbol: a.ticker }}
+                className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3 transition-colors hover:border-info/50"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold">{a.ticker}</span>
@@ -471,7 +552,7 @@ function MarketOverviewStrip() {
                   tone={a.change24h >= 0 ? "bullish" : "bearish"}
                   height={32}
                 />
-              </div>
+              </Link>
             ))
           : Array.from({ length: 7 }).map((_, i) => <SkeletonCard key={i} height={110} />)}
       </div>
@@ -598,32 +679,37 @@ function NewsHighlights() {
         </Link>
       </div>
       <ul className="flex flex-1 flex-col divide-y divide-border">
-        {data?.slice(0, 4).map((n) => {
+        {data?.slice(0, 8).map((n) => {
           const impactTone =
             n.impact === "high" ? "bearish" : n.impact === "medium" ? "warning" : "info";
           return (
-            <li key={n.id} className="flex gap-3 px-5 py-3">
-              <span
-                className={cn(
-                  "mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full",
-                  n.direction === "bullish" && "bg-bullish",
-                  n.direction === "bearish" && "bg-bearish",
-                  n.direction === "neutral" && "bg-muted-foreground",
-                )}
-              />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start gap-2">
-                  <p className="flex-1 text-sm font-medium leading-snug">{n.headline}</p>
-                  <StatusBadge tone={impactTone}>{n.impact}</StatusBadge>
+            <li key={n.id}>
+              <Link
+                to="/news"
+                className="flex gap-3 px-5 py-3 transition-colors hover:bg-surface/60"
+              >
+                <span
+                  className={cn(
+                    "mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full",
+                    n.direction === "bullish" && "bg-bullish",
+                    n.direction === "bearish" && "bg-bearish",
+                    n.direction === "neutral" && "bg-muted-foreground",
+                  )}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start gap-2">
+                    <p className="flex-1 text-sm font-medium leading-snug">{n.headline}</p>
+                    <StatusBadge tone={impactTone}>{n.impact}</StatusBadge>
+                  </div>
+                  <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <span>Affects:</span>
+                    <span className="font-medium text-foreground">
+                      {n.assets.slice(0, 4).join(", ")}
+                    </span>
+                    <span className="ml-auto shrink-0">{n.minutesAgo}m ago</span>
+                  </div>
                 </div>
-                <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-                  <span>Affects:</span>
-                  <span className="font-medium text-foreground">
-                    {n.assets.slice(0, 4).join(", ")}
-                  </span>
-                  <span className="ml-auto shrink-0">{n.minutesAgo}m ago</span>
-                </div>
-              </div>
+              </Link>
             </li>
           );
         })}
