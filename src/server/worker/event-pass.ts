@@ -1,7 +1,7 @@
 import { parseRssItems } from "@/lib/engine/news";
 import { loadAllTradableTickersDirect } from "@/lib/engine/symbols";
 import { classifyTokenEvents } from "@/lib/engine/token-events";
-import { insertTokenEvents } from "../db/repo";
+import { insertTokenEvents, upsertIngestState } from "../db/repo";
 
 /**
  * Token-event ingestion (Phase 2.5): pull each news source, classify items
@@ -22,6 +22,8 @@ interface EventSource {
 const SOURCES: EventSource[] = [
   { name: "cointelegraph", url: "https://cointelegraph.com/rss" },
   { name: "coindesk", url: "https://www.coindesk.com/arc/outboundfeeds/rss" },
+  { name: "theblock", url: "https://www.theblock.co/rss.xml" },
+  { name: "decrypt", url: "https://decrypt.co/feed" },
 ];
 
 const FETCH_TIMEOUT_MS = 10_000;
@@ -49,9 +51,14 @@ export async function runEventPass(): Promise<{ fetched: number; inserted: numbe
       );
       fetched += events.length;
       inserted += await insertTokenEvents(events);
+      await upsertIngestState(`rss:${source.name}`, "ok").catch(() => {});
     } catch (err) {
-      // One dead feed must not starve the other; the next pass retries anyway.
+      // One dead feed must not starve the others; the next pass retries anyway.
+      // The failure is still recorded per-feed so health can name the dead one.
       console.error(`[events] ${source.name} failed:`, (err as Error).message);
+      await upsertIngestState(`rss:${source.name}`, "error", (err as Error).message).catch(
+        () => {},
+      );
     }
   }
   return { fetched, inserted };

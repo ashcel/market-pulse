@@ -149,6 +149,17 @@ export function detectEventAssets(text: string, extraTickers: readonly string[] 
   return found;
 }
 
+/**
+ * Roundup/listicle headlines ("Top 5 cryptos to watch", "Weekly market wrap",
+ * "SOL, ADA, XRP price analysis...") mention many tokens without being ABOUT
+ * any of them — the known noise source that padded token-event alerts and
+ * would now pad the AI's context section. A multi-asset item with a headline
+ * in this shape is dropped whole.
+ */
+const ROUNDUP_HEADLINE_RE =
+  /price (analysis|prediction)|top \d|weekly|daily|roundup|market wrap|to watch|best cryptos?/i;
+const ROUNDUP_MIN_ASSETS = 3;
+
 /** FNV-1a, for stable dedup keys when a feed item has no guid/url. */
 function hash(s: string): string {
   let h = 0x811c9dc5;
@@ -180,10 +191,20 @@ export function classifyTokenEvents(
     if (!rule) continue;
     const assets = detectEventAssets(text, extraTickers);
     if (assets.length === 0) continue;
+    // Multi-asset listicles are about the format, not the tokens. A genuine
+    // multi-asset story (e.g. an exploit hitting several tokens) survives —
+    // its headline doesn't read like a roundup.
+    if (assets.length >= ROUNDUP_MIN_ASSETS && ROUNDUP_HEADLINE_RE.test(item.headline)) continue;
+    // Info-severity kinds (listings, upgrades) are only worth recording when
+    // the token is the story: require the mention in the headline itself, not
+    // buried in the description. Critical/warning kinds keep the wider net.
+    const headlineAssets =
+      rule.severity === "info" ? new Set(detectEventAssets(item.headline, extraTickers)) : null;
 
     const articleKey = item.guid ?? item.url ?? hash(item.headline);
     const publishedAt = new Date(item.publishedAtMs ?? now).toISOString();
     for (const symbol of assets) {
+      if (headlineAssets && !headlineAssets.has(symbol)) continue;
       events.push({
         symbol,
         kind: rule.kind,

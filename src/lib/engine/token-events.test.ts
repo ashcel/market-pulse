@@ -115,6 +115,48 @@ describe("classifyTokenEvents", () => {
     expect(events[0]).toMatchObject({ symbol: "DEXE", kind: "unlock", severity: "warning" });
   });
 
+  it("drops multi-asset roundup/listicle headlines whole", () => {
+    const roundups = [
+      "SOL, ADA, XRP price analysis: unlock season regulatory pressure builds",
+      "Top 5 cryptos to watch this week: BTC ETH SOL upgrade lawsuits and more",
+      "Weekly market wrap: DOGE PEPE WIF hack fears and vesting cliffs",
+    ];
+    for (const headline of roundups) {
+      expect(classifyTokenEvents([item(headline)], "cointelegraph")).toHaveLength(0);
+    }
+  });
+
+  it("keeps a genuine multi-asset story — a real incident isn't a listicle", () => {
+    const events = classifyTokenEvents(
+      [item("Bridge exploit drains funds from SOL, AVAX and NEAR ecosystems")],
+      "cointelegraph",
+    );
+    expect(events.length).toBeGreaterThanOrEqual(3);
+    expect(events.every((e) => e.kind === "security")).toBe(true);
+  });
+
+  it("requires a headline mention for info-severity kinds, not description-only", () => {
+    // Listing kind (info): UNI only in the description → dropped.
+    const buried = classifyTokenEvents(
+      [item("Exchange announces new listings for Q3", "Uniswap listed on Upbit next week")],
+      "cointelegraph",
+    );
+    expect(buried).toHaveLength(0);
+    // Same story with the token in the headline → kept.
+    const headline = classifyTokenEvents(
+      [item("Uniswap listed on Upbit next week")],
+      "cointelegraph",
+    );
+    expect(headline).toHaveLength(1);
+    expect(headline[0]).toMatchObject({ symbol: "UNI", kind: "listing" });
+    // Warning/critical kinds keep the wider net: description-only still records.
+    const critical = classifyTokenEvents(
+      [item("Major DeFi protocol suffers incident", "Aave contracts exploited overnight")],
+      "cointelegraph",
+    );
+    expect(critical.some((e) => e.symbol === "AAVE" && e.kind === "security")).toBe(true);
+  });
+
   it("classifies straight from parsed RSS XML end to end", () => {
     const xml = `<rss><channel>
       <item><title>Aave contract vulnerability patched after whitehat report</title>
