@@ -26,7 +26,7 @@ const MAX_BASE_CANDLES = 5;
 const MAX_ZONES_PER_KIND = 2;
 
 /** Rolling simple-average true range; null until `length` bars are available. */
-function atrSeries(candles: Candle[], length = 14): Array<number | null> {
+export function atrSeries(candles: Candle[], length = 14): Array<number | null> {
   const out: Array<number | null> = new Array<number | null>(candles.length).fill(null);
   let sum = 0;
   for (let i = 0; i < candles.length; i++) {
