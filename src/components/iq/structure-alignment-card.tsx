@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { TOKEN_TIMEFRAMES, type TokenTimeframe } from "@/lib/engine/mock-candles";
 import { cn } from "@/lib/utils";
 import type { MarketStructure, StructureTrend } from "@/lib/engine/structure";
+import { latestTransition } from "@/lib/engine/trend-transition";
 
 /**
  * Multi-timeframe structure alignment — surfaces the per-timeframe
@@ -58,6 +59,37 @@ function eventChip(structure: MarketStructure) {
       )}
     >
       {structure.event === "choch" ? "CHoCH" : "BOS"} {bullish ? "↑" : "↓"}
+    </Badge>
+  );
+}
+
+// The latest trend-transition read (display-only, EDR 0016): a confirmed flip
+// shows its full narrative, a live CHoCH hint shows what it's waiting on.
+function transitionChip(structure: MarketStructure) {
+  const transition = latestTransition(structure);
+  if (!transition) return null;
+  const short: Record<StructureTrend, string> = {
+    uptrend: "up",
+    downtrend: "down",
+    range: "range",
+  };
+  const confirmed = transition.phase === "confirmed";
+  const toneUp = transition.to === "uptrend";
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "px-1.5 py-0 text-[9px] font-semibold uppercase",
+        confirmed
+          ? toneUp
+            ? "border-bullish/30 bg-bullish-soft text-bullish"
+            : "border-bearish/30 bg-bearish-soft text-bearish"
+          : "border-warning/30 bg-warning-soft text-warning",
+      )}
+    >
+      {confirmed
+        ? `${short[transition.from]}→${short[transition.to]}`
+        : `${short[transition.to]}? awaiting confirm`}
     </Badge>
   );
 }
@@ -119,7 +151,10 @@ export function StructureAlignmentCard({
               <span className={cn("w-20 shrink-0 text-[11px] font-medium", meta.tone)}>
                 {meta.label}
               </span>
-              <div className="flex-1">{eventChip(structure)}</div>
+              <div className="flex flex-1 flex-wrap items-center gap-1">
+                {eventChip(structure)}
+                {transitionChip(structure)}
+              </div>
               {roleTag && (
                 <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wider text-info">
                   {roleTag}

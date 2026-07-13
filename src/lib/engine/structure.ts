@@ -135,7 +135,10 @@ export function structureLean(structure: MarketStructure): "long" | "short" | "n
 }
 
 /** An uptrend prints higher highs and higher lows; a downtrend, the mirror. */
-function trendFrom(highLabel: SwingLabel | null, lowLabel: SwingLabel | null): StructureTrend {
+export function trendFrom(
+  highLabel: SwingLabel | null,
+  lowLabel: SwingLabel | null,
+): StructureTrend {
   if (highLabel === "HH" && lowLabel === "HL") return "uptrend";
   if (highLabel === "LH" && lowLabel === "LL") return "downtrend";
   return "range";
