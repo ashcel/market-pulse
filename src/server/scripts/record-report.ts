@@ -18,6 +18,7 @@ import { meanWithSe, shrunkRate, wilson95 } from "../forward-test/report-stats";
 import { MIN_ANTICIPATORY_RECORD_TRADES } from "@/lib/engine/anticipatory";
 import { MIN_SHADOW_RECORD_TRADES } from "@/lib/engine/shadow";
 import { ENGINE_VERSION } from "@/lib/engine/version";
+import { WORKER_UNIVERSE } from "@/lib/engine/market";
 import type { ShadowSignal } from "@/lib/engine/shadow";
 
 const PHASE3_GATE_N = 150;
@@ -66,6 +67,48 @@ if (process.argv.includes("--integrity")) {
   console.log(
     `verdict-protocol primary cohort (spot, post-2026-07-12T11:00Z): settled=${cohort.matured_settled}/${PHASE3_GATE_N}`,
   );
+  await sql.end();
+  process.exit(0);
+}
+
+/**
+ * --context: external-context plane integrity — catalyst calendar counts,
+ * orphaned symbols (rows whose ticker left the worker universe), breadth
+ * snapshot gaps, per-source ingest state. No forward-test outcome data at all,
+ * so it is verdict-protocol-safe by construction.
+ */
+if (process.argv.includes("--context")) {
+  const universe = WORKER_UNIVERSE.map((u) => u.ticker);
+  const kinds = await sql<{ kind: string; n: number }[]>`
+    select kind, count(*)::int as n from catalyst_event
+    where occurs_at >= now() and occurs_at <= now() + interval '7 days'
+    group by kind order by n desc
+  `;
+  const [orphans] = await sql<{ n: number; symbols: string }[]>`
+    select count(*)::int as n, coalesce(string_agg(distinct symbol, ','), '') as symbols
+    from catalyst_event
+    where symbol <> 'MARKET' and symbol not in ${sql(universe)}
+  `;
+  // A gap > 2× the 15-min cadence between consecutive breadth snapshots in the
+  // last 24h means the poller missed passes (worker down or provider erroring).
+  const [gaps] = await sql<{ n: number }[]>`
+    select count(*)::int as n from (
+      select fetched_at - lag(fetched_at) over (order by fetched_at) as gap
+      from market_context_snapshot
+      where fetched_at > now() - interval '24 hours'
+    ) g where g.gap > interval '30 minutes'
+  `;
+  const ingest = await sql<{ source: string; status: string; last_ok_at: string | null }[]>`
+    select source, status, last_ok_at::text from ingest_state order by source
+  `;
+  console.log(
+    `context: upcoming7d=[${kinds.map((k) => `${k.kind}=${k.n}`).join(" ") || "none"}]` +
+      ` orphans=${orphans.n}${orphans.n > 0 ? ` (${orphans.symbols})` : ""}` +
+      ` snapshotGaps24h=${gaps.n}`,
+  );
+  for (const s of ingest) {
+    console.log(`  source ${s.source}: ${s.status} lastOk=${s.last_ok_at ?? "never"}`);
+  }
   await sql.end();
   process.exit(0);
 }

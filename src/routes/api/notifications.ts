@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { subscribeToNotifications, type NotificationEvent } from "@/lib/engine/notifications";
 import { getAuth } from "@/server/auth/session";
+import { ensureContextWatch } from "@/server/context-watch";
 import { ensureEventWatch } from "@/server/event-watch";
 import { ensureFollowWatch } from "@/server/follow-watch";
 import { ensureHealthWatch } from "@/server/health-watch";
@@ -15,6 +16,7 @@ export const Route = createFileRoute("/api/notifications")({
         ensureHealthWatch();
         ensureFollowWatch();
         ensureEventWatch();
+        ensureContextWatch();
         // The stream itself stays public (global market events); a session
         // additionally unlocks the user's own owner-scoped events (follows).
         const auth = await getAuth(request);

@@ -6,7 +6,8 @@ export type NotificationType =
   | "trigger-hit"
   | "worker-health"
   | "follow-settled"
-  | "token-event";
+  | "token-event"
+  | "context-health";
 
 export interface NotificationEvent {
   id: string;
