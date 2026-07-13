@@ -1,6 +1,9 @@
 import { COINMARKETCAL_IDS } from "@/lib/engine/asset-ids";
 import { normalizeCoinMarketCalEvents } from "@/lib/engine/catalyst-events";
-import { normalizeCoinGeckoGlobal } from "@/lib/engine/external-context";
+import {
+  normalizeCoinGeckoGlobal,
+  normalizeCoinMarketCapGlobal,
+} from "@/lib/engine/external-context";
 import {
   insertMarketContextSnapshot,
   pruneCatalystEvents,
@@ -19,14 +22,16 @@ import {
  * wrapped in its own try/catch, an outage is recorded in ingest_state (never
  * silent) and must never fail the forward-test tick.
  *
- * Budget: CoinGecko Demo is 10k calls/month; one /global call per 15-min pass
- * is ~2.9k/month — comfortable, no retry needed beyond "next pass".
+ * Budget: one global-breadth call per 15-min pass is ~2.9k/month — comfortable
+ * on both CoinGecko Demo (10k calls/mo) and CoinMarketCap Basic (10k+ credits/
+ * mo at 1 credit/call), no retry needed beyond "next pass".
  */
 
 const FETCH_TIMEOUT_MS = 10_000;
 const SNAPSHOT_RETENTION_MS = 90 * 24 * 60 * 60_000;
 
 export const COINGECKO_SOURCE = "coingecko-global";
+export const COINMARKETCAP_SOURCE = "coinmarketcap-global";
 export const COINMARKETCAL_SOURCE = "coinmarketcal";
 
 // The calendar changes on hours, not minutes, and CoinMarketCal free-tier rate
@@ -46,23 +51,50 @@ export interface ContextPassResult {
   calendarWritten?: number;
 }
 
-async function ingestCoinGeckoGlobal(): Promise<ContextPassResult["global"]> {
-  const key = process.env.COINGECKO_API_KEY;
-  if (!key) {
+/** The ingest_state source the current key configuration reports under. */
+function activeBreadthSource(): string {
+  return process.env.COINGECKO_API_KEY || !process.env.COINMARKETCAP_API_KEY
+    ? COINGECKO_SOURCE
+    : COINMARKETCAP_SOURCE;
+}
+
+async function ingestGlobalBreadth(): Promise<ContextPassResult["global"]> {
+  // Either provider fully covers the breadth snapshot (dominance + total
+  // mcap). CoinGecko is tried first when both keys exist; a single pass never
+  // polls both — one row per tick is the budget.
+  const geckoKey = process.env.COINGECKO_API_KEY;
+  const cmcKey = process.env.COINMARKETCAP_API_KEY;
+  if (!geckoKey && !cmcKey) {
     // Skipped is a recorded state, not silence — health reports it distinctly
     // from a failure, and it never degrades overall status.
-    await upsertIngestState(COINGECKO_SOURCE, "unconfigured", "COINGECKO_API_KEY not set");
+    await upsertIngestState(
+      COINGECKO_SOURCE,
+      "unconfigured",
+      "neither COINGECKO_API_KEY nor COINMARKETCAP_API_KEY set",
+    );
     return "unconfigured";
   }
-  const res = await fetch("https://api.coingecko.com/api/v3/global", {
+  if (geckoKey) {
+    const res = await fetch("https://api.coingecko.com/api/v3/global", {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      headers: { "x-cg-demo-api-key": geckoKey, accept: "application/json" },
+    });
+    if (!res.ok) throw new Error(`coingecko /global ${res.status}`);
+    const snapshot = normalizeCoinGeckoGlobal(await res.json());
+    if (!snapshot) throw new Error("coingecko /global: unexpected payload shape");
+    await insertMarketContextSnapshot(snapshot);
+    await upsertIngestState(COINGECKO_SOURCE, "ok");
+    return "ok";
+  }
+  const res = await fetch("https://pro-api.coinmarketcap.com/v1/global-metrics/quotes/latest", {
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    headers: { "x-cg-demo-api-key": key, accept: "application/json" },
+    headers: { "X-CMC_PRO_API_KEY": cmcKey!, accept: "application/json" },
   });
-  if (!res.ok) throw new Error(`coingecko /global ${res.status}`);
-  const snapshot = normalizeCoinGeckoGlobal(await res.json());
-  if (!snapshot) throw new Error("coingecko /global: unexpected payload shape");
+  if (!res.ok) throw new Error(`coinmarketcap global-metrics ${res.status}`);
+  const snapshot = normalizeCoinMarketCapGlobal(await res.json());
+  if (!snapshot) throw new Error("coinmarketcap global-metrics: unexpected payload shape");
   await insertMarketContextSnapshot(snapshot);
-  await upsertIngestState(COINGECKO_SOURCE, "ok");
+  await upsertIngestState(COINMARKETCAP_SOURCE, "ok");
   return "ok";
 }
 
@@ -103,11 +135,12 @@ async function ingestCoinMarketCal(): Promise<{
 export async function runContextPass(): Promise<ContextPassResult> {
   let global: ContextPassResult["global"];
   try {
-    global = await ingestCoinGeckoGlobal();
+    global = await ingestGlobalBreadth();
   } catch (err) {
     global = "error";
-    console.error(`[context] ${COINGECKO_SOURCE} failed:`, (err as Error).message);
-    await upsertIngestState(COINGECKO_SOURCE, "error", (err as Error).message).catch(() => {});
+    const source = activeBreadthSource();
+    console.error(`[context] ${source} failed:`, (err as Error).message);
+    await upsertIngestState(source, "error", (err as Error).message).catch(() => {});
   }
 
   let calendar: ContextPassResult["calendar"] = "skipped";

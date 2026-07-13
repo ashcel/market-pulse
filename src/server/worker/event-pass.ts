@@ -19,10 +19,12 @@ interface EventSource {
   url: string;
 }
 
+// The Block is deliberately absent: its RSS sits behind Cloudflare bot
+// blocking (403 for any non-browser client, verified 2026-07-13), and a
+// permanently-erroring feed would keep context health degraded forever.
 const SOURCES: EventSource[] = [
   { name: "cointelegraph", url: "https://cointelegraph.com/rss" },
   { name: "coindesk", url: "https://www.coindesk.com/arc/outboundfeeds/rss" },
-  { name: "theblock", url: "https://www.theblock.co/rss.xml" },
   { name: "decrypt", url: "https://decrypt.co/feed" },
 ];
 

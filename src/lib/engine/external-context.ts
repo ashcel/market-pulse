@@ -6,7 +6,7 @@
 // `EvaluateInput` or any deterministic verdict path (ENGINE_VERSION untouched).
 // The assembled context is secondary evidence for the AI analyst prompt only.
 
-/** Normalized CoinGecko `/global` poll — one persisted breadth snapshot. */
+/** Normalized global-breadth poll (CoinGecko or CoinMarketCap) — one persisted snapshot. */
 export interface MarketContextSnapshotInput {
   totalMcapUsd: number;
   btcDominance: number;
@@ -36,6 +36,31 @@ export function normalizeCoinGeckoGlobal(payload: unknown): MarketContextSnapsho
     ethDominance: typeof eth === "number" && Number.isFinite(eth) ? eth : null,
     mcapChange24hPct: typeof change === "number" && Number.isFinite(change) ? change : null,
     source: "coingecko",
+  };
+}
+
+/**
+ * Parse a CoinMarketCap `/v1/global-metrics/quotes/latest` response into the
+ * same snapshot shape. Available on the free Basic plan (1 credit/call), so a
+ * working CMC key fully substitutes for CoinGecko as the breadth source.
+ */
+export function normalizeCoinMarketCapGlobal(payload: unknown): MarketContextSnapshotInput | null {
+  const data = (payload as { data?: Record<string, unknown> } | null)?.data;
+  if (!data || typeof data !== "object") return null;
+  const quote = (data.quote as Record<string, unknown> | undefined)?.USD as
+    Record<string, unknown> | undefined;
+  const mcap = quote?.total_market_cap;
+  const btc = data.btc_dominance;
+  if (typeof mcap !== "number" || !Number.isFinite(mcap) || mcap <= 0) return null;
+  if (typeof btc !== "number" || !Number.isFinite(btc) || btc <= 0) return null;
+  const eth = data.eth_dominance;
+  const change = quote?.total_market_cap_yesterday_percentage_change;
+  return {
+    totalMcapUsd: mcap,
+    btcDominance: btc,
+    ethDominance: typeof eth === "number" && Number.isFinite(eth) ? eth : null,
+    mcapChange24hPct: typeof change === "number" && Number.isFinite(change) ? change : null,
+    source: "coinmarketcap",
   };
 }
 

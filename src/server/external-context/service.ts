@@ -134,7 +134,7 @@ export interface ContextHealth {
 }
 
 function staleThresholdFor(source: string): number {
-  if (source === "coingecko-global") return BREADTH_STALE_MS;
+  if (source === "coingecko-global" || source === "coinmarketcap-global") return BREADTH_STALE_MS;
   if (source === "coinmarketcal") return CALENDAR_STALE_MS;
   if (source.startsWith("rss:")) return RSS_STALE_MS;
   return BREADTH_STALE_MS;
