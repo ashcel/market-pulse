@@ -13,6 +13,11 @@ import type {
   TokenEventSeverity,
 } from "@/lib/engine/token-events";
 import type { MarketContextSnapshotInput } from "@/lib/engine/external-context";
+import type {
+  CatalystCredibility,
+  CatalystEventInput,
+  CatalystKind,
+} from "@/lib/engine/catalyst-events";
 
 const iso = (v: Date | string | null): string | undefined =>
   v == null ? undefined : v instanceof Date ? v.toISOString() : v;
@@ -624,6 +629,112 @@ export async function listIngestState(): Promise<IngestStateRow[]> {
       updatedAt: iso(row.updated_at as Date)!,
     };
   });
+}
+
+// ── Catalyst events (forward-looking calendar) ──────────────────────────────
+
+export interface CatalystEventRow {
+  id: string;
+  symbol: string;
+  kind: CatalystKind;
+  title: string;
+  description: string | null;
+  occursAt: string;
+  source: string;
+  sourceId: string | null;
+  url: string | null;
+  credibility: CatalystCredibility | null;
+  percentOfSupply: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function rowToCatalystEvent(r: Record<string, unknown>): CatalystEventRow {
+  return {
+    id: r.id as string,
+    symbol: r.symbol as string,
+    kind: r.kind as CatalystKind,
+    title: r.title as string,
+    description: (r.description as string | null) ?? null,
+    occursAt: iso(r.occurs_at as Date)!,
+    source: r.source as string,
+    sourceId: (r.source_id as string | null) ?? null,
+    url: (r.url as string | null) ?? null,
+    credibility: (r.credibility as CatalystCredibility | null) ?? null,
+    percentOfSupply: r.percent_of_supply == null ? null : Number(r.percent_of_supply),
+    createdAt: iso(r.created_at as Date)!,
+    updatedAt: iso(r.updated_at as Date)!,
+  };
+}
+
+/**
+ * Idempotent bulk upsert. Deliberately DO UPDATE (unlike token_event's
+ * do-nothing): calendar entries get rescheduled and re-scored, and the newest
+ * provider read must win.
+ */
+export async function upsertCatalystEvents(events: CatalystEventInput[]): Promise<number> {
+  let written = 0;
+  for (const e of events) {
+    const result = await sql`
+      insert into catalyst_event (
+        symbol, kind, title, description, occurs_at, source, source_id, url,
+        credibility, percent_of_supply, dedup_key
+      ) values (
+        ${e.symbol}, ${e.kind}, ${e.title}, ${e.description}, ${e.occursAt},
+        ${e.source}, ${e.sourceId}, ${e.url},
+        ${e.credibility == null ? null : json(e.credibility)}, ${e.percentOfSupply},
+        ${e.dedupKey}
+      )
+      on conflict (dedup_key) do update set
+        occurs_at = excluded.occurs_at,
+        title = excluded.title,
+        description = excluded.description,
+        url = excluded.url,
+        credibility = excluded.credibility,
+        percent_of_supply = excluded.percent_of_supply,
+        updated_at = now()
+    `;
+    written += result.count;
+  }
+  return written;
+}
+
+export async function listUpcomingCatalystEvents(
+  symbol: string,
+  untilIso: string,
+  limit = 10,
+): Promise<CatalystEventRow[]> {
+  const rows = await sql`
+    select * from catalyst_event
+    where symbol = ${symbol.toUpperCase()}
+      and occurs_at >= now() and occurs_at <= ${untilIso}
+    order by occurs_at asc
+    limit ${limit}
+  `;
+  return rows.map((r) => rowToCatalystEvent(r as Record<string, unknown>));
+}
+
+/** Market-wide backdrop events: BTC/ETH plus the reserved MARKET pseudo-symbol. */
+export async function listMarketCatalystEvents(
+  untilIso: string,
+  limit = 10,
+): Promise<CatalystEventRow[]> {
+  const rows = await sql`
+    select * from catalyst_event
+    where symbol in ('BTC', 'ETH', 'MARKET')
+      and occurs_at >= now() and occurs_at <= ${untilIso}
+    order by occurs_at asc
+    limit ${limit}
+  `;
+  return rows.map((r) => rowToCatalystEvent(r as Record<string, unknown>));
+}
+
+/** Occurred events age out; the calendar is a forward-looking surface. */
+export async function pruneCatalystEvents(olderThanIso: string): Promise<number> {
+  const result = await sql`
+    delete from catalyst_event where occurs_at < ${olderThanIso}
+  `;
+  return result.count;
 }
 
 export async function getWatchlist(userId: string): Promise<string[]> {

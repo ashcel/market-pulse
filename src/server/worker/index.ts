@@ -69,7 +69,14 @@ export async function runOnce(): Promise<void> {
         console.error("[context] pass failed:", err);
         return null;
       });
-      if (ctxResult) ctx = ` ctx global=${ctxResult.global}`;
+      if (ctxResult) {
+        ctx = ` ctx global=${ctxResult.global}`;
+        if (ctxResult.calendar !== "skipped") {
+          ctx += ` cal=${ctxResult.calendar}${
+            ctxResult.calendarWritten !== undefined ? `+${ctxResult.calendarWritten}` : ""
+          }`;
+        }
+      }
     }
 
     const open = await countOpenRecords();

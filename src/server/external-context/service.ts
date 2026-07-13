@@ -9,14 +9,18 @@ import {
   type ContextEventItem,
   type ExternalContext,
   type SectionStatus,
+  type UpcomingCatalystItem,
 } from "@/lib/engine/external-context";
 import { computeSnapshot } from "@/lib/engine/market";
 import { normalizeTicker } from "@/lib/engine/symbol-map";
 import {
   latestMarketContextSnapshot,
   listIngestState,
+  listMarketCatalystEvents,
   listTokenEventsForSymbols,
+  listUpcomingCatalystEvents,
   marketContextSnapshotNear,
+  type CatalystEventRow,
   type IngestStateRow,
 } from "../db/repo";
 
@@ -255,11 +259,62 @@ async function buildRecentEvents(
   }
 }
 
+const UPCOMING_WINDOW_MS = 7 * 24 * 60 * 60_000;
+const MARKET_EVENTS_CAP = 3;
+
+function toUpcomingItem(r: CatalystEventRow): UpcomingCatalystItem {
+  return {
+    symbol: r.symbol,
+    kind: r.kind,
+    title: r.title,
+    occursAt: r.occursAt,
+    source: r.source,
+    url: r.url,
+    percentOfSupply: r.percentOfSupply,
+    votes: r.credibility?.votes ?? null,
+    confidencePct: r.credibility?.confidencePct ?? null,
+  };
+}
+
+/** The forward-looking calendar: this symbol's next 7 days + market backdrop. */
+async function buildUpcoming(
+  sym: string,
+  degradation: SectionStatus[],
+): Promise<{
+  upcoming: UpcomingCatalystItem[] | null;
+  marketEvents: UpcomingCatalystItem[] | null;
+}> {
+  try {
+    const until = new Date(Date.now() + UPCOMING_WINDOW_MS).toISOString();
+    const [own, market] = await Promise.all([
+      listUpcomingCatalystEvents(sym, until),
+      listMarketCatalystEvents(until),
+    ]);
+    degradation.push({ section: "upcoming", status: "ok", asOf: new Date().toISOString() });
+    return {
+      upcoming: own.map(toUpcomingItem),
+      // The symbol's own events already lead the section; the market backdrop
+      // excludes them and stays capped so it can never crowd the prompt.
+      marketEvents: market
+        .filter((e) => e.symbol !== sym)
+        .slice(0, MARKET_EVENTS_CAP)
+        .map(toUpcomingItem),
+    };
+  } catch (err) {
+    degradation.push({
+      section: "upcoming",
+      status: "error",
+      reason: `catalyst-event read failed: ${(err as Error).message}`,
+    });
+    return { upcoming: null, marketEvents: null };
+  }
+}
+
 export async function assembleExternalContext(symbol: string): Promise<ExternalContext> {
   const sym = normalizeTicker(symbol);
   const degradation: SectionStatus[] = [];
 
-  const [breadth, relative, recent] = await Promise.all([
+  const [breadth, relative, recent, forward] = await Promise.all([
     buildBreadth(degradation).catch((err) => {
       degradation.push({ section: "breadth", status: "error", reason: (err as Error).message });
       return null;
@@ -269,6 +324,7 @@ export async function assembleExternalContext(symbol: string): Promise<ExternalC
       return null;
     }),
     buildRecentEvents(sym, degradation),
+    buildUpcoming(sym, degradation),
   ]);
 
   return {
@@ -278,8 +334,8 @@ export async function assembleExternalContext(symbol: string): Promise<ExternalC
     relative,
     recentCatalysts: recent.recentCatalysts,
     recentHighImpact: recent.recentHighImpact,
-    upcoming: null,
-    marketEvents: null,
+    upcoming: forward.upcoming,
+    marketEvents: forward.marketEvents,
     social: null,
     degradation,
   };
