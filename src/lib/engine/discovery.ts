@@ -205,7 +205,7 @@ function rangePercent(row: Ticker24h): number {
 }
 
 /** Rank-based percentile (0-100) of each value within its own set. */
-function percentiles(values: number[]): number[] {
+export function percentiles(values: number[]): number[] {
   const n = values.length;
   if (n <= 1) return values.map(() => 100);
   return values.map((v) => {
@@ -326,7 +326,7 @@ export function buildDemoScan(): OpportunityScan {
   };
 }
 
-async function fetchTicker24hAll(): Promise<Ticker24h[]> {
+export async function fetchTicker24hAll(): Promise<Ticker24h[]> {
   try {
     await binanceLimiter.acquire(TICKER_24H_ALL_WEIGHT);
     const response = await fetch("https://api.binance.com/api/v3/ticker/24hr");

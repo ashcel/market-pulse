@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useAssets } from "@/hooks/queries";
+import { RsScanCard } from "@/components/iq/rs-scan-card";
 import { PageHeader } from "@/components/iq/page-header";
 import { IqCard } from "@/components/iq/iq-card";
 import { AssetIcon } from "@/components/iq/asset-icon";
@@ -331,6 +332,8 @@ function RankingsPage() {
           )}
         </IqCard>
       )}
+
+      <RsScanCard />
 
       <ProductTour steps={TOUR_STEPS} open={tour.open && !!data} onClose={tour.close} />
     </div>
