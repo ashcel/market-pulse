@@ -212,20 +212,20 @@ Population: 260 in-scope units (bar where ≥1 arm fired). CHoCH fired 116
 decisions, H-LB fired 145. Only 1 unit had both arms fire on the same bar —
 259/260 units disagreed.
 
-| Gate | Result | Threshold | Pass? |
-| --- | --- | --- | --- |
-| **A — Divergence** | 99.6% of in-scope units disagree | ≥ 10% | **PASS** |
-| **B — Lift on disagreement set** | mean ΔR = **+0.005R** (H-LB − CHoCH), 90% bootstrap CI **[−0.070, +0.080]** (includes 0), resolved N = 53 (CHoCH) / 63 (H-LB) — sample floor of 50 cleared on both sides | ≥ +0.15R, CI excl. 0 | **FAIL** |
-| **C — Aggregate & robustness** | full-stream ΔR = +0.004R; half 1 ΔR = **−0.003R** (not positive); half 2 ΔR = +0.015R; 8/18 assets H-LB-positive (not a majority) | full-stream ≥ 0 AND both halves > 0 AND majority of assets | **FAIL** (full-stream barely non-negative, but half 1 negative and asset majority missed) |
-| **D — Complexity ledger** | H-LB adds a fine-tier pivot computation, a leg-scoping anchor rule, and a close-through check — a real new pathway to keep replay-safe and tested, for a measured lift indistinguishable from 0R (+0.005R, CI straddles 0). Not worth the budget. | judged | **FAIL** (no lift to spend the budget on) |
+| Gate                             | Result                                                                                                                                                                                                                                            | Threshold                                                  | Pass?                                                                                     |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **A — Divergence**               | 99.6% of in-scope units disagree                                                                                                                                                                                                                  | ≥ 10%                                                      | **PASS**                                                                                  |
+| **B — Lift on disagreement set** | mean ΔR = **+0.005R** (H-LB − CHoCH), 90% bootstrap CI **[−0.070, +0.080]** (includes 0), resolved N = 53 (CHoCH) / 63 (H-LB) — sample floor of 50 cleared on both sides                                                                          | ≥ +0.15R, CI excl. 0                                       | **FAIL**                                                                                  |
+| **C — Aggregate & robustness**   | full-stream ΔR = +0.004R; half 1 ΔR = **−0.003R** (not positive); half 2 ΔR = +0.015R; 8/18 assets H-LB-positive (not a majority)                                                                                                                 | full-stream ≥ 0 AND both halves > 0 AND majority of assets | **FAIL** (full-stream barely non-negative, but half 1 negative and asset majority missed) |
+| **D — Complexity ledger**        | H-LB adds a fine-tier pivot computation, a leg-scoping anchor rule, and a close-through check — a real new pathway to keep replay-safe and tested, for a measured lift indistinguishable from 0R (+0.005R, CI straddles 0). Not worth the budget. | judged                                                     | **FAIL** (no lift to spend the budget on)                                                 |
 
 **Gate A passed** — the trigger choice does change the decision almost every
-time (99.6% divergence), so the risk of a new trigger *could* in principle
+time (99.6% divergence), so the risk of a new trigger _could_ in principle
 pay off. It didn't: **Gate B fails outright** — the disagreement-set lift is
 +0.005R, essentially zero, nowhere near the pre-registered +0.15R bar, and the
 90% CI straddles 0. **Gate C fails** too — the full-stream delta is barely
 non-negative (+0.004R, noise-level) but the first half of the window is
-*negative* (−0.003R) and only 8 of 18 assets show a positive H-LB edge, so the
+_negative_ (−0.003R) and only 8 of 18 assets show a positive H-LB edge, so the
 (already-negligible) effect isn't even consistently positive across time or
 assets. Per the pre-registered asymmetry, insufficient/negative evidence loses
 — CHoCH keeps the incumbency.

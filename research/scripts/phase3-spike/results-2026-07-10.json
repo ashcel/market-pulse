@@ -35,10 +35,7 @@
   "gateB": {
     "meanDeltaR": 0.005,
     "threshold": 0.15,
-    "ci90": [
-      -0.07,
-      0.08
-    ],
+    "ci90": [-0.07, 0.08],
     "resolvedChoch": 53,
     "resolvedHlb": 63,
     "sampleFloor": 50,

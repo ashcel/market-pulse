@@ -10,8 +10,8 @@ Phase 2 wants more evidence per unit time (bigger evaluated universe) and better
 use of the evidence that exists (shrinkage/hierarchical combo estimates instead
 of the flat n≥15 per-cell demotion). Both touch the machinery around the
 forward-test record while the `1.0.0` clock is running, so each must be
-classified: does it change *what gets recorded*, or only *what gets sampled /
-how the record is read*?
+classified: does it change _what gets recorded_, or only _what gets sampled /
+how the record is read_?
 
 ## Proven boundary (2026-07-12, from code, pinned by test)
 
@@ -19,12 +19,12 @@ The pipeline is `assessIntents → applyRecordAdjustment(comboStats) →
 reconcileHolds → openedFavored → buildShadowSignal`.
 
 1. **The open gate reads the raw verdict.** `reconcileHolds` pushes into
-   `openedFavored` on `entry.favoredBeforeAdjustment` — captured *before* the
+   `openedFavored` on `entry.favoredBeforeAdjustment` — captured _before_ the
    demotion — so a demoted call still opens its shadow record. The record
    never self-censors its own evidence stream.
 2. **Record content is demotion-independent.** The demotion branch rewrites
    verdict/headline/sizeMultiplier and halves the plan via `scalePlan`, which
-   scales *sizing fields only* (`positionSize`, dollar figures) — never
+   scales _sizing fields only_ (`positionSize`, dollar figures) — never
    entry/stop/targets. `buildShadowSignal` persists only
    prices/confidence/classification. The persisted row is byte-identical with
    or without the demotion.
@@ -32,16 +32,16 @@ reconcileHolds → openedFavored → buildShadowSignal`.
    stores `verdict: "caution"` (rank 2) instead of `"favored"` (rank 3), and
    hold rank feeds the upgrade-release rule in `releaseReason`. A caution
    hold releases to a later favored read; a favored hold does not. So the
-   demotion statistic shapes *when* future holds release → the timing and
+   demotion statistic shapes _when_ future holds release → the timing and
    count of future record opens.
 
 ## Classification
 
 - **Universe expansion (worker evaluates more symbols): sampling-frame change,
   no version bump.** Per-symbol decision semantics are untouched; the change
-  is *which* symbols get evaluated. Caveat: combo stats pool across symbols by
+  is _which_ symbols get evaluated. Caveat: combo stats pool across symbols by
   design, so new symbols' settled outcomes will move shared demotion cells —
-  that is the *point* (evidence accrues faster), and it operates through the
+  that is the _point_ (evidence accrues faster), and it operates through the
   same n≥15 rule that already governs. Mitigations: `engine_run.universe_json`
   records the evaluated set per pass, and every record carries its symbol, so
   cohorts remain separable post-hoc. The worker universe is a **superset** of
@@ -61,6 +61,6 @@ reconcileHolds → openedFavored → buildShadowSignal`.
 - **Decoupling holds from the adjusted verdict** (capture the raw verdict in
   the hold to make the boundary fully clean). Rejected for now: it would
   itself change release timing — i.e., a version-bump change — and the current
-  coupling is *intentional* product behavior (a demoted read should not sit as
+  coupling is _intentional_ product behavior (a demoted read should not sit as
   a full-size favored hold). If a future spike adopts shrinkage, fixing the
   statistic and the coupling in one pre-registered change is the cheaper path.

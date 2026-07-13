@@ -42,7 +42,7 @@ So the deliverable is not "a database, then later auth." It is, in dependency
 order:
 
 1. **Provenance stamping** (cheap, gating, no DB) — so nothing recorded from
-   now on is wasted, and engine changes *segment* the record instead of
+   now on is wasted, and engine changes _segment_ the record instead of
    poisoning it.
 2. **Postgres + auth from day one** — the persistence layer ships with
    `users` / `sessions` / `invites` and ownership on user data. The target is
@@ -62,16 +62,16 @@ projection over the auth-gated, server-owned record.
 
 ### The one non-backend gate: engine stability
 
-Do **not** start the *official* forward-test clock (call it engine version
+Do **not** start the _official_ forward-test clock (call it engine version
 `1.0.0`) until the **i.mss trigger** question from `phase2-spike.md` is
 decided. The G1 expansion question is resolved (cross-TF retained, no new
 structure state) — good, that was the churn most likely to invalidate a
 running test. But the spike's deeper finding is that the internal-shift
-*trigger* is mis-formalized (closed-bar-close-through-level vs. pivot-confirmed
-CHoCH), and changing the trigger changes *what gets recorded*. Until that's
+_trigger_ is mis-formalized (closed-bar-close-through-level vs. pivot-confirmed
+CHoCH), and changing the trigger changes _what gets recorded_. Until that's
 decided, records are stamped with a `0.x` dev version and treated as a
 shakeout of the pipeline, not as evidence. Provenance stamping (step 1) is
-exactly what lets us run the pipeline live *before* the engine is frozen
+exactly what lets us run the pipeline live _before_ the engine is frozen
 without contaminating the eventual `1.0.0` record.
 
 ---
@@ -91,11 +91,11 @@ without contaminating the eventual `1.0.0` record.
   these.
 - **The evaluation pipeline is client-coupled.** The open decision lives in
   `useReconciledAssessments`: `assessIntents → applyRecordAdjustment →
-  reconcileHolds → buildShadowSignal / buildAnticipatorySignal`, plus the
+reconcileHolds → buildShadowSignal / buildAnticipatorySignal`, plus the
   `open()` writes and the hysteresis `holds` state. To run server-side this
   must be extracted into a **pure, framework-free** `evaluateSymbol()` that
   takes candles + prior hold-state and returns `{ displayAssessments,
-  recordsToOpen, nextHolds }`. This extraction is the main engine-side refactor
+recordsToOpen, nextHolds }`. This extraction is the main engine-side refactor
   and is independently valuable (it makes the pipeline unit-testable without
   React).
 
@@ -109,7 +109,7 @@ A single source of truth for "which engine produced this record."
 // src/lib/engine/version.ts
 export const ENGINE_VERSION = "0.9.0-dev"; // bump on any decision/trigger change; → 1.0.0 when frozen
 export const GIT_SHA = import.meta.env.VITE_GIT_SHA ?? "unknown"; // injected at build
-export function configHash(settings: RiskSettings, thresholds: EngineThresholds): string
+export function configHash(settings: RiskSettings, thresholds: EngineThresholds): string;
 ```
 
 - **`ENGINE_VERSION`** — manually bumped when decision or trigger logic
@@ -128,7 +128,7 @@ export function configHash(settings: RiskSettings, thresholds: EngineThresholds)
 now as optional (records predating the field are pre-`1.0` shakeout anyway),
 and stamp them at `open()`. **All stats functions (`shadowComboStats` and
 friends) filter to the current `engineVersion` by default.** Ship this against
-the *existing localStorage stores* — it is decoupled from the migration, so
+the _existing localStorage stores_ — it is decoupled from the migration, so
 the record starts accumulating provenance immediately and the migration
 inherits it.
 
@@ -305,7 +305,7 @@ Key points:
   combo-stat adjustments from the server stats endpoint.
 - `useSignalSettlement` is **deleted client-side** (the worker settles).
 
-Net effect: the browser becomes a *view* over a server-owned record. Same UI,
+Net effect: the browser becomes a _view_ over a server-owned record. Same UI,
 honest data.
 
 ---
@@ -350,19 +350,19 @@ without it. Scope is deliberately minimal for an invite-only tool:
 
 ## 8. Phasing & sequencing
 
-| Phase | Deliverable | DB? | Blocks on |
-|---|---|---|---|
-| **A** | Provenance: `version.ts`, `configHash`, stamp records at `open()`, stats filter by `engineVersion`. Ship against current localStorage stores. | no | nothing — **do this week** |
-| **A′** | Extract pure `evaluateSymbol()` out of `useReconciledAssessments`. | no | A (shares the record shape) |
-| **B** | Postgres + repo layer + full schema (**incl. `users`/`sessions`/`invites`**) + session middleware + invite/redeem/login flow. Confirm driver against the supply-chain guard. | yes | A |
-| **B′** | Auth-gated `/api/forward-test` read + `/follow` endpoints. | yes | B |
-| **C** | Worker: server-side eval + settle over UNIVERSE; move `holds` server-side; client stores → read-through cache; delete `useSignalSettlement`. | yes | A′, B |
-| **D** | `backtest_run` storage; CLI wrapper for the research scripts. | yes | B |
-| **E** | Freeze engine → bump `ENGINE_VERSION` to `1.0.0`; **start the official forward-test clock**. | — | **i.mss trigger decision** (phase2-spike) |
+| Phase  | Deliverable                                                                                                                                                                  | DB? | Blocks on                                 |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | ----------------------------------------- |
+| **A**  | Provenance: `version.ts`, `configHash`, stamp records at `open()`, stats filter by `engineVersion`. Ship against current localStorage stores.                                | no  | nothing — **do this week**                |
+| **A′** | Extract pure `evaluateSymbol()` out of `useReconciledAssessments`.                                                                                                           | no  | A (shares the record shape)               |
+| **B**  | Postgres + repo layer + full schema (**incl. `users`/`sessions`/`invites`**) + session middleware + invite/redeem/login flow. Confirm driver against the supply-chain guard. | yes | A                                         |
+| **B′** | Auth-gated `/api/forward-test` read + `/follow` endpoints.                                                                                                                   | yes | B                                         |
+| **C**  | Worker: server-side eval + settle over UNIVERSE; move `holds` server-side; client stores → read-through cache; delete `useSignalSettlement`.                                 | yes | A′, B                                     |
+| **D**  | `backtest_run` storage; CLI wrapper for the research scripts.                                                                                                                | yes | B                                         |
+| **E**  | Freeze engine → bump `ENGINE_VERSION` to `1.0.0`; **start the official forward-test clock**.                                                                                 | —   | **i.mss trigger decision** (phase2-spike) |
 
 The critical-path insight is unchanged by pulling auth forward: **A is cheap
 and unblocks everything, and E (the clock that actually matters) is gated on an
-SMC decision, not on the backend.** Auth now lands *with* the database (B) so
+SMC decision, not on the backend.** Auth now lands _with_ the database (B) so
 the closed beta can start using a real login the moment persistence exists,
 rather than migrating anonymous records later. So build A → A′ → B → B′ → C in
 parallel with deciding the i.mss trigger; the backend + auth can be fully ready
@@ -375,7 +375,7 @@ a one-line version bump starts the real test.
 
 1. **i.mss trigger** — in-scope before `1.0.0`, or explicitly deferred and the
    clock starts on the current (pivot-confirmed CHoCH) trigger? This is the
-   only thing gating a *meaningful* forward test. (SMC decision.)
+   only thing gating a _meaningful_ forward test. (SMC decision.)
 2. **Postgres host** — self-hosted on the VPS (one more systemd/container unit)
    vs. a managed instance. Also confirm adding the driver to the
    supply-chain-guard `minimumReleaseAgeExcludes`.
@@ -403,15 +403,15 @@ lint` (0 errors), `bun test` (272 + new provenance/evaluate tests), and `bun
 run build` all pass; the client bundle was grepped clean of `postgres` /
 `DATABASE_URL` (server-only isolation holds).
 
-| Phase | Shipped | Notes |
-|---|---|---|
-| **A** | ✅ | `version.ts` (`ENGINE_VERSION` / `configHash` / `gitSha`); stamped on shadow, anticipatory, tracked; `shadowComboStats` segments by version. |
-| **A′** | ✅ | `evaluate.ts::evaluateSymbol` — client hook + worker share one path. |
-| **B** | ✅ | `postgres.js` client (server-only), `0001_init.sql` + runner, `repo.ts`, auth store + session cookies, `/api/auth`, `/login`, `docker-compose.yml`, seed-admin / mint-invite CLIs. |
-| **B′** | ✅ | `/api/forward-test` (stats / runs / follows + `POST` follow), auth-gated. |
-| **C** | ✅ eval+settle+holds server-side; ⏳ **client cutover deferred** | Worker (`src/server/worker`) is the system of record. The client stores + `useSignalSettlement` are **left intact** on purpose (Lovable working-state + app stays live). Final cutover — read-through `useForwardTestRecord` hook, stop client-side auto-open, delete `useSignalSettlement` — is the one remaining step, gated on the worker running in prod. |
-| **D** | ✅ | `backtest_run` + `record-backtest.ts` CLI. |
-| **E** | ⛔ **held** | See below. |
+| Phase  | Shipped                                                          | Notes                                                                                                                                                                                                                                                                                                                                                         |
+| ------ | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A**  | ✅                                                               | `version.ts` (`ENGINE_VERSION` / `configHash` / `gitSha`); stamped on shadow, anticipatory, tracked; `shadowComboStats` segments by version.                                                                                                                                                                                                                  |
+| **A′** | ✅                                                               | `evaluate.ts::evaluateSymbol` — client hook + worker share one path.                                                                                                                                                                                                                                                                                          |
+| **B**  | ✅                                                               | `postgres.js` client (server-only), `0001_init.sql` + runner, `repo.ts`, auth store + session cookies, `/api/auth`, `/login`, `docker-compose.yml`, seed-admin / mint-invite CLIs.                                                                                                                                                                            |
+| **B′** | ✅                                                               | `/api/forward-test` (stats / runs / follows + `POST` follow), auth-gated.                                                                                                                                                                                                                                                                                     |
+| **C**  | ✅ eval+settle+holds server-side; ⏳ **client cutover deferred** | Worker (`src/server/worker`) is the system of record. The client stores + `useSignalSettlement` are **left intact** on purpose (Lovable working-state + app stays live). Final cutover — read-through `useForwardTestRecord` hook, stop client-side auto-open, delete `useSignalSettlement` — is the one remaining step, gated on the worker running in prod. |
+| **D**  | ✅                                                               | `backtest_run` + `record-backtest.ts` CLI.                                                                                                                                                                                                                                                                                                                    |
+| **E**  | ⛔ **held**                                                      | See below.                                                                                                                                                                                                                                                                                                                                                    |
 
 **Decisions resolved:** Postgres (self-hosted docker, dedicated container on
 `:5435`); the driver is `postgres@3.4.9` — an established release, so it did
@@ -424,13 +424,13 @@ record = discard at cutover.
 ## 11. Phase E decision — the clock stays at `0.9.0-dev`
 
 **Do not bump to `1.0.0` yet.** The whole point of provenance is that the
-*official* forward-test clock starts only on an engine we are not about to
+_official_ forward-test clock starts only on an engine we are not about to
 rewrite — and `phase2-spike.md` leaves the **i.mss trigger** genuinely open
 (closed-bar-close-through-level vs. pivot-confirmed CHoCH). Starting the clock
 now would either freeze the engine mid-question or contaminate the `1.0.0`
 record with a trigger change. So the backend runs live and accumulates a
 `0.9.0-dev` record — real, queryable, provenance-stamped, but explicitly
-*shakeout*, not evidence. The bump to `1.0.0` is a one-line change in
+_shakeout_, not evidence. The bump to `1.0.0` is a one-line change in
 `version.ts` the moment the i.mss trigger is decided; nothing else blocks it.
 
 ## 12. Long-term architecture rationale

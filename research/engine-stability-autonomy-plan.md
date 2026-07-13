@@ -6,9 +6,9 @@ plan covers the two priorities agreed after that landed: **(1) engine
 stability + correctness**, and **(2) making the forward test autonomous — a
 self-contained unit that runs on its own**, no browser, no hand-holding.
 
-Deliberately *not* in scope: the Python ETL / feature plane (deferred — see the
-project memory). This plan is about making what we have *trustworthy and
-self-running* before broadening the data.
+Deliberately _not_ in scope: the Python ETL / feature plane (deferred — see the
+project memory). This plan is about making what we have _trustworthy and
+self-running_ before broadening the data.
 
 ---
 
@@ -36,6 +36,7 @@ context in perp mode). So the recorded decision can diverge from the engine's
 true read — the record isn't honest.
 
 **Tasks**
+
 - [x] In the worker eval pass, compute session levels the same way the UI does:
       fetch ~168×1H klines via `fetchBinanceKlinesDirect` → `dropUnclosedCandle`
       → `computeSessionLevels` (`src/lib/engine/sessions.ts`). Pass them into
@@ -69,6 +70,7 @@ possibly a new `src/lib/engine/assemble-inputs.ts` shared by hook + worker.
 Broader correctness net around the engine now that it runs unattended.
 
 **Tasks**
+
 - [x] **Worker/UI parity test** — one integration test that runs a symbol
       through both the worker path and the hook's `evaluateSymbol` call and
       asserts identical `display` + `shadowToOpen` + `anticipatoryToOpen`.
@@ -105,7 +107,7 @@ Broader correctness net around the engine now that it runs unattended.
       `version.test.ts` and DB-integration-tested in `repo-invariants.test.ts`
       (throws before any insert, writes nothing).
 - [x] **Dedup correctness** — test the partial-unique indexes: a second open of
-      the same still-open (symbol,market,intent) is a no-op, and a *new* open is
+      the same still-open (symbol,market,intent) is a no-op, and a _new_ open is
       allowed only after the prior one settles. Landed as
       `src/server/db/repo-invariants.test.ts`, a real-Postgres integration
       suite (DATABASE_URL, dev docker-compose DB) exercising
@@ -123,12 +125,13 @@ failure in `version.test.ts` left untouched), `bun run lint` clean.
 ## Workstream 3 — i.mss trigger spike (the correctness centerpiece, gates 1.0.0)
 
 The open SMC question from `phase2-spike.md`: the internal shift is currently a
-*pivot-confirmed CHoCH* (knowable `k` bars late), but Dreimann's i.mss is a
-*closed-bar close through a drawn internal level* (knowable at that close). This
+_pivot-confirmed CHoCH_ (knowable `k` bars late), but Dreimann's i.mss is a
+_closed-bar close through a drawn internal level_ (knowable at that close). This
 changes the **trigger** — i.e., what the record captures — so it must be settled
 before the clock starts.
 
 **Tasks**
+
 - [ ] Write a **pre-registered spike protocol** (new `research/phase3-spike.md`),
       mirroring `analysis.md` §10: hypothesis (H-LB — level-break trigger),
       frozen shared components, gates A–D with thresholds and the
@@ -142,7 +145,7 @@ before the clock starts.
       `research/scripts/phase3-spike/results-2026-07-10.json` and
       `backtest_run 66e27582-f097-4c50-bbc2-be7e051b032c`.
 - [x] Decide: adopt level-break trigger, or retain CHoCH. Either way the
-      question is *closed* and the engine is freezable. **Retain CHoCH** — Gate
+      question is _closed_ and the engine is freezable. **Retain CHoCH** — Gate
       A passed (99.6% divergence) but Gate B failed (disagreement-set lift
       +0.005R, CI [-0.07, 0.08] straddles 0, threshold +0.15R) and Gate C
       failed (half-1 delta negative, only 8/18 assets H-LB-positive). See
@@ -160,8 +163,9 @@ CHoCH retained, WS6 unblocked.**
 Make the worker run unattended on the VPS, self-healing across restarts.
 
 **Tasks**
+
 - [x] **systemd unit** `market-pulse-worker.service` — `ExecStart=bun run
-      src/server/worker/index.ts`, `Restart=always`, `RestartSec`, `EnvironmentFile`
+    src/server/worker/index.ts`, `Restart=always`, `RestartSec`, `EnvironmentFile`
       for `DATABASE_URL`/`WORKER_INTERVAL_MS`/`GIT_SHA`. Add the unit file to the
       repo (e.g. `deploy/market-pulse-worker.service`). Landed as
       `deploy/market-pulse-worker.service` + `deploy/worker.env.example`
@@ -184,7 +188,7 @@ Make the worker run unattended on the VPS, self-healing across restarts.
       shared-candle reuse and a weight budget so a pass can't get the IP banned.
       Landed as `src/lib/engine/rate-limit.ts` — a token-bucket weight budget
       (2000/min, a third of Binance's real 6000/min ceiling) shared by every
-      `fetchBinanceKlinesDirect`/`fetchBinancePriceDirect` call (worker *and*
+      `fetchBinanceKlinesDirect`/`fetchBinancePriceDirect` call (worker _and_
       web, since both import the same singleton), queued so concurrent
       acquires stagger instead of racing. Weight computed from Binance's real
       `/klines` schedule (1/2/5 by `limit`). No-ops under Vitest so the test
@@ -205,7 +209,7 @@ Make the worker run unattended on the VPS, self-healing across restarts.
       verify it). Landed as `src/server/worker/idempotency.test.ts` (real
       Postgres): a run that opens records then never calls `finishEngineRun`
       (simulated kill), followed by a full restart pass, proves (1) no
-      double-open — the restart's attempt is a no-op tied to the *original*
+      double-open — the restart's attempt is a no-op tied to the _original_
       run's id, (2) full catch-up — a symbol run A never reached still opens
       cleanly on the restart, (3) the orphaned run stays orphaned
       (`finished_at` null) without blocking the next run, and (4) settled
@@ -224,10 +228,11 @@ systemd unit (`deploy/market-pulse-worker.service`), fill in
 ## Workstream 5 — Client cutover (retire the browser-gated path)
 
 The remaining Phase C step from the backend design: make the browser a pure
-*view*. Do this only **after** WS1 + WS4 (server must be trustworthy and
+_view_. Do this only **after** WS1 + WS4 (server must be trustworthy and
 running before we lean on it).
 
 **Tasks**
+
 - [x] `useForwardTestRecord` read-through query (TanStack Query) over
       `/api/forward-test?view=stats` — the source of combo stats for
       `useReconciledAssessments`. Landed as `src/hooks/useForwardTestRecord.ts`
@@ -240,7 +245,7 @@ running before we lean on it).
 - [x] Stop the client auto-opening shadow/anticipatory records; keep the stores
       as an offline/instant-paint cache only. Landed — `useReconciledAssessments`
       no longer calls `openShadow`/`openAnticipatory`; the effect only adopts
-      held verdicts now. The stores/components that still *read* them (e.g.
+      held verdicts now. The stores/components that still _read_ them (e.g.
       `AnticipatoryRecordNote` on the token page) are untouched and just
       quietly stop gaining new entries.
 - [x] Delete `useSignalSettlement` (the worker settles). Landed — file removed,
@@ -254,7 +259,7 @@ running before we lean on it).
       klines for them. This is a pre-existing gap the backend design doc's own
       Phase C status didn't flag, not something introduced by this cutover —
       but it now needs its own fix (wire `follow()` to `POST
-      /api/forward-test`, read "my follows" from `?view=follows`) as a
+    /api/forward-test`, read "my follows" from `?view=follows`) as a
       follow-up, tracked outside this plan.
 - [x] Discard the legacy localStorage record at cutover (unversioned, biased).
       Landed as `version: 1` on both `iq-shadow-signals` and
@@ -276,9 +281,10 @@ flagged for a follow-up, not silently swallowed.
 **Gated on WS3.** One-line change once the engine is frozen.
 
 **Tasks**
+
 - [x] Bump `ENGINE_VERSION` in `src/lib/engine/version.ts` to `1.0.0`.
-- [x] Announce the cohort boundary; stats from here are *evidence*, prior are
-      *shakeout*.
+- [x] Announce the cohort boundary; stats from here are _evidence_, prior are
+      _shakeout_.
 
 ---
 
@@ -313,6 +319,6 @@ WS3 (i.mss spike) ── independent decision work ──▶ WS6 (bump to 1.0.0)
 3. **Prod DB** — self-hosted docker vs managed Postgres (WS4).
 4. **Eval cadence** — keep 5m fixed, or per-exec-TF on bar close?
 5. **Tracked-signal follow wiring** — `follow()` needs to `POST
-   /api/forward-test` and the Signal Tracker page needs to read `?view=follows`
+/api/forward-test` and the Signal Tracker page needs to read `?view=follows`
    for followed signals to settle at all again post-WS5 (found during the WS5
    cutover; see WS5 notes).
