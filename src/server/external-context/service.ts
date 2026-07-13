@@ -162,6 +162,63 @@ export async function contextHealth(): Promise<ContextHealth> {
   }
 }
 
+/**
+ * Viewed asset vs BTC — is this move the asset's own or just the market's?
+ * Reads the market snapshot's per-asset relative fields (relative.ts) and
+ * derives the asset/BTC price ratio from the two USDT prices — no BTC-quoted
+ * pair needed, and the ~bps of quote-spread error is irrelevant here.
+ */
+async function buildRelative(
+  sym: string,
+  degradation: SectionStatus[],
+): Promise<ExternalContext["relative"]> {
+  if (sym === "BTC") return null; // dominance already covers BTC-vs-market
+  let snapshot;
+  try {
+    snapshot = await computeSnapshot("spot");
+  } catch (err) {
+    degradation.push({
+      section: "relative",
+      status: "error",
+      reason: `market snapshot unavailable: ${(err as Error).message}`,
+    });
+    return null;
+  }
+  if (snapshot.source !== "live") {
+    degradation.push({
+      section: "relative",
+      status: "missing",
+      reason: "market snapshot is in demo mode — synthetic data is never served as context",
+    });
+    return null;
+  }
+  const asset = snapshot.assets.find((a) => a.ticker === sym);
+  const btc = snapshot.assets.find((a) => a.ticker === "BTC");
+  if (!asset || asset.rsBtc24h === undefined || asset.rsBtc7d === undefined) {
+    degradation.push({
+      section: "relative",
+      status: "missing",
+      reason: `${sym} is outside the tracked universe — no relative read`,
+    });
+    return null;
+  }
+  const ratio = btc && btc.price > 0 && asset.price > 0 ? asset.price / btc.price : null;
+  // Ratio 7d change follows exactly from the two USDT 7d changes.
+  const ratioChange7d =
+    asset.change7d !== undefined && btc?.change7d !== undefined && btc.change7d > -100
+      ? round2(((1 + asset.change7d / 100) / (1 + btc.change7d / 100) - 1) * 100)
+      : null;
+  degradation.push({ section: "relative", status: "ok", asOf: snapshot.updatedAt });
+  return {
+    rsBtc24hPp: asset.rsBtc24h,
+    rsBtc7dPp: asset.rsBtc7d,
+    corrBtc7d: asset.corrBtc7d ?? null,
+    ratio: ratio === null ? null : Number(ratio.toPrecision(6)),
+    ratioChange7dPct: ratioChange7d,
+    provenance: { source: "binance", asOf: snapshot.updatedAt, stale: false },
+  };
+}
+
 /** The two retrospective buckets from the symbol's last-7d token events. */
 async function buildRecentEvents(
   sym: string,
@@ -202,9 +259,13 @@ export async function assembleExternalContext(symbol: string): Promise<ExternalC
   const sym = normalizeTicker(symbol);
   const degradation: SectionStatus[] = [];
 
-  const [breadth, recent] = await Promise.all([
+  const [breadth, relative, recent] = await Promise.all([
     buildBreadth(degradation).catch((err) => {
       degradation.push({ section: "breadth", status: "error", reason: (err as Error).message });
+      return null;
+    }),
+    buildRelative(sym, degradation).catch((err) => {
+      degradation.push({ section: "relative", status: "error", reason: (err as Error).message });
       return null;
     }),
     buildRecentEvents(sym, degradation),
@@ -214,7 +275,7 @@ export async function assembleExternalContext(symbol: string): Promise<ExternalC
     symbol: sym,
     assembledAt: new Date().toISOString(),
     breadth,
-    relative: null,
+    relative,
     recentCatalysts: recent.recentCatalysts,
     recentHighImpact: recent.recentHighImpact,
     upcoming: null,
