@@ -608,7 +608,7 @@ let fngCache: { at: number; value: number | null } | null = null;
 const SNAPSHOT_TTL_MS = 45_000;
 const FNG_TTL_MS = 30 * 60_000;
 
-async function computeSnapshot(market: MarketType = "spot"): Promise<MarketSnapshot> {
+export async function computeSnapshot(market: MarketType = "spot"): Promise<MarketSnapshot> {
   const now = Date.now();
   const cached = snapshotCache[market];
   if (cached && now - cached.at < SNAPSHOT_TTL_MS) return cached.data;

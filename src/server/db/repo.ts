@@ -12,6 +12,7 @@ import type {
   TokenEventKind,
   TokenEventSeverity,
 } from "@/lib/engine/token-events";
+import type { MarketContextSnapshotInput } from "@/lib/engine/external-context";
 
 const iso = (v: Date | string | null): string | undefined =>
   v == null ? undefined : v instanceof Date ? v.toISOString() : v;
@@ -506,6 +507,123 @@ export async function tokenEventRecipients(symbol: string): Promise<string[]> {
     select user_id from user_watchlist where symbol = ${symbol.toUpperCase()}
   `;
   return rows.map((r) => r.user_id);
+}
+
+// ── External market context (breadth snapshots + ingest bookkeeping) ────────
+
+export interface MarketContextRow {
+  id: string;
+  totalMcapUsd: number;
+  btcDominance: number;
+  ethDominance: number | null;
+  mcapChange24hPct: number | null;
+  source: string;
+  fetchedAt: string;
+}
+
+function rowToMarketContext(r: Record<string, unknown>): MarketContextRow {
+  return {
+    id: r.id as string,
+    totalMcapUsd: Number(r.total_mcap_usd),
+    btcDominance: Number(r.btc_dominance),
+    ethDominance: r.eth_dominance == null ? null : Number(r.eth_dominance),
+    mcapChange24hPct: r.mcap_change_24h_pct == null ? null : Number(r.mcap_change_24h_pct),
+    source: r.source as string,
+    fetchedAt: iso(r.fetched_at as Date)!,
+  };
+}
+
+export async function insertMarketContextSnapshot(
+  input: MarketContextSnapshotInput,
+): Promise<void> {
+  await sql`
+    insert into market_context_snapshot (
+      total_mcap_usd, btc_dominance, eth_dominance, mcap_change_24h_pct, source
+    ) values (
+      ${input.totalMcapUsd}, ${input.btcDominance}, ${input.ethDominance},
+      ${input.mcapChange24hPct}, ${input.source}
+    )
+  `;
+}
+
+export async function latestMarketContextSnapshot(): Promise<MarketContextRow | null> {
+  const rows = await sql`
+    select * from market_context_snapshot order by fetched_at desc limit 1
+  `;
+  return rows.length ? rowToMarketContext(rows[0] as Record<string, unknown>) : null;
+}
+
+/** The newest snapshot at or before `iso` — the "~24h ago" row for deltas. */
+export async function marketContextSnapshotNear(isoTs: string): Promise<MarketContextRow | null> {
+  const rows = await sql`
+    select * from market_context_snapshot
+    where fetched_at <= ${isoTs}
+    order by fetched_at desc limit 1
+  `;
+  return rows.length ? rowToMarketContext(rows[0] as Record<string, unknown>) : null;
+}
+
+export async function pruneMarketContextSnapshots(olderThanIso: string): Promise<number> {
+  const result = await sql`
+    delete from market_context_snapshot where fetched_at < ${olderThanIso}
+  `;
+  return result.count;
+}
+
+export interface IngestStateRow {
+  source: string;
+  status: "ok" | "error" | "unconfigured";
+  lastOkAt: string | null;
+  lastError: string | null;
+  lastErrorAt: string | null;
+  updatedAt: string;
+}
+
+/**
+ * Record the outcome of one ingest attempt. `ok` refreshes last_ok_at and
+ * clears nothing (the last error stays visible for postmortems); `error`
+ * keeps last_ok_at so staleness can be computed from when data was last good.
+ */
+export async function upsertIngestState(
+  source: string,
+  status: IngestStateRow["status"],
+  error?: string,
+): Promise<void> {
+  if (status === "ok") {
+    await sql`
+      insert into ingest_state (source, status, last_ok_at)
+      values (${source}, 'ok', now())
+      on conflict (source) do update
+        set status = 'ok', last_ok_at = now(), updated_at = now()
+    `;
+    return;
+  }
+  await sql`
+    insert into ingest_state (source, status, last_error, last_error_at)
+    values (${source}, ${status}, ${error ?? null},
+            ${status === "error" ? sql`now()` : null})
+    on conflict (source) do update
+      set status = ${status},
+          last_error = coalesce(${error ?? null}, ingest_state.last_error),
+          last_error_at = case when ${status} = 'error' then now()
+                               else ingest_state.last_error_at end,
+          updated_at = now()
+  `;
+}
+
+export async function listIngestState(): Promise<IngestStateRow[]> {
+  const rows = await sql`select * from ingest_state order by source`;
+  return rows.map((r) => {
+    const row = r as Record<string, unknown>;
+    return {
+      source: row.source as string,
+      status: row.status as IngestStateRow["status"],
+      lastOkAt: iso(row.last_ok_at as Date | null) ?? null,
+      lastError: (row.last_error as string | null) ?? null,
+      lastErrorAt: iso(row.last_error_at as Date | null) ?? null,
+      updatedAt: iso(row.updated_at as Date)!,
+    };
+  });
 }
 
 export async function getWatchlist(userId: string): Promise<string[]> {

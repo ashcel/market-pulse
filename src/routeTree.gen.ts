@@ -25,6 +25,7 @@ import { Route as ApiTokenEventsRouteImport } from './routes/api/token-events'
 import { Route as ApiNotificationsRouteImport } from './routes/api/notifications'
 import { Route as ApiKlinesRouteImport } from './routes/api/klines'
 import { Route as ApiForwardTestRouteImport } from './routes/api/forward-test'
+import { Route as ApiExternalContextRouteImport } from './routes/api/external-context'
 import { Route as ApiAuthRouteImport } from './routes/api/auth'
 
 const TrackerRoute = TrackerRouteImport.update({
@@ -107,6 +108,11 @@ const ApiForwardTestRoute = ApiForwardTestRouteImport.update({
   path: '/api/forward-test',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiExternalContextRoute = ApiExternalContextRouteImport.update({
+  id: '/api/external-context',
+  path: '/api/external-context',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthRoute = ApiAuthRouteImport.update({
   id: '/api/auth',
   path: '/api/auth',
@@ -125,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
   '/api/auth': typeof ApiAuthRoute
+  '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
@@ -144,6 +151,7 @@ export interface FileRoutesByTo {
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
   '/api/auth': typeof ApiAuthRoute
+  '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
@@ -164,6 +172,7 @@ export interface FileRoutesById {
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
   '/api/auth': typeof ApiAuthRoute
+  '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
@@ -185,6 +194,7 @@ export interface FileRouteTypes {
     | '/technical'
     | '/tracker'
     | '/api/auth'
+    | '/api/external-context'
     | '/api/forward-test'
     | '/api/klines'
     | '/api/notifications'
@@ -204,6 +214,7 @@ export interface FileRouteTypes {
     | '/technical'
     | '/tracker'
     | '/api/auth'
+    | '/api/external-context'
     | '/api/forward-test'
     | '/api/klines'
     | '/api/notifications'
@@ -223,6 +234,7 @@ export interface FileRouteTypes {
     | '/technical'
     | '/tracker'
     | '/api/auth'
+    | '/api/external-context'
     | '/api/forward-test'
     | '/api/klines'
     | '/api/notifications'
@@ -243,6 +255,7 @@ export interface RootRouteChildren {
   TechnicalRoute: typeof TechnicalRoute
   TrackerRoute: typeof TrackerRoute
   ApiAuthRoute: typeof ApiAuthRoute
+  ApiExternalContextRoute: typeof ApiExternalContextRoute
   ApiForwardTestRoute: typeof ApiForwardTestRoute
   ApiKlinesRoute: typeof ApiKlinesRoute
   ApiNotificationsRoute: typeof ApiNotificationsRoute
@@ -365,6 +378,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiForwardTestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/external-context': {
+      id: '/api/external-context'
+      path: '/api/external-context'
+      fullPath: '/api/external-context'
+      preLoaderRoute: typeof ApiExternalContextRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth': {
       id: '/api/auth'
       path: '/api/auth'
@@ -387,6 +407,7 @@ const rootRouteChildren: RootRouteChildren = {
   TechnicalRoute: TechnicalRoute,
   TrackerRoute: TrackerRoute,
   ApiAuthRoute: ApiAuthRoute,
+  ApiExternalContextRoute: ApiExternalContextRoute,
   ApiForwardTestRoute: ApiForwardTestRoute,
   ApiKlinesRoute: ApiKlinesRoute,
   ApiNotificationsRoute: ApiNotificationsRoute,

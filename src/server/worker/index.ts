@@ -1,5 +1,6 @@
 import { sql } from "../db/client";
 import { countOpenRecords, finishEngineRun, startEngineRun } from "../db/repo";
+import { runContextPass } from "./context-pass";
 import { runEvalPass } from "./eval-pass";
 import { runEventPass } from "./event-pass";
 import { runSettlePass } from "./settle-pass";
@@ -25,6 +26,12 @@ const INTERVAL_MS = Number(process.env.WORKER_INTERVAL_MS ?? 5 * 60_000);
 // ingests immediately (dedup makes that a no-op).
 const EVENT_PASS_MS = Number(process.env.EVENT_PASS_INTERVAL_MS ?? 15 * 60_000);
 let lastEventPassAt = 0;
+
+// External-context ingestion cadence (breadth snapshots + catalyst calendar).
+// Same gate pattern as the event pass; providers update slowly and the
+// CoinGecko Demo budget wants ≥15min between /global polls.
+const CONTEXT_PASS_MS = Number(process.env.CONTEXT_PASS_INTERVAL_MS ?? 15 * 60_000);
+let lastContextPassAt = 0;
 
 export async function runOnce(): Promise<void> {
   const prov = currentProvenance();
@@ -52,6 +59,19 @@ export async function runOnce(): Promise<void> {
       if (eventResult) events = ` events+=${eventResult.inserted}/${eventResult.fetched}`;
     }
 
+    // External context (breadth/calendar) rides the same loop; a provider
+    // outage is recorded in ingest_state inside the pass and must never fail
+    // the forward-test tick.
+    let ctx = "";
+    if (Date.now() - lastContextPassAt >= CONTEXT_PASS_MS) {
+      lastContextPassAt = Date.now();
+      const ctxResult = await runContextPass().catch((err) => {
+        console.error("[context] pass failed:", err);
+        return null;
+      });
+      if (ctxResult) ctx = ` ctx global=${ctxResult.global}`;
+    }
+
     const open = await countOpenRecords();
     await finishEngineRun(
       runId,
@@ -69,7 +89,7 @@ export async function runOnce(): Promise<void> {
         `evaluated=${spot.evaluated}spot+${perp.evaluated}perp ` +
         `shadow+=${spot.shadowOpened + perp.shadowOpened} ` +
         `anticipatory+=${spot.anticipatoryOpened + perp.anticipatoryOpened} ` +
-        `settled=${settleResult.settled}${events} ` +
+        `settled=${settleResult.settled}${events}${ctx} ` +
         `open(shadow=${open.shadow} anticipatory=${open.anticipatory} tracked=${open.tracked}) ` +
         `(engine ${prov.engineVersion} / cfg ${prov.configHash})`,
     );
