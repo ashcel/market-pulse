@@ -1,16 +1,17 @@
 import { classifyPrice, type DealingRange, type PricePosition } from "./equilibrium";
 import type { Fvg } from "./fvg";
 import type { OrderBlock } from "./orderblocks";
+import { derivePoiLifecycle, type PoiSource, type PoiState } from "./poi-lifecycle";
 import type { Candle } from "./types";
 import type { BaseZone } from "./zones";
 
 /**
  * The unified POI read model — base zones, order blocks, and FVGs on one
- * ledger, each carrying its premium/discount position and state. This is the
- * "Phase 3" seam poi.ts names: `UnifiedPoi` deliberately carries exactly the
- * fields `selectPoi` reads from a `BaseZone` (kind, priceLow/High, startTime,
- * state subsuming freshness), so the eventual gated cutover only widens
- * selectPoi's parameter to a structural interface both types satisfy —
+ * ledger, each carrying its premium/discount position and lifecycle state.
+ * This is the "Phase 3" seam poi.ts names: `UnifiedPoi` deliberately carries
+ * exactly the fields `selectPoi` reads from a `BaseZone` (kind, priceLow/High,
+ * startTime, state subsuming freshness), so the eventual gated cutover only
+ * widens selectPoi's parameter to a structural interface both types satisfy —
  * consumers keep their shape.
  *
  * Until that pre-registered gate: **display-only**. selectPoi and
@@ -19,25 +20,22 @@ import type { BaseZone } from "./zones";
  * (EDR 0014). Overlapping POIs are listed, never merged — an OB inside its
  * base zone is two reads agreeing, and collapsing them would erase which
  * detector said what.
+ *
+ * States come from the lifecycle deriver (EDR 0015): terminal POIs
+ * (invalidated/consumed) stay on the ledger, flagged, and an FVG closed fully
+ * through mints its opposite-kind iFVG at the inversion bar (G6).
  */
 
-export type PoiSource = "base-zone" | "order-block" | "fvg" | "ifvg";
-
-/**
- * fresh/tested today (the zoneFreshness vocabulary); mitigated, invalidated,
- * and consumed arrive with the lifecycle deriver, which also retains terminal
- * POIs instead of dropping them.
- */
-export type PoiState = "fresh" | "tested" | "mitigated" | "invalidated" | "consumed";
+export type { PoiSource, PoiState } from "./poi-lifecycle";
 
 export interface UnifiedPoi {
   source: PoiSource;
   kind: "demand" | "supply";
   priceLow: number;
   priceHigh: number;
-  /** Formation start — the zone base / OB candle / FVG displacement candle. */
+  /** Formation start — the zone base / OB candle / FVG displacement / inversion bar. */
   startTime: number;
-  /** Formation confirmation — departure / displacement / third candle. */
+  /** Formation confirmation — departure / displacement / third candle / inversion bar. */
   endTime: number;
   state: PoiState;
   /** Where the proximal edge sits in the dealing range; null without a range. */
@@ -51,44 +49,17 @@ function proximalPrice(poi: Pick<UnifiedPoi, "kind" | "priceLow" | "priceHigh">)
   return poi.kind === "demand" ? poi.priceHigh : poi.priceLow;
 }
 
-const TERMINAL_STATES: readonly PoiState[] = ["invalidated", "consumed"];
+export const TERMINAL_POI_STATES: readonly PoiState[] = ["invalidated", "consumed"];
 
 /**
- * Post-formation touch scan — zoneFreshness' exact semantics, applied to OB
- * and FVG bands: null when traded through (close beyond the distal edge) or
- * revisited twice; fresh/tested otherwise. The initial linger at the band
- * right after formation is part of forming, not a test. Replaced by the
- * lifecycle deriver (which retains terminal states) in the next phase.
- */
-function touchState(
-  candles: Candle[],
-  afterTime: number,
-  kind: "demand" | "supply",
-  low: number,
-  high: number,
-): Extract<PoiState, "fresh" | "tested"> | null {
-  let touches = 0;
-  let inside = true;
-  for (const c of candles) {
-    if (c.time <= afterTime) continue;
-    if (kind === "demand" ? c.close < low : c.close > high) return null;
-    const touching = kind === "demand" ? c.low <= high : c.high >= low;
-    if (touching && !inside) {
-      touches++;
-      if (touches >= 2) return null;
-    }
-    inside = touching;
-  }
-  return touches === 0 ? "fresh" : "tested";
-}
-
-/**
- * Every POI the detectors currently stand behind, chronological by formation
- * start. Zones arrive with their freshness already replay-derived; OBs and
- * FVGs get the same touch scan here.
+ * Every POI the detectors enumerate, chronological by formation start, with
+ * lifecycle states replay-derived here. Zones may arrive as pre-freshness
+ * candidates (`computeBaseZoneCandidates`) so terminal zones stay visible —
+ * a full `BaseZone` satisfies the same shape and its carried freshness is
+ * simply re-derived, identically, from the same window.
  */
 export function buildPoiMap(
-  zones: BaseZone[],
+  zones: Array<Omit<BaseZone, "freshness">>,
   blocks: OrderBlock[],
   fvgs: Fvg[],
   candles: Candle[],
@@ -97,6 +68,14 @@ export function buildPoiMap(
   const pois: UnifiedPoi[] = [];
 
   for (const zone of zones) {
+    const read = derivePoiLifecycle(
+      candles,
+      zone.endTime,
+      zone.kind,
+      zone.priceLow,
+      zone.priceHigh,
+      "base-zone",
+    );
     pois.push({
       source: "base-zone",
       kind: zone.kind,
@@ -104,21 +83,21 @@ export function buildPoiMap(
       priceHigh: zone.priceHigh,
       startTime: zone.startTime,
       endTime: zone.endTime,
-      state: zone.freshness,
+      state: read.state,
       position: null,
       sizeAtr: null,
     });
   }
 
   for (const block of blocks) {
-    const state = touchState(
+    const read = derivePoiLifecycle(
       candles,
       block.displacementTime,
       block.kind,
       block.priceLow,
       block.priceHigh,
+      "order-block",
     );
-    if (state === null) continue;
     pois.push({
       source: "order-block",
       kind: block.kind,
@@ -126,7 +105,7 @@ export function buildPoiMap(
       priceHigh: block.priceHigh,
       startTime: block.time,
       endTime: block.displacementTime,
-      state,
+      state: read.state,
       position: null,
       sizeAtr: null,
     });
@@ -134,8 +113,7 @@ export function buildPoiMap(
 
   for (const fvg of fvgs) {
     const kind = fvg.kind === "bullish" ? "demand" : "supply";
-    const state = touchState(candles, fvg.confirmTime, kind, fvg.gapLow, fvg.gapHigh);
-    if (state === null) continue;
+    const read = derivePoiLifecycle(candles, fvg.confirmTime, kind, fvg.gapLow, fvg.gapHigh, "fvg");
     pois.push({
       source: "fvg",
       kind,
@@ -143,10 +121,36 @@ export function buildPoiMap(
       priceHigh: fvg.gapHigh,
       startTime: fvg.time,
       endTime: fvg.confirmTime,
-      state,
+      state: read.state,
       position: null,
       sizeAtr: fvg.sizeAtr,
     });
+
+    // G6: the inverted gap becomes an opposite-kind POI from the inversion
+    // bar; its own lifecycle (fresh → delivery-tested → …) is replay-derived
+    // like any other band. Emitted once — an invalidated iFVG never re-flips.
+    if (read.inverted && read.decidedAt !== null) {
+      const inverseKind = kind === "demand" ? "supply" : "demand";
+      const inverseRead = derivePoiLifecycle(
+        candles,
+        read.decidedAt,
+        inverseKind,
+        fvg.gapLow,
+        fvg.gapHigh,
+        "ifvg",
+      );
+      pois.push({
+        source: "ifvg",
+        kind: inverseKind,
+        priceLow: fvg.gapLow,
+        priceHigh: fvg.gapHigh,
+        startTime: read.decidedAt,
+        endTime: read.decidedAt,
+        state: inverseRead.state,
+        position: null,
+        sizeAtr: fvg.sizeAtr,
+      });
+    }
   }
 
   for (const poi of pois) {
@@ -162,8 +166,9 @@ export function buildPoiMap(
  * pullback can reach, discount-side first (premium for shorts), fresh over
  * tested, nearest proximal edge, earliest startTime. Terminal-state POIs sink
  * below live ones but stay listed — the lifecycle view needs them visible.
- * This mirrors, and is parity-tested against, poi.ts' selection; it decides
- * nothing until the cutover gate.
+ * `mitigated` ranks with `tested` (both are non-fresh), so the ordering is
+ * parity-tested against poi.ts' selection; it decides nothing until the
+ * cutover gate.
  */
 export function rankPois(
   pois: UnifiedPoi[],
@@ -175,7 +180,7 @@ export function rankPois(
   const wantedSide: PricePosition = direction === "long" ? "discount" : "premium";
   const onWantedSide = (poi: UnifiedPoi) =>
     range !== null && classifyPrice(range, proximalPrice(poi)) === wantedSide ? 0 : 1;
-  const terminal = (poi: UnifiedPoi) => (TERMINAL_STATES.includes(poi.state) ? 1 : 0);
+  const terminal = (poi: UnifiedPoi) => (TERMINAL_POI_STATES.includes(poi.state) ? 1 : 0);
 
   return pois
     .filter(

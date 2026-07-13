@@ -74,27 +74,21 @@ describe("buildPoiMap", () => {
     expect(pois.every((p) => p.position === "discount")).toBe(true);
   });
 
-  it("maps zone freshness through unchanged and FVG kind onto demand/supply", () => {
+  it("derives zone state by replay and maps FVG kind onto demand/supply", () => {
     const candles: Candle[] = [
       { time: 1, open: 99, high: 100, low: 98, close: 99.5, volume: 1 },
       { time: 2, open: 99.5, high: 106, low: 99, close: 105.5, volume: 1 },
       { time: 3, open: 105.5, high: 107, low: 104, close: 106, volume: 1 },
     ];
-    const pois = buildPoiMap(
-      [zone("demand", 90, 95, "tested")],
-      [],
-      detectFvgs(candles),
-      candles,
-      null,
-    );
+    const pois = buildPoiMap([zone("demand", 90, 95)], [], detectFvgs(candles), candles, null);
     const zonePoi = pois.find((p) => p.source === "base-zone")!;
-    expect(zonePoi.state).toBe("tested");
+    expect(zonePoi.state).toBe("fresh"); // never revisited in this window
     expect(zonePoi.position).toBeNull(); // no range → no position, never a veto
     const fvgPoi = pois.find((p) => p.source === "fvg")!;
     expect(fvgPoi).toMatchObject({ kind: "demand", priceLow: 100, priceHigh: 104, state: "fresh" });
   });
 
-  it("applies the zoneFreshness touch semantics to OBs: traded-through and twice-revisited drop", () => {
+  it("retains terminal OBs flagged: traded-through reads invalidated, kept on the ledger", () => {
     const ob = block("demand", 100, 102, 5);
     const bar = (time: number, low: number, close: number): Candle => ({
       time,
@@ -104,15 +98,40 @@ describe("buildPoiMap", () => {
       close,
       volume: 1,
     });
-    // Close below the OB low after formation → traded through, dropped.
+    // Close below the OB low after formation → invalidated, still listed.
     const through = buildPoiMap([], [ob], [], [bar(7, 98, 99)], null);
-    expect(through).toHaveLength(0);
-    // One clean retest after leaving → tested.
+    expect(through).toHaveLength(1);
+    expect(through[0].state).toBe("invalidated");
+    // One shallow retest after leaving → tested.
     const tested = buildPoiMap([], [ob], [], [bar(7, 105, 106), bar(8, 101.5, 103)], null);
     expect(tested[0]?.state).toBe("tested");
+    // A deep single visit (past half the band) → mitigated.
+    const mitigated = buildPoiMap([], [ob], [], [bar(7, 105, 106), bar(8, 100.4, 103)], null);
+    expect(mitigated[0]?.state).toBe("mitigated");
     // Never revisited → fresh.
     const fresh = buildPoiMap([], [ob], [], [bar(7, 105, 106), bar(8, 106, 107)], null);
     expect(fresh[0]?.state).toBe("fresh");
+  });
+
+  it("mints the opposite-kind iFVG when a bar closes fully through a gap (G6)", () => {
+    const candles: Candle[] = [
+      { time: 1, open: 99, high: 100, low: 98, close: 99.5, volume: 1 },
+      { time: 2, open: 99.5, high: 106, low: 99, close: 105.5, volume: 1 },
+      { time: 3, open: 105.5, high: 107, low: 104, close: 106, volume: 1 },
+      // Closes below gapLow (100): the bullish gap [100, 104] inverts.
+      { time: 4, open: 106, high: 106.5, low: 98.5, close: 99, volume: 1 },
+    ];
+    const pois = buildPoiMap([], [], detectFvgs(candles), candles, null);
+    const original = pois.find((p) => p.source === "fvg")!;
+    expect(original.state).toBe("invalidated");
+    const ifvg = pois.find((p) => p.source === "ifvg")!;
+    expect(ifvg).toMatchObject({
+      kind: "supply",
+      priceLow: 100,
+      priceHigh: 104,
+      startTime: 4,
+      state: "fresh",
+    });
   });
 
   it("is chronological by formation start", () => {
@@ -128,7 +147,11 @@ describe("buildPoiMap", () => {
 });
 
 describe("rankPois — selectPoi's exact ordering (EDR 0009)", () => {
-  const toPoi = (z: BaseZone): UnifiedPoi => buildPoiMap([z], [], [], [], range)[0];
+  // The deriver sees no candles here, so re-apply the stubbed freshness.
+  const toPoi = (z: BaseZone): UnifiedPoi => ({
+    ...buildPoiMap([z], [], [], [], range)[0],
+    state: z.freshness,
+  });
 
   it("discount side first, fresh over tested, nearest proximal edge, for longs", () => {
     const premium = toPoi(zone("demand", 155, 160, "fresh"));
@@ -189,8 +212,14 @@ describe("rankPois — selectPoi's exact ordering (EDR 0009)", () => {
             priceLow: expected.priceLow,
             priceHigh: expected.priceHigh,
             startTime: expected.startTime,
-            state: expected.freshness,
           });
+          // The deriver refines "tested" into tested|mitigated (rank-equal —
+          // both non-fresh), so selection parity holds across the split.
+          if (expected.freshness === "fresh") {
+            expect(ranked[0].state).toBe("fresh");
+          } else {
+            expect(["tested", "mitigated"]).toContain(ranked[0].state);
+          }
         }
       }
     }

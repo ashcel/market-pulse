@@ -48,10 +48,22 @@ export function atrSeries(candles: Candle[], length = 14): Array<number | null> 
   return out;
 }
 
-export function computeBaseZones(candles: Candle[]): BaseZone[] {
+/** A detected base before the freshness replay — what the lifecycle view enumerates. */
+export interface BaseZoneCandidate extends Omit<BaseZone, "freshness"> {
+  /** Index of the departure candle; post-formation replays start after it. */
+  departureIndex: number;
+}
+
+/**
+ * Every base the detector stands behind geometrically, before the freshness
+ * filter drops traded-through/consumed ones. `computeBaseZones` is exactly
+ * candidates → zoneFreshness → selectZones (characterization-pinned); the
+ * lifecycle view consumes candidates directly so terminal zones stay visible.
+ */
+export function computeBaseZoneCandidates(candles: Candle[]): BaseZoneCandidate[] {
   if (candles.length < 30) return [];
   const atr = atrSeries(candles);
-  const zones: BaseZone[] = [];
+  const zones: BaseZoneCandidate[] = [];
 
   for (let i = 15; i < candles.length; i++) {
     const ref = atr[i - 1];
@@ -96,17 +108,31 @@ export function computeBaseZones(candles: Candle[]): BaseZone[] {
           priceLow: Math.min(...base.map((c) => Math.min(c.open, c.close)), baseHigh - ref * 0.2),
         };
 
-    const freshness = zoneFreshness(candles, i + 1, bounds.kind, bounds.priceLow, bounds.priceHigh);
-    if (freshness === null) continue;
-
     zones.push({
       ...bounds,
       startTime: candles[start + 1].time,
       endTime: departure.time,
-      freshness,
+      departureIndex: i,
     });
   }
 
+  return zones;
+}
+
+export function computeBaseZones(candles: Candle[]): BaseZone[] {
+  const zones: BaseZone[] = [];
+  for (const candidate of computeBaseZoneCandidates(candles)) {
+    const freshness = zoneFreshness(
+      candles,
+      candidate.departureIndex + 1,
+      candidate.kind,
+      candidate.priceLow,
+      candidate.priceHigh,
+    );
+    if (freshness === null) continue;
+    const { departureIndex: _departureIndex, ...zone } = candidate;
+    zones.push({ ...zone, freshness });
+  }
   return selectZones(zones);
 }
 
@@ -139,9 +165,19 @@ function zoneFreshness(
   return touches === 0 ? "fresh" : "tested";
 }
 
+/**
+ * Candidate curation under `selectZones`' exact rules, for the lifecycle
+ * ledger. Curating before the freshness filter can pick a recently-dead base
+ * over an older live one `computeBaseZones` would keep — a display-plane
+ * divergence the lifecycle view accepts to show terminal zones at all.
+ */
+export function selectZoneCandidates(candidates: BaseZoneCandidate[]): BaseZoneCandidate[] {
+  return selectZones(candidates);
+}
+
 /** Most recent zones win; overlapping same-kind duplicates and overflow are dropped. */
-function selectZones(zones: BaseZone[]): BaseZone[] {
-  const picked: BaseZone[] = [];
+function selectZones<T extends Omit<BaseZone, "freshness">>(zones: T[]): T[] {
+  const picked: T[] = [];
   for (const zone of [...zones].sort((a, b) => b.endTime - a.endTime)) {
     if (picked.filter((p) => p.kind === zone.kind).length >= MAX_ZONES_PER_KIND) continue;
     const overlaps = picked.some(

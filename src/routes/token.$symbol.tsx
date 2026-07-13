@@ -129,10 +129,16 @@ import { UNIVERSE } from "@/lib/engine/market";
 import { checkTradableTicker } from "@/lib/engine/symbols";
 import { TOKEN_TIMEFRAMES } from "@/lib/engine/mock-candles";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
-import { computeBaseZones, SD_ZONE_TIMEFRAMES, type BaseZone } from "@/lib/engine/zones";
+import {
+  computeBaseZoneCandidates,
+  computeBaseZones,
+  SD_ZONE_TIMEFRAMES,
+  selectZoneCandidates,
+  type BaseZone,
+} from "@/lib/engine/zones";
 import { detectFvgs, selectFvgs } from "@/lib/engine/fvg";
 import { detectOrderBlocks, selectOrderBlocks } from "@/lib/engine/orderblocks";
-import { buildPoiMap, type UnifiedPoi } from "@/lib/engine/poi-map";
+import { buildPoiMap, TERMINAL_POI_STATES, type UnifiedPoi } from "@/lib/engine/poi-map";
 import { validateSetupFreshness, type SetupValidityResult } from "@/lib/engine/setup-validity";
 import { currentSweep, gradeRisk } from "@/lib/engine/quant";
 import type {
@@ -425,19 +431,21 @@ function TokenDetailPage() {
     [data, aiBaseZones],
   );
   // Unified POI ledger for the visible timeframe (zones + OBs + FVGs).
-  // Display-only: selectPoi still consumes base zones alone (EDR 0014).
+  // Display-only: selectPoi still consumes base zones alone (EDR 0014). Zone
+  // *candidates* feed the ledger so invalidated/consumed zones stay visible,
+  // flagged, instead of vanishing (EDR 0015).
   const poiMap = useMemo<UnifiedPoi[]>(
     () =>
       data && SD_ZONE_TIMEFRAMES.includes(timeframe)
         ? buildPoiMap(
-            aiBaseZones,
+            selectZoneCandidates(computeBaseZoneCandidates(data.candles)),
             selectOrderBlocks(detectOrderBlocks(data.candles)),
             selectFvgs(detectFvgs(data.candles)),
             data.candles,
             data.evaluation?.dealingRange ?? null,
           )
         : [],
-    [data, aiBaseZones, timeframe],
+    [data, timeframe],
   );
   // External market context (breadth, recent catalysts, upcoming events) —
   // secondary evidence appended to the AI analyst prompt. Absence never blocks
@@ -1702,27 +1710,33 @@ function baseZonesToPriceZones(zones: BaseZone[]): PriceZone[] {
   });
 }
 
-// Order-block and FVG bands from the unified POI map (EDR 0014) — indigo for
-// OBs, teal for FVGs, so neither collides with the green/amber base-zone
-// family or the purple/cyan liquidity lines. Fainter than base zones: these
-// are secondary reads until the POI cutover gate.
+// Order-block and FVG/iFVG bands from the unified POI map (EDR 0014) — indigo
+// for OBs, teal for the FVG family, so neither collides with the green/amber
+// base-zone family or the purple/cyan liquidity lines. Fainter than base
+// zones: these are secondary reads until the POI cutover gate. Terminal
+// states (invalidated/consumed) stay on the ledger card but are not chart
+// furniture (EDR 0015).
 function poiOverlaysToPriceZones(pois: UnifiedPoi[]): PriceZone[] {
-  return pois.map((poi) => {
-    const ob = poi.source === "order-block";
-    const fresh = poi.state === "fresh";
-    const rgb = ob ? "129,140,248" : "45,212,191";
-    const label = `${ob ? "OB" : "FVG"} ${poi.kind === "demand" ? "DEMAND" : "SUPPLY"}${fresh ? "" : " · TESTED"}`;
-    return {
-      priceLow: poi.priceLow,
-      priceHigh: poi.priceHigh,
-      from: poi.startTime as UTCTimestamp,
-      fill: `rgba(${rgb},${fresh ? 0.07 : 0.04})`,
-      border: `rgba(${rgb},${fresh ? 0.24 : 0.12})`,
-      label,
-      labelColor: `rgba(${rgb},${fresh ? 0.8 : 0.5})`,
-      labelAlign: poi.kind === "demand" ? "top" : "bottom",
-    };
-  });
+  return pois
+    .filter((poi) => !TERMINAL_POI_STATES.includes(poi.state))
+    .map((poi) => {
+      const ob = poi.source === "order-block";
+      const fresh = poi.state === "fresh";
+      const rgb = ob ? "129,140,248" : "45,212,191";
+      const source = ob ? "OB" : poi.source === "ifvg" ? "iFVG" : "FVG";
+      const suffix = fresh ? "" : ` · ${poi.state.toUpperCase()}`;
+      const label = `${source} ${poi.kind === "demand" ? "DEMAND" : "SUPPLY"}${suffix}`;
+      return {
+        priceLow: poi.priceLow,
+        priceHigh: poi.priceHigh,
+        from: poi.startTime as UTCTimestamp,
+        fill: `rgba(${rgb},${fresh ? 0.07 : 0.04})`,
+        border: `rgba(${rgb},${fresh ? 0.24 : 0.12})`,
+        label,
+        labelColor: `rgba(${rgb},${fresh ? 0.8 : 0.5})`,
+        labelAlign: poi.kind === "demand" ? ("top" as const) : ("bottom" as const),
+      };
+    });
 }
 
 function toLineData(points: Array<{ time: number; value: number }>): LineData<Time>[] {
