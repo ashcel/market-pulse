@@ -213,6 +213,7 @@ function buildTriggers(
   ctx: SignalEvaluation,
   exe: SignalEvaluation,
   location: LocationRead | null,
+  anticipatoryPlan: AnticipatoryPlan | null,
 ): string[] {
   const triggers: string[] = [];
   const a = exe.analytics;
@@ -249,10 +250,14 @@ function buildTriggers(
     );
   }
 
-  // When price is extended, the pullback is the event to watch — surface it first.
+  // When price is extended, the pullback is the event to watch — surface it
+  // first, quoting the same POI numbers as the verdict summary (not a
+  // separately-derived pullback level) so the two can't disagree.
   if (location && location.grade === "extended") {
     triggers.unshift(
-      `A pullback toward ${fmtPrice(location.pullbackTarget)} would set up a cleaner ${direction} entry and can upgrade this to favored.`,
+      anticipatoryPlan
+        ? `A move to ${fmtPrice(anticipatoryPlan.entry)} (the ${anticipatoryPlan.zone.kind} zone) sets up a cleaner ${direction} entry — stop ${direction === "long" ? "below" : "above"} ${fmtPrice(anticipatoryPlan.stop)}, targeting ${fmtPrice(anticipatoryPlan.objective.price)} — and can upgrade this to favored.`
+        : `A pullback toward ${fmtPrice(location.pullbackTarget)} would set up a cleaner ${direction} entry and can upgrade this to favored.`,
     );
   }
 
@@ -304,6 +309,11 @@ export function assessIntent(
   let verdict: IntentVerdict;
   let headline: string;
   let summary: string;
+  // Set only by the "confirmed && extended" branch below — distinguishes a
+  // wait caused specifically by bad entry location (fixable by a pullback)
+  // from the other "wait" reasons (trend conflict, unconfirmed trigger),
+  // where a stale price-derived plan would be equally misleading.
+  let pullbackWait = false;
 
   if (direction === "none") {
     verdict = "avoid";
@@ -335,11 +345,14 @@ export function assessIntent(
     }
   } else if (confirmed && location?.grade === "extended") {
     // Right direction, confirmed trigger — but price has run away from the
-    // structure you'd enter against. That's an entry-location problem, not a
-    // broken thesis, so it's a "wait for a pullback", not a "favored".
+    // structure you'd enter against. Entering here is a structure trap: the
+    // trigger is real, but the location isn't, so this is a "no trade at
+    // current price", not a "favored" — and not a plan to execute either
+    // (the numeric plan below is nulled once anticipatoryPlan is resolved).
     verdict = "wait";
-    headline = `${dirWord} ${label} — wait for a pullback`;
-    summary = `${ctxTf} trend and ${exeTf} trigger agree on a ${direction} ${label}, but ${location.note} Right idea, wrong price — let price come back to structure before committing.`;
+    pullbackWait = true;
+    headline = `No ${direction} at current price`;
+    summary = `No ${direction} at current price — ${ctxTf} trend and ${exeTf} trigger agree on a ${direction} ${label}, but ${location.note}`;
   } else if (confirmed) {
     verdict = "favored";
     headline = `${dirWord} ${label} favored`;
@@ -418,8 +431,18 @@ export function assessIntent(
   }
 
   const sizeMultiplier = isCounterTrend || crowdedTrim || htfPoolTrim ? 0.5 : 1;
+  // A numeric entry/stop/target plan is only shown for verdicts that are
+  // actually actionable at the current price. "wait" (for any reason — an
+  // unconfirmed trigger, a trend conflict, or bad entry location) and
+  // "avoid" both mean "don't take this trade right now", so showing a
+  // fully-priced plan alongside that verdict is a mixed signal: the
+  // checklist says not yet, the numbers say go. Only "favored"/"caution"
+  // populate `plan`; a "wait" caused by extended location instead gets a
+  // conditional plan below (`anticipatoryPlan` + the summary text).
   const plan =
-    verdict !== "avoid" && direction !== "none" && exe.risk.direction === direction
+    (verdict === "favored" || verdict === "caution") &&
+    direction !== "none" &&
+    exe.risk.direction === direction
       ? scalePlan(exe.risk, sizeMultiplier)
       : null;
 
@@ -468,6 +491,17 @@ export function assessIntent(
             objectives,
           );
 
+    // Echo the objective's own POI plan in the verdict text instead of
+    // quoting a separately-derived pullback level: one number source for
+    // "where would this become a trade" (checklist, summary, triggers) so
+    // they can't disagree with each other the way the price-anchored
+    // `plan` and the location checklist used to.
+    if (pullbackWait && anticipatoryPlan) {
+      const moveWord = direction === "long" ? "pulls back" : "rallies";
+      const stopWord = direction === "long" ? "below" : "above";
+      summary = `${summary} If price ${moveWord} to the ${anticipatoryPlan.zone.kind} zone ${fmtPrice(anticipatoryPlan.zone.priceLow)}–${fmtPrice(anticipatoryPlan.zone.priceHigh)}, a ${direction} becomes viable with stop ${stopWord} ${fmtPrice(anticipatoryPlan.stop)}, targeting ${fmtPrice(anticipatoryPlan.objective.price)}.`;
+    }
+
     // G10 displayed, not enforced: a trade with no clean draw has no target
     // worth the name — surfaced so the record can accumulate before any veto.
     const preferred = objectives[0];
@@ -515,7 +549,7 @@ export function assessIntent(
     headline,
     summary,
     checklist,
-    triggers: buildTriggers(def, direction, isCounterTrend, ctx, exe, location),
+    triggers: buildTriggers(def, direction, isCounterTrend, ctx, exe, location, anticipatoryPlan),
     confidence: exe.confidence,
     contextBias: ctxBias,
     executionBias: exeBias,

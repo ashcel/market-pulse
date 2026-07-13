@@ -146,13 +146,45 @@ function evaluationBlock(e: SignalEvaluation): string {
   return lines.join("\n");
 }
 
-function assessmentBlock(a: IntentAssessment): string {
+/** Minimal hold-state shape the analyst needs — see `DisplayIntentAssessment["hold"]`. */
+export interface VerdictHoldInfo {
+  isHeld: boolean;
+  heldAt: string;
+  adoptedBecause?: string;
+}
+
+function ageFrom(iso: string): string {
+  const ms = Date.now() - Date.parse(iso);
+  if (!Number.isFinite(ms) || ms < 0) return "just now";
+  const mins = Math.floor(ms / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
+function assessmentBlock(a: IntentAssessment, hold?: VerdictHoldInfo | null): string {
   const checklist = a.checklist
     .map((item) => `  - [${item.done ? "x" : " "}] ${item.label}: ${item.detail}`)
     .join("\n");
   const triggers = a.triggers.map((t) => `  - ${t}`).join("\n");
+  // The engine holds a verdict's Verdict/Summary/Direction/Triggers wording
+  // stable until its own release trigger fires, so a reader doesn't watch it
+  // flicker on every refresh — but the checklist and bias line below are
+  // re-derived live every time, so they can legitimately show a different
+  // direction than the held call once the setup has moved without yet
+  // breaking the trigger. Without this line the model has no way to tell
+  // "standing decision, live supporting data" apart from "the engine
+  // contradicted itself," and writes a confused memo either way.
+  const statusLine = !hold
+    ? null
+    : hold.isHeld
+      ? `- Status: HELD — adopted ${ageFrom(hold.heldAt)} ago and standing until its own invalidation/upgrade trigger fires (see "What changes this answer"). The checklist and bias line below are live and can already point a different direction than this held call — that's the setup drifting since adoption, not an engine contradiction; say so explicitly rather than treating both as equally current.`
+      : `- Status: fresh — (re)computed just now${hold.adoptedBecause ? ` because: ${hold.adoptedBecause}` : ""}; matches the checklist and bias below.`;
   return [
     `- Objective: ${a.definition.label} (${a.definition.contextTimeframe} context / ${a.definition.executionTimeframe} trigger, holds ${a.definition.horizon})`,
+    statusLine,
     `- Verdict: ${a.verdict} — ${a.headline}`,
     `- Summary: ${a.summary}`,
     `- Direction: ${a.direction}${a.isCounterTrend ? " (counter-trend, reduced size)" : ""} · Confidence: ${a.confidence}/100`,
@@ -173,7 +205,8 @@ export function buildAnalystSystem(
   symbol: string,
   timeframe: TokenTimeframe,
   evaluation: SignalEvaluation,
-  assessment: IntentAssessment | null,
+  /** Accepts a plain `IntentAssessment` or the post-hysteresis `DisplayIntentAssessment` — `hold` is read off it when present. */
+  assessment: (IntentAssessment & { hold?: VerdictHoldInfo }) | null,
   detailed: boolean,
   structure: ChartStructure | null = null,
 ): string {
@@ -186,20 +219,34 @@ export function buildAnalystSystem(
     "- Use ONLY the data provided below. You have no live market feed; never invent prices, levels, zones, swing points, or news. If something isn't in the data, say you don't have it rather than guessing.",
     "- Cross-check the plan against the chart structure and call out conflicts explicitly: e.g. a supply zone between entry and target capping upside, a demand zone or S/R level sitting on the stop, resistance just above entry, or volume that doesn't support the move — and say how each changes your read.",
     "- You MAY disagree with the engine's verdict when the structure warrants it. Be specific about why, citing the actual levels and zone ranges.",
+    "- The 'Engine evaluation' section above is always this instant's raw read. The objective's 'Status' line (under Trader's active objective) tells you whether that objective's Verdict/Summary is HELD (a standing call from earlier that hasn't been released yet) or fresh. If HELD, the checklist/bias beneath it are still live and may already point a different direction than the held call — that's the setup drifting since adoption, not the engine contradicting itself. Explain it in those terms instead of reporting it as an unexplained conflict.",
+    ...(assessment && assessment.definition.executionTimeframe !== timeframe
+      ? [
+          `- Timeframe mismatch: 'Engine evaluation' above is the ${timeframe} chart (the timeframe currently on screen), but the '${assessment.definition.label}' objective triggers off ${assessment.definition.executionTimeframe}, not ${timeframe}. They are two different reads of two different candles — don't treat 'Engine evaluation' as if it were the objective's own trigger data. Lean on 'Trader's active objective' for the ${assessment.definition.label} call itself, and use 'Engine evaluation' only for what the ${timeframe} chart separately shows.`,
+        ]
+      : []),
     "- Be direct. Reference concrete numbers (entry, stop, targets, R multiples, zone ranges, S/R levels, volume vs average).",
     detailed
       ? "- Give a thorough read of the evidence, but stay under ~250 words."
       : "- Keep it tight — under ~180 words.",
     "- Format with Markdown: `###` headings, `-` bullets, and `**bold**` for key levels. No tables.",
     "",
-    `## Engine evaluation (${timeframe})`,
+    `## Engine evaluation (${timeframe})${
+      assessment && assessment.definition.executionTimeframe !== timeframe
+        ? ` — the chart on screen, NOT the ${assessment.definition.label} objective's own ${assessment.definition.executionTimeframe} trigger timeframe (see below)`
+        : ""
+    }`,
     evaluationBlock(evaluation),
   ];
   if (structure) {
     parts.push("", "## Chart structure (drawn on the chart)", chartStructureBlock(structure));
   }
   if (assessment) {
-    parts.push("", "## Trader's active objective", assessmentBlock(assessment));
+    parts.push(
+      "",
+      "## Trader's active objective",
+      assessmentBlock(assessment, assessment.hold ?? null),
+    );
   }
   return parts.join("\n");
 }

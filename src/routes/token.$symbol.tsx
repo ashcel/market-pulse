@@ -2234,11 +2234,6 @@ function AssistantPanel({
                 </div>
                 {active.plan ? (
                   <>
-                    {active.verdict === "wait" && (
-                      <p className="text-[10px] font-semibold leading-relaxed text-warning">
-                        Conditional — execute only once the checklist on the Why tab completes.
-                      </p>
-                    )}
                     <div className="grid grid-cols-2 gap-1.5">
                       <RiskMetric
                         label="Entry zone"
@@ -3106,9 +3101,18 @@ function DecisionBanner({
   } else if (active.verdict === "wait") {
     tone = "border-info/30 bg-info-soft text-info";
     Icon = CircleAlert;
-    headline = `Not yet — ${total - done} of ${total} confirmations missing`;
+    const extended = active.location?.grade === "extended";
+    headline = extended
+      ? `No entry at current price — ${total - done} of ${total} confirmations missing`
+      : `Not yet — ${total - done} of ${total} confirmations missing`;
     detail = next
-      ? `Next: ${next.label}${active.plan ? "" : " · plan appears once the trigger confirms"}`
+      ? `Next: ${next.label}${
+          active.plan
+            ? ""
+            : extended
+              ? " · plan appears once price returns to the zone"
+              : " · plan appears once the trigger confirms"
+        }`
       : null;
   } else {
     tone = "border-border bg-muted/40 text-muted-foreground";
@@ -3151,8 +3155,12 @@ function planEmptyMessage(active: IntentAssessment, assessments: IntentAssessmen
       (a.verdict === "favored" || a.verdict === "caution") &&
       a.plan !== null,
   );
-  const base =
-    active.verdict === "wait"
+  const extended = active.verdict === "wait" && active.location?.grade === "extended";
+  const base = extended
+    ? active.anticipatoryPlan
+      ? `No ${active.direction} at current price — price is extended into structure. If it ${active.direction === "long" ? "pulls back" : "rallies"} to ${formatMoney(active.anticipatoryPlan.zone.priceLow)}–${formatMoney(active.anticipatoryPlan.zone.priceHigh)}, a ${active.direction} becomes viable (see the conditional setup below).`
+      : `No ${active.direction} at current price — price is extended into structure. Wait for a pullback.`
+    : active.verdict === "wait"
       ? "No entry yet — the plan appears the moment the trigger confirms."
       : "This market doesn't pay your objective right now.";
   if (alt) {
@@ -3359,7 +3367,7 @@ function AiDrawer({
   symbol: string;
   timeframe: TokenTimeframe;
   evaluation: SignalEvaluation;
-  assessment: IntentAssessment | null;
+  assessment: DisplayIntentAssessment | null;
   chartStructure: ChartStructure | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -3615,16 +3623,24 @@ function deterministicFallback(req: {
   symbol: string;
   range: string;
   evaluation: SignalEvaluation;
-  assessment?: IntentAssessment | null;
+  assessment?: DisplayIntentAssessment | null;
   question?: string;
   thinkingMode: boolean;
 }): string {
   const e = req.evaluation;
+  const held = req.assessment?.hold.isHeld;
   const lines = [
     `### Quant memo: ${req.assessment ? req.assessment.headline : e.decision.replaceAll("-", " ")}`,
     ``,
     ...(req.assessment
-      ? [`- **Your objective (${req.assessment.definition.label}):** ${req.assessment.summary}`]
+      ? [
+          `- **Your objective (${req.assessment.definition.label}):** ${req.assessment.summary}`,
+          ...(held
+            ? [
+                `- **Held call:** this verdict was adopted ${formatHeldFor(req.assessment.hold.heldAt)} ago and stands until its own trigger fires — the setup below is live and may have already moved on without releasing it.`,
+              ]
+            : []),
+        ]
       : []),
     `- **Setup:** ${e.setupType.replaceAll("-", " ")}`,
     `- **Regime:** ${e.regime.replaceAll("-", " ")}`,
