@@ -2,6 +2,12 @@
 // BYOK AI analyst. The model is told to reason ONLY from these numbers — it has
 // no market feed of its own, so every figure it cites must come from here.
 
+import type {
+  BreadthContext,
+  ContextEventItem,
+  ExternalContext,
+  UpcomingCatalystItem,
+} from "@/lib/engine/external-context";
 import type { IntentAssessment } from "@/lib/engine/intent";
 import type { LiquidityPool, LiquiditySweep } from "@/lib/engine/liquidity";
 import type { SignalEvaluation } from "@/lib/engine/quant";
@@ -196,6 +202,175 @@ function assessmentBlock(a: IntentAssessment, hold?: VerdictHoldInfo | null): st
     .join("\n");
 }
 
+// ── External market context (secondary evidence) ────────────────────────────
+
+/**
+ * Hard cap on the external-context section. The BYOK client sends the system
+ * prompt whole with no truncation of its own, so this is the one guard between
+ * a busy news week and an oversized request. When over budget, items drop in
+ * fixed priority order (market-wide events → older high-impact → older recent
+ * catalysts); breadth and the top-2 of each bucket always survive.
+ */
+export const EXTERNAL_CONTEXT_CHAR_BUDGET = 2_500;
+const EVENT_TITLE_MAX = 140;
+
+function truncateTitle(title: string): string {
+  return title.length <= EVENT_TITLE_MAX ? title : `${title.slice(0, EVENT_TITLE_MAX - 1)}…`;
+}
+
+function staleSuffix(p: { stale: boolean; asOf: string }): string {
+  return p.stale ? ` (STALE, as of ${p.asOf})` : "";
+}
+
+function compactUsd(value: number): string {
+  if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
+  if (value >= 1e9) return `$${(value / 1e9).toFixed(0)}B`;
+  return `$${num(value)}`;
+}
+
+function signedPct(value: number, unit = "%"): string {
+  return `${value >= 0 ? "+" : ""}${num(value)}${unit}`;
+}
+
+function breadthLine(b: BreadthContext): string {
+  const bits: string[] = [];
+  if (b.btcRegime) bits.push(`BTC regime ${b.btcRegime}`);
+  if (b.btcChange24hPct !== null) bits.push(`BTC 24h ${signedPct(b.btcChange24hPct)}`);
+  if (b.btcDominancePct !== null) {
+    bits.push(
+      `BTC dominance ${num(b.btcDominancePct)}%${
+        b.btcDominanceDelta24hPp !== null
+          ? ` (24h ${signedPct(b.btcDominanceDelta24hPp, "pp")})`
+          : ""
+      }`,
+    );
+  }
+  if (b.totalMcapUsd !== null) {
+    bits.push(
+      `total crypto mcap ${compactUsd(b.totalMcapUsd)}${
+        b.mcapChange24hPct !== null ? ` (24h ${signedPct(b.mcapChange24hPct)})` : ""
+      }`,
+    );
+  }
+  if (b.fearGreed !== null) bits.push(`Fear & Greed ${b.fearGreed} (${b.fearGreedLabel})`);
+  return `- Market backdrop [${b.provenance.source}, as of ${ageFrom(b.provenance.asOf)} ago]${staleSuffix(b.provenance)}: ${bits.join("; ")}.`;
+}
+
+function eventLine(e: ContextEventItem): string {
+  const day = e.publishedAt.slice(0, 10);
+  return `  - [${e.severity}/${e.kind}] ${day}, ${ageFrom(e.publishedAt)} ago (${e.source}): "${truncateTitle(e.title)}"`;
+}
+
+function upcomingLine(e: UpcomingCatalystItem): string {
+  const cred: string[] = [];
+  if (e.confidencePct !== null) cred.push(`confidence ${e.confidencePct}%`);
+  if (e.votes !== null) cred.push(`${e.votes} votes`);
+  const credText = cred.length ? ` (${cred.join(", ")})` : "";
+  const unlockNote =
+    e.kind === "unlock"
+      ? e.percentOfSupply !== null
+        ? ` — ${num(e.percentOfSupply)}% of supply unlocks (quantified supply catalyst)`
+        : " — unlock scheduled; SIZE UNKNOWN (treat as a scheduling fact, not a supply-pressure signal)"
+      : "";
+  return `  - ${e.occursAt.slice(0, 10)} [${e.kind}] ${e.symbol}: "${truncateTitle(e.title)}"${credText}${unlockNote}`;
+}
+
+/**
+ * Render the external-context section under its two organizing questions.
+ * Returns null when there is nothing worth showing — the section (and its
+ * rules) must vanish entirely rather than present an empty scaffold.
+ */
+function externalContextBlock(ctx: ExternalContext): string | null {
+  const hasRetro =
+    ctx.breadth !== null ||
+    ctx.relative !== null ||
+    (ctx.recentCatalysts?.length ?? 0) > 0 ||
+    (ctx.recentHighImpact?.length ?? 0) > 0;
+  const hasForward = (ctx.upcoming?.length ?? 0) > 0 || (ctx.marketEvents?.length ?? 0) > 0;
+  if (!hasRetro && !hasForward) return null;
+
+  // Progressive trimming: drop lowest-priority items until under budget.
+  let marketEvents = ctx.marketEvents ?? [];
+  let highImpact = ctx.recentHighImpact ?? [];
+  let catalysts = ctx.recentCatalysts ?? [];
+  const upcoming = ctx.upcoming ?? [];
+
+  const render = (): string => {
+    const parts: string[] = [];
+    parts.push("### What might explain the current move? (retrospective — treat as uncertain)");
+    if (ctx.breadth) parts.push(breadthLine(ctx.breadth));
+    if (ctx.relative) {
+      const r = ctx.relative;
+      const ratioText =
+        r.ratio !== null
+          ? `; ${ctx.symbol}/BTC ratio ${num(r.ratio)}${
+              r.ratioChange7dPct !== null ? ` (7d ${signedPct(r.ratioChange7dPct)})` : ""
+            }`
+          : "";
+      parts.push(
+        `- Relative strength vs BTC [${r.provenance.source}, as of ${ageFrom(r.provenance.asOf)} ago]${staleSuffix(r.provenance)}: 24h ${signedPct(r.rsBtc24hPp, "pp")}, 7d ${signedPct(r.rsBtc7dPp, "pp")}${
+          r.corrBtc7d !== null ? `, 7d correlation ${num(r.corrBtc7d)}` : ""
+        }${ratioText}.`,
+      );
+    }
+    if (catalysts.length) {
+      parts.push(
+        `- Recent catalysts for ${ctx.symbol}, last 48h [news feeds]:`,
+        ...catalysts.map(eventLine),
+        "  (these are plausible contributors, not established causes)",
+      );
+    }
+    if (highImpact.length) {
+      parts.push(
+        `- High-impact context for ${ctx.symbol}, last 7 days [news feeds]:`,
+        ...highImpact.map(eventLine),
+      );
+    }
+    if (!ctx.breadth && !ctx.relative && !catalysts.length && !highImpact.length) {
+      parts.push("- Nothing notable on record for this window.");
+    }
+    if (upcoming.length || marketEvents.length) {
+      parts.push("", "### What matters next (next 7 days)");
+      if (upcoming.length) {
+        parts.push(
+          `- Upcoming events for ${ctx.symbol} [calendar]:`,
+          ...upcoming.map(upcomingLine),
+        );
+      }
+      if (marketEvents.length) {
+        parts.push("- Market-wide (BTC/ETH) events:", ...marketEvents.map(upcomingLine));
+      }
+    }
+    return parts.join("\n");
+  };
+
+  let text = render();
+  // Drop order: market-wide events, then older high-impact beyond the top 2,
+  // then older recent catalysts beyond the top 2. Upcoming symbol events and
+  // breadth/relative are never dropped — they are the section's reason to exist.
+  const trims: Array<() => void> = [
+    () => (marketEvents = []),
+    () => (highImpact = highImpact.slice(0, 2)),
+    () => (catalysts = catalysts.slice(0, 2)),
+  ];
+  for (const trim of trims) {
+    if (text.length <= EXTERNAL_CONTEXT_CHAR_BUDGET) break;
+    trim();
+    text = render();
+  }
+  return text;
+}
+
+const EXTERNAL_CONTEXT_RULES = [
+  "- The 'External market context' section is SECONDARY evidence, and the ONLY sanctioned source of news/events/market-wide data. Use it to frame and qualify the technical read; it never replaces the trader's selected objective and never overrides a technical invalidation. If price breaks the invalidation level, the setup is invalid no matter how supportive the external backdrop looks.",
+  "- Structure your use of it around its two sub-headings: items under 'What might explain the current move?' may only be cited as PLAUSIBLE explanations, with uncertainty stated; items under 'What matters next' are what the trader should watch, framed against the objective's horizon.",
+  "- Only dated items with a listed source there are confirmed facts. Anything you infer from them is a 'plausible contributor' — label it as such. NEVER claim an event caused a price move just because it happened near it in time: write 'coincides with' or 'plausibly related to', never 'because of' or 'driven by'.",
+  "- A scheduled unlock whose size/% of supply is not given is a scheduling fact only — never infer bearish (or any directional) impact from its existence; only quantified supply data supports an impact read.",
+  "- Use the market backdrop and relative-strength numbers to state whether the current move looks market-wide (tracking BTC, high correlation) or asset-specific (relative strength diverging) — cite the actual numbers.",
+  "- Items marked (STALE, as of ...) may be out of date; if you lean on one, say so and flag its age.",
+  "- If external context is missing or thin, proceed on the technical data alone and say so.",
+];
+
 /**
  * Build the system prompt: the analyst persona plus a full data dump of the
  * current signal. `detailed` (from the panel's reasoning toggle) asks for a
@@ -209,7 +384,11 @@ export function buildAnalystSystem(
   assessment: (IntentAssessment & { hold?: VerdictHoldInfo }) | null,
   detailed: boolean,
   structure: ChartStructure | null = null,
+  externalContext: ExternalContext | null = null,
 ): string {
+  // Rendered up front so the rules list below can include the external-context
+  // rules exactly when the section itself will appear.
+  const externalBlock = externalContext ? externalContextBlock(externalContext) : null;
   const parts = [
     `You are the AI analyst inside a crypto trading dashboard, acting as a SECOND analyst reviewing the engine's work on ${symbol}/USDT (${timeframe}).`,
     "",
@@ -225,6 +404,7 @@ export function buildAnalystSystem(
           `- Timeframe mismatch: 'Engine evaluation' above is the ${timeframe} chart (the timeframe currently on screen), but the '${assessment.definition.label}' objective triggers off ${assessment.definition.executionTimeframe}, not ${timeframe}. They are two different reads of two different candles — don't treat 'Engine evaluation' as if it were the objective's own trigger data. Lean on 'Trader's active objective' for the ${assessment.definition.label} call itself, and use 'Engine evaluation' only for what the ${timeframe} chart separately shows.`,
         ]
       : []),
+    ...(externalBlock ? EXTERNAL_CONTEXT_RULES : []),
     "- Be direct. Reference concrete numbers (entry, stop, targets, R multiples, zone ranges, S/R levels, volume vs average).",
     detailed
       ? "- Give a thorough read of the evidence, but stay under ~250 words."
@@ -247,6 +427,9 @@ export function buildAnalystSystem(
       "## Trader's active objective",
       assessmentBlock(assessment, assessment.hold ?? null),
     );
+  }
+  if (externalBlock) {
+    parts.push("", "## External market context (secondary evidence — see rules)", externalBlock);
   }
   return parts.join("\n");
 }

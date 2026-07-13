@@ -130,6 +130,63 @@ export interface ExternalContext {
   degradation: SectionStatus[];
 }
 
+// ── Recent-event partitioning (retrospective buckets) ───────────────────────
+
+export const RECENT_CATALYST_WINDOW_MS = 48 * 60 * 60_000;
+export const HIGH_IMPACT_WINDOW_MS = 7 * 24 * 60 * 60_000;
+const RECENT_CATALYSTS_CAP = 4;
+const HIGH_IMPACT_CAP = 3;
+
+const SEVERITY_RANK: Record<string, number> = { critical: 0, warning: 1, info: 2 };
+const KIND_RANK: Record<string, number> = {
+  security: 0,
+  unlock: 1,
+  delisting: 2,
+  regulatory: 3,
+  listing: 4,
+  upgrade: 5,
+};
+
+function eventRank(a: ContextEventItem, b: ContextEventItem): number {
+  const sev = (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9);
+  if (sev !== 0) return sev;
+  const kind = (KIND_RANK[a.kind] ?? 9) - (KIND_RANK[b.kind] ?? 9);
+  if (kind !== 0) return kind;
+  return Date.parse(b.publishedAt) - Date.parse(a.publishedAt);
+}
+
+/**
+ * Split a symbol's last-7d events into the prompt's two retrospective buckets:
+ * `recentCatalysts` (≤48h — plausible contributors to the CURRENT move, any
+ * severity) and `recentHighImpact` (≤7d standing context, gated to
+ * critical/warning so week-old chatter never pads the prompt). An event never
+ * appears in both.
+ */
+export function partitionRecentEvents(
+  events: ContextEventItem[],
+  nowMs: number,
+): { recentCatalysts: ContextEventItem[]; recentHighImpact: ContextEventItem[] } {
+  const inWindow = (e: ContextEventItem, ms: number) => {
+    const t = Date.parse(e.publishedAt);
+    return Number.isFinite(t) && nowMs - t <= ms && t <= nowMs;
+  };
+  const recentCatalysts = events
+    .filter((e) => inWindow(e, RECENT_CATALYST_WINDOW_MS))
+    .sort(eventRank)
+    .slice(0, RECENT_CATALYSTS_CAP);
+  const shown = new Set(recentCatalysts);
+  const recentHighImpact = events
+    .filter(
+      (e) =>
+        !shown.has(e) &&
+        inWindow(e, HIGH_IMPACT_WINDOW_MS) &&
+        (e.severity === "critical" || e.severity === "warning"),
+    )
+    .sort(eventRank)
+    .slice(0, HIGH_IMPACT_CAP);
+  return { recentCatalysts, recentHighImpact };
+}
+
 // ── Freshness thresholds (shared by service + health view) ──────────────────
 
 export const BREADTH_STALE_MS = 60 * 60_000; // global snapshot older than 1h

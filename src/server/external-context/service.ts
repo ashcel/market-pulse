@@ -1,9 +1,12 @@
 import {
   BREADTH_STALE_MS,
   CALENDAR_STALE_MS,
+  HIGH_IMPACT_WINDOW_MS,
   RSS_STALE_MS,
   fearGreedLabel,
+  partitionRecentEvents,
   type BreadthContext,
+  type ContextEventItem,
   type ExternalContext,
   type SectionStatus,
 } from "@/lib/engine/external-context";
@@ -12,6 +15,7 @@ import { normalizeTicker } from "@/lib/engine/symbol-map";
 import {
   latestMarketContextSnapshot,
   listIngestState,
+  listTokenEventsForSymbols,
   marketContextSnapshotNear,
   type IngestStateRow,
 } from "../db/repo";
@@ -158,22 +162,61 @@ export async function contextHealth(): Promise<ContextHealth> {
   }
 }
 
+/** The two retrospective buckets from the symbol's last-7d token events. */
+async function buildRecentEvents(
+  sym: string,
+  degradation: SectionStatus[],
+): Promise<{
+  recentCatalysts: ContextEventItem[] | null;
+  recentHighImpact: ContextEventItem[] | null;
+}> {
+  try {
+    const since = new Date(Date.now() - HIGH_IMPACT_WINDOW_MS).toISOString();
+    const rows = await listTokenEventsForSymbols([sym], since, 50);
+    const items: ContextEventItem[] = rows.map((r) => ({
+      kind: r.kind,
+      severity: r.severity,
+      title: r.title,
+      source: r.source,
+      url: r.url,
+      publishedAt: r.publishedAt,
+    }));
+    const { recentCatalysts, recentHighImpact } = partitionRecentEvents(items, Date.now());
+    degradation.push({
+      section: "recentCatalysts",
+      status: "ok",
+      asOf: new Date().toISOString(),
+    });
+    return { recentCatalysts, recentHighImpact };
+  } catch (err) {
+    degradation.push({
+      section: "recentCatalysts",
+      status: "error",
+      reason: `token-event read failed: ${(err as Error).message}`,
+    });
+    return { recentCatalysts: null, recentHighImpact: null };
+  }
+}
+
 export async function assembleExternalContext(symbol: string): Promise<ExternalContext> {
   const sym = normalizeTicker(symbol);
   const degradation: SectionStatus[] = [];
 
-  const breadth = await buildBreadth(degradation).catch((err) => {
-    degradation.push({ section: "breadth", status: "error", reason: (err as Error).message });
-    return null;
-  });
+  const [breadth, recent] = await Promise.all([
+    buildBreadth(degradation).catch((err) => {
+      degradation.push({ section: "breadth", status: "error", reason: (err as Error).message });
+      return null;
+    }),
+    buildRecentEvents(sym, degradation),
+  ]);
 
   return {
     symbol: sym,
     assembledAt: new Date().toISOString(),
     breadth,
     relative: null,
-    recentCatalysts: null,
-    recentHighImpact: null,
+    recentCatalysts: recent.recentCatalysts,
+    recentHighImpact: recent.recentHighImpact,
     upcoming: null,
     marketEvents: null,
     social: null,

@@ -117,6 +117,8 @@ import {
   type TradingIntent,
   type ZonesByTimeframe,
 } from "@/lib/engine/intent";
+import { useExternalContext } from "@/hooks/useExternalContext";
+import type { ExternalContext } from "@/lib/engine/external-context";
 import { useReconciledAssessments } from "@/hooks/useReconciledAssessments";
 import type { DisplayIntentAssessment } from "@/lib/engine/hysteresis";
 import { computeEmaSeries } from "@/lib/engine/analysis";
@@ -418,6 +420,10 @@ function TokenDetailPage() {
     () => (data ? buildChartStructure(data.candles, data.trendLines, aiBaseZones) : null),
     [data, aiBaseZones],
   );
+  // External market context (breadth, recent catalysts, upcoming events) —
+  // secondary evidence appended to the AI analyst prompt. Absence never blocks
+  // analysis: null just means the memo runs on technicals alone.
+  const externalContext = useExternalContext(symbol);
 
   return (
     // Locked to the viewport on desktop: only the right panel and chat scroll.
@@ -602,6 +608,7 @@ function TokenDetailPage() {
             evaluation={data.evaluation}
             assessment={activeAssessment}
             chartStructure={chartStructure}
+            externalContext={externalContext.data ?? null}
             open={aiOpen}
             onOpenChange={setAiOpen}
           />
@@ -3361,6 +3368,7 @@ function AiDrawer({
   evaluation,
   assessment,
   chartStructure,
+  externalContext,
   open,
   onOpenChange,
 }: {
@@ -3369,6 +3377,7 @@ function AiDrawer({
   evaluation: SignalEvaluation;
   assessment: DisplayIntentAssessment | null;
   chartStructure: ChartStructure | null;
+  externalContext: ExternalContext | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -3435,6 +3444,7 @@ function AiDrawer({
           assessment,
           thinkingMode,
           chartStructure,
+          externalContext,
         );
         // Replay prior turns, but drop any leading assistant memos so the
         // history starts with a user turn (required by the Anthropic API).
@@ -3462,7 +3472,17 @@ function AiDrawer({
         setLoading(false);
       }
     },
-    [aiConfig, chat, evaluation, assessment, chartStructure, symbol, timeframe, thinkingMode],
+    [
+      aiConfig,
+      chat,
+      evaluation,
+      assessment,
+      chartStructure,
+      externalContext,
+      symbol,
+      timeframe,
+      thinkingMode,
+    ],
   );
 
   // On-demand drawer, opened from the floating button on the token page. The
@@ -3474,7 +3494,7 @@ function AiDrawer({
           <div className="flex min-w-0 items-center gap-2">
             <Bot className="h-4 w-4 shrink-0 text-info" />
             <SheetTitle className="truncate text-xs font-bold">AI Analyst</SheetTitle>
-            <InfoHint text="A second read on the setup: it cross-checks the engine's plan against the chart's demand/supply zones, support/resistance levels and volume, and will flag conflicts. It only uses the data on this page — no outside market feed." />
+            <InfoHint text="A second read on the setup: it cross-checks the engine's plan against the chart's demand/supply zones, support/resistance levels and volume, and will flag conflicts. It also sees curated external context (market backdrop, recent catalysts, upcoming events) as secondary evidence — never as an override of the technicals." />
           </div>
           <label className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
             <Brain className="h-3.5 w-3.5" />
