@@ -47,6 +47,8 @@ import {
   Layers,
   Lock,
   MoveRight,
+  Maximize2,
+  Minimize2,
   Play,
   Scale,
   Send,
@@ -326,6 +328,23 @@ function TokenDetailPage() {
   // The AI analyst is now an on-demand drawer, closed by default so the page
   // stays focused on the decision itself.
   const [aiOpen, setAiOpen] = useState(false);
+  // Fullscreen chart: the whole price-structure card pins to the viewport so
+  // the header (lean badge, timeframe pills) and legend come along. Escape
+  // closes; body scroll locks while open.
+  const [chartFullscreen, setChartFullscreen] = useState(false);
+  useEffect(() => {
+    if (!chartFullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setChartFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [chartFullscreen]);
   // The decision panel is organized into tabs that follow the trader's flow
   // (Should I? → Why? → Where? → Risk? → Evidence). Controlled so the product
   // tour can jump to the tab a step lives in.
@@ -558,25 +577,71 @@ function TokenDetailPage() {
                 <IqCard
                   padded={false}
                   data-tour="chart"
-                  className="flex flex-col overflow-hidden lg:min-h-0 lg:flex-1"
+                  className={cn(
+                    "flex flex-col overflow-hidden",
+                    chartFullscreen
+                      ? "fixed inset-0 z-50 rounded-none border-0 pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]"
+                      : "lg:min-h-0 lg:flex-1",
+                  )}
                 >
-                  <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2">
-                    <div className="flex items-baseline gap-3">
+                  <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b border-border px-3 py-2 sm:px-4">
+                    <div className="flex min-w-0 items-baseline gap-3">
                       <div className="flex items-center gap-1.5">
-                        <CardEyebrow>Price Structure</CardEyebrow>
-                        <InfoHint text="Candlestick chart of the selected timeframe. The legend below the chart explains every overlay — click an item to hide or show it. Drag the chart past the oldest candle to load more history." />
+                        <CardEyebrow>{chartFullscreen ? symbol : "Price Structure"}</CardEyebrow>
+                        {!chartFullscreen && (
+                          <InfoHint text="Candlestick chart of the selected timeframe. The legend below the chart explains every overlay — click an item to hide or show it. Drag the chart past the oldest candle to load more history. The expand button opens the chart fullscreen." />
+                        )}
                       </div>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="hidden text-xs text-muted-foreground md:inline">
                         {data.candles.length} {data.source === "live" ? "Binance" : "synthetic"}{" "}
                         bars · {data.evaluation.structure.swings.length} swings ·{" "}
                         {structureReading(data.evaluation.structure)}
                         {equilibriumReading(data.evaluation)}
                       </span>
                     </div>
-                    <Badge variant="outline" className="border-info/30 bg-info-soft text-info">
-                      {timeframe} lean:{" "}
-                      {data.evaluation.lean === "none" ? "neutral" : data.evaluation.lean}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      {chartFullscreen && (
+                        <div className="flex rounded-md border border-border bg-surface p-0.5 text-[11px]">
+                          {TIMEFRAMES.map((item) => (
+                            <button
+                              key={item}
+                              type="button"
+                              onClick={() => setTimeframe(item)}
+                              className={cn(
+                                "rounded px-2 py-1.5 font-semibold transition-colors",
+                                timeframe === item
+                                  ? "bg-card text-foreground shadow-sm"
+                                  : "text-muted-foreground hover:text-foreground",
+                              )}
+                            >
+                              {item}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "border-info/30 bg-info-soft text-info",
+                          chartFullscreen && "hidden sm:inline-flex",
+                        )}
+                      >
+                        {timeframe} lean:{" "}
+                        {data.evaluation.lean === "none" ? "neutral" : data.evaluation.lean}
+                      </Badge>
+                      <button
+                        type="button"
+                        onClick={() => setChartFullscreen((v) => !v)}
+                        aria-label={chartFullscreen ? "Exit fullscreen chart" : "Fullscreen chart"}
+                        className="rounded-md border border-border bg-surface p-2 text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        {chartFullscreen ? (
+                          <Minimize2 className="h-3.5 w-3.5" />
+                        ) : (
+                          <Maximize2 className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   <div className="flex min-h-0 flex-1 flex-col lg:min-h-[240px]">
                     {data?.candles.length > 0 && (
@@ -587,6 +652,7 @@ function TokenDetailPage() {
                         timeframe={timeframe}
                         market={marketType}
                         sessionLevels={sessionLevels}
+                        fillHeight={chartFullscreen}
                         plan={activeAssessment?.plan ?? null}
                         planTimeframe={activeAssessment?.definition.executionTimeframe ?? null}
                         planStrong={
@@ -1024,6 +1090,7 @@ function TokenChart({
   source,
   liveCandle,
   sessionLevels,
+  fillHeight,
   plan,
   planTimeframe,
   planStrong,
@@ -1032,6 +1099,8 @@ function TokenChart({
   timeframe: TokenTimeframe;
   market: MarketType;
   sessionLevels: SessionLevel[];
+  /** Fill the parent instead of the fixed mobile heights (fullscreen mode). */
+  fillHeight?: boolean;
   /**
    * The active objective's execution-timeframe plan — NOT this chart
    * timeframe's `evaluation.risk`. The candles follow whatever timeframe the
@@ -1623,7 +1692,10 @@ function TokenChart({
             Loading older bars…
           </div>
         )}
-        <div ref={hostRef} className="h-[360px] w-full sm:h-[400px] lg:h-full" />
+        <div
+          ref={hostRef}
+          className={cn("w-full", fillHeight ? "h-full" : "h-[360px] sm:h-[400px] lg:h-full")}
+        />
       </div>
       <ChartLegend
         hidden={hiddenIndicators}
@@ -1887,10 +1959,12 @@ function ChartLegend({
   onToggle: (key: IndicatorKey) => void;
 }) {
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-x-1 gap-y-0.5 border-t border-border px-2 py-1.5">
+    // One scrollable row on phones (wrapping would stack three rows of chips
+    // between the user and the chart); wraps as before from sm up.
+    <div className="flex shrink-0 items-center gap-x-1 gap-y-0.5 overflow-x-auto border-t border-border px-2 py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:overflow-x-visible">
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className="flex cursor-default items-center gap-1.5 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+          <span className="flex shrink-0 cursor-default items-center gap-1.5 whitespace-nowrap px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             <span className="flex shrink-0 items-end gap-0.5">
               <span className="h-2.5 w-1 rounded-[1px] bg-[#22c55e]" />
               <span className="h-2 w-1 rounded-[1px] bg-[#f43f5e]" />
@@ -1926,7 +2000,7 @@ function ChartLegend({
                 onClick={() => onToggle(entry.key)}
                 aria-pressed={!isHidden}
                 className={cn(
-                  "flex items-center gap-1.5 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors hover:bg-surface",
+                  "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors hover:bg-surface",
                   isHidden ? "opacity-40 grayscale" : "text-muted-foreground hover:text-foreground",
                 )}
               >

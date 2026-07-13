@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { CardEyebrow } from "@/components/iq/iq-card";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
 import type { PoiSource, UnifiedPoi } from "@/lib/engine/poi-map";
@@ -51,12 +53,23 @@ function PoiRow({ poi }: { poi: UnifiedPoi }) {
   );
 }
 
+/** Rows shown per side before the ledger collapses behind "show all". */
+const COLLAPSED_ROWS = 3;
+
 export function PoiMapCard({ pois, timeframe }: { pois: UnifiedPoi[]; timeframe: TokenTimeframe }) {
+  // The full ledger can run long (three detectors × both sides, terminal
+  // rows included) — on a phone that pushes the S/R and session cards off
+  // screen, so each side collapses to its nearest few rows.
+  const [expanded, setExpanded] = useState(false);
   if (pois.length === 0) return null;
   // Nearest-to-price groups read top-down like the chart: supply descends
   // toward price, demand ascends away from it.
   const demand = pois.filter((p) => p.kind === "demand").sort((a, b) => b.priceHigh - a.priceHigh);
   const supply = pois.filter((p) => p.kind === "supply").sort((a, b) => a.priceLow - b.priceLow);
+  const hiddenCount = expanded
+    ? 0
+    : Math.max(0, demand.length - COLLAPSED_ROWS) + Math.max(0, supply.length - COLLAPSED_ROWS);
+  const visible = (rows: UnifiedPoi[]) => (expanded ? rows : rows.slice(0, COLLAPSED_ROWS));
 
   return (
     <div className="rounded-lg border border-border bg-surface p-2.5">
@@ -65,7 +78,7 @@ export function PoiMapCard({ pois, timeframe }: { pois: UnifiedPoi[]; timeframe:
         {supply.length > 0 && (
           <div className="space-y-1">
             <div className="text-[10px] font-semibold uppercase text-warning">Supply above</div>
-            {supply.map((poi) => (
+            {visible(supply).map((poi) => (
               <PoiRow key={`${poi.source}-${poi.startTime}-${poi.priceLow}`} poi={poi} />
             ))}
           </div>
@@ -73,12 +86,21 @@ export function PoiMapCard({ pois, timeframe }: { pois: UnifiedPoi[]; timeframe:
         {demand.length > 0 && (
           <div className="space-y-1">
             <div className="text-[10px] font-semibold uppercase text-success">Demand below</div>
-            {demand.map((poi) => (
+            {visible(demand).map((poi) => (
               <PoiRow key={`${poi.source}-${poi.startTime}-${poi.priceLow}`} poi={poi} />
             ))}
           </div>
         )}
       </div>
+      {(hiddenCount > 0 || expanded) && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-1.5 w-full rounded-md border border-border bg-card py-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {expanded ? "Show fewer" : `Show all (${hiddenCount} more)`}
+        </button>
+      )}
       <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
         Display only — the anticipatory plan still selects from base zones (EDR 0009). OB and FVG
         reads agreeing with a zone is confluence context, not a signal.

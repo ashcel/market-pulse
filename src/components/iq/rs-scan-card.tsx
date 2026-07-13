@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { AssetIcon } from "@/components/iq/asset-icon";
@@ -86,20 +87,31 @@ function RsScanRow({ row, rank }: { row: RsRow; rank: number }) {
   );
 }
 
+/** Rows per column before the card collapses behind "show all". */
+const COLLAPSED_ROWS = 6;
+
 export function RsScanCard() {
   const { data } = useRsScan();
+  // Fifteen rows per side stacked into one column on a phone buries the page
+  // — each column collapses to its strongest few until expanded.
+  const [expanded, setExpanded] = useState(false);
   if (!data) return <SkeletonCard height={320} />;
 
   const column = (title: string, tone: string, rows: RsRow[]) => (
     <div className="min-w-0 flex-1">
       <div className={cn("px-4 pb-1 pt-3 text-[10px] font-semibold uppercase", tone)}>{title}</div>
       <ul className="divide-y divide-border/60">
-        {rows.map((row, i) => (
+        {(expanded ? rows : rows.slice(0, COLLAPSED_ROWS)).map((row, i) => (
           <RsScanRow key={row.ticker} row={row} rank={i + 1} />
         ))}
       </ul>
     </div>
   );
+
+  const hiddenCount = expanded
+    ? 0
+    : Math.max(0, data.leaders.length - COLLAPSED_ROWS) +
+      Math.max(0, data.laggards.length - COLLAPSED_ROWS);
 
   return (
     <IqCard padded={false}>
@@ -119,6 +131,15 @@ export function RsScanCard() {
         {column("Leaders", "text-bullish", data.leaders)}
         {column("Laggards", "text-bearish", data.laggards)}
       </div>
+      {(hiddenCount > 0 || expanded) && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="w-full border-t border-border py-2 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {expanded ? "Show fewer" : `Show all (${hiddenCount} more)`}
+        </button>
+      )}
     </IqCard>
   );
 }
