@@ -64,6 +64,7 @@ import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
 
 import { AnticipatoryReadCard } from "@/components/iq/anticipatory-read-card";
+import { PoiMapCard } from "@/components/iq/poi-map-card";
 import { summarizeAnticipatoryRecord } from "@/lib/engine/anticipatory";
 import { useAnticipatorySignalsStore } from "@/stores/anticipatory-signals";
 import { AssetIcon } from "@/components/iq/asset-icon";
@@ -129,6 +130,9 @@ import { checkTradableTicker } from "@/lib/engine/symbols";
 import { TOKEN_TIMEFRAMES } from "@/lib/engine/mock-candles";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
 import { computeBaseZones, SD_ZONE_TIMEFRAMES, type BaseZone } from "@/lib/engine/zones";
+import { detectFvgs, selectFvgs } from "@/lib/engine/fvg";
+import { detectOrderBlocks, selectOrderBlocks } from "@/lib/engine/orderblocks";
+import { buildPoiMap, type UnifiedPoi } from "@/lib/engine/poi-map";
 import { validateSetupFreshness, type SetupValidityResult } from "@/lib/engine/setup-validity";
 import { currentSweep, gradeRisk } from "@/lib/engine/quant";
 import type {
@@ -420,6 +424,21 @@ function TokenDetailPage() {
     () => (data ? buildChartStructure(data.candles, data.trendLines, aiBaseZones) : null),
     [data, aiBaseZones],
   );
+  // Unified POI ledger for the visible timeframe (zones + OBs + FVGs).
+  // Display-only: selectPoi still consumes base zones alone (EDR 0014).
+  const poiMap = useMemo<UnifiedPoi[]>(
+    () =>
+      data && SD_ZONE_TIMEFRAMES.includes(timeframe)
+        ? buildPoiMap(
+            aiBaseZones,
+            selectOrderBlocks(detectOrderBlocks(data.candles)),
+            selectFvgs(detectFvgs(data.candles)),
+            data.candles,
+            data.evaluation?.dealingRange ?? null,
+          )
+        : [],
+    [data, aiBaseZones, timeframe],
+  );
   // External market context (breadth, recent catalysts, upcoming events) —
   // secondary evidence appended to the AI analyst prompt. Absence never blocks
   // analysis: null just means the memo runs on technicals alone.
@@ -592,6 +611,8 @@ function TokenDetailPage() {
               sessionLevels={sessionLevels}
               price={lastClose}
               liveData={data.source === "live"}
+              poiMap={poiMap}
+              poiTimeframe={timeframe}
               setupValidity={setupValidity}
               onSelect={setTradingIntent}
               activeTab={activeTab}
@@ -1056,6 +1077,21 @@ function TokenChart({
     () => (SD_ZONE_TIMEFRAMES.includes(timeframe) ? computeBaseZones(candles) : []),
     [candles, timeframe],
   );
+  // OB/FVG overlays share the zone timeframe gate and the S/D toggle; zones
+  // themselves keep their own band family so the two never double-draw.
+  const obFvgPois = useMemo(
+    () =>
+      SD_ZONE_TIMEFRAMES.includes(timeframe)
+        ? buildPoiMap(
+            [],
+            selectOrderBlocks(detectOrderBlocks(candles)),
+            selectFvgs(detectFvgs(candles)),
+            candles,
+            null,
+          )
+        : [],
+    [candles, timeframe],
+  );
 
   const loadOlder = useCallback(async () => {
     const history = historyRef.current;
@@ -1467,10 +1503,21 @@ function TokenChart({
   useEffect(() => {
     // Demand/supply bases first so the trade-plan bands paint on top of them.
     const zones: PriceZone[] = [];
-    if (!hiddenIndicators.sdZones) zones.push(...baseZonesToPriceZones(baseZones));
+    if (!hiddenIndicators.sdZones) {
+      zones.push(...baseZonesToPriceZones(baseZones));
+      zones.push(...poiOverlaysToPriceZones(obFvgPois));
+    }
     if (!hiddenIndicators.zones) zones.push(...computeSetupZones(candles, plan, planStrong));
     zonesPrimitiveRef.current?.setZones(zones);
-  }, [candles, plan, planStrong, baseZones, hiddenIndicators.zones, hiddenIndicators.sdZones]);
+  }, [
+    candles,
+    plan,
+    planStrong,
+    baseZones,
+    obFvgPois,
+    hiddenIndicators.zones,
+    hiddenIndicators.sdZones,
+  ]);
 
   // Intact liquidity pools drawn as labeled horizontal price lines: purple
   // buy-side (BSL) lines at equal-high clusters, cyan sell-side (SSL) at
@@ -1575,7 +1622,7 @@ function TokenChart({
         planActive={plan !== null && plan.direction !== "none"}
         zonesActive={planStrong && plan !== null && plan.direction !== "none"}
         planTimeframe={planTimeframe}
-        sdActive={baseZones.length > 0}
+        sdActive={baseZones.length > 0 || obFvgPois.length > 0}
         sessionsActive={sessionLevels.length > 0 && SESSION_LINE_TIMEFRAMES.includes(timeframe)}
         onToggle={toggleIndicator}
       />
@@ -1651,6 +1698,29 @@ function baseZonesToPriceZones(zones: BaseZone[]): PriceZone[] {
       label: `${demand ? "DEMAND" : "SUPPLY"}${fresh ? "" : " · TESTED"}`,
       labelColor: `rgba(${rgb},${fresh ? 0.85 : 0.55})`,
       labelAlign: demand ? "top" : "bottom",
+    };
+  });
+}
+
+// Order-block and FVG bands from the unified POI map (EDR 0014) — indigo for
+// OBs, teal for FVGs, so neither collides with the green/amber base-zone
+// family or the purple/cyan liquidity lines. Fainter than base zones: these
+// are secondary reads until the POI cutover gate.
+function poiOverlaysToPriceZones(pois: UnifiedPoi[]): PriceZone[] {
+  return pois.map((poi) => {
+    const ob = poi.source === "order-block";
+    const fresh = poi.state === "fresh";
+    const rgb = ob ? "129,140,248" : "45,212,191";
+    const label = `${ob ? "OB" : "FVG"} ${poi.kind === "demand" ? "DEMAND" : "SUPPLY"}${fresh ? "" : " · TESTED"}`;
+    return {
+      priceLow: poi.priceLow,
+      priceHigh: poi.priceHigh,
+      from: poi.startTime as UTCTimestamp,
+      fill: `rgba(${rgb},${fresh ? 0.07 : 0.04})`,
+      border: `rgba(${rgb},${fresh ? 0.24 : 0.12})`,
+      label,
+      labelColor: `rgba(${rgb},${fresh ? 0.8 : 0.5})`,
+      labelAlign: poi.kind === "demand" ? "top" : "bottom",
     };
   });
 }
@@ -1900,6 +1970,8 @@ function AssistantPanel({
   sessionLevels,
   price,
   liveData,
+  poiMap,
+  poiTimeframe,
   setupValidity,
   onSelect,
   activeTab,
@@ -1917,6 +1989,9 @@ function AssistantPanel({
   price: number;
   /** Whether the candles are real Binance data — the anticipatory read renders only on live data. */
   liveData: boolean;
+  /** Unified POI ledger for the visible chart timeframe (display-only, EDR 0014). */
+  poiMap: UnifiedPoi[];
+  poiTimeframe: TokenTimeframe;
   /** Whether the plan is still valid at the live price (null when no plan). */
   setupValidity: SetupValidityResult | null;
   onSelect: (intent: TradingIntent) => void;
@@ -2344,6 +2419,10 @@ function AssistantPanel({
                   plan={active.anticipatoryPlan}
                   timeframe={active.definition.executionTimeframe}
                 />
+              )}
+
+              {liveData && poiMap.length > 0 && (
+                <PoiMapCard pois={poiMap} timeframe={poiTimeframe} />
               )}
 
               {active.location && (
