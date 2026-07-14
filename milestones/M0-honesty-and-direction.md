@@ -10,12 +10,12 @@ operational hazard before an agent starts making daily commits.
 
 ## Success criteria (all measurable)
 
-- [ ] `git status` clean; all previously uncommitted work either landed (tests
+- [x] `git status` clean; all previously uncommitted work either landed (tests
       green) or explicitly reverted with a PROGRESS note saying why.
-- [ ] `docs/decisions/0017-*.md` (or next number) exists and records: product
+- [x] `docs/decisions/0017-*.md` (or next number) exists and records: product
       direction, engine-as-instrument stance, R-normalization rule, key
       custody choice, TradFi-via-Binance approach.
-- [ ] Homepage no longer presents engine calls as "Actionable Setups" /
+- [x] Homepage no longer presents engine calls as "Actionable Setups" /
       "Today's Edge"; framing is an intelligence brief.
 - [ ] `docs/score-inventory.md` lists **every** user-facing number with its
       evidence basis and a keep/demote/remove decision; the "remove" rows are
