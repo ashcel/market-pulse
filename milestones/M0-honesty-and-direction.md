@@ -41,7 +41,7 @@ operational hazard before an agent starts making daily commits.
       gated on M7-T1's instrument-semantics survey. Reference the
       2026-07-14 audit.
       *DoD:* EDR committed; linked from CLAUDE.md architecture section.
-- [ ] **M0-T3 — Homepage reframe.** `routes/index.tsx`: "Today's Edge" →
+- [x] **M0-T3 — Homepage reframe.** `routes/index.tsx`: "Today's Edge" →
       intelligence brief (what moved, structural changes, upcoming events,
       discovery/spikes). "Actionable Setups" → "Engine reads" with explicit
       forward-test-in-progress labeling. Copy only + component reshuffle; no
