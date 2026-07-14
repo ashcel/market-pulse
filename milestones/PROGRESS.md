@@ -17,6 +17,14 @@ override task order.
 
 ---
 
+## 2026-07-15 — M0-T1 Land the in-flight work
+- Implemented by: codex (rank 2; rank 1 claude-code timed out after 180s)
+- Verdict trail: ACCEPT (single attempt)
+- Changed: `src/server/db/eval-log.ts`, `src/server/db/eval-log.test.ts`, `src/server/worker/eval-pass.ts`, `src/server/worker/eval-pass.test.ts` — replaced `any` types with `Record<string, unknown> | null` for componentScores, added eslint-disable directive for test placeholders, fixed prettier formatting (trailing commas, whitespace, trailing newlines)
+- Verified: `npm run lint` → 0 errors (11 pre-existing warnings in unrelated files), `npx tsc --noEmit` → clean, `npx vitest run` → 53 files / 868 tests green
+- Needs restart: no
+- Flags for user: none
+
 ## 2026-07-15 — D-T0 Tool availability check
 - Implemented by: agent-orchestrated (no delegated code)
 - Verdict trail: ACCEPT (dry-run via Claude Code → HOLD/restore → ACCEPT commit)

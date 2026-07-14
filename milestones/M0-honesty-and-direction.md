@@ -28,7 +28,7 @@ operational hazard before an agent starts making daily commits.
 
 ## Tasks
 
-- [ ] **M0-T1 — Land the in-flight work.** Review the modified/untracked files
+- [x] **M0-T1 — Land the in-flight work.** Review the modified/untracked files
       (spike detector, eval_log, notification changes). Run the full suite;
       fix or split anything failing; commit in logical units.
       *DoD:* clean `git status`, `bunx vitest run` green, committed to main.
