@@ -5,6 +5,7 @@ import { fetchPerpContextDirect } from "@/lib/engine/perp";
 import { fetchSessionLevels } from "@/lib/engine/sessions";
 import { shadowComboStats } from "@/lib/engine/shadow";
 import { ENGINE_VERSION } from "@/lib/engine/version";
+import { logEvalAssessments } from "../db/eval-log";
 import {
   loadHolds,
   loadShadowSignals,
@@ -103,6 +104,10 @@ export async function runEvalPass(
       evaluated += 1;
 
       await upsertHolds(symbol, market, result.holdUpdates);
+      
+      // Log all evaluated assessments (Phase 2)
+      await logEvalAssessments(engineRunId, symbol, market, result.display);
+
       for (const input of result.shadowToOpen) {
         await openShadow(input, engineRunId);
         shadowOpened += 1;
