@@ -60,7 +60,11 @@ File-based routing lives in `src/routes/` — do not create `src/pages/` or Next
 
 ## Architecture
 
-Mobile-first crypto decision assistant. Three planes:
+Mobile-first crypto decision assistant. Product direction is pinned by
+`docs/decisions/0017-product-direction.md` (2026-07-14 audit): decision
+journal + intelligence brief + behavior review; the engine is a context
+instrument pending its 1.0.0 verdict, AI is a BYOK complement, and R-multiples
+are shown only where a stop order is evidenced (else % + MAE/MFE). Three planes:
 
 ### 1. Client dashboard (single market snapshot)
 
