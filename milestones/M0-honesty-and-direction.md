@@ -32,7 +32,7 @@ operational hazard before an agent starts making daily commits.
       (spike detector, eval_log, notification changes). Run the full suite;
       fix or split anything failing; commit in logical units.
       *DoD:* clean `git status`, `bunx vitest run` green, committed to main.
-- [ ] **M0-T2 — Write EDR 0017 (product direction).** Contents: (1) product =
+- [x] **M0-T2 — Write EDR 0017 (product direction).** Contents: (1) product =
       decision journal + intelligence brief + behavior review, AI as
       complement; (2) engine = context instrument pending its 1.0.0 verdict;
       (3) R only when a stop order is evidenced, else % + MAE/MFE; (4) API-key

@@ -17,6 +17,14 @@ override task order.
 
 ---
 
+## 2026-07-15 — M0-T2 Write EDR 0017 (product direction)
+- Implemented by: claude-code (rank 1; single attempt)
+- Verdict trail: ACCEPT (single attempt)
+- Changed: `docs/decisions/0017-product-direction.md` (new EDR), `CLAUDE.md` (linked from Architecture section)
+- Verified: `bun run lint` → 0 errors (11 pre-existing warnings), `bunx tsc --noEmit` → clean, `bunx vitest run` → 53 files / 868 tests green
+- Needs restart: no
+- Flags for user: none
+
 ## 2026-07-15 — M0-T1 Land the in-flight work
 - Implemented by: codex (rank 2; rank 1 claude-code timed out after 180s)
 - Verdict trail: ACCEPT (single attempt)
