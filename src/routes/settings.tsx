@@ -115,6 +115,7 @@ function SettingsPage() {
             ["regime", "Regime change alerts"],
             ["rotation", "Capital rotation shifts"],
             ["highQualitySetup", "High-quality setup found"],
+            ["spikeAlert", "Spike & rejection alerts (market-wide)"],
             ["highImpactNews", "High-impact news"],
           ] as const
         ).map(([key, label]) => (

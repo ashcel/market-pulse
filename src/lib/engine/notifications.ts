@@ -7,7 +7,8 @@ export type NotificationType =
   | "worker-health"
   | "follow-settled"
   | "token-event"
-  | "context-health";
+  | "context-health"
+  | "spike-alert";
 
 export interface NotificationEvent {
   id: string;

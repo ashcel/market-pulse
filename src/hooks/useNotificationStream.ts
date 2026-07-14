@@ -9,7 +9,7 @@ import { useNotificationsStore } from "@/stores/notifications";
 
 function isAllowed(
   event: NotificationEvent,
-  prefs: { regime: boolean; rotation: boolean; highQualitySetup: boolean },
+  prefs: { regime: boolean; rotation: boolean; highQualitySetup: boolean; spikeAlert: boolean },
 ): boolean {
   // Worker-health (ops alert), follow-settled (the user's own trade closing),
   // and token-event (unlock/security on a token the user holds or watches —
@@ -22,6 +22,7 @@ function isAllowed(
   ) {
     return true;
   }
+  if (event.type === "spike-alert") return prefs.spikeAlert;
   return event.type === "setup-found" ? prefs.highQualitySetup : prefs.regime || prefs.rotation;
 }
 
@@ -74,6 +75,7 @@ export function useNotificationStream() {
     source.addEventListener("worker-health", handle);
     source.addEventListener("follow-settled", handle);
     source.addEventListener("token-event", handle);
+    source.addEventListener("spike-alert", handle);
 
     return () => {
       source.close();

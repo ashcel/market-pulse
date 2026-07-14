@@ -64,6 +64,11 @@ function OpportunityRow({
               </span>
             )}
             {o.tracked && <StatusBadge tone="info">Tracked</StatusBadge>}
+            {o.spike && (
+              <StatusBadge tone={o.spike.direction === "up" ? "warning" : "info"}>
+                {o.spike.direction === "up" ? "↑" : "↓"} Spike rejected
+              </StatusBadge>
+            )}
             {badgesFor(events).map((e) => (
               <Badge
                 key={e.id}
@@ -121,6 +126,34 @@ export function MarketOpportunitiesCard() {
       </div>
       {data ? (
         <>
+          {data.spikes.length > 0 && (
+            <div className="flex items-center gap-2 overflow-x-auto border-t border-border bg-surface/40 px-5 py-2">
+              <span className="shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">
+                Live spikes
+              </span>
+              {data.spikes.slice(0, 8).map((h) => (
+                <Link
+                  key={h.ticker}
+                  to="/token/$symbol"
+                  params={{ symbol: h.ticker }}
+                  title={h.spike.reason}
+                  className="flex shrink-0 items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] transition-colors hover:bg-surface"
+                >
+                  <span
+                    className={cn(
+                      "font-semibold",
+                      h.spike.direction === "up" ? "text-warning" : "text-info",
+                    )}
+                  >
+                    {h.spike.direction === "up" ? "↑" : "↓"} {h.ticker}
+                  </span>
+                  <span className="num text-muted-foreground">
+                    {h.spike.volumeMult.toFixed(1)}× vol
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
           <ul className="divide-y divide-border border-t border-border">
             {top.map((o, i) => (
               <OpportunityRow

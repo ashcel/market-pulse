@@ -6,6 +6,7 @@ import { ensureContextWatch } from "@/server/context-watch";
 import { ensureEventWatch } from "@/server/event-watch";
 import { ensureFollowWatch } from "@/server/follow-watch";
 import { ensureHealthWatch } from "@/server/health-watch";
+import { ensureSpikeWatch } from "@/server/spike-watch";
 
 const HEARTBEAT_MS = 25_000;
 
@@ -17,6 +18,7 @@ export const Route = createFileRoute("/api/notifications")({
         ensureFollowWatch();
         ensureEventWatch();
         ensureContextWatch();
+        ensureSpikeWatch();
         // The stream itself stays public (global market events); a session
         // additionally unlocks the user's own owner-scoped events (follows).
         const auth = await getAuth(request);

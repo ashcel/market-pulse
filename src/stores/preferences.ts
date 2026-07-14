@@ -37,6 +37,8 @@ interface PreferencesState {
     highQualitySetup: boolean;
     /** Alert when a held verdict's own trigger level breaks on a closed candle. */
     triggerAlert: boolean;
+    /** Market-wide discovery: a vertical spike on abnormal volume, immediately rejected. */
+    spikeAlert: boolean;
   };
   risk: RiskPreferences;
   /** The trader's current objective — drives the token-page decision assistant. */
@@ -67,6 +69,7 @@ export const usePreferencesStore = create<PreferencesState>()(
         highImpactNews: true,
         highQualitySetup: true,
         triggerAlert: true,
+        spikeAlert: true,
       },
       risk: {
         accountSize: 10_000,

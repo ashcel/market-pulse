@@ -69,11 +69,13 @@ export function NotificationBell() {
                   (event.type === "trigger-hit" || event.type === "follow-settled") && "text-info",
                   (event.type === "worker-health" || event.type === "token-event") &&
                     "text-warning",
+                  event.type === "spike-alert" && "text-info",
                   event.type !== "setup-found" &&
                     event.type !== "trigger-hit" &&
                     event.type !== "follow-settled" &&
                     event.type !== "worker-health" &&
                     event.type !== "token-event" &&
+                    event.type !== "spike-alert" &&
                     "text-foreground",
                 )}
               >
