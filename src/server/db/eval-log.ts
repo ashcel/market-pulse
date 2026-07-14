@@ -23,7 +23,7 @@ export interface EvalLogInput {
   btTotalTrades: number | null;
   btLowSample: boolean | null;
   noTradeReasons: string[];
-  componentScores: any;
+  componentScores: Record<string, unknown> | null;
 }
 
 export interface EvalLogRow {
@@ -45,7 +45,7 @@ export interface EvalLogRow {
   btTotalTrades: number | null;
   btLowSample: boolean | null;
   noTradeReasons: string[];
-  componentScores: any;
+  componentScores: Record<string, unknown> | null;
   engineVersion: string;
   configHash: string;
   gitSha: string;
@@ -55,7 +55,8 @@ export function rowToEvalLog(r: Record<string, unknown>): EvalLogRow {
   return {
     id: r.id as string,
     engineRunId: (r.engine_run_id as string | null) ?? null,
-    evaluatedAt: r.evaluated_at instanceof Date ? r.evaluated_at.toISOString() : (r.evaluated_at as string),
+    evaluatedAt:
+      r.evaluated_at instanceof Date ? r.evaluated_at.toISOString() : (r.evaluated_at as string),
     symbol: r.symbol as string,
     market: r.market as MarketType,
     intent: r.intent as string,
@@ -71,7 +72,7 @@ export function rowToEvalLog(r: Record<string, unknown>): EvalLogRow {
     btTotalTrades: r.bt_total_trades == null ? null : Number(r.bt_total_trades),
     btLowSample: r.bt_low_sample == null ? null : Boolean(r.bt_low_sample),
     noTradeReasons: (r.no_trade_reasons as string[]) || [],
-    componentScores: r.component_scores,
+    componentScores: r.component_scores as Record<string, unknown> | null,
     engineVersion: r.engine_version as string,
     configHash: r.config_hash as string,
     gitSha: r.git_sha as string,
@@ -81,7 +82,7 @@ export function rowToEvalLog(r: Record<string, unknown>): EvalLogRow {
 export async function insertEvalLog(input: EvalLogInput): Promise<void> {
   const prov = currentProvenance();
   const evaluatedAt = input.evaluatedAt ? new Date(input.evaluatedAt) : new Date();
-  
+
   await sql`
     insert into eval_log (
       engine_run_id, evaluated_at, symbol, market, intent, verdict, direction, setup_type, regime, timeframe, confidence,
@@ -97,7 +98,10 @@ export async function insertEvalLog(input: EvalLogInput): Promise<void> {
   `;
 }
 
-export async function getEvalLogsForSymbol(symbol: string, market?: MarketType): Promise<EvalLogRow[]> {
+export async function getEvalLogsForSymbol(
+  symbol: string,
+  market?: MarketType,
+): Promise<EvalLogRow[]> {
   const rows = market
     ? await sql`
         select * from eval_log
@@ -122,7 +126,7 @@ export async function logEvalAssessments(
   try {
     for (const assessment of assessments) {
       const bt = assessment.execution?.backtest;
-      const componentScores: Record<string, any> = {};
+      const componentScores: Record<string, unknown> = {};
       if (assessment.execution?.components) {
         for (const comp of assessment.execution.components) {
           componentScores[comp.name] = {

@@ -104,7 +104,7 @@ export async function runEvalPass(
       evaluated += 1;
 
       await upsertHolds(symbol, market, result.holdUpdates);
-      
+
       // Log all evaluated assessments (Phase 2)
       await logEvalAssessments(engineRunId, symbol, market, result.display);
 

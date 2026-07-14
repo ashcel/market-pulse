@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- `{} as any` placeholders stand in for onerous engine fixture shapes */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { sql } from "./client";
 import { insertEvalLog, getEvalLogsForSymbol, logEvalAssessments } from "./eval-log";
@@ -122,7 +123,7 @@ describe("eval_log repository (P5)", () => {
         horizon: "hours",
         contextTimeframe: "4H",
         executionTimeframe: "1H",
-        description: "Test intraday"
+        description: "Test intraday",
       },
       verdict: "favored",
       direction: "long",
@@ -153,7 +154,7 @@ describe("eval_log repository (P5)", () => {
         anticipatoryPlan: null,
         confidence: 0.95,
         components: [
-          { name: "trend-alignment", status: "pass", score: 100, explanation: "trend is positive" }
+          { name: "trend-alignment", status: "pass", score: 100, explanation: "trend is positive" },
         ],
         noTradeReasons: ["too-volatile"],
         reason: "breakout confirmed",
@@ -174,15 +175,15 @@ describe("eval_log repository (P5)", () => {
           worstTradeR: -1.0,
           consecutiveWins: 5,
           consecutiveLosses: 2,
-          lowSample: false
+          lowSample: false,
         },
         strategyVersion: "1.0",
-        evaluatedAt: new Date().toISOString()
+        evaluatedAt: new Date().toISOString(),
       } as any,
       plan: null,
       anticipatoryPlan: null,
       location: null,
-      hold: { heldAt: new Date().toISOString(), isHeld: false }
+      hold: { heldAt: new Date().toISOString(), isHeld: false },
     } as DisplayIntentAssessment;
 
     // This call should output a log but not throw any error

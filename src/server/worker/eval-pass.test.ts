@@ -49,7 +49,7 @@ describe("worker/UI input parity (WS1)", () => {
 
     try {
       const result = await runEvalPass(engineRunId, "spot");
-      
+
       // Ensure we evaluated symbols
       expect(result.evaluated).toBeGreaterThan(0);
 
@@ -85,4 +85,3 @@ describe("worker/UI input parity (WS1)", () => {
     }
   });
 });
-
