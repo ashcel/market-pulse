@@ -17,6 +17,14 @@ override task order.
 
 ---
 
+## 2026-07-15 — M0-T3 Homepage reframe
+- Implemented by: claude-code (rank 1; single attempt)
+- Verdict trail: ACCEPT (single attempt)
+- Changed: `src/routes/index.tsx` — "Today's Edge" → "Tape Overview"; "Actionable Setups" → "Engine Reads" with "Forward test in progress" sublabel; tour steps, data-tour attributes, empty-state copy, and comments updated. Display-text only, no data-layer changes.
+- Verified: `bun run lint` → 0 errors (11 pre-existing warnings), `bunx tsc --noEmit` → clean, `bunx vitest run` → 53 files / 868 tests green
+- Needs restart: yes (the live service serves the homepage; a restart picks up the new route bundle)
+- Flags for user: Screenshots cannot be captured headlessly in cron context — please verify visually that homepage no longer implies proven edge. Tour seen-key NOT bumped (v2) — users who dismissed the tour won't see reworded steps unless they reopen via the help button; bump to v3 if desired.
+
 ## 2026-07-15 — M0-T2 Write EDR 0017 (product direction)
 - Implemented by: claude-code (rank 1; single attempt)
 - Verdict trail: ACCEPT (single attempt)
