@@ -23,6 +23,12 @@ no judgment, no context yet.
       (measured over one worker day).
 - [ ] `/journal` lists reconstructed positions with entry/exit, size, fees,
       funding, realized PnL, hold time; filterable by symbol/market/date.
+- [ ] **The entire journal plane is auth-gated:** every trade/journal API
+      route returns 401 unauthenticated (like `/api/watchlist` via
+      `requireAuth`), and `/journal` pages redirect to login — test-asserted.
+      The public dashboard stays public only if the owner decides so in
+      EDR 0017 (USER-ACTIONS U19); personal trade data is never public
+      regardless.
 
 ## Guardrails
 

@@ -62,3 +62,13 @@ operational hazard before an agent starts making daily commits.
       dead workflow.
       *DoD:* one true documented deploy path; no workflow that silently
       pretends to deploy.
+- [ ] **M0-T7 — Transport hardening.** Audited 2026-07-14: the app on :3002
+      listens on all interfaces with ufw inactive, so plain-HTTP access via
+      the raw IP bypasses Caddy TLS (session cookies in cleartext). Prepare
+      the fix: bind the app to 127.0.0.1 (HOST env in the systemd unit /
+      start config) so Caddy is the only path in; verify Postgres stays
+      loopback-bound; document in `deploy/`. Restart + cloud-security-group
+      check are user-run (USER-ACTIONS U18).
+      *DoD:* config change committed + documented; after the user restarts,
+      `curl http://43.134.108.71:3002` from outside fails while
+      `https://iq.heydewi.com` works (verification recorded in PROGRESS).

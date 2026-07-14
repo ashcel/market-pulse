@@ -23,6 +23,16 @@ PROGRESS.md). Ordered by when they're first needed. ☐ = pending.
   keys (CoinMarketCal + CoinGecko/CMC) you already planned — they widen M2's
   external-context coverage from the moment they start ingesting.
 
+- ☐ **U18 — Close the TLS bypass (with M0-T7).** The app on :3002 currently
+  listens on all interfaces and ufw is inactive: check your cloud provider's
+  security group and block inbound 3002 (and any other non-80/443/SSH ports),
+  then restart the service after the agent lands the 127.0.0.1 bind. Only
+  you can see/edit the provider firewall.
+- ☐ **U19 — Decide: app-wide login or public dashboard?** Today the market
+  dashboard is public and only user features (watchlist, follows) require
+  login. Once trades import, journal data is auth-gated regardless (M1), but
+  say whether the whole app should sit behind login too. Goes into EDR 0017.
+
 ## Before / during M1 (trade ingestion)
 
 - ☐ **U6 — `MARKET_PULSE_SECRET_KEY`.** Generate the encryption master key
