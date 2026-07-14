@@ -1,8 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 
+import { dropUnclosedCandle, fetchBinanceKlinesDirect } from "./binance";
 import { UNIVERSE, WORKER_UNIVERSE } from "./market";
-import { generateMockCandles } from "./mock-candles";
+import { generateMockCandles, type TokenTimeframe } from "./mock-candles";
 import { binanceLimiter, TICKER_24H_ALL_WEIGHT } from "./rate-limit";
+import { detectSpike, REF_WINDOW, RECENCY_WINDOW, type SpikeEvent } from "./spike";
+import type { Candle } from "./types";
 
 /**
  * Market-opportunity discovery — "which tokens are worth scanning right now?"
@@ -56,6 +59,17 @@ export interface MarketOpportunity {
   tracked: boolean;
   /** Human line for "why is this worth scanning" — never directional. */
   reason: string;
+  /** Set when this pair just printed a vertical-spike-and-reject on the short TF. */
+  spike?: SpikeEvent;
+}
+
+/** A pair currently showing a vertical-spike-and-reject — a discovery flag, not a call. */
+export interface SpikeHit {
+  ticker: string;
+  name: string;
+  price: number;
+  tracked: boolean;
+  spike: SpikeEvent;
 }
 
 export interface OpportunityScan {
@@ -67,6 +81,8 @@ export interface OpportunityScan {
   pairsRanked: number;
   /** Ranked candidates, best first (preferred = [0]). */
   opportunities: MarketOpportunity[];
+  /** Pairs across the whole liquidity tier currently in a spike-and-reject, heaviest volume first. */
+  spikes: SpikeHit[];
 }
 
 export interface ScanGates {
@@ -323,6 +339,9 @@ export function buildDemoScan(): OpportunityScan {
     pairsSeen: rows.length,
     pairsRanked: rows.length,
     opportunities: opportunities.slice(0, TOP_N),
+    // Spike detection needs real short-TF klines; the offline build never
+    // fabricates them, so the demo surface simply carries no spikes.
+    spikes: [],
   };
 }
 
@@ -337,28 +356,147 @@ export async function fetchTicker24hAll(): Promise<Ticker24h[]> {
   }
 }
 
-let scanCache: { at: number; data: OpportunityScan } | null = null;
+/** The full ranked liquidity tier + provenance — the shared basis both the
+ * public scan and the spike scan are derived from, cached once. */
+interface RankedScan {
+  source: "live" | "demo";
+  updatedAt: string;
+  pairsSeen: number;
+  /** FULL ranked list (not sliced) — spike scanning walks the whole tier. */
+  ranked: MarketOpportunity[];
+}
+
+let scanCache: { at: number; data: RankedScan } | null = null;
 const SCAN_TTL_MS = 120_000;
 
-async function computeScan(): Promise<OpportunityScan> {
+async function computeRankedScan(): Promise<RankedScan> {
   const now = Date.now();
   if (scanCache && now - scanCache.at < SCAN_TTL_MS) return scanCache.data;
 
   const rows = await fetchTicker24hAll();
   // A near-empty parse means Binance was unreachable or degraded, not that
   // the market went quiet — fall back to demo rather than an empty list.
-  if (rows.length < 30) return buildDemoScan();
+  if (rows.length < 30) {
+    const demo = buildDemoScan();
+    return {
+      source: "demo",
+      updatedAt: demo.updatedAt,
+      pairsSeen: demo.pairsSeen,
+      ranked: demo.opportunities,
+    };
+  }
 
   const ranked = scoreOpportunities(rows);
-  const scan: OpportunityScan = {
+  const data: RankedScan = {
     source: "live",
     updatedAt: new Date().toISOString(),
     pairsSeen: rows.length,
-    pairsRanked: ranked.length,
-    opportunities: ranked.slice(0, TOP_N),
+    ranked,
   };
-  scanCache = { at: now, data: scan };
-  return scan;
+  scanCache = { at: now, data };
+  return data;
+}
+
+// --- Spike scan -----------------------------------------------------------
+// A vertical-spike-and-reject is invisible to the 24h ticker (no timing), so
+// it needs short-TF klines per pair. That is far too heavy to run inline on a
+// page load, so it is decoupled: a background refresh (driven by the server
+// spike-watch on a timer, and lazily kicked by page loads) walks the tier and
+// caches the hits; the public scan only ever *reads* that cache. Each kline
+// fetch is weight 1 and routed through the shared limiter, so the whole tier
+// costs a small, staggered fraction of the Binance budget per refresh.
+
+const SPIKE_TIMEFRAME: TokenTimeframe = "15M";
+const SPIKE_KLINE_LIMIT = REF_WINDOW + RECENCY_WINDOW + 5;
+const SPIKE_TTL_MS = 90_000;
+
+/** Injectable so tests can drive detection without touching the network. */
+export type KlineFetcher = (ticker: string) => Promise<Candle[]>;
+
+const defaultKlineFetcher: KlineFetcher = (ticker) =>
+  fetchBinanceKlinesDirect({
+    symbol: ticker,
+    timeframe: SPIKE_TIMEFRAME,
+    limit: SPIKE_KLINE_LIMIT,
+    market: "spot",
+  }).then(dropUnclosedCandle);
+
+let spikeCache: { at: number; hits: SpikeHit[] } | null = null;
+let spikeInflight: Promise<SpikeHit[]> | null = null;
+
+/**
+ * Runs the pure detector over every candidate's short-TF klines and returns
+ * the hits, heaviest volume first. Pure but for the injected fetcher.
+ */
+export async function scanSpikes(
+  candidates: MarketOpportunity[],
+  fetchKlines: KlineFetcher = defaultKlineFetcher,
+): Promise<SpikeHit[]> {
+  const hits = await Promise.all(
+    candidates.map(async (c): Promise<SpikeHit | null> => {
+      const spike = detectSpike(await fetchKlines(c.ticker));
+      if (!spike) return null;
+      return { ticker: c.ticker, name: c.name, price: c.price, tracked: c.tracked, spike };
+    }),
+  );
+  return hits
+    .filter((h): h is SpikeHit => h !== null)
+    .sort((a, b) => b.spike.volumeMult - a.spike.volumeMult || a.ticker.localeCompare(b.ticker));
+}
+
+/**
+ * Recomputes the spike cache over the current liquidity tier and returns the
+ * hits. Concurrent callers (a page load and the watch timer) share one
+ * in-flight run rather than double-fetching the whole tier. On the demo build
+ * there are no real klines, so the cache is emptied and no fetch is made.
+ */
+export async function refreshSpikes(fetchKlines?: KlineFetcher): Promise<SpikeHit[]> {
+  if (spikeInflight) return spikeInflight;
+  spikeInflight = (async () => {
+    try {
+      const scan = await computeRankedScan();
+      if (scan.source !== "live") {
+        spikeCache = { at: Date.now(), hits: [] };
+        return [];
+      }
+      const hits = await scanSpikes(scan.ranked, fetchKlines);
+      spikeCache = { at: Date.now(), hits };
+      return hits;
+    } finally {
+      spikeInflight = null;
+    }
+  })();
+  return spikeInflight;
+}
+
+/** Kicks a background refresh when the cache is stale; never blocks the caller. */
+function ensureFreshSpikes(): void {
+  if (spikeCache && Date.now() - spikeCache.at < SPIKE_TTL_MS) return;
+  if (spikeInflight) return;
+  void refreshSpikes().catch(() => {});
+}
+
+async function computeScan(): Promise<OpportunityScan> {
+  const scan = await computeRankedScan();
+  // Read (never compute) the last spike scan, and kick a refresh if it's gone
+  // stale so the next load is current — the page itself never waits on klines.
+  if (scan.source === "live") ensureFreshSpikes();
+  const spikes = scan.source === "live" ? (spikeCache?.hits ?? []) : [];
+  const spikeByTicker = new Map(spikes.map((h) => [h.ticker, h.spike]));
+
+  const opportunities = scan.ranked.slice(0, TOP_N).map((o) => {
+    const spike = spikeByTicker.get(o.ticker);
+    return spike ? { ...o, spike } : o;
+  });
+
+  return {
+    source: scan.source,
+    updatedAt: scan.updatedAt,
+    pairsSeen: scan.pairsSeen,
+    pairsRanked: scan.ranked.length,
+    opportunities,
+    spikes,
+  };
 }
 
 export const fetchOpportunityScanServer = createServerFn({ method: "GET" }).handler(computeScan);

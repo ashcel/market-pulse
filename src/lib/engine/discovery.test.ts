@@ -4,9 +4,13 @@ import {
   buildDemoScan,
   DEFAULT_GATES,
   parseTicker24hAll,
+  scanSpikes,
   scoreOpportunities,
+  type MarketOpportunity,
   type Ticker24h,
 } from "./discovery";
+import { REF_WINDOW } from "./spike";
+import type { Candle } from "./types";
 
 function row(overrides: Partial<Ticker24h> & { ticker: string }): Ticker24h {
   return {
@@ -200,5 +204,63 @@ describe("buildDemoScan", () => {
     expect(a.opportunities).toEqual(b.opportunities);
     expect(a.opportunities.length).toBeGreaterThan(0);
     expect(a.opportunities.length).toBeLessThanOrEqual(12);
+    expect(a.spikes).toEqual([]);
+  });
+});
+
+describe("scanSpikes", () => {
+  function opp(ticker: string): MarketOpportunity {
+    return {
+      ticker,
+      name: ticker,
+      price: 100,
+      change24h: 0,
+      rangePercent24h: 0,
+      quoteVolume24h: 0,
+      trades24h: 0,
+      score: 0,
+      volatilityPercentile: 0,
+      liquidityPercentile: 0,
+      activityPercentile: 0,
+      tracked: false,
+      reason: "",
+    };
+  }
+
+  const calm = (): Candle[] =>
+    Array.from({ length: REF_WINDOW }, (_, i) => ({
+      time: i,
+      open: 100,
+      high: 100.5,
+      low: 99.5,
+      close: 100,
+      volume: 1_000,
+    }));
+
+  const upSpikeReject = (): Candle[] => [
+    ...calm(),
+    { time: REF_WINDOW, open: 100, high: 110, low: 100, close: 100, volume: 8_000 },
+  ];
+
+  it("returns only pairs whose klines detect a spike, ranked by volume multiple", async () => {
+    const klines: Record<string, Candle[]> = {
+      AAA: calm(), // no spike
+      BBB: upSpikeReject(), // volumeMult 8
+      CCC: [
+        ...calm(),
+        { time: REF_WINDOW, open: 100, high: 110, low: 100, close: 100, volume: 12_000 }, // 12×
+      ],
+    };
+    const hits = await scanSpikes([opp("AAA"), opp("BBB"), opp("CCC")], (t) =>
+      Promise.resolve(klines[t] ?? []),
+    );
+    expect(hits.map((h) => h.ticker)).toEqual(["CCC", "BBB"]);
+    expect(hits[0].spike.direction).toBe("up");
+    expect(hits[0].tracked).toBe(false);
+  });
+
+  it("returns nothing when the tier is calm", async () => {
+    const hits = await scanSpikes([opp("AAA"), opp("BBB")], () => Promise.resolve(calm()));
+    expect(hits).toEqual([]);
   });
 });
