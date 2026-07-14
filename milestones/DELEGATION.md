@@ -115,7 +115,7 @@ Rules that make the loop safe on a production tree:
 
 ## Verification of this protocol (one-time, before M0-T1)
 
-- [ ] **D-T0 — Tool availability check.** Run each roster tool's version/auth
+- [x] **D-T0 — Tool availability check.** Run each roster tool's version/auth
       check; record working invocation lines in the table above; do a dry-run
       delegation of a no-op task (e.g. "add a code comment to
       milestones/briefs/dry-run.md") through the full loop, then revert it.
