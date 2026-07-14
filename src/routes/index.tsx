@@ -62,9 +62,9 @@ type DashboardTab = "opportunities" | "market" | "news";
 /** Which tab a tour target lives in; targets outside the tabs map to null. */
 const TAB_FOR_TOUR_TARGET: Record<string, DashboardTab | null> = {
   hero: null,
-  edge: null,
+  tape: null,
   tabs: null,
-  setups: "opportunities",
+  "engine-reads": "opportunities",
   opportunities: "opportunities",
   macro: "market",
   overview: "market",
@@ -80,9 +80,9 @@ const TOUR_STEPS: TourStep[] = [
     body: "Five cards summarising the whole market: regime, money rotation, crowd sentiment, signal quality, and Bitcoin volatility. Each card is a shortcut — click it to open the full page behind the number.",
   },
   {
-    target: "edge",
-    title: "Today's edge",
-    body: "One line on what kind of trading today's tape rewards, with a verdict per style: scalps, intraday, swings, trend. Pick a token afterwards for its per-asset verdict.",
+    target: "tape",
+    title: "Today's conditions",
+    body: "One line describing today's tape conditions, with a read per style: scalps, intraday, swings, trend. Pick a token afterwards for its per-asset read.",
   },
   {
     target: "tabs",
@@ -90,9 +90,9 @@ const TOUR_STEPS: TourStep[] = [
     body: "The rest of the dashboard is split by question: Opportunities (where is the action and what is tradable), Market (regime internals, leaders, sector flow), and News (what just happened). Switch tabs instead of scrolling.",
   },
   {
-    target: "setups",
-    title: "Actionable setups",
-    body: "Tokens where the signal engine currently sees a trade — long or short — ranked by signal strength. Click one to open its full analysis. When this is empty, the engine says wait: sitting out is a position too.",
+    target: "engine-reads",
+    title: "Engine reads",
+    body: "Tokens where the engine currently reads a long or short setup, ranked by signal strength. These are forward-test observations, not proven signals — the engine is still building its track record. When this is empty, the engine says wait: sitting out is a position too.",
   },
   {
     target: "opportunities",
@@ -394,9 +394,9 @@ function FearGreed({ value }: { value: number }) {
   );
 }
 
-// Which trading objectives does today's tape favor? One compact strip —
-// derived from regime + volatility — so a trader knows what kind of trading
-// pays before picking a token; the token page then answers per asset. Each
+// What are today's tape conditions per trading objective? One compact strip —
+// derived from regime + volatility — describing what kind of tape this is
+// before picking a token; the token page then answers per asset. Each
 // style chip carries its one-line rationale as a tooltip.
 function EdgeStrip() {
   const regime = useRegime();
@@ -411,10 +411,10 @@ function EdgeStrip() {
   const edge = marketEdge(regime.data.regime, regime.data.trendStrength, volatility.data.label);
 
   return (
-    <IqCard padded={false} data-tour="edge" className="px-4 py-3">
+    <IqCard padded={false} data-tour="tape" className="px-4 py-3">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex min-w-0 items-center gap-2.5">
-          <CardEyebrow>Today&apos;s Edge</CardEyebrow>
+          <CardEyebrow>Tape Overview</CardEyebrow>
           <span className="text-sm font-semibold capitalize">{edge.label}</span>
         </div>
         <p
@@ -453,6 +453,9 @@ function EdgeStrip() {
   );
 }
 
+// Engine reads: current long/short reads from the engine, clearly labeled as
+// forward-test-only — the engine is a context instrument pending its 1.0.0
+// verdict, so nothing here may imply proven edge (EDR 0017).
 function TopSetups() {
   const { data } = useAssets();
   if (!data) return null;
@@ -463,14 +466,14 @@ function TopSetups() {
     .slice(0, 4);
 
   return (
-    <IqCard data-tour="setups">
+    <IqCard data-tour="engine-reads">
       <div className="flex items-center justify-between">
-        <CardEyebrow>Actionable Setups</CardEyebrow>
-        <span className="text-xs text-muted-foreground">Engine decisions · 1H bars</span>
+        <CardEyebrow>Engine Reads</CardEyebrow>
+        <span className="text-xs text-muted-foreground">Forward test in progress · 1H bars</span>
       </div>
       {setups.length === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">
-          No actionable setups right now — the engine says{" "}
+          No engine reads right now — the engine says{" "}
           <span className="font-semibold text-foreground">wait</span>. Sitting out is a position;
           check back after the next refresh.
         </p>
