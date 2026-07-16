@@ -71,7 +71,7 @@ operational hazard before an agent starts making daily commits.
         reused across all four. *DoD:* no bare `/100` confidence render
         remains at these sites; tests updated; `docs/score-inventory.md`
         rows for these four marked resolved.
-  - [ ] **M0-T5b — Regime & rotation gauges.** Demote Market Regime
+  - [x] **M0-T5b — Regime & rotation gauges.** Demote Market Regime
         confidence (`index.tsx`, `regime.tsx` via `ConfidenceGauge`), the
         Trend and Volatility regime pillars (`regime.tsx`, arbitrary-constant
         scores per `market.ts:347-357,363`), and Rotation confidence
