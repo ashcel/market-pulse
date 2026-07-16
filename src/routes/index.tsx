@@ -336,7 +336,11 @@ function HeroMetrics() {
                 : "warning"
           }
           value={technical.data.label}
-          footerLeft="Avg Signal Score"
+          footerLeft={
+            <span title="Rule-based checklist score, not a calibrated win probability — pending the engine's 1.0.0 forward-test verdict. Averaged across the tracked universe.">
+              Avg Signal Score
+            </span>
+          }
           footerRight={<span className="num text-foreground">{technical.data.score} / 100</span>}
         >
           {topAsset && (
@@ -512,7 +516,12 @@ function TopSetups() {
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="num">{formatPrice(a.price)}</span>
-                  <span className="num font-semibold">{a.confidence}/100</span>
+                  <span
+                    className="num font-semibold"
+                    title="Heuristic checklist score, not a proven-edge probability."
+                  >
+                    {a.confidence}/100
+                  </span>
                 </div>
               </Link>
             );
@@ -578,7 +587,12 @@ function TopAssets() {
               <th className="px-2 py-2 text-left font-semibold">Asset</th>
               <th className="px-2 py-2 text-right font-semibold">Price</th>
               <th className="px-2 py-2 text-right font-semibold">24H</th>
-              <th className="px-2 py-2 text-right font-semibold">Score</th>
+              <th
+                className="px-2 py-2 text-right font-semibold"
+                title="Heuristic checklist score, not a proven-edge probability. Independently weighted from Signal and Technical — not confirmation of the same read."
+              >
+                Score
+              </th>
               <th className="hidden px-2 py-2 text-right font-semibold sm:table-cell">Trend</th>
             </tr>
           </thead>

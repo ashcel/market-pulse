@@ -3671,7 +3671,11 @@ function AiDrawer({
 
         <div className="flex min-h-0 flex-1 flex-col gap-2.5 p-3">
           <div className="grid shrink-0 grid-cols-3 gap-1.5">
-            <ContextPill label="Signal" value={`${evaluation.confidence}/100`} />
+            <ContextPill
+              label="Signal"
+              value={`${evaluation.confidence}/100`}
+              title="Heuristic checklist score, not a proven-edge probability."
+            />
             <ContextPill label="Regime" value={evaluation.regime.replaceAll("-", " ")} />
             <ContextPill label="Source" value={aiConfig ? aiConfig.model : "fallback"} />
           </div>
@@ -3831,7 +3835,7 @@ function deterministicFallback(req: {
       : []),
     `- **Setup:** ${e.setupType.replaceAll("-", " ")}`,
     `- **Regime:** ${e.regime.replaceAll("-", " ")}`,
-    `- **Signal strength:** ${e.confidence}/100`,
+    `- **Signal strength:** ${e.confidence}/100 (heuristic checklist score, not a win probability)`,
     `- **Risk plan:** entry zone \`${e.risk.entryLow}–${e.risk.entryHigh}\`, stop \`${e.risk.stop}\`, target 1 \`${e.risk.target1}\`, target 2 \`${e.risk.target2}\``,
     `- **Position:** ${e.risk.positionSize} units, max loss \`${e.risk.maxDollarLoss}\`, target 1 reward \`${e.risk.rewardRisk1}R\``,
   ];
@@ -4089,9 +4093,9 @@ function LevelStat({
   );
 }
 
-function ContextPill({ label, value }: { label: string; value: string }) {
+function ContextPill({ label, value, title }: { label: string; value: string; title?: string }) {
   return (
-    <div className="min-w-0 rounded-lg border border-border bg-surface p-2">
+    <div className="min-w-0 rounded-lg border border-border bg-surface p-2" title={title}>
       <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </div>

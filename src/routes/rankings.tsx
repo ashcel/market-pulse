@@ -150,6 +150,7 @@ function RankingsPage() {
                     active={sortKey === "score"}
                     dir={sortDir}
                     onClick={() => cycleSort("score")}
+                    title="Heuristic checklist score, not a proven-edge probability. Independently weighted from Signal and Technical — not confirmation of the same read."
                   >
                     Score
                   </Th>
@@ -205,6 +206,7 @@ function RankingsPage() {
                     active={sortKey === "technical"}
                     dir={sortDir}
                     onClick={() => cycleSort("technical")}
+                    title="Heuristic checklist score, not a proven-edge probability."
                   >
                     Technical
                   </Th>
@@ -214,6 +216,7 @@ function RankingsPage() {
                     active={sortKey === "confidence"}
                     dir={sortDir}
                     onClick={() => cycleSort("confidence")}
+                    title="Heuristic checklist score, not a proven-edge probability."
                   >
                     Signal
                   </Th>
@@ -399,6 +402,7 @@ function Th({
   active,
   dir,
   onClick,
+  title,
 }: {
   children?: React.ReactNode;
   align?: "left" | "right";
@@ -407,9 +411,11 @@ function Th({
   active?: boolean;
   dir?: "asc" | "desc";
   onClick?: () => void;
+  title?: string;
 }) {
   return (
     <th
+      title={title}
       className={cn(
         "py-2 pr-2 font-semibold",
         align === "right" && "text-right",
