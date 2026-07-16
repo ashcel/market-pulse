@@ -17,6 +17,14 @@ override task order.
 
 ---
 
+## 2026-07-16 — M0-T4 Score inventory
+- Implemented by: claude-code (rank 1; single attempt)
+- Verdict trail: ACCEPT (single attempt)
+- Changed: `docs/score-inventory.md` (new) — every user-facing numeric/gauge/grade catalogued with definition, evidence basis, and a keep/demote-to-rank/remove/n-a decision. Notable calls: the engine's central `confidence` score and the Trend/Volatility regime pillars → demote-to-rank (rule-based heuristics overclaiming as calibrated percentages, pending the 1.0.0 verdict); per-setup in-sample "backtest" (Win rate/Avg R on the token page) → remove (duplicates the genuine tracker/shadow-record labels with much weaker in-sample evidence); Fear & Greed's silent fallback to an internal proxy → demote-to-rank. Confirmed the news keyword classifier is never labeled "sentiment" anywhere in the UI, closing that M0 success-criterion bullet independently of this doc.
+- Verified: reviewer independently re-ran `bunx vitest run` (53 files/868 tests green), `bunx tsc --noEmit` (clean), `bun run lint` (0 errors, 11 pre-existing warnings) — did not just trust the implementer's self-report. Spot-checked ~5 of the doc's formula/line-number claims (market.ts confidence/regime pillars, quant.ts rawConfidence, liquidity.ts weights) directly against source — all exact matches. Verified the "not outcome-peeking" claim for describing the Live Record card against `research/verdict-protocol-1.0.0.md` §8, which explicitly carves out normal-UI exposure.
+- Needs restart: no (docs only, no UI/engine changes)
+- Flags for user: M0-T5 (execute the remove/demote rows) is next and will require actual UI changes — until then this success criterion is only half-met (doc exists, but "remove" rows are still live in the UI).
+
 ## 2026-07-15 — M0-T3 Homepage reframe
 - Implemented by: claude-code (rank 1; single attempt)
 - Verdict trail: ACCEPT (single attempt)

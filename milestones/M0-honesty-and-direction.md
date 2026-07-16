@@ -19,7 +19,9 @@ operational hazard before an agent starts making daily commits.
       "Today's Edge"; framing is an intelligence brief.
 - [ ] `docs/score-inventory.md` lists **every** user-facing number with its
       evidence basis and a keep/demote/remove decision; the "remove" rows are
-      actually removed from the UI.
+      actually removed from the UI. *(inventory half done via M0-T4: the doc
+      exists with decisions for every score; the "remove" rows are not yet
+      removed from the UI — that's M0-T5.)*
 - [ ] News sentiment either routed through BYOK classification or visibly
       labeled as a keyword heuristic (not presented as "sentiment").
 - [ ] Deploy path resolved: either the GH workflow reaches the VPS (verified
@@ -47,7 +49,7 @@ operational hazard before an agent starts making daily commits.
       forward-test-in-progress labeling. Copy only + component reshuffle; no
       data-layer changes.
       *DoD:* no UI string implies proven edge; screenshots in PROGRESS entry.
-- [ ] **M0-T4 — Score inventory.** `docs/score-inventory.md`: every numeric
+- [x] **M0-T4 — Score inventory.** `docs/score-inventory.md`: every numeric
       surface (confidence gauges, discovery 0–100, location grades, backtest
       win rates, RS scores…) with columns: where shown, definition, evidence
       basis, decision (keep / demote-to-rank / remove).
