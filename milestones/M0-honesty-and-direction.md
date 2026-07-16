@@ -77,7 +77,7 @@ operational hazard before an agent starts making daily commits.
         scores per `market.ts:347-357,363`), and Rotation confidence
         (`rotation.tsx`, `market.ts:491`). *DoD:* same as above, scoped to
         these three/four sites.
-  - [ ] **M0-T5c — Liquidity confidence relabel + Fear & Greed fallback
+  - [x] **M0-T5c — Liquidity confidence relabel + Fear & Greed fallback
         exposure.** Liquidity pool confidence (`token.$symbol.tsx:1620,1887`)
         → qualitative tier or explicit ordinal disclosure per
         `docs/decisions/0002-liquidity-pool-confidence.md`'s own stated risk.
