@@ -21,7 +21,7 @@ down the list only on a delegation failure (defined below).
 
 | Rank | Tool        | Invocation sketch                             | Notes                          |
 | ---- | ----------- | --------------------------------------------- | ------------------------------ |
-| 1    | Claude Code | `claude -p "<brief>" --dangerously-skip-permissions` | ✅ v2.1.209, headless works   |
+| 1    | Claude Code | `claude --allowed-tools "Edit" --dangerously-skip-permissions -p "<brief>"` | ✅ v2.1.209, headless works. **Terminal wajib pty=true** |
 | 2    | Codex       | `codex exec --sandbox danger-full-access "<brief>"` | ✅ v0.139.0, sandbox works   |
 | 3    | Antigravity | `agy -p "<brief>" --dangerously-skip-permissions` | ✅ v1.1.2, headless works    |
 
