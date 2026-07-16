@@ -17,6 +17,14 @@ override task order.
 
 ---
 
+## 2026-07-16 — M0-T5a Core engine confidence disclosure
+- Implemented by: claude-code (rank 1; single attempt)
+- Verdict trail: ACCEPT (single attempt)
+- Changed: `src/routes/rankings.tsx` (Score/Technical/Signal column header tooltips), `src/routes/index.tsx` ("Avg Signal Score" stat card, confidence chip, Top Assets Score header), `src/routes/token.$symbol.tsx` (AI Analyst drawer Signal pill + markdown export line) — added a "heuristic checklist score, not a proven-edge probability" disclosure at every previously-undisclosed render site for the four scores derived from `evaluateSignal`'s `rawConfidence`. Left two already-compliant sites untouched (`technical.tsx`'s gauge caption, token page's "Read strength" `InfoHint`). `docs/score-inventory.md`'s four corresponding rows marked "— resolved M0-T5a".
+- Verified: reviewer independently re-ran `bunx vitest run` (53/53 files, 868/868 tests), `bunx tsc --noEmit` (clean), `bun run lint` (0 errors, same 11 pre-existing warnings). Read every hunk of the diff — confirmed no `src/lib/engine/` changes, no scope creep beyond the brief's listed sites, and that the two already-compliant sites were genuinely left alone.
+- Needs restart: yes (display-layer change to live routes; a restart picks up the new tooltip copy)
+- Flags for user: M0-T5b (regime/rotation gauges), M0-T5c (liquidity confidence + Fear & Greed fallback), M0-T5d (remove in-sample backtest card) remain open — the score-inventory doc's other demote/remove rows aren't executed yet.
+
 ## 2026-07-16 — M0-T4 Score inventory
 - Implemented by: claude-code (rank 1; single attempt)
 - Verdict trail: ACCEPT (single attempt)

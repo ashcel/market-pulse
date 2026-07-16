@@ -60,7 +60,7 @@ operational hazard before an agent starts making daily commits.
       "sentiment" anywhere in the UI already, so that success-criterion
       bullet is closed with no code change needed. Split into sub-tasks
       (>1 day of work as a single unit):
-  - [ ] **M0-T5a — Core engine confidence.** Demote the four scores that
+  - [x] **M0-T5a — Core engine confidence.** Demote the four scores that
         all derive from `evaluateSignal`'s `rawConfidence`
         (`src/lib/engine/quant.ts:852-853`): Signal/"Overall" confidence
         (`technical.tsx`, `token.$symbol.tsx`), Asset-list confidence
