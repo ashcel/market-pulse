@@ -54,10 +54,44 @@ operational hazard before an agent starts making daily commits.
       win rates, RS scores…) with columns: where shown, definition, evidence
       basis, decision (keep / demote-to-rank / remove).
       *DoD:* doc committed; decisions justified in one line each.
-- [ ] **M0-T5 — Apply the score decisions + sentiment demotion.** Execute
-      M0-T4's remove/demote rows; relabel regex sentiment as "keyword scan"
-      or gate a BYOK classification path behind the user's existing AI key.
-      *DoD:* UI matches the inventory doc; tests updated.
+- **M0-T5 — Apply the score decisions.** Execute `docs/score-inventory.md`'s
+      remove/demote-to-rank rows. News-sentiment relabeling is *not* part of
+      this: M0-T4 confirmed the keyword classifier is never labeled
+      "sentiment" anywhere in the UI already, so that success-criterion
+      bullet is closed with no code change needed. Split into sub-tasks
+      (>1 day of work as a single unit):
+  - [ ] **M0-T5a — Core engine confidence.** Demote the four scores that
+        all derive from `evaluateSignal`'s `rawConfidence`
+        (`src/lib/engine/quant.ts:852-853`): Signal/"Overall" confidence
+        (`technical.tsx`, `token.$symbol.tsx`), Asset-list confidence
+        (`rankings.tsx`, `index.tsx`), Market Pulse Score (`rankings.tsx`,
+        `index.tsx`), "Technical Data" score (`index.tsx:340`). Replace bare
+        `/100` gauges with a qualitative band (or add an explicit
+        heuristic-not-proven-edge disclosure) — one consistent pattern
+        reused across all four. *DoD:* no bare `/100` confidence render
+        remains at these sites; tests updated; `docs/score-inventory.md`
+        rows for these four marked resolved.
+  - [ ] **M0-T5b — Regime & rotation gauges.** Demote Market Regime
+        confidence (`index.tsx`, `regime.tsx` via `ConfidenceGauge`), the
+        Trend and Volatility regime pillars (`regime.tsx`, arbitrary-constant
+        scores per `market.ts:347-357,363`), and Rotation confidence
+        (`rotation.tsx`, `market.ts:491`). *DoD:* same as above, scoped to
+        these three/four sites.
+  - [ ] **M0-T5c — Liquidity confidence relabel + Fear & Greed fallback
+        exposure.** Liquidity pool confidence (`token.$symbol.tsx:1620,1887`)
+        → qualitative tier or explicit ordinal disclosure per
+        `docs/decisions/0002-liquidity-pool-confidence.md`'s own stated risk.
+        Fear & Greed (`index.tsx:319,321`) → surface when the silent
+        fallback proxy (not the real API) is active. *DoD:* both sites
+        updated; tests updated.
+  - [ ] **M0-T5d — Remove in-sample backtest card.** Delete the per-setup
+        "Hist. edge"/"Win rate"/"Risk level" `BacktestEvidence` card
+        (`token.$symbol.tsx:3069-3108,3467-3519`, backed by
+        `runBacktest`/`quant.ts:915-1021`) — it duplicates the genuine
+        tracker/shadow-record win-rate labels with much weaker in-sample
+        evidence. Decide (and note) whether `runBacktest` itself becomes
+        dead code to remove or stays for potential non-UI use. *DoD:* card
+        gone from the token page; tests updated; no dangling references.
 - [ ] **M0-T6 — Deploy path.** Inspect `.github/workflows/deploy.yml` +
       secrets; either fix (needs user to supply secrets — flag and wait) or
       make manual deployment the documented official path and disable the
