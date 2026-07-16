@@ -17,13 +17,14 @@ operational hazard before an agent starts making daily commits.
       custody choice, TradFi-via-Binance approach.
 - [x] Homepage no longer presents engine calls as "Actionable Setups" /
       "Today's Edge"; framing is an intelligence brief.
-- [ ] `docs/score-inventory.md` lists **every** user-facing number with its
+- [x] `docs/score-inventory.md` lists **every** user-facing number with its
       evidence basis and a keep/demote/remove decision; the "remove" rows are
-      actually removed from the UI. *(inventory half done via M0-T4: the doc
-      exists with decisions for every score; the "remove" rows are not yet
-      removed from the UI — that's M0-T5.)*
-- [ ] News sentiment either routed through BYOK classification or visibly
+      actually removed from the UI. *(M0-T4 produced the doc; M0-T5a-d
+      executed every demote-to-rank and the one remove row.)*
+- [x] News sentiment either routed through BYOK classification or visibly
       labeled as a keyword heuristic (not presented as "sentiment").
+      *(M0-T4 audit confirmed the keyword classifier is never labeled
+      "sentiment" anywhere in the UI already — no code change needed.)*
 - [ ] Deploy path resolved: either the GH workflow reaches the VPS (verified
       by a real push-triggered deploy) or `deploy/README.md` documents the
       manual path as the official one and the workflow is disabled.
@@ -84,7 +85,7 @@ operational hazard before an agent starts making daily commits.
         Fear & Greed (`index.tsx:319,321`) → surface when the silent
         fallback proxy (not the real API) is active. *DoD:* both sites
         updated; tests updated.
-  - [ ] **M0-T5d — Remove in-sample backtest card.** Delete the per-setup
+  - [x] **M0-T5d — Remove in-sample backtest card.** Delete the per-setup
         "Hist. edge"/"Win rate"/"Risk level" `BacktestEvidence` card
         (`token.$symbol.tsx:3069-3108,3467-3519`, backed by
         `runBacktest`/`quant.ts:915-1021`) — it duplicates the genuine
