@@ -88,11 +88,15 @@ function RotationPage() {
               }
             />
             <MetricCard
-              label="Rotation Confidence"
+              label={
+                <span title="Rescaled from the real 24h-vs-7d sector rank correlation (shown as ρ below) — not an independently calibrated probability.">
+                  Rotation Confidence
+                </span>
+              }
               accent="info"
               value={<span className="num">{rotation.data.confidence}%</span>}
               footerLeft="24h vs 7d rank agreement"
-              footerRight="RotationModel v1"
+              footerRight={`ρ ${rotation.data.rankAgreement >= 0 ? "+" : ""}${rotation.data.rankAgreement}`}
             />
             <MetricCard
               label="Winning Sector"

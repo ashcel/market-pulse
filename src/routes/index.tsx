@@ -242,7 +242,11 @@ function HeroMetrics() {
           to="/regime"
           accent={regimeAccent}
           value={regime.data.regime}
-          footerLeft="Confidence"
+          footerLeft={
+            <span title="Rule-based blend of the five regime pillars below, not a calibrated probability.">
+              Confidence
+            </span>
+          }
           footerRight={
             <span
               className={cn(

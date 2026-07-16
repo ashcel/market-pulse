@@ -75,6 +75,9 @@ function RegimePage() {
           <IqCard data-tour="current" className="flex flex-col items-center gap-4 text-center">
             <CardEyebrow>Current Regime</CardEyebrow>
             <ConfidenceGauge value={data.confidence} size={200} label="Confidence" />
+            <p className="text-xs text-muted-foreground">
+              Rule-based blend of the five regime pillars below, not a calibrated probability.
+            </p>
             <div
               className={
                 tone === "bullish"
@@ -160,7 +163,9 @@ function RegimePage() {
                   {p.status}
                 </StatusBadge>
               </div>
-              <div className="num text-2xl font-semibold tracking-tight">{p.score}</div>
+              <div className="num text-2xl font-semibold tracking-tight">
+                {p.displayValue ?? p.score}
+              </div>
               <div className="h-1 overflow-hidden rounded-full bg-muted">
                 <div
                   className={

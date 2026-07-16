@@ -43,6 +43,7 @@ export interface MarketRegimeData {
     score: number;
     status: Direction;
     description: string;
+    displayValue?: string;
   }[];
 }
 
@@ -57,6 +58,7 @@ export interface RotationData {
   legs: RotationLeg[];
   strength: "High" | "Medium" | "Low";
   confidence: number;
+  rankAgreement: number;
   winning: string;
   losing: string;
   winningChange?: number;

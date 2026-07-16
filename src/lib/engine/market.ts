@@ -401,6 +401,7 @@ function buildRegime(
         score: trendScore,
         status: pillarStatus(trendScore),
         description: `BTC daily structure reads ${titleCase(btcRegime).toLowerCase()}; trend is the heaviest input to the regime call.`,
+        displayValue: titleCase(btcRegime),
       },
       {
         label: "Breadth",
@@ -413,6 +414,7 @@ function buildRegime(
         score: volScore,
         status: pillarStatus(volScore),
         description: `BTC 14-day ATR is ${round(atrPctDaily, 1)}% of price${atrPctDaily > 4.2 ? " — expect wide swings" : ""}.`,
+        displayValue: `${round(atrPctDaily, 1)}%`,
       },
       {
         label: "Momentum",
@@ -489,6 +491,7 @@ function buildRotation(scored: ScoredAsset[]): { rotation: RotationData; sectors
     legs,
     strength: spread >= 3 ? "High" : spread >= 1.2 ? "Medium" : "Low",
     confidence: clamp(round(55 + rho * 40), 30, 95),
+    rankAgreement: round(rho, 2),
     winning: winning?.name ?? "—",
     losing: losing?.name ?? "—",
     winningChange: winning?.avg24,

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
 interface MetricCardProps {
-  label: string;
+  label: ReactNode;
   value: ReactNode;
   accent?: "bullish" | "bearish" | "warning" | "info" | "neutral";
   footerLeft?: ReactNode;
