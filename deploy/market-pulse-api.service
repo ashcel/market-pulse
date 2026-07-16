@@ -1,0 +1,26 @@
+# FastAPI backend (migration target). Runs beside the legacy web app
+# (market-pulse.service, port 3002) on its OWN port; Caddy flips path groups
+# to it one domain at a time per docs/migration-plan.md.
+#
+# Install (kept in sync by hand):
+#   sudo cp deploy/market-pulse-api.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now market-pulse-api      # NOT before Phase 3
+#
+# Config comes from backend/.env (pydantic-settings), not an EnvironmentFile.
+# Logs: journalctl -u market-pulse-api -f
+
+[Unit]
+Description=Market Pulse API (FastAPI / uvicorn, port 8002)
+After=network.target docker.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/code/personal/market-pulse/backend
+ExecStart=/home/ubuntu/code/personal/market-pulse/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8002
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

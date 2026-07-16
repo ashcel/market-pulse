@@ -31,3 +31,32 @@ jobs:
 
       - name: Build
         run: bun run build
+
+  python:
+    name: Engine + Backend (ruff/mypy/pytest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Engine checks
+        working-directory: engine
+        run: |
+          uv sync
+          uv run ruff check .
+          uv run mypy smc tests
+          uv run pytest -q
+
+      - name: Backend checks
+        working-directory: backend
+        run: |
+          uv sync
+          uv run ruff check .
+          uv run mypy app tests
+          uv run pytest -q

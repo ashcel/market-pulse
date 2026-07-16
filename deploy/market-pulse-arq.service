@@ -1,0 +1,26 @@
+# Python arq worker (migration target, Phase 4). Will replace
+# market-pulse-worker.service as the sole writer of forward-test records
+# (ENGINE_VERSION 2.0.0). Runs in shadow beside the TS worker first.
+#
+# Install (kept in sync by hand):
+#   sudo cp deploy/market-pulse-arq.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now market-pulse-arq      # NOT before Phase 4
+#
+# Config comes from backend/.env (pydantic-settings), not an EnvironmentFile.
+# Logs: journalctl -u market-pulse-arq -f
+
+[Unit]
+Description=Market Pulse arq worker (eval/settle jobs)
+After=network.target docker.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/code/personal/market-pulse/backend
+ExecStart=/home/ubuntu/code/personal/market-pulse/backend/.venv/bin/arq app.worker.config.WorkerSettings
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

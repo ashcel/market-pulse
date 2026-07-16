@@ -1,0 +1,11 @@
+# Pre-commit checks for the Python dirs (backend/CONVENTIONS.md §10.2).
+# Activate with: lefthook install
+pre-commit:
+  parallel: true
+  commands:
+    engine-check:
+      glob: "engine/**/*.py"
+      run: cd engine && uv run ruff check . && uv run mypy smc tests && uv run pytest -q
+    backend-check:
+      glob: "backend/**/*.py"
+      run: cd backend && uv run ruff check . && uv run mypy app tests && uv run pytest -q

@@ -23,6 +23,24 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    # Job queue for the Python arq worker (migration Phase 0+). Host port 6380
+    # because 6379 is occupied by an unrelated project's Redis on this VPS.
+    image: redis:7-alpine
+    container_name: market-pulse-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      # Loopback only — same rule as the DB.
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - market_pulse_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   market_pulse_pgdata:
     # Pin the exact volume name. Without this, each compose flavor prefixes its
@@ -31,3 +49,6 @@ volumes:
     # forward-test record got orphaned on 2026-07-12. The record lives here;
     # never let the volume name float.
     name: market_pulse_pgdata
+  market_pulse_redis:
+    # Same pinning rationale as pgdata.
+    name: market_pulse_redis
