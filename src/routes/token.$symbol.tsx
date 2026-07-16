@@ -266,11 +266,6 @@ const TOUR_STEPS: TourStep[] = [
     body: "When your objective has a payable setup: entry, stop, profit targets, and a position sized from your account settings — automatically halved when the trade is counter-trend. When there's no plan, the assistant points at the objective that is payable instead.",
   },
   {
-    target: "backtest",
-    title: "Backtest evidence",
-    body: "How this same kind of signal performed historically on this exact chart. Positive expectancy means history is on your side; negative means demand extra confirmation.",
-  },
-  {
     target: "ai",
     title: "AI analyst",
     body: "Generate a written memo of the whole setup, pick a suggested prompt, or ask your own questions. Collapse it with the Hide button when you want more chart space.",
@@ -768,7 +763,6 @@ function TokenDetailPage() {
             objective: "overview",
             decision: "overview",
             risk: "plan",
-            backtest: "evidence",
             insight: "details",
           };
           const tab = tabForTarget[target];
@@ -2637,12 +2631,8 @@ function AssistantPanel({
               </div>
             </TabsContent>
 
-            {/* 3 — EVIDENCE: backtest + the engine's live record. */}
+            {/* 3 — EVIDENCE: the engine's live record. */}
             <TabsContent value="evidence" className="mt-0 space-y-3">
-              <div data-tour="backtest">
-                <BacktestEvidence backtest={active.execution.backtest} />
-              </div>
-
               {active.record && (
                 <div
                   className={cn(
@@ -3066,32 +3056,25 @@ function ReadStrengthGauge({ assessment }: { assessment: DisplayIntentAssessment
   );
 }
 
-/** Historical edge, win rate, and risk level — the ref-style stat row. */
+/** R:R to each target and risk level — the ref-style stat row. */
 function EdgeStats({ assessment }: { assessment: DisplayIntentAssessment }) {
-  const backtest = assessment.execution.backtest;
+  const risk = assessment.execution.risk;
   const atr = assessment.execution.analytics.atrPercent;
-  const hasSample = backtest.totalTrades > 0;
-  // Below the reliable-sample floor the stats are noise — show them uncolored.
-  const trustworthy = hasSample && !backtest.lowSample;
   // The engine owns the risk formula (ATR bands + counter-trend bump).
   const grade = gradeRisk(atr, assessment.isCounterTrend);
   return (
     <div className="grid grid-cols-3 gap-1.5">
       <GlanceStat
-        label="Hist. edge"
-        value={hasSample ? `${backtest.expectancy >= 0 ? "+" : ""}${backtest.expectancy}R` : "n/a"}
-        sub={
-          hasSample
-            ? `${backtest.totalTrades} similar trade${backtest.totalTrades === 1 ? "" : "s"}${backtest.lowSample ? " · thin" : ""}`
-            : "no history"
-        }
-        tone={trustworthy ? (backtest.expectancy > 0 ? "bullish" : "bearish") : undefined}
+        label="R:R to T1"
+        value={`${risk.rewardRisk1}R`}
+        sub="target 1 vs. stop"
+        tone={risk.rewardRisk1 >= 1 ? "bullish" : undefined}
       />
       <GlanceStat
-        label="Win rate"
-        value={hasSample ? `${backtest.winRate}%` : "n/a"}
-        sub="on this chart"
-        tone={trustworthy ? (backtest.winRate >= 50 ? "bullish" : "bearish") : undefined}
+        label="R:R to T2"
+        value={`${risk.rewardRisk2}R`}
+        sub="target 2 vs. stop"
+        tone={risk.rewardRisk2 >= 1 ? "bullish" : undefined}
       />
       <GlanceStat
         label="Risk level"
@@ -3460,65 +3443,6 @@ function KeyInsightBox({ label, value, tone, dir, wide }: InsightRow) {
         {value}
         <DirIcon className="h-3 w-3 shrink-0" />
       </div>
-    </div>
-  );
-}
-
-function BacktestEvidence({ backtest }: { backtest: SignalEvaluation["backtest"] }) {
-  if (backtest.totalTrades === 0) {
-    return (
-      <div className="rounded-lg border border-border bg-surface p-3 text-xs text-muted-foreground">
-        No historical {backtest.strategyName.toLowerCase()} signals fired in this window — no
-        backtest evidence either way.
-      </div>
-    );
-  }
-  const positive = backtest.expectancy > 0;
-  // With too few replayed trades, win rate/expectancy are noise — don't color
-  // them as if they were a verdict, and say so explicitly.
-  const lowSample = backtest.lowSample;
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5">
-          <CardEyebrow>Backtest Evidence</CardEyebrow>
-          <InfoHint text="A replay of this exact setup type on this chart's history. Win rate = how often it worked; expectancy = the average result per trade in R (1R = the amount you risk); max DD = the worst losing stretch." />
-        </div>
-        <span className="truncate text-[9px] uppercase tracking-wider text-muted-foreground">
-          {backtest.strategyName} · this token, this timeframe
-        </span>
-      </div>
-      <div className="grid grid-cols-3 gap-1.5">
-        <RiskMetric label="Trades" value={String(backtest.totalTrades)} compact />
-        <RiskMetric
-          label="Win rate"
-          value={`${backtest.winRate}%`}
-          tone={lowSample ? undefined : backtest.winRate >= 50 ? "bullish" : "bearish"}
-          compact
-        />
-        <RiskMetric
-          label="Expectancy"
-          value={`${backtest.expectancy >= 0 ? "+" : ""}${backtest.expectancy}R`}
-          tone={lowSample ? undefined : positive ? "bullish" : "bearish"}
-          compact
-        />
-        <RiskMetric label="Profit factor" value={String(backtest.profitFactor)} compact />
-        <RiskMetric label="Avg R" value={`${backtest.averageR}R`} compact />
-        <RiskMetric label="Max DD" value={`${backtest.maxDrawdown}R`} tone="bearish" compact />
-      </div>
-      {lowSample ? (
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          Only {backtest.totalTrades} historical {backtest.strategyName.toLowerCase()} trade
-          {backtest.totalTrades === 1 ? "" : "s"} on this chart — too few to trust as a statistic.
-          Treat this as a hint, not a verdict.
-        </p>
-      ) : (
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          {positive
-            ? `Similar ${backtest.strategyName.toLowerCase()} signals on this chart carried positive expectancy — historical support for acting when the engine confirms.`
-            : `Similar ${backtest.strategyName.toLowerCase()} signals on this chart lost money historically — demand extra confirmation before acting.`}
-        </p>
-      )}
     </div>
   );
 }

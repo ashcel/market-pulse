@@ -138,7 +138,7 @@ function evaluationBlock(e: SignalEvaluation): string {
     `- Reason: ${e.reason}`,
     `- Risk plan: entry zone ${num(e.risk.entryLow)}–${num(e.risk.entryHigh)}, stop ${num(e.risk.stop)}, target 1 ${num(e.risk.target1)}, target 2 ${num(e.risk.target2)}`,
     `- Sizing: ${e.risk.positionSize} units, max loss $${num(e.risk.maxDollarLoss)}, reward/risk to T1 ${num(e.risk.rewardRisk1)}R (to T2 ${num(e.risk.rewardRisk2)}R)`,
-    `- Backtest: ${e.backtest.totalTrades} trades, ${num(e.backtest.winRate)}% win rate, expectancy ${num(e.backtest.expectancy)}R${e.backtest.lowSample ? " (low sample — treat with caution)" : ""}`,
+    `- Backtest: ${e.backtest.totalTrades} trades, ${num(e.backtest.winRate)}% win rate, expectancy ${num(e.backtest.expectancy)}R (in-sample replay on this chart's own history, not forward-tested${e.backtest.lowSample ? "; also low sample — treat with caution" : ""})`,
   ];
   if (e.noTradeReasons.length) {
     lines.push(`- Blockers: ${e.noTradeReasons.join("; ")}`);
