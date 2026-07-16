@@ -24,6 +24,7 @@ function fakePool(side: "bsl" | "ssl", price: number, intact = true): LiquidityP
     cluster,
     intact,
     confidence: 50,
+    tier: "Moderate",
     components: { touches: 0.5, tightness: 1, recency: 1 },
   };
 }

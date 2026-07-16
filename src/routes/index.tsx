@@ -319,7 +319,15 @@ function HeroMetrics() {
                 : "warning"
           }
           value={sentiment.data.label}
-          footerLeft="Fear & Greed"
+          footerLeft={
+            sentiment.data.source === "proxy" ? (
+              <span title="The Fear & Greed API was unreachable — this is an internal breadth/momentum estimate, not the real index.">
+                Fear & Greed (est.)
+              </span>
+            ) : (
+              "Fear & Greed"
+            )
+          }
           footerRight={<span className="num text-foreground">{sentiment.data.score} / 100</span>}
         >
           <FearGreed value={sentiment.data.fearGreed} />

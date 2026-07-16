@@ -568,6 +568,7 @@ function buildSnapshot(
     label: fg >= 60 ? "Bullish" : fg <= 40 ? "Bearish" : "Neutral",
     score: fg,
     fearGreed: fg,
+    source: fearGreed !== null ? "api" : "proxy",
   };
 
   const avgTechnical = round(mean(scored.map((s) => s.asset.technical ?? 50)));

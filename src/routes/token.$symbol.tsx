@@ -1617,7 +1617,7 @@ function TokenChart({
           lineWidth: 1,
           lineStyle: LineStyle.Dashed,
           axisLabelVisible: true,
-          title: `${pool.side === "bsl" ? "BSL" : "SSL"} ${pool.confidence}`,
+          title: `${pool.side === "bsl" ? "BSL" : "SSL"} ${pool.tier}`,
         }),
       );
     }
@@ -1884,7 +1884,7 @@ const LEGEND_ENTRIES: Array<{ key: IndicatorKey; label: string; hint: string; sw
     {
       key: "liquidity",
       label: "Liquidity",
-      hint: "Dashed horizontal lines at intact liquidity pools: purple BSL (buy-side) at equal highs — stop orders resting above a double/triple top — and cyan SSL (sell-side) at equal lows. The number is the pool's confidence (touches, tightness, freshness). Price is often drawn toward these levels before reversing. Circles mark liquidity sweeps: a wick ran the pool's stops but the candle closed back inside — a stop hunt, and often the start of the move the raid funded.",
+      hint: "Dashed horizontal lines at intact liquidity pools: purple BSL (buy-side) at equal highs — stop orders resting above a double/triple top — and cyan SSL (sell-side) at equal lows. The label is the pool's strength tier — Strong/Moderate/Weak, from touches, tightness, and freshness — an ordinal ranking, not a probability. Price is often drawn toward these levels before reversing. Circles mark liquidity sweeps: a wick ran the pool's stops but the candle closed back inside — a stop hunt, and often the start of the move the raid funded.",
       swatch: (
         <span className="flex shrink-0 flex-col gap-[2px]">
           <span className="h-[2px] w-3.5 rounded-full bg-[#c084fc]" />

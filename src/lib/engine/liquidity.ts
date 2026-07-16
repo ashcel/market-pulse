@@ -51,7 +51,18 @@ export interface LiquidityPool {
   intact: boolean;
   /** 0–100, the weighted blend of `components` (see LIQUIDITY_WEIGHTS). */
   confidence: number;
+  /**
+   * Qualitative band over `confidence`, for surfaces that must not present
+   * the ordinal score as a probability (see docs/decisions/0002). Derived,
+   * not independently computed — thresholds match ConfidenceGauge's tone
+   * bands.
+   */
+  tier: "Strong" | "Moderate" | "Weak";
   components: LiquidityPoolComponents;
+}
+
+function confidenceTier(confidence: number): LiquidityPool["tier"] {
+  return confidence >= 70 ? "Strong" : confidence >= 45 ? "Moderate" : "Weak";
 }
 
 /**
@@ -140,7 +151,15 @@ function poolFrom(
         LIQUIDITY_WEIGHTS.recency * components.recency),
   );
 
-  return { side, price: cluster.price, cluster, intact, confidence, components };
+  return {
+    side,
+    price: cluster.price,
+    cluster,
+    intact,
+    confidence,
+    tier: confidenceTier(confidence),
+    components,
+  };
 }
 
 /**

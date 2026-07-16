@@ -94,6 +94,8 @@ export interface SentimentData {
   label: "Bullish" | "Bearish" | "Neutral";
   score: number;
   fearGreed: number;
+  /** "api" when the real Fear & Greed index was reachable; "proxy" when it fell back to the internal breadth/momentum estimate. */
+  source: "api" | "proxy";
 }
 
 export interface TechnicalData {
