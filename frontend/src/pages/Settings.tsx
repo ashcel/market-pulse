@@ -2,8 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function Settings() {
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Settings</h1>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+        <p className="text-sm text-muted-foreground mt-1">Account & preferences</p>
+      </div>
 
       <Card>
         <CardHeader>

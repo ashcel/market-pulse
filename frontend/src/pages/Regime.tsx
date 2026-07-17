@@ -1,23 +1,23 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const pillars = [
-  { name: "Trend", score: 72, max: 100 },
-  { name: "Momentum", score: 58, max: 100 },
-  { name: "Breadth", score: 45, max: 100 },
-  { name: "Volatility", score: 65, max: 100 },
-  { name: "Participation", score: 51, max: 100 },
+  { name: "Trend", score: 72 },
+  { name: "Momentum", score: 58 },
+  { name: "Breadth", score: 45 },
+  { name: "Volatility", score: 65 },
+  { name: "Participation", score: 51 },
 ];
 
 export default function Regime() {
   const avg = pillars.reduce((s, p) => s + p.score, 0) / pillars.length;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Market Regime</h1>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Regime</h1>
+        <p className="text-sm text-muted-foreground mt-1">Market regime & structure analysis</p>
       </div>
 
-      {/* Regime Gauge */}
       <Card>
         <CardHeader>
           <CardTitle>Overall Regime Score</CardTitle>
@@ -42,7 +42,6 @@ export default function Regime() {
         </CardContent>
       </Card>
 
-      {/* Pillar Breakdown */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {pillars.map((p) => (
           <Card key={p.name}>
@@ -55,7 +54,7 @@ export default function Regime() {
                 <span className="text-xs text-muted-foreground">{p.score >= 60 ? 'Strong' : p.score >= 40 ? 'Moderate' : 'Weak'}</span>
               </div>
               <div className="w-full h-2 bg-border rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all bg-info" style={{ width: `${(p.score / p.max) * 100}%` }} />
+                <div className="h-full rounded-full transition-all bg-info" style={{ width: `${p.score}%` }} />
               </div>
             </CardContent>
           </Card>

@@ -2,13 +2,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function Dashboard() {
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <span className="eyebrow">Live data</span>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">Market overview & key metrics</p>
+        </div>
       </div>
 
-      {/* Market Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
@@ -39,7 +40,6 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Top Movers */}
       <Card>
         <CardHeader>
           <CardTitle>Top Movers</CardTitle>

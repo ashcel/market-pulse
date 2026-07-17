@@ -5,11 +5,15 @@ import { BrowserRouter, Route, Routes } from "react-router";
 
 import AppLayout from "@/components/layout/AppLayout";
 import Dashboard from "@/pages/Dashboard";
-import Tokens from "@/pages/Tokens";
-import TokenDetail from "@/pages/TokenDetail";
+import Markets from "@/pages/Markets";
 import Regime from "@/pages/Regime";
-import Trades from "@/pages/Trades";
+import Rotation from "@/pages/Rotation";
+import Rankings from "@/pages/Rankings";
+import Technical from "@/pages/Technical";
+import Tracker from "@/pages/Tracker";
+import News from "@/pages/News";
 import Settings from "@/pages/Settings";
+import TokenDetail from "@/pages/TokenDetail";
 import "./styles.css";
 
 const queryClient = new QueryClient({
@@ -25,11 +29,15 @@ createRoot(document.getElementById("root")!).render(
         <Routes>
           <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/tokens" element={<Tokens />} />
-            <Route path="/tokens/:symbol" element={<TokenDetail />} />
+            <Route path="/markets" element={<Markets />} />
             <Route path="/regime" element={<Regime />} />
-            <Route path="/trades" element={<Trades />} />
+            <Route path="/rotation" element={<Rotation />} />
+            <Route path="/rankings" element={<Rankings />} />
+            <Route path="/technical" element={<Technical />} />
+            <Route path="/tracker" element={<Tracker />} />
+            <Route path="/news" element={<News />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/token/:symbol" element={<TokenDetail />} />
           </Route>
         </Routes>
       </BrowserRouter>
