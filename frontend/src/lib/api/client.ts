@@ -1,20 +1,17 @@
-export interface ApiError {
-  code: string;
-  message: string;
-  details: Record<string, unknown> | null;
+const API_BASE = "/api/v1";
+
+export async function apiGet<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
 }
 
-export interface Envelope<T> {
-  data: T | null;
-  meta: Record<string, unknown> | null;
-  error: ApiError | null;
-}
-
-export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const resp = await fetch(`/api/v1${path}`, init);
-  const body = (await resp.json()) as Envelope<T>;
-  if (!resp.ok || body.error) {
-    throw new Error(body.error?.message ?? `Request failed: ${resp.status}`);
-  }
-  return body.data as T;
+export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
 }
