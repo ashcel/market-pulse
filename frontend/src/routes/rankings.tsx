@@ -41,7 +41,14 @@ export const Route = createFileRoute("/rankings")({
 
 type Filter = string;
 type SortKey =
-  "score" | "momentum" | "strength" | "volume" | "technical" | "confidence" | "change" | "rs";
+  | "score"
+  | "momentum"
+  | "strength"
+  | "volume"
+  | "technical"
+  | "confidence"
+  | "change"
+  | "rs";
 
 const FILTERS: { label: string; value: Filter }[] = [
   { label: "All", value: "all" },

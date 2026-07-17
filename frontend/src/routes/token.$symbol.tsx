@@ -1389,18 +1389,22 @@ function TokenChart({
       // cycle to validate all pane views against the final time scale before any
       // user interaction can trigger hit-test (which calls recolor-items code).
 
-      const candleData = validCandles.map((c): CandlestickData<Time> => ({
-        time: c.time as UTCTimestamp,
-        open: c.open,
-        high: c.high,
-        low: c.low,
-        close: c.close,
-      }));
-      const volumeData = validCandles.map((c): HistogramData<Time> => ({
-        time: c.time as UTCTimestamp,
-        value: c.volume,
-        color: c.close >= c.open ? "rgba(34,197,94,0.32)" : "rgba(244,63,94,0.32)",
-      }));
+      const candleData = validCandles.map(
+        (c): CandlestickData<Time> => ({
+          time: c.time as UTCTimestamp,
+          open: c.open,
+          high: c.high,
+          low: c.low,
+          close: c.close,
+        }),
+      );
+      const volumeData = validCandles.map(
+        (c): HistogramData<Time> => ({
+          time: c.time as UTCTimestamp,
+          value: c.volume,
+          color: c.close >= c.open ? "rgba(34,197,94,0.32)" : "rgba(244,63,94,0.32)",
+        }),
+      );
       const emaFastData = computeEmaSeries(validCandles, EMA_FAST.length) ?? [];
       const emaSlowData = computeEmaSeries(validCandles, EMA_SLOW.length) ?? [];
 

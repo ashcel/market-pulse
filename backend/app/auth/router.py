@@ -4,13 +4,16 @@ from fastapi import APIRouter, status
 from .dependencies import CurrentUserId, DbSession
 from .schemas import (
     AuthResponse,
+    OkEnvelope,
+    OkResponse,
+    PasswordChangeRequest,
     TokenEnvelope,
     TokenResponse,
     UserLoginRequest,
     UserRegisterRequest,
     UserResponse,
 )
-from .service import authenticate_user, register_user
+from .service import authenticate_user, change_password, register_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -47,6 +50,20 @@ async def login(
 ) -> TokenEnvelope:
     _, token = await authenticate_user(payload.email, payload.password, db)
     return TokenEnvelope(data=TokenResponse(access_token=token))
+
+
+@router.post(
+    "/change-password",
+    response_model=OkEnvelope,
+    summary="Change the current user's password",
+)
+async def change_password_endpoint(
+    payload: PasswordChangeRequest,
+    user_id: CurrentUserId,
+    db: DbSession,
+) -> OkEnvelope:
+    await change_password(user_id, payload.current_password, payload.new_password, db)
+    return OkEnvelope(data=OkResponse())
 
 
 @router.get(

@@ -13,7 +13,12 @@ import type { RssItemRaw } from "./news";
  */
 
 export type TokenEventKind =
-  "unlock" | "security" | "regulatory" | "delisting" | "listing" | "upgrade";
+  | "unlock"
+  | "security"
+  | "regulatory"
+  | "delisting"
+  | "listing"
+  | "upgrade";
 
 export type TokenEventSeverity = "info" | "warning" | "critical";
 

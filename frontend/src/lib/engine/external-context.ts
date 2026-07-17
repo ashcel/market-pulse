@@ -48,7 +48,8 @@ export function normalizeCoinMarketCapGlobal(payload: unknown): MarketContextSna
   const data = (payload as { data?: Record<string, unknown> } | null)?.data;
   if (!data || typeof data !== "object") return null;
   const quote = (data.quote as Record<string, unknown> | undefined)?.USD as
-    Record<string, unknown> | undefined;
+    | Record<string, unknown>
+    | undefined;
   const mcap = quote?.total_market_cap;
   const btc = data.btc_dominance;
   if (typeof mcap !== "number" || !Number.isFinite(mcap) || mcap <= 0) return null;

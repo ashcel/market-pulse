@@ -14,6 +14,21 @@ class UserLoginRequest(BaseModel):
     password: str
 
 
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class OkResponse(BaseModel):
+    ok: bool = True
+
+
+class OkEnvelope(BaseModel):
+    data: OkResponse
+    meta: None = None
+    error: None = None
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

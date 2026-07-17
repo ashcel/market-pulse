@@ -113,17 +113,19 @@ export function computeRsRows(
   const pcts = percentiles(spreads);
 
   return gated
-    .map((row, i): RsRow => ({
-      ticker: row.ticker,
-      name: NAME_BY_TICKER.get(row.ticker) ?? row.ticker,
-      price: row.lastPrice,
-      quoteVolume24h: Math.round(row.quoteVolume24h),
-      tracked: TRACKED_TICKERS.has(row.ticker),
-      rsBtc24h: round(spreads[i]),
-      rsPercentile24h: round(pcts[i], 0),
-      rsBtc7d: null,
-      transition: null,
-    }))
+    .map(
+      (row, i): RsRow => ({
+        ticker: row.ticker,
+        name: NAME_BY_TICKER.get(row.ticker) ?? row.ticker,
+        price: row.lastPrice,
+        quoteVolume24h: Math.round(row.quoteVolume24h),
+        tracked: TRACKED_TICKERS.has(row.ticker),
+        rsBtc24h: round(spreads[i]),
+        rsPercentile24h: round(pcts[i], 0),
+        rsBtc7d: null,
+        transition: null,
+      }),
+    )
     .sort(
       (a, b) =>
         b.rsBtc24h - a.rsBtc24h ||

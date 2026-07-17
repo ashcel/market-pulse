@@ -3,17 +3,32 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   clearedSessionCookie,
   getAuth,
+  isResponse,
   readCookie,
+  requireAuth,
   SESSION_COOKIE,
   sessionCookie,
 } from "@/server/auth/session";
-import { consumeLoginToken, createSession, redeemInvite, revokeSession } from "@/server/auth/store";
+import {
+  consumeLoginToken,
+  createSession,
+  getUserByEmail,
+  redeemInvite,
+  revokeSession,
+} from "@/server/auth/store";
 
 /**
- * Invite-only, passwordless auth (Phase B).
+ * Auth for the web tier. Sessions stay cookie-based; **password truth lives
+ * in FastAPI** (users.hashed_password, bcrypt) — the web tier verifies
+ * credentials by calling /api/v1/auth server-side and only then mints its
+ * session cookie.
  *   GET                → the current user (or { user: null })
- *   POST { action }    → redeem an invite | login with a link token | logout
+ *   POST { action }    → password-login | change-password |
+ *                        redeem an invite | login with a link token | logout
  */
+
+const BACKEND_BASE = process.env.BACKEND_URL ?? "http://localhost:8002";
+const INTERNAL_KEY = process.env.INTERNAL_API_KEY ?? "";
 export const Route = createFileRoute("/api/auth")({
   server: {
     handlers: {
@@ -31,6 +46,56 @@ export const Route = createFileRoute("/api/auth")({
         const action = body.action;
 
         try {
+          if (action === "password-login") {
+            const email = String(body.email ?? "").trim();
+            const password = String(body.password ?? "");
+            if (!email || !password) {
+              return Response.json({ error: "email and password required" }, { status: 400 });
+            }
+            // FastAPI is the single verifier — a 200 here proves the bcrypt
+            // hash matched. The token it returns is discarded; the web tier's
+            // own session cookie is the credential everything else reads.
+            const verify = await fetch(`${BACKEND_BASE}/api/v1/auth/login`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ email, password }),
+            });
+            if (!verify.ok) {
+              return Response.json({ error: "invalid email or password" }, { status: 401 });
+            }
+            const user = await getUserByEmail(email);
+            if (!user) return Response.json({ error: "unknown user" }, { status: 401 });
+            const session = await createSession(user.id, str(body.deviceLabel));
+            return withCookie({ user }, sessionCookie(session));
+          }
+
+          if (action === "change-password") {
+            const auth = await requireAuth(request);
+            if (isResponse(auth)) return auth;
+            const res = await fetch(`${BACKEND_BASE}/api/v1/auth/change-password`, {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                "x-internal-key": INTERNAL_KEY,
+                "x-internal-user-id": auth.user.id,
+              },
+              body: JSON.stringify({
+                current_password: String(body.currentPassword ?? ""),
+                new_password: String(body.newPassword ?? ""),
+              }),
+            });
+            if (!res.ok) {
+              const message =
+                res.status === 401 || res.status === 400
+                  ? "current password incorrect"
+                  : res.status === 422
+                    ? "new password must be at least 8 characters"
+                    : "could not change password";
+              return Response.json({ error: message }, { status: res.status });
+            }
+            return Response.json({ ok: true });
+          }
+
           if (action === "redeem") {
             const user = await redeemInvite(String(body.token ?? ""), {
               email: String(body.email ?? ""),

@@ -25,7 +25,11 @@ import type { BaseZone } from "./zones";
 
 export type SignalStatus = "pass" | "fail" | "warning" | "neutral";
 export type TradeDecision =
-  "buy-candidate" | "short-candidate" | "wait" | "no-trade" | "invalidated";
+  | "buy-candidate"
+  | "short-candidate"
+  | "wait"
+  | "no-trade"
+  | "invalidated";
 export type SetupType =
   | "breakout"
   | "failed-breakout"

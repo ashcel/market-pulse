@@ -102,6 +102,8 @@ function SettingsPage() {
         </div>
       </IqCard>
 
+      <AccountSecurityCard />
+
       <TradeRiskCard />
 
       <AiAnalystCard />
@@ -242,6 +244,106 @@ const STOP_METHODS: { label: string; value: StopMethod; hint: string }[] = [
   { label: "ATR", value: "atr", hint: "Volatility-scaled distance" },
   { label: "Fixed %", value: "fixed-percent", hint: "Flat percentage from entry" },
 ];
+
+function AccountSecurityCard() {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [state, setState] = useState<"idle" | "working" | "done" | "error">("idle");
+  const [message, setMessage] = useState("");
+
+  const submit = async () => {
+    setMessage("");
+    if (newPassword.length < 8) {
+      setState("error");
+      setMessage("New password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setState("error");
+      setMessage("New passwords don't match.");
+      return;
+    }
+    setState("working");
+    try {
+      const r = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "change-password", currentPassword, newPassword }),
+      });
+      if (r.ok) {
+        setState("done");
+        setMessage("Password changed.");
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+      } else if (r.status === 401 && !currentPassword) {
+        setState("error");
+        setMessage("Sign in first, then change your password here.");
+      } else {
+        const j = (await r.json().catch(() => ({}))) as { error?: string };
+        setState("error");
+        setMessage(j.error ?? "Could not change password.");
+      }
+    } catch {
+      setState("error");
+      setMessage("Network error.");
+    }
+  };
+
+  return (
+    <IqCard className="flex flex-col gap-4">
+      <CardEyebrow>Account</CardEyebrow>
+      <p className="text-xs text-muted-foreground">
+        Change the password you sign in with. Sessions on other devices stay signed in.
+      </p>
+      <form
+        className="flex flex-col gap-3 sm:max-w-sm"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit();
+        }}
+      >
+        <input
+          className="border-input bg-background rounded-md border px-3 py-2 text-sm"
+          placeholder="Current password"
+          type="password"
+          autoComplete="current-password"
+          value={currentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
+        />
+        <input
+          className="border-input bg-background rounded-md border px-3 py-2 text-sm"
+          placeholder="New password (min 8 characters)"
+          type="password"
+          autoComplete="new-password"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+        />
+        <input
+          className="border-input bg-background rounded-md border px-3 py-2 text-sm"
+          placeholder="Confirm new password"
+          type="password"
+          autoComplete="new-password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+        />
+        <button
+          className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium disabled:opacity-50"
+          type="submit"
+          disabled={state === "working"}
+        >
+          {state === "working" ? "Changing…" : "Change password"}
+        </button>
+      </form>
+      {message ? (
+        <p className={state === "error" ? "text-destructive text-xs" : "text-xs text-bullish"}>
+          {message}
+        </p>
+      ) : null}
+    </IqCard>
+  );
+}
 
 function TradeRiskCard() {
   const { risk, setRisk } = usePreferencesStore();

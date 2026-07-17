@@ -43,6 +43,24 @@ async def authenticate_user(
     return user, token
 
 
+async def change_password(
+    user_id: str, current_password: str, new_password: str, db: AsyncSession
+) -> None:
+    """Rotate a user's password after proving the current one. Users without a
+    stored hash (legacy invite-only accounts) cannot rotate here — an admin
+    seed sets their first password out of band."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if (
+        user is None
+        or not user.hashed_password
+        or not verify_password(current_password, user.hashed_password)
+    ):
+        raise InvalidCredentialsError()
+    user.hashed_password = hash_password(new_password)
+    await db.commit()
+
+
 async def get_user_by_id(user_id: str) -> User | None:
     async with SessionFactory() as db:
         result = await db.execute(select(User).where(User.id == user_id))
