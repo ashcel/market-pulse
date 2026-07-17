@@ -16,6 +16,11 @@ class Config(BaseSettings):
     # Shared secret for server-to-server calls from the TanStack Start frontend.
     # Must be set in production via AUTH_JWT_SECRET env var or directly as INTERNAL_API_KEY.
     INTERNAL_API_KEY: str = ""
+    # External-context provider keys (worker ingestion). Empty = that provider
+    # reports "unconfigured" in ingest_state rather than erroring.
+    COINGECKO_API_KEY: str = ""
+    COINMARKETCAP_API_KEY: str = ""
+    COINMARKETCAL_API_KEY: str = ""
 
 
 settings = Config()

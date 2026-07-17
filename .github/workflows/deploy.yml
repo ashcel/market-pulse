@@ -8,7 +8,7 @@ jobs:
   deploy:
     name: Deploy to VPS
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     # Guard: only run from the real repo, not forks
     if: github.repository == 'ashcel/market-pulse'
 
@@ -35,13 +35,26 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            set -euo pipefail
             cd /home/ubuntu/code/personal/market-pulse
             git pull origin main
+
+            # Backend (FastAPI + arq worker): deps, then Alembic owns the schema.
+            export PATH="$HOME/.local/bin:$PATH"
+            cd backend
+            uv sync --frozen
+            uv run alembic upgrade head
+
+            # Frontend (TanStack web on 3002).
             export PATH="$HOME/.bun/bin:$PATH"
-            cd frontend
+            cd ../frontend
             bun install
             bun run build
-            bun run db:migrate
+
+            # Restart the live units. market-pulse-worker (the retired TS
+            # worker) stays disabled — restarting it would write dead 1.0.0
+            # records (Phase 4 cutover, 2026-07-17).
+            sudo systemctl restart market-pulse-api
+            sudo systemctl restart market-pulse-arq
             sudo systemctl restart market-pulse
-            sudo systemctl restart market-pulse-worker
             echo "Deployed $(date -u +%Y-%m-%dT%H:%M:%SZ)"

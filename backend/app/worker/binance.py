@@ -122,7 +122,7 @@ TICKER_PRICE_WEIGHT = 2
 _client: httpx.AsyncClient | None = None
 
 
-def _http() -> httpx.AsyncClient:
+def http_client() -> httpx.AsyncClient:
     global _client
     if _client is None:
         _client = httpx.AsyncClient(timeout=15)
@@ -199,7 +199,7 @@ async def fetch_klines(
 
     try:
         await _limiter.acquire(kline_weight(limit))
-        response = await _http().get(f"{_REST_BASE[market]}/klines", params=params)
+        response = await http_client().get(f"{_REST_BASE[market]}/klines", params=params)
         if response.status_code != 200:
             return []
         return _apply_price_scale(_parse_klines(response.json()), price_scale)
@@ -215,7 +215,7 @@ async def fetch_price(symbol: str, market: MarketType = "spot") -> float | None:
         return None
     try:
         await _limiter.acquire(TICKER_PRICE_WEIGHT)
-        response = await _http().get(
+        response = await http_client().get(
             f"{_REST_BASE[market]}/ticker/price", params={"symbol": exchange_symbol}
         )
         if response.status_code != 200:
@@ -241,8 +241,8 @@ async def fetch_perp_context(symbol: str) -> PerpRead | None:
 
     try:
         premium_res, oi_res, candles = await asyncio.gather(
-            _http().get(f"{_FAPI_BASE}/fapi/v1/premiumIndex", params={"symbol": pair}),
-            _http().get(
+            http_client().get(f"{_FAPI_BASE}/fapi/v1/premiumIndex", params={"symbol": pair}),
+            http_client().get(
                 f"{_FAPI_BASE}/futures/data/openInterestHist",
                 params={"symbol": pair, "period": "1h", "limit": "24"},
             ),

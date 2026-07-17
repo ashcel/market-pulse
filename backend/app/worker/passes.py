@@ -28,10 +28,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import SessionFactory
 from app.forward_test import repo
 
-from .binance import drop_unclosed_candle, fetch_klines
+from .binance import drop_unclosed_candle, fetch_klines, http_client
+from .context_pass import run_context_pass
+from .event_pass import run_event_pass
 from .inputs import assemble_evaluate_inputs
 
 logger = logging.getLogger("worker")
+
+# Token-event / external-context ingestion cadence: news feeds and breadth
+# providers update on minutes, not seconds — every third-ish tick is plenty,
+# and a worker restart just ingests immediately (dedup makes that a no-op).
+_EVENT_PASS_S = 15 * 60
+_CONTEXT_PASS_S = 15 * 60
+_last_event_pass_at = 0.0
+_last_context_pass_at = 0.0
 
 
 def _flatten_assessment(assessment: DisplayIntentAssessment) -> dict[str, Any]:
@@ -227,8 +237,11 @@ async def run_settle_pass(db: AsyncSession) -> int:
 
 async def run_once() -> str:
     """One full worker tick: engine_run bookkeeping + spot/perp eval passes +
-    a settle pass. The one-line summary it returns/logs is the heartbeat the
-    legacy health view reports on."""
+    a settle pass, with token-event and external-context ingestion riding the
+    same loop on a slower cadence (a feed failure is logged inside its pass
+    and must never fail the forward-test tick). The one-line summary it
+    returns/logs is the heartbeat the legacy health view reports on."""
+    global _last_event_pass_at, _last_context_pass_at
     prov = current_provenance()
     started = time.monotonic()
     async with SessionFactory() as db:
@@ -244,6 +257,31 @@ async def run_once() -> str:
             spot = await run_eval_pass(db, run_id, "spot")
             perp = await run_eval_pass(db, run_id, "perp")
             settled = await run_settle_pass(db)
+
+            events = ""
+            if time.time() - _last_event_pass_at >= _EVENT_PASS_S:
+                _last_event_pass_at = time.time()
+                try:
+                    event_result = await run_event_pass(db, http_client())
+                    events = f" events+={event_result.inserted}/{event_result.fetched}"
+                except Exception:
+                    await db.rollback()
+                    logger.exception("[events] pass failed")
+
+            ctx = ""
+            if time.time() - _last_context_pass_at >= _CONTEXT_PASS_S:
+                _last_context_pass_at = time.time()
+                try:
+                    ctx_result = await run_context_pass(db, http_client())
+                    ctx = f" ctx global={ctx_result.global_}"
+                    if ctx_result.calendar != "skipped":
+                        ctx += f" cal={ctx_result.calendar}"
+                        if ctx_result.calendar_written is not None:
+                            ctx += f"+{ctx_result.calendar_written}"
+                except Exception:
+                    await db.rollback()
+                    logger.exception("[context] pass failed")
+
             open_counts = await repo.count_open_records(db)
 
             note = (
@@ -258,7 +296,7 @@ async def run_once() -> str:
                 f"evaluated={spot.evaluated}spot+{perp.evaluated}perp "
                 f"shadow+={spot.shadow_opened + perp.shadow_opened} "
                 f"anticipatory+={spot.anticipatory_opened + perp.anticipatory_opened} "
-                f"settled={settled} "
+                f"settled={settled}{events}{ctx} "
                 f"open(shadow={open_counts['shadow']} "
                 f"anticipatory={open_counts['anticipatory']} "
                 f"tracked={open_counts['tracked']}) "
