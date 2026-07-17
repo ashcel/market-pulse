@@ -57,7 +57,7 @@ stays owned by the hand-written SQL migrations and was stamped, not migrated.
 `mypy --strict` clean, 9 pytest green incl. a new `tests/test_trades.py`
 round-trip suite (CRUD, auth, cross-user 403, validation) on ephemeral SQLite.
 
-## Phase 3 — Vite + React Frontend 🚧 (trades slice done, 2026-07-17)
+## Phase 3 — Vite + React Frontend ✅ as re-scoped (2026-07-17)
 
 Strangler stance: the legacy TanStack app (now `frontend/`) proxies to
 FastAPI instead of a separate SPA-first cutover. First slice shipped:
@@ -71,6 +71,10 @@ FastAPI instead of a separate SPA-first cutover. First slice shipped:
 - Gate: `bunx tsc` clean, ESLint 0 errors, 868/868 vitest green.
 - Not yet: nav entry for `/trades` (layout intentionally untouched), market/
   auth/notifications slices still on legacy server functions.
+- **Closed by the Phase 5/6 re-scope** (see below and `docs/migration-plan.md`):
+  the retained TanStack app *is* the frontend, so the remaining SPA slices are
+  no longer migration work — the trades slice pattern stands ready for any
+  future `/api/v1` flip.
 
 ## Phase 4 — Python worker cutover ✅ (2026-07-17)
 
