@@ -105,8 +105,17 @@ Goal: SQLAlchemy + Alembic own the schema, pointed at the **existing** Postgres 
       external_context, eval_log) are preserved**. No drop/recreate.
 - [ ] Repo/service layer per domain; SQL-first for joins/aggregation (§6.4).
 
+**Scope change (2026-07-17, owner decision):** the 1.0.0 forward-test record is
+**disposable** — it was buggy and never really recorded, so preservation applies
+only to auth/journal data (`users`, `invites`, `sessions`, `trades`,
+`user_watchlist`). The forward-test tables (`shadow_signal`,
+`anticipatory_signal`, `eval_log`, `engine_run`, `verdict_hold`,
+`backtest_run`, `tracked_signal`) stay untouched only while the live TS worker
+writes to them; they get **dropped at Phase 4** (worker cutover) instead of
+carried over.
+
 **Gate:** `alembic upgrade head` is a no-op on prod DB; model round-trip tests green
-(testcontainers or ephemeral schema); zero row loss verified.
+(testcontainers or ephemeral schema); zero row loss verified for the preserved set.
 
 ---
 
@@ -135,9 +144,11 @@ Goal: Python worker owns eval/settle over the universe, writing under `2.0.0`.
 - [ ] Rewrite passes as arq jobs: `eval_pass`, `settle_pass`, `context_pass`, `event_pass`,
       `perp_pass` (`backend/CONVENTIONS.md` §8). Reuse `engine.evaluate_symbol`.
 - [ ] Worker is the **sole writer** of shadow/anticipatory records; browser stays read-only.
-- [ ] Run new arq worker in **shadow** (writing `2.0.0` rows) beside the live TS worker
-      (still writing `1.0.0`) — versions segregate cleanly by `ENGINE_VERSION`.
-- [ ] When `2.0.0` rows look sane, **stop `market-pulse-worker.service`**; enable arq unit.
+- [ ] Own the forward-test schema outright: since the `1.0.0` record is disposable
+      (2026-07-17 decision, see Phase 2), **stop `market-pulse-worker.service` first**,
+      then an Alembic revision drops the legacy forward-test tables and creates the
+      `2.0.0` ones as backend-owned models — no dual-writer shadow period, no `1.0.0`
+      rows carried over. Enable the arq unit against the fresh tables.
 
 **Gate:** idempotency + settlement-invariant tests green; `2.0.0` records accrue with
 correct provenance; health-watch/staleness SSE alerts fire.
