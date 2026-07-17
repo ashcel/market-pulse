@@ -21,8 +21,12 @@ agentforge.dev.heydewi.com {
 }
 
 iq.heydewi.com {
-	@api path /api/*
-	handle @api {
+	# FastAPI owns only its /api/v1 namespace. Everything else — including the
+	# legacy /api/* routes (watchlist, notifications, token-events,
+	# forward-test, external-context, klines) and the /api/trades proxy —
+	# belongs to the web tier on 3002, which calls FastAPI server-side.
+	@fastapi path /api/v1/*
+	handle @fastapi {
 		reverse_proxy localhost:8002
 	}
 
