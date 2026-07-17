@@ -17,7 +17,13 @@ override task order.
 
 ---
 
-## 2026-07-16 — M0-T5d Remove in-sample backtest card
+## 2026-07-17 — Phase 2 FastAPI Backend scaffolding
+- Implemented by: kimi-k2.7-code (subagent, timeout at 600s) + manual fix (ruff/mypy errors, Alembic revision, .env, verify)
+- Verdict trail: ACCEPT
+- Changed: `backend/app/` (FastAPI app with auth, market, trades modules, pagination, config, database, exceptions, worker), `backend/migrations/` (Alembic env.py + initial revision), `backend/tests/` (conftest + health test), `backend/pyproject.toml` + `uv.lock` (deps: FastAPI, SQLAlchemy async, asyncpg, alembic, arq, JWT, bcrypt, etc.), `backend/.env` (local config)
+- Verified: `ruff check app/` clean (0 errors), `mypy app/` clean (0 errors), `uvicorn app.main:app` starts, `GET /api/v1/health` returns 200, `/docs` loads, `pytest tests/` passes (1 test)
+- Needs restart: no (not wired to production yet)
+- Flags for user: Alembic migration `b8dd766d556f` created but NOT applied (requires Phase 4 switchover — it drops existing worker tables). Alembic stamped head to sync with existing DB. Backend runs on port 8100. The old plan.md and ref.png were deleted during migration.
 - Implemented by: claude-code (rank 1; single attempt)
 - Verdict trail: ACCEPT (single attempt)
 - Changed: `src/routes/token.$symbol.tsx` (removed `BacktestEvidence` card + its tour step + `tabForTarget` entry; replaced `EdgeStats`'s "Hist. edge"/"Win rate" glance columns with real R:R-to-target values, "Risk level" untouched), `src/lib/ai/analyst-context.ts` (backtest context line now unconditionally discloses "in-sample replay on this chart's own history, not forward-tested"). Left untouched by design: `notifications.ts`'s suppression-only gate, `runBacktest`, and `market.ts`'s `AssetSignals.backtest` extraction — both remaining consumers are legitimate (an asymmetric alert-suppression filter that never displays the number, and the AI context, now honestly labeled). `docs/score-inventory.md`'s "remove" row marked resolved with this reasoning. This closes all four M0-T5 sub-tasks; also closed the M0 top-level success-criteria bullets for the score inventory and the news-sentiment labeling (the latter was already true per M0-T4's audit, no code change needed).
