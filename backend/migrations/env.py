@@ -1,7 +1,7 @@
 """Alembic migrations environment (async with asyncpg).
 
 Reads DATABASE_URL from the environment first (for deployed/staging use),
-falling back to the value in alembic.ini for local dev.
+then the app settings (which load backend/.env), then alembic.ini.
 """
 
 import asyncio
@@ -11,11 +11,10 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.database import Base
-
 # Import all models so Alembic can detect them
 from app.auth.models import User  # noqa: F401
-from app.market.models import Token, Signal  # noqa: F401
+from app.database import Base
+from app.market.models import Signal, Token  # noqa: F401
 from app.trades.models import Trade  # noqa: F401
 
 config = context.config
@@ -26,10 +25,14 @@ target_metadata = Base.metadata
 
 
 def _get_url() -> str:
-    """Return the DB URL from env var DATABASE_URL or the ini file."""
+    """Return the DB URL from env, app settings (.env), or the ini file."""
     env_url = os.environ.get("DATABASE_URL")
     if env_url:
         return env_url
+    from app.config import settings
+
+    if settings.DATABASE_URL:
+        return str(settings.DATABASE_URL)
     url = config.get_main_option("sqlalchemy.url")
     assert url is not None, "sqlalchemy.url must be set"
     return url

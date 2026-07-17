@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TradesRouteImport } from './routes/trades'
 import { Route as TrackerRouteImport } from './routes/tracker'
 import { Route as TechnicalRouteImport } from './routes/technical'
 import { Route as SettingsRouteImport } from './routes/settings'
@@ -21,13 +22,20 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TokenSymbolRouteImport } from './routes/token.$symbol'
 import { Route as ApiWatchlistRouteImport } from './routes/api/watchlist'
+import { Route as ApiTradesRouteImport } from './routes/api/trades'
 import { Route as ApiTokenEventsRouteImport } from './routes/api/token-events'
 import { Route as ApiNotificationsRouteImport } from './routes/api/notifications'
 import { Route as ApiKlinesRouteImport } from './routes/api/klines'
 import { Route as ApiForwardTestRouteImport } from './routes/api/forward-test'
 import { Route as ApiExternalContextRouteImport } from './routes/api/external-context'
 import { Route as ApiAuthRouteImport } from './routes/api/auth'
+import { Route as ApiTradesIdRouteImport } from './routes/api/trades.$id'
 
+const TradesRoute = TradesRouteImport.update({
+  id: '/trades',
+  path: '/trades',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TrackerRoute = TrackerRouteImport.update({
   id: '/tracker',
   path: '/tracker',
@@ -88,6 +96,11 @@ const ApiWatchlistRoute = ApiWatchlistRouteImport.update({
   path: '/api/watchlist',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTradesRoute = ApiTradesRouteImport.update({
+  id: '/api/trades',
+  path: '/api/trades',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTokenEventsRoute = ApiTokenEventsRouteImport.update({
   id: '/api/token-events',
   path: '/api/token-events',
@@ -118,6 +131,11 @@ const ApiAuthRoute = ApiAuthRouteImport.update({
   path: '/api/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTradesIdRoute = ApiTradesIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiTradesRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -130,14 +148,17 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
+  '/trades': typeof TradesRoute
   '/api/auth': typeof ApiAuthRoute
   '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
   '/api/token-events': typeof ApiTokenEventsRoute
+  '/api/trades': typeof ApiTradesRouteWithChildren
   '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
+  '/api/trades/$id': typeof ApiTradesIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -150,14 +171,17 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
+  '/trades': typeof TradesRoute
   '/api/auth': typeof ApiAuthRoute
   '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
   '/api/token-events': typeof ApiTokenEventsRoute
+  '/api/trades': typeof ApiTradesRouteWithChildren
   '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
+  '/api/trades/$id': typeof ApiTradesIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -171,14 +195,17 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
+  '/trades': typeof TradesRoute
   '/api/auth': typeof ApiAuthRoute
   '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
   '/api/token-events': typeof ApiTokenEventsRoute
+  '/api/trades': typeof ApiTradesRouteWithChildren
   '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
+  '/api/trades/$id': typeof ApiTradesIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -193,14 +220,17 @@ export interface FileRouteTypes {
     | '/settings'
     | '/technical'
     | '/tracker'
+    | '/trades'
     | '/api/auth'
     | '/api/external-context'
     | '/api/forward-test'
     | '/api/klines'
     | '/api/notifications'
     | '/api/token-events'
+    | '/api/trades'
     | '/api/watchlist'
     | '/token/$symbol'
+    | '/api/trades/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -213,14 +243,17 @@ export interface FileRouteTypes {
     | '/settings'
     | '/technical'
     | '/tracker'
+    | '/trades'
     | '/api/auth'
     | '/api/external-context'
     | '/api/forward-test'
     | '/api/klines'
     | '/api/notifications'
     | '/api/token-events'
+    | '/api/trades'
     | '/api/watchlist'
     | '/token/$symbol'
+    | '/api/trades/$id'
   id:
     | '__root__'
     | '/'
@@ -233,14 +266,17 @@ export interface FileRouteTypes {
     | '/settings'
     | '/technical'
     | '/tracker'
+    | '/trades'
     | '/api/auth'
     | '/api/external-context'
     | '/api/forward-test'
     | '/api/klines'
     | '/api/notifications'
     | '/api/token-events'
+    | '/api/trades'
     | '/api/watchlist'
     | '/token/$symbol'
+    | '/api/trades/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -254,18 +290,27 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   TechnicalRoute: typeof TechnicalRoute
   TrackerRoute: typeof TrackerRoute
+  TradesRoute: typeof TradesRoute
   ApiAuthRoute: typeof ApiAuthRoute
   ApiExternalContextRoute: typeof ApiExternalContextRoute
   ApiForwardTestRoute: typeof ApiForwardTestRoute
   ApiKlinesRoute: typeof ApiKlinesRoute
   ApiNotificationsRoute: typeof ApiNotificationsRoute
   ApiTokenEventsRoute: typeof ApiTokenEventsRoute
+  ApiTradesRoute: typeof ApiTradesRouteWithChildren
   ApiWatchlistRoute: typeof ApiWatchlistRoute
   TokenSymbolRoute: typeof TokenSymbolRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/trades': {
+      id: '/trades'
+      path: '/trades'
+      fullPath: '/trades'
+      preLoaderRoute: typeof TradesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tracker': {
       id: '/tracker'
       path: '/tracker'
@@ -350,6 +395,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWatchlistRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/trades': {
+      id: '/api/trades'
+      path: '/api/trades'
+      fullPath: '/api/trades'
+      preLoaderRoute: typeof ApiTradesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/token-events': {
       id: '/api/token-events'
       path: '/api/token-events'
@@ -392,8 +444,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/trades/$id': {
+      id: '/api/trades/$id'
+      path: '/$id'
+      fullPath: '/api/trades/$id'
+      preLoaderRoute: typeof ApiTradesIdRouteImport
+      parentRoute: typeof ApiTradesRoute
+    }
   }
 }
+
+interface ApiTradesRouteChildren {
+  ApiTradesIdRoute: typeof ApiTradesIdRoute
+}
+
+const ApiTradesRouteChildren: ApiTradesRouteChildren = {
+  ApiTradesIdRoute: ApiTradesIdRoute,
+}
+
+const ApiTradesRouteWithChildren = ApiTradesRoute._addFileChildren(
+  ApiTradesRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -406,12 +477,14 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   TechnicalRoute: TechnicalRoute,
   TrackerRoute: TrackerRoute,
+  TradesRoute: TradesRoute,
   ApiAuthRoute: ApiAuthRoute,
   ApiExternalContextRoute: ApiExternalContextRoute,
   ApiForwardTestRoute: ApiForwardTestRoute,
   ApiKlinesRoute: ApiKlinesRoute,
   ApiNotificationsRoute: ApiNotificationsRoute,
   ApiTokenEventsRoute: ApiTokenEventsRoute,
+  ApiTradesRoute: ApiTradesRouteWithChildren,
   ApiWatchlistRoute: ApiWatchlistRoute,
   TokenSymbolRoute: TokenSymbolRoute,
 }

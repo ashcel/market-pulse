@@ -26,7 +26,7 @@ async def register_user(
     await db.commit()
     await db.refresh(user)
 
-    token = create_access_token(user.id)
+    token = create_access_token(str(user.id))
     return user, token
 
 
@@ -35,10 +35,11 @@ async def authenticate_user(
 ) -> tuple[User, str]:
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
-    if not user or not verify_password(password, user.hashed_password):
+    # Users without a hashed_password are invite-only users who cannot use password auth
+    if not user or not user.hashed_password or not verify_password(password, user.hashed_password):
         raise InvalidCredentialsError()
 
-    token = create_access_token(user.id)
+    token = create_access_token(str(user.id))
     return user, token
 
 
