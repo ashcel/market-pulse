@@ -95,11 +95,25 @@ owner decision (1.0.0 record disposable — no dual-writer shadow period):
   (double-open no-op, settle frees the slot). Legacy health view reads the
   new engine_run rows; the cron health probe stays valid.
 
-**Known gap (accepted):** the TS worker's event_pass (RSS → token_event) and
-context_pass (breadth/catalyst ingestion) are **paused** — tables intact,
-ingestion stops until ported as arq jobs. Token-event cards will go stale
-from today; port these as the next worker slice.
+**Gap closed same day (commit `16a4b50`):** event_pass + context_pass ported
+(engine: news_rss/token_events/asset_ids/catalyst_events/external_context, 34
+tests → 357 total; backend: ingest_repo + both passes on 15-min gates inside
+the tick). Live smoke: all 3 RSS feeds ok, 51 events classified, 0 inserted —
+every dedup key matched the TS worker's morning rows, a cross-language parity
+proof for the classifier. Breadth/calendar report `unconfigured` (provider
+keys still pending user action, same as before cutover).
 
-## Phase 5/6 — SPA parity + decommission ⏳
+## Phase 5/6 — Frontend + cutover ✅ as re-scoped (2026-07-17)
 
-Caddy seam live; auth/market/notifications still on legacy server functions.
+The monorepo refactor (`ed9009f`) made the existing Vite + React 19 TanStack
+app *the* frontend — parity by identity, layout untouched per owner
+instruction — retiring the from-scratch SPA checklist. `/src` is gone;
+`iq.heydewi.com` serves the monorepo stack; deploy.yml rebuilt for
+uv/alembic/api/arq (no longer touches the retired TS worker); CI covers
+frontend+engine+backend; CLAUDE.md rewritten. Full reconciliation:
+`docs/migration-plan.md`.
+
+**MIGRATION COMPLETE (2026-07-17).** Record plane Python end-to-end (engine
+2.0.0, FastAPI, arq worker incl. ingestion); web tier is the retained React
+app. Post-migration roadmap (optional): market-read API flip, cookie→JWT EDR
+if SPA-only is revived, provider API keys for breadth/calendar.

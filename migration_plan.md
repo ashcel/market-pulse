@@ -4,6 +4,13 @@ Stack: Vite+React19 SPA → FastAPI(Python) → Postgres+Redis
 Old: TanStack Start monolith
 Target: Clean separation, SOLID/DRY/KISS/YAGNI, precommit hooks
 
+> **STATUS: COMPLETE (2026-07-17).** All phases executed; see PROGRESS.md for
+> the per-phase log and `docs/migration-plan.md` for the detailed plan's final
+> reconciliation. End state: Python engine 2.0.0 is the record plane, FastAPI
+> + arq own the backend/worker, the monorepo `frontend/` (Vite + React 19,
+> TanStack Start) is the web tier and proxies new domains to `/api/v1`. The
+> old standalone monolith layout (`/src`) is gone.
+
 ---
 
 ## Phase Order

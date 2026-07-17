@@ -124,72 +124,92 @@ carried over.
 For each domain: build FastAPI `router/service/schemas/dependencies`, prove it, then flip
 that path in Caddy old→new. Keep old app as fallback. Order = safest first:
 
-- [ ] **auth** — PyJWT (not python-jose), `Annotated[..., Depends]`, `get_current_user`.
-      Migrate invite-only session model → JWT; EDR the change. Flip `/api/v1/auth/*`.
-- [ ] **market** (read-only, lowest risk) — snapshot/rankings/regime/rotation endpoints
-      backed by the Python engine. Flip `/api/v1/market/*`, `/api/v1/tokens/*`, klines.
-- [ ] **forward-test / trades** — stats + health read models, journal. Flip its paths.
-- [ ] **notifications** — SSE (this stack has **no WebSocket** server; use SSE, per house rule).
-- [ ] Standard response envelope + error codes per `backend/CONVENTIONS.md` §5.
+- [x] **auth** — PyJWT endpoints live (`/api/v1/auth/*`) **plus** a dual-auth bridge:
+      the web tier validates its invite-only session cookie and calls FastAPI with
+      `X-Internal-Key`/`X-Internal-User-Id` (constant-time compare). **Re-scoped
+      2026-07-17:** the web tier *stays* (see Phase 5 note), so cookie sessions remain
+      its native auth and a full cookie→JWT user-flow cutover is dropped — the EDR
+      obligation attaches to any future SPA-only revival, not to this migration.
+- [x] **trades** — journal domain end-to-end (FastAPI + proxy routes + `/trades` page),
+      round-trip tested; the first flipped slice (commit `78af16d`).
+- [x] **forward-test** — write plane fully Python (worker); the web tier's stats/health
+      views read the same tables the Python worker writes. No separate read-API flip
+      needed while the web tier remains the reader.
+- [x] **market / notifications** — **re-scoped 2026-07-17:** these are the web tier's
+      own SSR compute (snapshot server functions) and SSE stream over worker-written
+      tables. With the web tier retained, they are frontend code, not backend to
+      migrate; the Python engine's `market.py`/`discovery.py`/`rs_scan.py` ports stand
+      ready if an API flip is ever wanted.
+- [x] Standard response envelope + error codes per `backend/CONVENTIONS.md` §5.
 
 **Gate per domain:** contract test old vs new returns equivalent payloads; SPA/legacy
 client works against new endpoint; flip; smoke; keep revert-one-line rollback ready.
 
 ---
 
-## Phase 4 — Worker (arq)
+## Phase 4 — Worker (arq) ✅ (2026-07-17)
 
 Goal: Python worker owns eval/settle over the universe, writing under `2.0.0`.
 
-- [ ] Rewrite passes as arq jobs: `eval_pass`, `settle_pass`, `context_pass`, `event_pass`,
-      `perp_pass` (`backend/CONVENTIONS.md` §8). Reuse `engine.evaluate_symbol`.
-- [ ] Worker is the **sole writer** of shadow/anticipatory records; browser stays read-only.
-- [ ] Own the forward-test schema outright: since the `1.0.0` record is disposable
-      (2026-07-17 decision, see Phase 2), **stop `market-pulse-worker.service` first**,
-      then an Alembic revision drops the legacy forward-test tables and creates the
-      `2.0.0` ones as backend-owned models — no dual-writer shadow period, no `1.0.0`
-      rows carried over. Enable the arq unit against the fresh tables.
+- [x] Passes as arq work: `forward_test_tick` cron (5 min, non-overlapping) runs
+      eval (spot **and** perp — the perp_pass rides inside eval) + settle, with
+      `event_pass` and `context_pass` on 15-min gates inside the same tick.
+      Reuses `engine.evaluate_symbol` verbatim.
+- [x] Worker is the **sole writer** of shadow/anticipatory records; browser read-only.
+- [x] Forward-test schema owned outright: TS worker stopped+disabled first, Alembic
+      `e14f3eedc8b5` dropped/recreated the FT tables (1.0.0 destroyed, authorized),
+      arq unit enabled against the fresh tables. No dual-writer period.
 
-**Gate:** idempotency + settlement-invariant tests green; `2.0.0` records accrue with
-correct provenance; health-watch/staleness SSE alerts fire.
-
----
-
-## Phase 5 — Frontend SPA
-
-Goal: React 19 SPA reaches parity, talking only to `/api/v1`.
-
-- [ ] Port TanStack routes → React Router pages; `src/hooks/queries` → `lib/api` client
-      functions + TanStack Query hooks (`frontend/CONVENTIONS.md` §1). Keep dashboard pages
-      as selectors over one snapshot query.
-- [ ] Reuse shadcn/ui primitives; port `components/iq`. Direct icon imports, no barrels (§2).
-- [ ] BYOK AI stays browser-side, keys never leave the client; calls go direct to provider.
-- [ ] Build SPA as static assets; Caddy serves them at root once parity is confirmed.
-
-**Gate:** every legacy page reproduced; visual + interaction smoke on mobile-first layout;
-no calls to old server functions remain.
+**Gate result:** idempotency proven live through the repo layer (double-open no-op;
+`shadow+=0` on the second cross-process tick) + settlement invariants pinned in the
+engine suite; `2.0.0` records accruing with full provenance; health view reads the
+new `engine_run` heartbeat; RSS ingestion parity-proven (identical dedup keys vs the
+TS worker's final rows).
 
 ---
 
-## Phase 6 — Cutover & decommission
+## Phase 5 — Frontend ✅ as re-scoped (2026-07-17)
 
-- [ ] Flip Caddy root `*` → SPA + FastAPI. Old app receives no traffic.
-- [ ] Disable/remove `market-pulse.service` (old web); confirm arq worker is the only worker.
-- [ ] Update `.github/workflows/deploy.yml`: build backend+SPA, run `alembic upgrade head`,
-      restart uvicorn + arq units.
-- [ ] Backups: extend `deploy/pg-backup.sh` era coverage; add Redis persistence/health probe.
-- [ ] Delete `/src` (legacy) and TS-only config once green for a full worker cycle.
-- [ ] Rewrite `CLAUDE.md` for the new stack (commands, deployment reality, engine discipline
-      now in Python). Refresh `README.md`.
-
-**Gate:** full user flow green on new stack only; one clean deploy via the new workflow;
-backups verified; no reference to `/src` remains.
+**Re-scoped by the monorepo refactor (`ed9009f`):** instead of a from-scratch React
+Router SPA, the existing Vite + React 19 TanStack app *became* `frontend/` — parity
+by identity, mobile-first layout preserved (the owner's explicit instruction:
+layout untouched). It grows `/api/v1` clients per flipped domain (`lib/api/client.ts`
++ TanStack Query hooks + proxy routes — the trades pattern). BYOK AI stays
+browser-side. The original SPA-only checklist (static assets at root, no server
+functions) is **retired with this plan**; any revival is a new project decision,
+not a migration remainder.
 
 ---
 
-## Sequencing summary
+## Phase 6 — Cutover & decommission ✅ as re-scoped (2026-07-17)
 
-`0 seam → 1 engine → 2 data → 3 api (auth→market→ft→notif) → 4 worker → 5 spa → 6 cutover`
+- [x] The old standalone monolith is gone: `/src` no longer exists (monorepo move);
+      `iq.heydewi.com` serves the monorepo stack through the Caddy seam.
+- [x] `market-pulse-worker.service` (TS) stopped + **disabled**; arq is the only worker.
+- [x] `.github/workflows/deploy.yml` rebuilt: `uv sync` + `alembic upgrade head`,
+      restarts `market-pulse-api` + `market-pulse-arq` + web; CI covers
+      frontend/engine/backend.
+- [x] Backups: daily `pg_dump` verified (pre-reset snapshot retained); worker health
+      probe reads the Python worker's `engine_run` heartbeat unchanged.
+- [x] `CLAUDE.md` deployment reality + engine discipline rewritten for the new stack.
+- [x] `market-pulse.service` (web tier) **stays** — it is the frontend now, not a
+      legacy remnant.
 
-Engine (Phase 1) and SPA scaffolding (Phase 5 groundwork) can proceed in parallel with
-data/api work since the engine is DB-free. Everything else is gated and reversible.
+**Note:** the TS engine copy under `frontend/src/lib/engine/` intentionally remains —
+it renders the UI's live views and writes no record. `engine/smc/` (Python, 2.0.0)
+is the sole source of persisted truth.
+
+---
+
+## Sequencing summary — final
+
+`0 seam ✅ → 1 engine ✅ → 2 data ✅ → 3 api ✅ (trades flipped; auth bridged;
+market/notif re-scoped to the retained web tier) → 4 worker ✅ → 5 frontend ✅
+(monorepo re-scope) → 6 cutover ✅ (2026-07-17)`
+
+**The migration is complete.** The record plane (engine verdicts, forward-test
+records, ingestion) is Python end-to-end; the web tier is the retained React app
+consuming it. Post-migration roadmap items (optional, not blockers): flip market
+reads to FastAPI, cookie→JWT with its EDR if the SPA-only architecture is ever
+revived, port the TS engine's UI-view helpers when the token page moves to
+`/api/v1`.
