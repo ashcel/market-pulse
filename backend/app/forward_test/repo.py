@@ -19,7 +19,7 @@ from smc.quant import RiskRewardPlan
 from smc.shadow import ShadowSignal, ShadowSignalDraft
 from smc.tracker import TrackedSignal
 from smc.version import Provenance, assert_provenance
-from sqlalchemy import select, text, update
+from sqlalchemy import DateTime, bindparam, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -170,15 +170,15 @@ async def patch_shadow(
         text(
             "update shadow_signal set"
             " status = coalesce(:status, status),"
-            " closed_at = coalesce(cast(:closed_at as timestamptz), closed_at),"
+            " closed_at = coalesce(:closed_at, closed_at),"
             " close_price = coalesce(:close_price, close_price),"
             " result_r = coalesce(:result_r, result_r)"
             " where id = :id"
-        ),
+        ).bindparams(bindparam("closed_at", type_=DateTime(timezone=True))),
         {
             "id": signal_id,
             "status": status,
-            "closed_at": closed_at,
+            "closed_at": _parse_iso(closed_at) if closed_at else None,
             "close_price": close_price,
             "result_r": result_r,
         },
@@ -279,17 +279,20 @@ async def patch_anticipatory(
         text(
             "update anticipatory_signal set"
             " status = coalesce(:status, status),"
-            " filled_at = coalesce(cast(:filled_at as timestamptz), filled_at),"
-            " closed_at = coalesce(cast(:closed_at as timestamptz), closed_at),"
+            " filled_at = coalesce(:filled_at, filled_at),"
+            " closed_at = coalesce(:closed_at, closed_at),"
             " close_price = coalesce(:close_price, close_price),"
             " result_r = coalesce(:result_r, result_r)"
             " where id = :id"
+        ).bindparams(
+            bindparam("filled_at", type_=DateTime(timezone=True)),
+            bindparam("closed_at", type_=DateTime(timezone=True)),
         ),
         {
             "id": signal_id,
             "status": status,
-            "filled_at": filled_at,
-            "closed_at": closed_at,
+            "filled_at": _parse_iso(filled_at) if filled_at else None,
+            "closed_at": _parse_iso(closed_at) if closed_at else None,
             "close_price": close_price,
             "result_r": result_r,
         },
@@ -422,15 +425,15 @@ async def patch_tracked(
         text(
             "update tracked_signal set"
             " status = coalesce(:status, status),"
-            " closed_at = coalesce(cast(:closed_at as timestamptz), closed_at),"
+            " closed_at = coalesce(:closed_at, closed_at),"
             " close_price = coalesce(:close_price, close_price),"
             " result_r = coalesce(:result_r, result_r)"
             " where id = :id"
-        ),
+        ).bindparams(bindparam("closed_at", type_=DateTime(timezone=True))),
         {
             "id": signal_id,
             "status": status,
-            "closed_at": closed_at,
+            "closed_at": _parse_iso(closed_at) if closed_at else None,
             "close_price": close_price,
             "result_r": result_r,
         },
