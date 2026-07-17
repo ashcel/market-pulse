@@ -12,9 +12,9 @@ from typing import Literal
 
 from smc.types import Candle
 
-TOKEN_TIMEFRAMES = ("15M", "30M", "1H", "4H", "1D", "1W")
-
 TokenTimeframe = Literal["15M", "30M", "1H", "4H", "1D", "1W"]
+
+TOKEN_TIMEFRAMES: tuple[TokenTimeframe, ...] = ("15M", "30M", "1H", "4H", "1D", "1W")
 
 
 def is_token_timeframe(value: object) -> bool:

@@ -14,6 +14,13 @@ from sqlalchemy.ext.asyncio import create_async_engine
 # Import all models so Alembic can detect them
 from app.auth.models import User  # noqa: F401
 from app.database import Base
+from app.forward_test.models import (  # noqa: F401
+    AnticipatorySignalRow,
+    EngineRun,
+    EvalLog,
+    ShadowSignalRow,
+    VerdictHold,
+)
 from app.market.models import Signal, Token  # noqa: F401
 from app.trades.models import Trade  # noqa: F401
 

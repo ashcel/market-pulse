@@ -1,17 +1,52 @@
+"""arq worker settings — the Phase 4 replacement for market-pulse-worker.
+
+One cron tick every 5 minutes runs the full forward-test pass (spot + perp
+eval, then settle). arq's fixed cron job id means a still-running tick is
+never overlapped — same guarantee the TS worker's sequential loop gave.
+
+Run: `arq app.worker.config.WorkerSettings` (see deploy/market-pulse-arq.service).
+"""
+
+import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, ClassVar
 
+from arq import cron
 from arq.connections import RedisSettings
+from arq.cron import CronJob
 
 from app.config import settings
 
+from .binance import close_http_client
+from .passes import run_once
 
-async def health_ping(_ctx: dict[str, Any]) -> str:
-    """Placeholder job so the worker unit is runnable; real passes land in Phase 4."""
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+
+
+async def health_ping(_ctx: dict[Any, Any]) -> str:
+    """Liveness probe target (arq's job queue must round-trip)."""
     return "ok"
 
 
+async def forward_test_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -> str:  # noqa: ARG001
+    """One full eval+settle pass over the universe (the worker heartbeat)."""
+    return await run_once()
+
+
+async def shutdown(_ctx: dict[Any, Any]) -> None:
+    await close_http_client()
+
+
 class WorkerSettings:
-    functions: ClassVar[list[Callable[[dict[str, Any]], Awaitable[str]]]] = [health_ping]
+    functions: ClassVar[list[Callable[[dict[Any, Any]], Awaitable[str]]]] = [health_ping]
+    cron_jobs: ClassVar[list[CronJob]] = [
+        cron(
+            forward_test_tick,
+            minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55},
+            run_at_startup=True,
+            timeout=600,
+        )
+    ]
+    on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(str(settings.REDIS_URL))
     keep_result = 300
