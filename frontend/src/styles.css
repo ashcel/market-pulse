@@ -1,5 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
-@import "tailwindcss";
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -10,7 +11,7 @@
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
 
-  --font-sans: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --color-background: var(--background);
@@ -61,8 +62,58 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* Light theme (fallback) */
 :root {
   --radius: 0.75rem;
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.15 0.01 260);
+  --surface: oklch(0.97 0 0);
+  --surface-elevated: oklch(1 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0.01 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0.01 260);
+  --primary: oklch(0.62 0.19 256);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.96 0.005 260);
+  --secondary-foreground: oklch(0.2 0.01 260);
+  --muted: oklch(0.96 0.005 260);
+  --muted-foreground: oklch(0.5 0.02 260);
+  --accent: oklch(0.95 0.01 260);
+  --accent-foreground: oklch(0.2 0.01 260);
+  --destructive: oklch(0.6 0.22 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.92 0.005 260);
+  --input: oklch(0.92 0.005 260);
+  --ring: oklch(0.62 0.19 256);
+
+  --bullish: oklch(0.72 0.19 148);
+  --bullish-soft: oklch(0.72 0.19 148 / 0.14);
+  --bearish: oklch(0.62 0.24 22);
+  --bearish-soft: oklch(0.62 0.24 22 / 0.14);
+  --warning: oklch(0.78 0.16 65);
+  --warning-soft: oklch(0.78 0.16 65 / 0.14);
+  --info: oklch(0.68 0.16 245);
+  --info-soft: oklch(0.68 0.16 245 / 0.14);
+
+  --chart-1: oklch(0.68 0.16 245);
+  --chart-2: oklch(0.72 0.19 148);
+  --chart-3: oklch(0.78 0.16 65);
+  --chart-4: oklch(0.62 0.24 22);
+  --chart-5: oklch(0.65 0.2 300);
+
+  --sidebar: oklch(0.98 0 0);
+  --sidebar-foreground: oklch(0.15 0.01 260);
+  --sidebar-primary: oklch(0.62 0.19 256);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.95 0.01 260);
+  --sidebar-accent-foreground: oklch(0.2 0.01 260);
+  --sidebar-border: oklch(0.92 0.005 260);
+  --sidebar-ring: oklch(0.62 0.19 256);
+}
+
+/* Dark theme (default for IQ) */
+.dark {
   --background: oklch(0.145 0.008 260);
   --foreground: oklch(0.97 0.003 260);
   --surface: oklch(0.185 0.008 260);
@@ -108,37 +159,60 @@
   --sidebar-accent-foreground: oklch(0.97 0.003 260);
   --sidebar-border: oklch(1 0 0 / 0.06);
   --sidebar-ring: oklch(0.7 0.16 245);
-
-  --scrollbar-thumb: color-mix(in oklab, var(--muted-foreground) 45%, var(--surface));
-  --scrollbar-thumb-hover: color-mix(in oklab, var(--muted-foreground) 70%, var(--surface));
 }
 
-* {
-  border-color: var(--color-border);
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) transparent;
-}
+@layer base {
+  :root {
+    /* Solid theme-following scrollbar thumb, readable on both themes */
+    --scrollbar-thumb: color-mix(in oklab, var(--muted-foreground) 45%, var(--surface));
+    --scrollbar-thumb-hover: color-mix(in oklab, var(--muted-foreground) 70%, var(--surface));
+  }
 
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
-::-webkit-scrollbar-corner { background: transparent; }
+  * {
+    border-color: var(--color-border);
+    /* Standards (Chrome 121+, Firefox): slim, solid, theme-colored scrollbars */
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
 
-html {
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
+  /* WebKit fallback (Safari): same solid theme colors */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
 
-body {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-}
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
 
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 @utility num {

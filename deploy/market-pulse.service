@@ -1,0 +1,16 @@
+[Unit]
+Description=Market Pulse (TanStack Start SSR)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/code/personal/market-pulse/frontend
+Environment=NODE_ENV=production
+Environment=PORT=3002
+ExecStart=/usr/bin/node .output/server/index.mjs
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

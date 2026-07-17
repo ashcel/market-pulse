@@ -21,15 +21,19 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
+        working-directory: frontend
         run: bun install --frozen-lockfile
 
       - name: Lint
+        working-directory: frontend
         run: bun run lint
 
       - name: Test
+        working-directory: frontend
         run: bun test
 
       - name: Build
+        working-directory: frontend
         run: bun run build
 
   python:

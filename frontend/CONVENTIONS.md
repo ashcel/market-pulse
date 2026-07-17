@@ -1,8 +1,5 @@
 # Frontend Conventions — Market Pulse
 
-> Adapted from Vercel React Best Practices, selectively applied.
-> Vite + React 19 SPA (no Next.js, no SSR).
-
 ---
 
 ## Prinsip Arsitektur — SOLID · DRY · KISS · YAGNI

@@ -27,8 +27,7 @@ iq.heydewi.com {
 	}
 
 	handle {
-		root * /var/www/market-pulse
-		file_server
+		reverse_proxy localhost:3002
 	}
 
 	encode gzip

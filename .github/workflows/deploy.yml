@@ -21,9 +21,11 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
+        working-directory: frontend
         run: bun install --frozen-lockfile
 
       - name: Build
+        working-directory: frontend
         run: bun run build
 
       - name: Deploy to VPS
@@ -36,6 +38,7 @@ jobs:
             cd /home/ubuntu/code/personal/market-pulse
             git pull origin main
             export PATH="$HOME/.bun/bin:$PATH"
+            cd frontend
             bun install
             bun run build
             bun run db:migrate
