@@ -22,20 +22,27 @@ DB-integration tests (`repo-invariants`, `idempotency`) need a reachable
 
 ## Deployment reality
 
-**The VPS this repo is developed on is production.** `market-pulse.service`
-(web, port 3002) and `market-pulse-worker.service` (forward-test worker) are
-live systemd units running out of this working directory; Postgres runs in
-docker (`market-pulse-db`, port 5435, see `docker-compose.yml`). A push to
-`main` triggers `.github/workflows/deploy.yml`, which pulls, rebuilds, runs
-migrations, and restarts both services **in this directory**. Never leave the
-tree broken or on an unmergeable branch. Daily `pg_dump` + a worker health
-probe run from `ubuntu`'s crontab (`deploy/` has the scripts).
+**The VPS this repo is developed on is production.** Live systemd units
+running out of this working directory: `market-pulse.service` (legacy
+TanStack web, port 3002), `market-pulse-api.service` (FastAPI, port 8002),
+and `market-pulse-arq.service` (the **Python** forward-test worker — arq cron
+tick every 5 min; logs: `journalctl -u market-pulse-arq`). The old TS
+`market-pulse-worker.service` was stopped + disabled at the 2026-07-17 Phase
+4 cutover — never re-enable it; it would write dead 1.0.0 records. Postgres
+runs in docker (`market-pulse-db`, port 5435, see `docker-compose.yml`).
+A push to `main` triggers `.github/workflows/deploy.yml`, which pulls,
+rebuilds, runs migrations, and restarts services **in this directory**.
+Never leave the tree broken or on an unmergeable branch. Daily `pg_dump` + a
+worker health probe run from `ubuntu`'s crontab (`deploy/` has the scripts).
 
 ## Engine change discipline
 
-`src/lib/engine/version.ts` pins `ENGINE_VERSION` (currently the frozen
-`1.0.0` — the official forward-test clock). Every persisted forward-test
-record is provenance-stamped and all stats segment by engine version, so:
+**The live engine is Python**: `engine/smc/version.py` pins `ENGINE_VERSION`
+(currently `2.0.0` — the forward-test clock restarted at the 2026-07-17
+Python-worker cutover; the 1.0.0 TS record was destroyed as buggy). The TS
+copy in `frontend/src/lib/engine/` still serves the legacy web UI's live
+views but no longer writes any record. Every persisted forward-test record
+is provenance-stamped and all stats segment by engine version, so:
 
 - **Any change to decision or trigger semantics requires a version bump** and
   restarts the evidence clock. Do not make casual engine edits.

@@ -72,6 +72,34 @@ FastAPI instead of a separate SPA-first cutover. First slice shipped:
 - Not yet: nav entry for `/trades` (layout intentionally untouched), market/
   auth/notifications slices still on legacy server functions.
 
-## Phase 4 — Integration + Deploy ⏳
+## Phase 4 — Python worker cutover ✅ (2026-07-17)
 
-Not started. Caddy seam is live (everything still proxies to the old app).
+The detailed plan's Phase 4 (worker), executed in one move per the 2026-07-17
+owner decision (1.0.0 record disposable — no dual-writer shadow period):
+
+- **Engine verdict plane ported** (commit `91b16d6`): intent, hysteresis,
+  tracker, shadow, anticipatory, setup_validity, evaluate, version —
+  `ENGINE_VERSION = "2.0.0"`, forward-test clock reset to n=0. 323 engine
+  tests green (incl. Dreimann zec-sl pins through the fill model).
+- **Backend FT domain + reset migration** (commit `4ab7524`): models mirror
+  the legacy table shapes so `/api/forward-test` keeps working; Alembic
+  `e14f3eedc8b5` dropped + recreated the FT tables (1.0.0 record destroyed,
+  authorized; tracked_signal truncated; users/sessions/trades/token_event
+  untouched — verified). asyncpg timestamptz bind fix found by live smoke
+  (`7975b9a`).
+- **Cutover executed 2026-07-17 ~12:39 UTC**: `market-pulse-worker.service`
+  stopped + disabled; `market-pulse-arq.service` enabled (cron tick every
+  5min, run_at_startup). First pass: 50 spot + 50 perp evaluated in ~45s,
+  15 shadow + 149 anticipatory opened, 400 eval_log rows — all stamped
+  `2.0.0 / cfg 7048e1a5`. Idempotency proven through the app repo layer
+  (double-open no-op, settle frees the slot). Legacy health view reads the
+  new engine_run rows; the cron health probe stays valid.
+
+**Known gap (accepted):** the TS worker's event_pass (RSS → token_event) and
+context_pass (breadth/catalyst ingestion) are **paused** — tables intact,
+ingestion stops until ported as arq jobs. Token-event cards will go stale
+from today; port these as the next worker slice.
+
+## Phase 5/6 — SPA parity + decommission ⏳
+
+Caddy seam live; auth/market/notifications still on legacy server functions.
