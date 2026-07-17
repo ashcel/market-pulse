@@ -1,0 +1,44 @@
+{
+	email dewimandasari@gmail.com
+}
+
+agentforge.dev.heydewi.com {
+	@api path /api/*
+	handle @api {
+		reverse_proxy localhost:8000
+	}
+
+	handle {
+		reverse_proxy localhost:3000
+	}
+}
+
+9router.dev.heydewi.com {
+	basic_auth /dashboard/* {
+		admin $2a$14$oixmE.UKWCe2VDVnz/CORenUm/TdlT1qwLhIXA2QTMr6RjDQiL9Q.
+	}
+	reverse_proxy localhost:20128
+}
+
+iq.heydewi.com {
+	@api path /api/*
+	handle @api {
+		reverse_proxy localhost:8002
+	}
+
+	handle {
+		root * /var/www/market-pulse
+		file_server
+	}
+
+	encode gzip
+	log {
+		output file /var/log/caddy/iq.log
+	}
+}
+
+sightvia.dev.heydewi.com {
+	reverse_proxy localhost:3000 {
+		header_up x-origin-verify daeb13a199d53d8d951fd1dc2d78db8149f89a4832e73811ffb549146ea1cf8b
+	}
+}

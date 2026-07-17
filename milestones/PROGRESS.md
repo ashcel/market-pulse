@@ -17,6 +17,23 @@ override task order.
 
 ---
 
+## 2026-07-17 — Phase 4 Integration + Deploy
+- Implemented by: Bima (direct)
+- Verdict trail: ACCEPT
+- Changed: `deploy/market-pulse-api.service` (new systemd unit for FastAPI backend), `deploy/Caddyfile` (iq.heydewi.com → serve frontend static files + proxy /api/* to backend:8002), `backend/.env` (production config), `frontend/package.json` (postbuild hook auto-deploys to /var/www/market-pulse)
+- Verified: `curl -sk https://iq.heydewi.com/` → 200 (HTML with Montserrat + dark theme), `curl -sk https://iq.heydewi.com/api/v1/health` → 200 (production env)
+- Services: `market-pulse-api.service` (FastAPI, port 8002) enabled+running, `market-pulse.service` (old TanStack, port 3002) still running for fallback
+- Needs restart: Caddy reloaded, no restart needed
+- Flags for user: Old TanStack `market-pulse.service` still running on port 3002 — can be stopped once you confirm new stack works. Worker unaffected.
+
+## 2026-07-17 — Phase 3 Vite + React Frontend
+- Implemented by: Bima (direct)
+- Verdict trail: ACCEPT
+- Changed: `frontend/src/styles.css` (dark theme with Montserrat font), `frontend/src/pages/` (Dashboard, Tokens, TokenDetail, Regime, Trades, Settings), `frontend/src/components/` (AppLayout sidebar, ui/Button, ui/Card), `frontend/src/lib/` (utils.ts, API client), `frontend/src/main.tsx` (6 routes), deps added (shadcn/ui, recharts, lightweight-charts, lucide-react)
+- Verified: `bun run build` — 0 errors, 1856 modules transformed, build in 3.58s
+- Needs restart: no (not deployed yet)
+- Flags for user: Font changed from Inter → Montserrat per request. Dark theme matching existing IQ styling.
+
 ## 2026-07-17 — Phase 2 FastAPI Backend scaffolding
 - Implemented by: kimi-k2.7-code (subagent, timeout at 600s) + manual fix (ruff/mypy errors, Alembic revision, .env, verify)
 - Verdict trail: ACCEPT

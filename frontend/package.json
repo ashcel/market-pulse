@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "postbuild": "sudo cp -r dist/* /var/www/market-pulse/ && sudo chown -R caddy:caddy /var/www/market-pulse",
     "preview": "vite preview"
   },
   "dependencies": {
