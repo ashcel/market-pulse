@@ -1,4 +1,5 @@
-import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, expect, it } from "vitest";
+import { describeDb, hasTestDatabase } from "./db-test-guard";
 
 import { sql } from "./client";
 import {
@@ -25,6 +26,7 @@ const TEST_CG_SOURCE = "test-context-cg";
 const TEST_INGEST_SOURCE = "test-context-source";
 
 async function cleanup(): Promise<void> {
+  if (!hasTestDatabase) return;
   await sql`delete from catalyst_event where symbol = ${TEST_SYMBOL}`;
   await sql`delete from market_context_snapshot where source = ${TEST_CG_SOURCE}`;
   await sql`delete from ingest_state where source = ${TEST_INGEST_SOURCE}`;
@@ -52,7 +54,7 @@ function catalystInput(overrides: Partial<CatalystEventInput> = {}): CatalystEve
   };
 }
 
-describe("market_context_snapshot store", () => {
+describeDb("market_context_snapshot store", () => {
   it("latest returns the newest row; near() the closest at-or-before a timestamp", async () => {
     await insertMarketContextSnapshot({
       totalMcapUsd: 1e12,
@@ -83,7 +85,7 @@ describe("market_context_snapshot store", () => {
   });
 });
 
-describe("ingest_state bookkeeping", () => {
+describeDb("ingest_state bookkeeping", () => {
   it("transitions ok → error → ok, keeping last_ok_at across failures", async () => {
     await upsertIngestState(TEST_INGEST_SOURCE, "ok");
     let row = (await listIngestState()).find((s) => s.source === TEST_INGEST_SOURCE);
@@ -114,7 +116,7 @@ describe("ingest_state bookkeeping", () => {
   });
 });
 
-describe("catalyst_event store", () => {
+describeDb("catalyst_event store", () => {
   it("upsert is reschedule-aware: a moved date updates the existing row", async () => {
     await upsertCatalystEvents([catalystInput()]);
     const moved = catalystInput({ occursAt: hoursFromNow(96), title: "Test unlock (moved)" });

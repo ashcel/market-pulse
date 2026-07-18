@@ -1,4 +1,5 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
+import { describeDb, hasTestDatabase } from "./db-test-guard";
 
 import { sql } from "./client";
 import {
@@ -41,11 +42,13 @@ function eventInput(overrides: Partial<TokenEventInput> = {}): TokenEventInput {
 }
 
 async function cleanup(): Promise<void> {
+  if (!hasTestDatabase) return;
   await sql`delete from token_event where symbol = ${TEST_SYMBOL}`;
   await sql`delete from tracked_signal where symbol = ${TEST_SYMBOL}`;
 }
 
 beforeAll(async () => {
+  if (!hasTestDatabase) return;
   const users = await sql<{ id: string }[]>`
     insert into users (email, display_name) values
       ('token-events-watcher@example.invalid', 'Watcher'),
@@ -58,12 +61,13 @@ beforeAll(async () => {
 
 afterEach(cleanup);
 afterAll(async () => {
+  if (!hasTestDatabase) return;
   await cleanup();
   await sql`delete from user_watchlist where user_id in (${watcherId}, ${followerId})`;
   await sql`delete from users where id in (${watcherId}, ${followerId})`;
 });
 
-describe("token-event store (P2.5)", () => {
+describeDb("token-event store (P2.5)", () => {
   it("inserts are deduped on dedup_key — re-ingestion is a no-op", async () => {
     expect(await insertTokenEvents([eventInput()])).toBe(1);
     expect(await insertTokenEvents([eventInput({ title: "same article refetched" })])).toBe(0);

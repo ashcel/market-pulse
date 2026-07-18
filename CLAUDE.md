@@ -15,8 +15,13 @@ Bun is the package manager (`bun.lock`, `bunfig.toml`).
 - `bun run db:migrate` / `db:seed-admin` / `db:invite` — Postgres schema + auth CLIs
 - The forward-test eval+settle worker is **Python** now: `cd backend && .venv/bin/arq app.worker.config.WorkerSettings` (arq cron, 5-min tick). The old TS `bun run worker` was removed at the 2026-07-17 cutover.
 
-DB-integration tests (`repo-invariants`, `idempotency`) need a reachable
-`DATABASE_URL` and self-skip without one.
+The DB-integration suites (`src/server/db/*.test.ts` — `repo-invariants`,
+`external-context-repo`, `token-events-repo`, `eval-log`) open a real Postgres
+and mutate tables. Because this repo runs on the prod VPS, they only ever run
+against an **isolated** DB pointed at by `TEST_DATABASE_URL` (must differ from
+`DATABASE_URL`); without it they skip and the client refuses to fall through to
+prod (see `src/server/db/db-test-guard.ts` + `client.ts`). Provisioning steps
+are in `frontend/.env.example`.
 
 `bunfig.toml` enforces a 24h supply-chain guard: package versions published less than a day ago are skipped at install. Confirm with the user before adding any package to `minimumReleaseAgeExcludes`.
 

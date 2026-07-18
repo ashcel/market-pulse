@@ -1,5 +1,6 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
 
+import { describeDb, hasTestDatabase } from "./db-test-guard";
 import { sql } from "./client";
 import { openAnticipatory, openShadow, startEngineRun } from "./repo";
 import type { AnticipatoryOpenInput, ShadowOpenInput } from "@/lib/engine/evaluate";
@@ -17,6 +18,7 @@ import type { AnticipatoryOpenInput, ShadowOpenInput } from "@/lib/engine/evalua
 const TEST_SYMBOL = "TESTZZZ";
 
 async function cleanup(): Promise<void> {
+  if (!hasTestDatabase) return;
   await sql`delete from shadow_signal where symbol = ${TEST_SYMBOL}`;
   await sql`delete from anticipatory_signal where symbol = ${TEST_SYMBOL}`;
   await sql`delete from engine_run where universe_json::text like ${"%" + TEST_SYMBOL + "%"}`;
@@ -71,6 +73,7 @@ function anticipatoryInput(overrides: Partial<AnticipatoryOpenInput> = {}): Anti
 let engineRunId: string;
 
 beforeAll(async () => {
+  if (!hasTestDatabase) return;
   await cleanup();
   engineRunId = await startEngineRun(
     { engineVersion: "test-engine", configHash: "test-hash", gitSha: "test-sha" },
@@ -79,6 +82,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
+  if (!hasTestDatabase) return;
   await sql`delete from shadow_signal where symbol = ${TEST_SYMBOL}`;
   await sql`delete from anticipatory_signal where symbol = ${TEST_SYMBOL}`;
 });
@@ -87,7 +91,7 @@ afterAll(async () => {
   await cleanup();
 });
 
-describe("dedup correctness — shadow_active_uniq", () => {
+describeDb("dedup correctness — shadow_active_uniq", () => {
   it("a second open of the same still-open (symbol,market,intent) is a no-op", async () => {
     await openShadow(shadowInput({ entry: 100 }), engineRunId);
     await openShadow(shadowInput({ entry: 999 }), engineRunId); // same symbol/market/intent, still active
@@ -127,7 +131,7 @@ describe("dedup correctness — shadow_active_uniq", () => {
   });
 });
 
-describe("dedup correctness — anticipatory_active_uniq", () => {
+describeDb("dedup correctness — anticipatory_active_uniq", () => {
   it("a second open while pending is a no-op", async () => {
     await openAnticipatory(anticipatoryInput({ entry: 100 }), engineRunId);
     await openAnticipatory(anticipatoryInput({ entry: 999 }), engineRunId);
@@ -175,7 +179,7 @@ describe("dedup correctness — anticipatory_active_uniq", () => {
   });
 });
 
-describe("provenance completeness — repo guards reject before hitting the DB", () => {
+describeDb("provenance completeness — repo guards reject before hitting the DB", () => {
   it("openShadow throws and writes nothing when engineVersion is blank", async () => {
     const badInput = shadowInput({ engineVersion: "" });
     await expect(openShadow(badInput, engineRunId)).rejects.toThrow(/provenance/i);

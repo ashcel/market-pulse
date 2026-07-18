@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- `{} as any` placeholders stand in for onerous engine fixture shapes */
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
+import { describeDb, hasTestDatabase } from "./db-test-guard";
 import { sql } from "./client";
 import { insertEvalLog, getEvalLogsForSymbol, logEvalAssessments } from "./eval-log";
 import { startEngineRun } from "./repo";
@@ -8,6 +9,7 @@ import type { DisplayIntentAssessment } from "@/lib/engine/hysteresis";
 const TEST_SYMBOL = "TESTEVALZZZ";
 
 async function cleanup() {
+  if (!hasTestDatabase) return;
   await sql`delete from eval_log where symbol = ${TEST_SYMBOL}`;
   await sql`delete from engine_run where universe_json::text like ${"%" + TEST_SYMBOL + "%"}`;
 }
@@ -24,7 +26,7 @@ afterAll(async () => {
   await cleanup();
 });
 
-describe("eval_log repository (P5)", () => {
+describeDb("eval_log repository (P5)", () => {
   it("inserts and retrieves eval_log records with correct field mappings", async () => {
     const engineRunId = await startEngineRun(
       { engineVersion: "test-engine", configHash: "test-hash", gitSha: "test-sha" },
