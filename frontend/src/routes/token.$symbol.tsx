@@ -71,6 +71,7 @@ import { summarizeAnticipatoryRecord } from "@/lib/engine/anticipatory";
 import { useAnticipatorySignalsStore } from "@/stores/anticipatory-signals";
 import { AssetIcon } from "@/components/features/asset-icon";
 import { Change } from "@/components/features/change";
+import { ChartEventPopup, ChartEventStrip } from "@/components/features/chart-event-strip";
 import { ZonesPrimitive, type PriceZone } from "@/components/features/chart-zones";
 import { ConfidenceGauge } from "@/components/features/confidence-gauge";
 import { IqCard, CardEyebrow } from "@/components/features/iq-card";
@@ -121,6 +122,16 @@ import {
   type ZonesByTimeframe,
 } from "@/lib/engine/intent";
 import { useExternalContext } from "@/hooks/useExternalContext";
+import { useTokenEvents } from "@/hooks/useTokenEvents";
+import {
+  TONE_HEX,
+  buildChartEvents,
+  kindLabel,
+  snapToCandle,
+  type ChartEvent,
+  type PastEventLike,
+  type UpcomingEventLike,
+} from "@/lib/engine/event-markers";
 import type { ExternalContext } from "@/lib/engine/external-context";
 import { useReconciledAssessments } from "@/hooks/useReconciledAssessments";
 import type { DisplayIntentAssessment } from "@/lib/engine/hysteresis";
@@ -466,6 +477,34 @@ function TokenDetailPage() {
   // analysis: null just means the memo runs on technicals alone.
   const externalContext = useExternalContext(symbol);
 
+  // Quick-action event overlay: the same worker-ingested news (past) + calendar
+  // (upcoming) the cards show, normalized into time-anchored, tone-coloured
+  // markers the chart plots and the strip lists. Recomputes only when either
+  // source changes, so it re-tones as the minute-relative labels drift is fine.
+  const tokenEvents = useTokenEvents(symbol);
+  const chartEvents = useMemo<ChartEvent[]>(() => {
+    const past: PastEventLike[] = (tokenEvents.data ?? []).map((e) => ({
+      id: e.id,
+      kind: e.kind,
+      title: e.title,
+      source: e.source,
+      url: e.url,
+      publishedAt: e.publishedAt,
+    }));
+    const ctx = externalContext.data;
+    const upcoming: UpcomingEventLike[] = [
+      ...(ctx?.upcoming ?? []),
+      ...(ctx?.marketEvents ?? []),
+    ].map((e) => ({
+      kind: e.kind,
+      title: e.title,
+      source: e.source,
+      url: e.url,
+      occursAt: e.occursAt,
+    }));
+    return buildChartEvents(past, upcoming);
+  }, [tokenEvents.data, externalContext.data]);
+
   return (
     // Locked to the viewport on desktop: only the right panel and chat scroll.
     <div className="mx-auto flex w-full max-w-[1700px] flex-col gap-3 lg:h-[calc(100dvh-7rem)] lg:min-h-0">
@@ -647,6 +686,7 @@ function TokenDetailPage() {
                         timeframe={timeframe}
                         market={marketType}
                         sessionLevels={sessionLevels}
+                        events={chartEvents}
                         fillHeight={chartFullscreen}
                         plan={activeAssessment?.plan ?? null}
                         planTimeframe={activeAssessment?.definition.executionTimeframe ?? null}
@@ -1088,11 +1128,14 @@ function TokenChart({
   plan,
   planTimeframe,
   planStrong,
+  events,
 }: TokenSignalData & {
   symbol: string;
   timeframe: TokenTimeframe;
   market: MarketType;
   sessionLevels: SessionLevel[];
+  /** Normalized news (past) + calendar (upcoming) events for the overlay. */
+  events: ChartEvent[];
   /** Fill the parent instead of the fixed mobile heights (fullscreen mode). */
   fillHeight?: boolean;
   /**
@@ -1121,6 +1164,18 @@ function TokenChart({
   const emaSlowSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const markerRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const zonesPrimitiveRef = useRef<ZonesPrimitive | null>(null);
+
+  // Event overlay: which chart events share each bar (keyed by that bar's time),
+  // rebuilt alongside the markers so a chart click can look them up. The click
+  // subscription is bound once at mount, so it reads through the ref, never a
+  // stale closure. The popup is the detail card; focusedEventId rings the strip.
+  const eventIndexRef = useRef<Map<number, ChartEvent[]>>(new Map());
+  const [eventPopup, setEventPopup] = useState<{
+    x: number;
+    y: number;
+    events: ChartEvent[];
+  } | null>(null);
+  const [focusedEventId, setFocusedEventId] = useState<string | null>(null);
 
   // Older bars paged in when the user drags past the left edge of the data.
   const historyRef = useRef<{
@@ -1268,6 +1323,23 @@ function TokenChart({
     emaFastSeriesRef.current = chart.addSeries(LineSeries, emaOptions(EMA_FAST.color));
     emaSlowSeriesRef.current = chart.addSeries(LineSeries, emaOptions(EMA_SLOW.color));
     markerRef.current = createSeriesMarkers(candleSeries);
+
+    // Clicking a bar that carries event markers opens their detail card. Bound
+    // once — the handler reads the live index + point through refs/state setters
+    // (all stable), so it never needs re-subscribing. chart.remove() (cleanup
+    // below) tears the subscription down with the chart.
+    chart.subscribeClick((param) => {
+      const time = param.time as number | undefined;
+      const evs = time !== undefined ? eventIndexRef.current.get(time) : undefined;
+      if (evs && evs.length && param.point) {
+        setEventPopup({ x: param.point.x, y: param.point.y, events: evs });
+        setFocusedEventId(evs[0].id);
+      } else {
+        setEventPopup(null);
+        setFocusedEventId(null);
+      }
+    });
+
     const zonesPrimitive = new ZonesPrimitive();
     candleSeries.attachPrimitive(zonesPrimitive);
     zonesPrimitiveRef.current = zonesPrimitive;
@@ -1551,13 +1623,63 @@ function TokenChart({
             size: 1,
             text: sweep.side === "bsl" ? "BSL sweep" : "SSL sweep",
           }));
+    // News + calendar events, plotted on the bar that contains them (upcoming
+    // calendar items pin to the latest loaded bar, since they have no future
+    // bar to sit on). One marker per bar per family — a bar's events collapse
+    // into a single "Kind +N" chip whose colour is the most-alerting tone
+    // present. eventIndexRef lets a chart click resolve the bar to its events.
+    const eventIndex = new Map<number, ChartEvent[]>();
+    let eventMarkers: SeriesMarker<Time>[] = [];
+    if (!hiddenIndicators.events && events.length > 0 && candles.length > 0) {
+      const candleTimes = candles.map((c) => c.time as number);
+      const byBar = new Map<
+        string,
+        { barTime: number; when: ChartEvent["when"]; events: ChartEvent[] }
+      >();
+      for (const ev of events) {
+        const barTime = snapToCandle(candleTimes, ev.timeSec);
+        if (barTime === null) continue; // predates loaded history — strip carries it
+        const key = `${barTime}:${ev.when}`;
+        const bucket = byBar.get(key) ?? { barTime, when: ev.when, events: [] };
+        bucket.events.push(ev);
+        byBar.set(key, bucket);
+        const atBar = eventIndex.get(barTime) ?? [];
+        atBar.push(ev);
+        eventIndex.set(barTime, atBar);
+      }
+      eventMarkers = [...byBar.values()].map(({ barTime, when, events: bucket }) => {
+        const tone = bucket.some((e) => e.tone === "bearish")
+          ? "bearish"
+          : bucket.some((e) => e.tone === "bullish")
+            ? "bullish"
+            : "neutral";
+        const extra = bucket.length > 1 ? ` +${bucket.length - 1}` : "";
+        return {
+          time: barTime as UTCTimestamp,
+          position: when === "upcoming" ? "aboveBar" : "belowBar",
+          shape: when === "upcoming" ? "square" : "circle",
+          color: TONE_HEX[tone],
+          size: 1,
+          text: `${when === "upcoming" ? "⧗ " : ""}${kindLabel(bucket[0].kind)}${extra}`,
+        } satisfies SeriesMarker<Time>;
+      });
+    }
+    eventIndexRef.current = eventIndex;
+
     // setMarkers replaces the whole set, and lightweight-charts requires
-    // ascending time — merge both families before handing them over.
-    const markers = [...swingMarkers, ...sweepMarkers].sort(
+    // ascending time — merge every family before handing them over.
+    const markers = [...swingMarkers, ...sweepMarkers, ...eventMarkers].sort(
       (a, b) => (a.time as number) - (b.time as number),
     );
     markerRef.current?.setMarkers(markers);
-  }, [evaluation, hiddenIndicators.pivots, hiddenIndicators.liquidity]);
+  }, [
+    evaluation,
+    hiddenIndicators.pivots,
+    hiddenIndicators.liquidity,
+    hiddenIndicators.events,
+    events,
+    candles,
+  ]);
 
   useEffect(() => {
     emaFastSeriesRef.current?.applyOptions({ visible: !hiddenIndicators.emaFast });
@@ -1694,7 +1816,25 @@ function TokenChart({
           ref={hostRef}
           className={cn("w-full", fillHeight ? "h-full" : "h-[360px] sm:h-[400px] lg:h-full")}
         />
+        {eventPopup && !hiddenIndicators.events && (
+          <ChartEventPopup
+            events={eventPopup.events}
+            x={eventPopup.x}
+            y={eventPopup.y}
+            onClose={() => {
+              setEventPopup(null);
+              setFocusedEventId(null);
+            }}
+          />
+        )}
       </div>
+      {!hiddenIndicators.events && (
+        <ChartEventStrip
+          events={events}
+          activeId={focusedEventId}
+          onFocus={(ev) => setFocusedEventId(ev.id)}
+        />
+      )}
       <ChartLegend
         hidden={hiddenIndicators}
         planActive={plan !== null && plan.direction !== "none"}
@@ -1933,6 +2073,27 @@ const LEGEND_ENTRIES: Array<{ key: IndicatorKey; label: string; hint: string; sw
           <span className="h-[2px] w-3.5 rounded-full bg-[#f472b6]" />
           <span className="h-[2px] w-3.5 rounded-full bg-[#2dd4bf]" />
           <span className="h-[2px] w-3.5 rounded-full bg-[#fb923c]" />
+        </span>
+      ),
+    },
+    {
+      key: "events",
+      label: "News & events",
+      hint: "Token news (past) and calendar catalysts (upcoming, ⧗) plotted on the bar they land on — coloured red/grey/green by likely impact (security, delisting, regulatory and unlocks read red; listings and upgrades green). Circles below a bar are past news; squares above the last bar are scheduled events. Click a marker for details and its source, or use the strip under the chart.",
+      swatch: (
+        <span className="flex shrink-0 items-center gap-0.5">
+          <span
+            className="h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: TONE_HEX.bearish }}
+          />
+          <span
+            className="h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: TONE_HEX.neutral }}
+          />
+          <span
+            className="h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: TONE_HEX.bullish }}
+          />
         </span>
       ),
     },
