@@ -165,6 +165,31 @@ def test_hour_range_empty_trades() -> None:
     assert compute_hour_range([]) is None
 
 
+def _loss_trade(trade_id: str, hour: int, day_offset: int = 0) -> FakeTrade:
+    opened = BASE_DAY + timedelta(days=day_offset, hours=hour)
+    return FakeTrade(id=trade_id, realized_pnl=-10.0, opened_at=opened, closed_at=opened)
+
+
+def test_worst_hour_range_picks_lowest_winrate_hour() -> None:
+    trades = []
+    # Hours 10, 11: winning (100% winrate, eligible).
+    for i in range(3):
+        trades.append(_win_trade(f"h10_{i}", hour=10))
+        trades.append(_win_trade(f"h11_{i}", hour=11))
+    # Hour 15: all losses (0% winrate) -> the trough.
+    for i in range(3):
+        trades.append(_loss_trade(f"h15_{i}", hour=15))
+
+    best = compute_hour_range(trades)
+    worst = compute_hour_range(trades, worst=True)
+    assert best is not None and worst is not None
+    assert best.win_rate == 100.0
+    assert worst.start_hour_utc == 15
+    assert worst.end_hour_utc == 16
+    assert worst.win_rate == 0.0
+    assert worst.sample_size == 3
+
+
 # ---------------------------------------------------------------------------
 # Session split boundary: 7:59 vs 8:00
 # ---------------------------------------------------------------------------

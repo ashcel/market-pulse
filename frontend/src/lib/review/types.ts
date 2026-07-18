@@ -84,6 +84,7 @@ export interface Analytics {
   best_trade: ReviewTrade | null;
   worst_trade: ReviewTrade | null;
   time_range: TimeRangeStats | null;
+  worst_time_range: TimeRangeStats | null;
   sessions: SessionsStats;
   style: StyleStats;
   stop_evidence_coverage: number;

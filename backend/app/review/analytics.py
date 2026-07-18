@@ -104,6 +104,7 @@ class AnalyticsResult:
     best_trade: ClosedTradeLike | None
     worst_trade: ClosedTradeLike | None
     time_range: HourRangeResult | None
+    worst_time_range: HourRangeResult | None
     sessions: SessionSplitResult
     style: StyleSuitabilityResult
     stop_evidence_coverage: float = field(default=0.0)
@@ -168,12 +169,17 @@ def _bucket_by_hour(trades: Sequence[ClosedTradeLike]) -> dict[int, list[float]]
     return buckets
 
 
-def compute_hour_range(trades: Sequence[ClosedTradeLike]) -> HourRangeResult | None:
-    """Best-winrate hour-of-day range (UTC), expanded to contiguous neighbors
-    within `HOUR_RANGE_EXPANSION_TOLERANCE_POINTS` of the peak winrate.
+def compute_hour_range(
+    trades: Sequence[ClosedTradeLike], *, worst: bool = False
+) -> HourRangeResult | None:
+    """Best- (or worst-) winrate hour-of-day range (UTC), expanded to contiguous
+    neighbors within `HOUR_RANGE_EXPANSION_TOLERANCE_POINTS` of the peak/trough
+    winrate.
 
-    Hours are treated circularly (mod 24) so a peak at 23:00 can expand
-    through midnight into 00:00, 01:00, ...
+    With ``worst=True`` the pivot is the lowest-winrate hour instead of the
+    highest; the expansion is otherwise identical (the tolerance check is
+    symmetric). Hours are treated circularly (mod 24) so a pivot at 23:00 can
+    expand through midnight into 00:00, 01:00, ...
     """
     hour_pnls = _bucket_by_hour(trades)
     hour_win_rate: dict[int, float] = {}
@@ -188,7 +194,10 @@ def compute_hour_range(trades: Sequence[ClosedTradeLike]) -> HourRangeResult | N
         return None
 
     # Tie-break: lowest hour wins among equal win rates, for determinism.
-    best_hour = max(hour_win_rate.items(), key=lambda kv: (kv[1], -kv[0]))[0]
+    if worst:
+        best_hour = min(hour_win_rate.items(), key=lambda kv: (kv[1], kv[0]))[0]
+    else:
+        best_hour = max(hour_win_rate.items(), key=lambda kv: (kv[1], -kv[0]))[0]
     best_wr = hour_win_rate[best_hour]
 
     back_count = 0
@@ -338,6 +347,7 @@ def compute_analytics(trades: Sequence[ClosedTradeLike]) -> AnalyticsResult:
         best_trade=best_trade,
         worst_trade=worst_trade,
         time_range=compute_hour_range(trades),
+        worst_time_range=compute_hour_range(trades, worst=True),
         sessions=compute_sessions(trades),
         style=compute_style_suitability(trades),
         stop_evidence_coverage=rr.coverage,

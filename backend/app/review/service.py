@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.bybit.models import BybitTrade
 from app.bybit.schemas import BybitTradeResponse
 
-from .analytics import compute_analytics
+from .analytics import HourRangeResult, compute_analytics
 from .exceptions import ReviewNotFoundError, ReviewTradeForbiddenError, ReviewTradeNotFoundError
 from .models import TradeReview
 from .schemas import (
@@ -20,6 +20,17 @@ from .schemas import (
     StyleSuitability,
     TradeReviewCreate,
 )
+
+
+def _hour_range(result: HourRangeResult | None) -> HourRange | None:
+    if result is None:
+        return None
+    return HourRange(
+        start_hour_utc=result.start_hour_utc,
+        end_hour_utc=result.end_hour_utc,
+        win_rate=result.win_rate,
+        sample_size=result.sample_size,
+    )
 
 
 async def _get_owned_trade(db: AsyncSession, bybit_trade_id: str, user_id: str) -> BybitTrade:
@@ -73,16 +84,8 @@ async def get_analytics(
             if analytics.worst_trade is not None
             else None
         ),
-        time_range=(
-            HourRange(
-                start_hour_utc=analytics.time_range.start_hour_utc,
-                end_hour_utc=analytics.time_range.end_hour_utc,
-                win_rate=analytics.time_range.win_rate,
-                sample_size=analytics.time_range.sample_size,
-            )
-            if analytics.time_range is not None
-            else None
-        ),
+        time_range=_hour_range(analytics.time_range),
+        worst_time_range=_hour_range(analytics.worst_time_range),
         sessions=SessionSplit(
             asia=SessionStats(
                 n=analytics.sessions.asia.n,

@@ -8,6 +8,7 @@ import {
   Trophy,
   Skull,
   Clock,
+  AlarmClock,
   Target,
   AlertTriangle,
 } from "lucide-react";
@@ -284,7 +285,7 @@ function AnalyticsHero() {
   };
 
   return (
-    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
       <HeroTile
         icon={Target}
         eyebrow="RR"
@@ -329,6 +330,21 @@ function AnalyticsHero() {
               ? `${sessionLabel[bestSession.key]} session strongest`
               : "Not enough data yet"
         }
+      />
+      <HeroTile
+        icon={AlarmClock}
+        eyebrow="Worst hour"
+        value={
+          analytics.worst_time_range
+            ? `${pad2(analytics.worst_time_range.start_hour_utc)}:00–${pad2(analytics.worst_time_range.end_hour_utc)}:00 UTC`
+            : "—"
+        }
+        secondary={
+          analytics.worst_time_range
+            ? `${formatPercent(analytics.worst_time_range.win_rate, 0)} win rate · n=${analytics.worst_time_range.sample_size}`
+            : "Not enough data yet"
+        }
+        tone="bearish"
       />
       <HeroTile
         icon={Sparkles}

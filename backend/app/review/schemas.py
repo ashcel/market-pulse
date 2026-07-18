@@ -95,6 +95,7 @@ class AnalyticsData(BaseModel):
     best_trade: BybitTradeResponse | None = None
     worst_trade: BybitTradeResponse | None = None
     time_range: HourRange | None = None
+    worst_time_range: HourRange | None = None
     sessions: SessionSplit
     style: StyleSuitability
     stop_evidence_coverage: float
