@@ -21,14 +21,13 @@ from datetime import UTC, datetime
 from typing import Literal
 
 import httpx
-from smc.asset_ids import COINMARKETCAL_IDS
-from smc.catalyst_events import normalize_coinmarketcal_events
 from smc.external_context import normalize_coingecko_global, normalize_coinmarketcap_global
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 
 from . import ingest_repo
+from .unlock_pass import run_unlock_pass
 
 logger = logging.getLogger("worker")
 
@@ -37,17 +36,12 @@ _SNAPSHOT_RETENTION_S = 90 * 24 * 60 * 60
 
 COINGECKO_SOURCE = "coingecko-global"
 COINMARKETCAP_SOURCE = "coinmarketcap-global"
-COINMARKETCAL_SOURCE = "coinmarketcal"
 
-# The calendar changes on hours, not minutes, and CoinMarketCal free-tier
-# rate limits are unverified — an inner 6h gate keeps us ≤16 calls/day
-# regardless of the outer pass cadence.
+# Unlock schedules change on the order of a day; an inner gate keeps the
+# DeFiLlama CDN pulls down regardless of the outer pass cadence.
 _CALENDAR_PASS_S = 6 * 60 * 60
 _last_calendar_at = 0.0
 
-_CALENDAR_WINDOW_DAYS = 7
-_CALENDAR_PAGE_MAX = 75
-_CALENDAR_MAX_PAGES = 4
 _OCCURRED_RETENTION_S = 30 * 24 * 60 * 60
 
 GlobalStatus = Literal["ok", "unconfigured", "error"]
@@ -113,46 +107,6 @@ async def _ingest_global_breadth(db: AsyncSession, client: httpx.AsyncClient) ->
     return "ok"
 
 
-async def _ingest_coinmarketcal(
-    db: AsyncSession, client: httpx.AsyncClient
-) -> tuple[Literal["ok", "unconfigured", "error"], int]:
-    key = settings.COINMARKETCAL_API_KEY
-    if not key:
-        await ingest_repo.upsert_ingest_state(
-            db, COINMARKETCAL_SOURCE, "unconfigured", "COINMARKETCAL_API_KEY not set"
-        )
-        return "unconfigured", 0
-    now_ms = time.time() * 1000
-
-    def fmt(ms: float) -> str:
-        return datetime.fromtimestamp(ms / 1000, tz=UTC).date().isoformat()
-
-    written = 0
-    for page in range(1, _CALENDAR_MAX_PAGES + 1):
-        params = {
-            "dateRangeStart": fmt(now_ms),
-            "dateRangeEnd": fmt(now_ms + _CALENDAR_WINDOW_DAYS * 24 * 60 * 60_000),
-            "coins": ",".join(COINMARKETCAL_IDS),
-            "max": str(_CALENDAR_PAGE_MAX),
-            "page": str(page),
-        }
-        response = await client.get(
-            "https://developers.coinmarketcal.com/v1/events",
-            params=params,
-            timeout=_FETCH_TIMEOUT_S,
-            headers={"x-api-key": key, "accept": "application/json"},
-        )
-        # 429 = free-tier throttle; back off to the next 6h gate, not retry.
-        if response.status_code != 200:
-            raise RuntimeError(f"coinmarketcal /events page {page}: {response.status_code}")
-        events = normalize_coinmarketcal_events(response.json(), now_ms)
-        written += await ingest_repo.upsert_catalyst_events(db, events)
-        if len(events) < _CALENDAR_PAGE_MAX:
-            break  # last page
-    await ingest_repo.upsert_ingest_state(db, COINMARKETCAL_SOURCE, "ok")
-    return "ok", written
-
-
 def _cutoff_iso(seconds_back: int) -> str:
     return (
         datetime.fromtimestamp(time.time() - seconds_back, tz=UTC)
@@ -181,15 +135,14 @@ async def run_context_pass(db: AsyncSession, client: httpx.AsyncClient) -> Conte
     if time.time() - _last_calendar_at >= _CALENDAR_PASS_S:
         _last_calendar_at = time.time()
         try:
-            calendar, calendar_written = await _ingest_coinmarketcal(db, client)
+            unlocks = await run_unlock_pass(db, client)
+            calendar, calendar_written = "ok", unlocks.written
         except Exception as err:
             calendar = "error"
             await db.rollback()
-            logger.error("[context] %s failed: %s", COINMARKETCAL_SOURCE, err)
+            logger.error("[context] defillama unlocks failed: %s", err)
             try:
-                await ingest_repo.upsert_ingest_state(
-                    db, COINMARKETCAL_SOURCE, "error", str(err)
-                )
+                await ingest_repo.upsert_ingest_state(db, "defillama", "error", str(err))
             except Exception:
                 await db.rollback()
 

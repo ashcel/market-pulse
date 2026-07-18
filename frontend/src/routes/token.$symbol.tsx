@@ -366,6 +366,18 @@ function TokenDetailPage() {
   // which is the set forward-test alerts treat as followed.
   const isWatched = useWatchlistStore((s) => s.tickers.includes(symbol));
   const toggleWatch = useWatchlistStore((s) => s.toggle);
+
+  // Auto-track on open: tell the server this token was viewed so the unlock
+  // pass will fetch its calendar (scope = universe + starred + opened).
+  // Fire-and-forget — a failure here must never affect the page.
+  useEffect(() => {
+    void fetch("/api/track-token", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ symbol }),
+    }).catch(() => {});
+  }, [symbol]);
   const signal = useTokenSignal(symbol, timeframe, marketType);
   const alignment = useTimeframeAlignment(symbol, marketType);
   const perpQuery = usePerpContext(symbol, marketType);

@@ -23,6 +23,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as TokenSymbolRouteImport } from './routes/token.$symbol'
 import { Route as ApiWatchlistRouteImport } from './routes/api/watchlist'
 import { Route as ApiTradesRouteImport } from './routes/api/trades'
+import { Route as ApiTrackTokenRouteImport } from './routes/api/track-token'
 import { Route as ApiTokenEventsRouteImport } from './routes/api/token-events'
 import { Route as ApiNotificationsRouteImport } from './routes/api/notifications'
 import { Route as ApiKlinesRouteImport } from './routes/api/klines'
@@ -101,6 +102,11 @@ const ApiTradesRoute = ApiTradesRouteImport.update({
   path: '/api/trades',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTrackTokenRoute = ApiTrackTokenRouteImport.update({
+  id: '/api/track-token',
+  path: '/api/track-token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTokenEventsRoute = ApiTokenEventsRouteImport.update({
   id: '/api/token-events',
   path: '/api/token-events',
@@ -155,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
   '/api/token-events': typeof ApiTokenEventsRoute
+  '/api/track-token': typeof ApiTrackTokenRoute
   '/api/trades': typeof ApiTradesRouteWithChildren
   '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
@@ -178,6 +185,7 @@ export interface FileRoutesByTo {
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
   '/api/token-events': typeof ApiTokenEventsRoute
+  '/api/track-token': typeof ApiTrackTokenRoute
   '/api/trades': typeof ApiTradesRouteWithChildren
   '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
@@ -202,6 +210,7 @@ export interface FileRoutesById {
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
   '/api/token-events': typeof ApiTokenEventsRoute
+  '/api/track-token': typeof ApiTrackTokenRoute
   '/api/trades': typeof ApiTradesRouteWithChildren
   '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
@@ -227,6 +236,7 @@ export interface FileRouteTypes {
     | '/api/klines'
     | '/api/notifications'
     | '/api/token-events'
+    | '/api/track-token'
     | '/api/trades'
     | '/api/watchlist'
     | '/token/$symbol'
@@ -250,6 +260,7 @@ export interface FileRouteTypes {
     | '/api/klines'
     | '/api/notifications'
     | '/api/token-events'
+    | '/api/track-token'
     | '/api/trades'
     | '/api/watchlist'
     | '/token/$symbol'
@@ -273,6 +284,7 @@ export interface FileRouteTypes {
     | '/api/klines'
     | '/api/notifications'
     | '/api/token-events'
+    | '/api/track-token'
     | '/api/trades'
     | '/api/watchlist'
     | '/token/$symbol'
@@ -297,6 +309,7 @@ export interface RootRouteChildren {
   ApiKlinesRoute: typeof ApiKlinesRoute
   ApiNotificationsRoute: typeof ApiNotificationsRoute
   ApiTokenEventsRoute: typeof ApiTokenEventsRoute
+  ApiTrackTokenRoute: typeof ApiTrackTokenRoute
   ApiTradesRoute: typeof ApiTradesRouteWithChildren
   ApiWatchlistRoute: typeof ApiWatchlistRoute
   TokenSymbolRoute: typeof TokenSymbolRoute
@@ -402,6 +415,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTradesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/track-token': {
+      id: '/api/track-token'
+      path: '/api/track-token'
+      fullPath: '/api/track-token'
+      preLoaderRoute: typeof ApiTrackTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/token-events': {
       id: '/api/token-events'
       path: '/api/token-events'
@@ -484,6 +504,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiKlinesRoute: ApiKlinesRoute,
   ApiNotificationsRoute: ApiNotificationsRoute,
   ApiTokenEventsRoute: ApiTokenEventsRoute,
+  ApiTrackTokenRoute: ApiTrackTokenRoute,
   ApiTradesRoute: ApiTradesRouteWithChildren,
   ApiWatchlistRoute: ApiWatchlistRoute,
   TokenSymbolRoute: TokenSymbolRoute,

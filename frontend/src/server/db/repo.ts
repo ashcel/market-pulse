@@ -754,3 +754,16 @@ export async function putWatchlist(userId: string, symbols: string[]): Promise<v
     }
   });
 }
+
+/**
+ * Record that a token was opened (auto-track). This is a GLOBAL fetch-scope
+ * signal, not per-user: the Python unlock pass unions tracked_token with the
+ * universe + starred watchlists to decide which unlock calendars to fetch.
+ * Bumps last_opened_at on repeat opens so a future prune can drop cold tokens.
+ */
+export async function trackToken(ticker: string): Promise<void> {
+  await sql`
+    insert into tracked_token (ticker) values (${ticker.toUpperCase()})
+    on conflict (ticker) do update set last_opened_at = now()
+  `;
+}

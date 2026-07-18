@@ -259,7 +259,10 @@ async function buildRecentEvents(
   }
 }
 
-const UPCOMING_WINDOW_MS = 7 * 24 * 60 * 60_000;
+// 30 days: unlock cliffs cluster monthly, so a 7-day window almost always
+// showed nothing. The chart strip renders each as a countdown, so a month of
+// lead time is useful for planning around a scheduled release.
+const UPCOMING_WINDOW_MS = 30 * 24 * 60 * 60_000;
 const MARKET_EVENTS_CAP = 3;
 
 function toUpcomingItem(r: CatalystEventRow): UpcomingCatalystItem {
@@ -276,7 +279,7 @@ function toUpcomingItem(r: CatalystEventRow): UpcomingCatalystItem {
   };
 }
 
-/** The forward-looking calendar: this symbol's next 7 days + market backdrop. */
+/** The forward-looking calendar: this symbol's next 30 days + market backdrop. */
 async function buildUpcoming(
   sym: string,
   degradation: SectionStatus[],

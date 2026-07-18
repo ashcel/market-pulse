@@ -172,3 +172,47 @@ async def prune_catalyst_events(db: AsyncSession, older_than_iso: str) -> int:
     )
     await db.commit()
     return cast("CursorResult[object]", result).rowcount or 0
+
+
+# ── Unlock scope + slug-resolution cache ────────────────────────────────────
+
+
+async def load_unlock_scope(db: AsyncSession) -> list[str]:
+    """Tickers to fetch unlock calendars for beyond WORKER_UNIVERSE: every
+    opened (tracked_token) and starred (user_watchlist) token. Uppercased and
+    de-duplicated; the pass unions these with the fixed universe."""
+    result = await db.execute(
+        text(
+            "select ticker from tracked_token"
+            " union select symbol from user_watchlist"
+        )
+    )
+    return sorted({str(row[0]).upper() for row in result.all() if row[0]})
+
+
+async def get_slug_cache(db: AsyncSession, ticker: str) -> tuple[str | None, datetime] | None:
+    """Cached (slug, checked_at) for a ticker, or None if never resolved. A
+    non-None row with slug=None is a cached negative ('no unlock schedule')."""
+    result = await db.execute(
+        text("select slug, checked_at from unlock_slug_cache where ticker = :t"),
+        {"t": ticker.upper()},
+    )
+    row = result.first()
+    if row is None:
+        return None
+    return row[0], row[1]
+
+
+async def upsert_slug_cache(
+    db: AsyncSession, ticker: str, gecko_id: str | None, slug: str | None
+) -> None:
+    await db.execute(
+        text(
+            "insert into unlock_slug_cache (ticker, gecko_id, slug, checked_at)"
+            " values (:t, :g, :s, now())"
+            " on conflict (ticker) do update set"
+            " gecko_id = excluded.gecko_id, slug = excluded.slug, checked_at = now()"
+        ),
+        {"t": ticker.upper(), "g": gecko_id, "s": slug},
+    )
+    await db.commit()
