@@ -1,0 +1,53 @@
+import { createFileRoute } from "@tanstack/react-router";
+
+import { isResponse, requireAuth } from "@/server/auth/session";
+
+/**
+ * Server-side proxy for listing synced Bybit trades (the Trade Review
+ * feature's trade list — distinct from the manual journal at api/trades.ts).
+ *
+ * Routes:
+ *   GET /api/bybit/trades?symbol=&page=&per_page= → list synced trades
+ *
+ * Note: the backend filters by `symbol` (e.g. "BTCUSDT"), not a trade
+ * status — every synced Bybit trade is already a closed round-trip.
+ */
+
+const BACKEND_BASE = process.env.BACKEND_URL ?? "http://localhost:8002";
+const INTERNAL_KEY = process.env.INTERNAL_API_KEY ?? "";
+
+function backendHeaders(userId: string): Record<string, string> {
+  return {
+    "content-type": "application/json",
+    "x-internal-key": INTERNAL_KEY,
+    "x-internal-user-id": userId,
+  };
+}
+
+export const Route = createFileRoute("/api/bybit/trades")({
+  server: {
+    handlers: {
+      GET: async ({ request }) => {
+        const auth = await requireAuth(request);
+        if (isResponse(auth)) return auth;
+
+        const url = new URL(request.url);
+        const symbol = url.searchParams.get("symbol");
+        const page = url.searchParams.get("page") ?? "1";
+        const perPage = url.searchParams.get("per_page") ?? "50";
+
+        const params = new URLSearchParams({ page, per_page: perPage });
+        if (symbol) params.set("symbol", symbol);
+
+        const res = await fetch(`${BACKEND_BASE}/api/v1/bybit/trades?${params.toString()}`, {
+          headers: backendHeaders(auth.user.id),
+        });
+        const data = await res.json();
+        return new Response(JSON.stringify(data), {
+          status: res.status,
+          headers: { "content-type": "application/json" },
+        });
+      },
+    },
+  },
+});

@@ -17,6 +17,7 @@ dependencies = [
     "alembic>=1.13",
     "email-validator>=2.0",
     "smc",
+    "cryptography>=42",
 ]
 
 [dependency-groups]

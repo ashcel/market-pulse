@@ -18,11 +18,14 @@ import {
   Eye,
   EyeOff,
   ExternalLink,
+  Link2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StopMethod } from "@/lib/engine/quant";
 import { useAiSettingsStore } from "@/stores/ai-settings";
 import { PROVIDERS, PROVIDER_ORDER, resolveAiConfig } from "@/lib/ai/providers";
+import { useBybitKeyStatus, useDeleteBybitKey, useSaveBybitKey } from "@/hooks/useReview";
+import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
 export const Route = createFileRoute("/settings")({
@@ -107,6 +110,8 @@ function SettingsPage() {
       <TradeRiskCard />
 
       <AiAnalystCard />
+
+      <BybitConnectionCard />
 
       <IqCard className="flex flex-col gap-4">
         <CardEyebrow>Notifications</CardEyebrow>
@@ -696,6 +701,122 @@ function AiAnalystCard() {
           Pick a preset or type any model the provider supports.
         </span>
       </div>
+    </IqCard>
+  );
+}
+
+function BybitConnectionCard() {
+  const { connected, lastSyncedAt, isLoading } = useBybitKeyStatus();
+  const saveKey = useSaveBybitKey();
+  const deleteKey = useDeleteBybitKey();
+  const [apiKey, setApiKey] = useState("");
+  const [apiSecret, setApiSecret] = useState("");
+  const [showSecret, setShowSecret] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const submit = async () => {
+    setMessage(null);
+    if (!apiKey.trim() || !apiSecret.trim()) {
+      setMessage("Enter both the API key and secret.");
+      return;
+    }
+    try {
+      await saveKey.mutateAsync({ apiKey: apiKey.trim(), apiSecret: apiSecret.trim() });
+      setApiKey("");
+      setApiSecret("");
+      setMessage("Connected. Head to Trade Review to sync your history.");
+    } catch (err) {
+      setMessage((err as Error).message);
+    }
+  };
+
+  return (
+    <IqCard className="flex flex-col gap-5">
+      <div className="flex items-center justify-between">
+        <CardEyebrow>Bybit Connection</CardEyebrow>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
+            connected ? "bg-bullish-soft text-bullish" : "bg-muted text-muted-foreground",
+          )}
+        >
+          <Link2 className="h-3.5 w-3.5" />
+          {isLoading ? "Checking…" : connected ? "Connected" : "Not connected"}
+        </span>
+      </div>
+
+      <p className="text-sm text-muted-foreground">
+        Powers Trade Review: connect a Bybit API key so the server can pull your trade history.
+        Unlike the AI key above, this key is stored server-side (encrypted at rest) and used by our
+        backend to sync with Bybit on your behalf — it is not a bring-your-own-key credential and
+        never leaves our server. Create a read-only key in Bybit's API Management if possible.
+      </p>
+
+      {connected && lastSyncedAt && (
+        <p className="text-xs text-muted-foreground">
+          Last synced {new Date(lastSyncedAt).toLocaleString()}.
+        </p>
+      )}
+
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-medium text-muted-foreground">API key</span>
+        <input
+          type="text"
+          value={apiKey}
+          onChange={(e) => setApiKey(e.currentTarget.value)}
+          placeholder="Bybit API key"
+          autoComplete="off"
+          spellCheck={false}
+          className="rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-info"
+          aria-label="Bybit API key"
+        />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-medium text-muted-foreground">API secret</span>
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2">
+          <input
+            type={showSecret ? "text" : "password"}
+            value={apiSecret}
+            onChange={(e) => setApiSecret(e.currentTarget.value)}
+            placeholder="Bybit API secret"
+            autoComplete="off"
+            spellCheck={false}
+            className="w-full min-w-0 flex-1 bg-transparent text-sm outline-none"
+            aria-label="Bybit API secret"
+          />
+          <button
+            type="button"
+            onClick={() => setShowSecret((v) => !v)}
+            className="shrink-0 text-muted-foreground hover:text-foreground"
+            aria-label={showSecret ? "Hide secret" : "Show secret"}
+          >
+            {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Button onClick={() => void submit()} disabled={saveKey.isPending}>
+          {saveKey.isPending ? "Connecting…" : connected ? "Update & reconnect" : "Save & connect"}
+        </Button>
+        {connected && (
+          <Button
+            variant="ghost"
+            className="text-muted-foreground hover:text-bearish"
+            onClick={() => deleteKey.mutate()}
+            disabled={deleteKey.isPending}
+          >
+            Disconnect
+          </Button>
+        )}
+      </div>
+
+      {message && (
+        <p className={saveKey.isError ? "text-destructive text-xs" : "text-xs text-bullish"}>
+          {message}
+        </p>
+      )}
     </IqCard>
   );
 }

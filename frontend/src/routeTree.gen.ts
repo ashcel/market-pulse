@@ -14,6 +14,7 @@ import { Route as TrackerRouteImport } from './routes/tracker'
 import { Route as TechnicalRouteImport } from './routes/technical'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RotationRouteImport } from './routes/rotation'
+import { Route as ReviewRouteImport } from './routes/review'
 import { Route as RegimeRouteImport } from './routes/regime'
 import { Route as RankingsRouteImport } from './routes/rankings'
 import { Route as NewsRouteImport } from './routes/news'
@@ -31,6 +32,11 @@ import { Route as ApiForwardTestRouteImport } from './routes/api/forward-test'
 import { Route as ApiExternalContextRouteImport } from './routes/api/external-context'
 import { Route as ApiAuthRouteImport } from './routes/api/auth'
 import { Route as ApiTradesIdRouteImport } from './routes/api/trades.$id'
+import { Route as ApiReviewAnalyticsRouteImport } from './routes/api/review.analytics'
+import { Route as ApiReviewIdRouteImport } from './routes/api/review.$id'
+import { Route as ApiBybitTradesRouteImport } from './routes/api/bybit.trades'
+import { Route as ApiBybitSyncRouteImport } from './routes/api/bybit.sync'
+import { Route as ApiBybitApiKeyRouteImport } from './routes/api/bybit.api-key'
 
 const TradesRoute = TradesRouteImport.update({
   id: '/trades',
@@ -55,6 +61,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const RotationRoute = RotationRouteImport.update({
   id: '/rotation',
   path: '/rotation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReviewRoute = ReviewRouteImport.update({
+  id: '/review',
+  path: '/review',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RegimeRoute = RegimeRouteImport.update({
@@ -142,6 +153,31 @@ const ApiTradesIdRoute = ApiTradesIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiTradesRoute,
 } as any)
+const ApiReviewAnalyticsRoute = ApiReviewAnalyticsRouteImport.update({
+  id: '/api/review/analytics',
+  path: '/api/review/analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReviewIdRoute = ApiReviewIdRouteImport.update({
+  id: '/api/review/$id',
+  path: '/api/review/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiBybitTradesRoute = ApiBybitTradesRouteImport.update({
+  id: '/api/bybit/trades',
+  path: '/api/bybit/trades',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiBybitSyncRoute = ApiBybitSyncRouteImport.update({
+  id: '/api/bybit/sync',
+  path: '/api/bybit/sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiBybitApiKeyRoute = ApiBybitApiKeyRouteImport.update({
+  id: '/api/bybit/api-key',
+  path: '/api/bybit/api-key',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -150,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/news': typeof NewsRoute
   '/rankings': typeof RankingsRoute
   '/regime': typeof RegimeRoute
+  '/review': typeof ReviewRoute
   '/rotation': typeof RotationRoute
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
@@ -165,6 +202,11 @@ export interface FileRoutesByFullPath {
   '/api/trades': typeof ApiTradesRouteWithChildren
   '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
+  '/api/bybit/api-key': typeof ApiBybitApiKeyRoute
+  '/api/bybit/sync': typeof ApiBybitSyncRoute
+  '/api/bybit/trades': typeof ApiBybitTradesRoute
+  '/api/review/$id': typeof ApiReviewIdRoute
+  '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
 }
 export interface FileRoutesByTo {
@@ -174,6 +216,7 @@ export interface FileRoutesByTo {
   '/news': typeof NewsRoute
   '/rankings': typeof RankingsRoute
   '/regime': typeof RegimeRoute
+  '/review': typeof ReviewRoute
   '/rotation': typeof RotationRoute
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
@@ -189,6 +232,11 @@ export interface FileRoutesByTo {
   '/api/trades': typeof ApiTradesRouteWithChildren
   '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
+  '/api/bybit/api-key': typeof ApiBybitApiKeyRoute
+  '/api/bybit/sync': typeof ApiBybitSyncRoute
+  '/api/bybit/trades': typeof ApiBybitTradesRoute
+  '/api/review/$id': typeof ApiReviewIdRoute
+  '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
 }
 export interface FileRoutesById {
@@ -199,6 +247,7 @@ export interface FileRoutesById {
   '/news': typeof NewsRoute
   '/rankings': typeof RankingsRoute
   '/regime': typeof RegimeRoute
+  '/review': typeof ReviewRoute
   '/rotation': typeof RotationRoute
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
@@ -214,6 +263,11 @@ export interface FileRoutesById {
   '/api/trades': typeof ApiTradesRouteWithChildren
   '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
+  '/api/bybit/api-key': typeof ApiBybitApiKeyRoute
+  '/api/bybit/sync': typeof ApiBybitSyncRoute
+  '/api/bybit/trades': typeof ApiBybitTradesRoute
+  '/api/review/$id': typeof ApiReviewIdRoute
+  '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
 }
 export interface FileRouteTypes {
@@ -225,6 +279,7 @@ export interface FileRouteTypes {
     | '/news'
     | '/rankings'
     | '/regime'
+    | '/review'
     | '/rotation'
     | '/settings'
     | '/technical'
@@ -240,6 +295,11 @@ export interface FileRouteTypes {
     | '/api/trades'
     | '/api/watchlist'
     | '/token/$symbol'
+    | '/api/bybit/api-key'
+    | '/api/bybit/sync'
+    | '/api/bybit/trades'
+    | '/api/review/$id'
+    | '/api/review/analytics'
     | '/api/trades/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -249,6 +309,7 @@ export interface FileRouteTypes {
     | '/news'
     | '/rankings'
     | '/regime'
+    | '/review'
     | '/rotation'
     | '/settings'
     | '/technical'
@@ -264,6 +325,11 @@ export interface FileRouteTypes {
     | '/api/trades'
     | '/api/watchlist'
     | '/token/$symbol'
+    | '/api/bybit/api-key'
+    | '/api/bybit/sync'
+    | '/api/bybit/trades'
+    | '/api/review/$id'
+    | '/api/review/analytics'
     | '/api/trades/$id'
   id:
     | '__root__'
@@ -273,6 +339,7 @@ export interface FileRouteTypes {
     | '/news'
     | '/rankings'
     | '/regime'
+    | '/review'
     | '/rotation'
     | '/settings'
     | '/technical'
@@ -288,6 +355,11 @@ export interface FileRouteTypes {
     | '/api/trades'
     | '/api/watchlist'
     | '/token/$symbol'
+    | '/api/bybit/api-key'
+    | '/api/bybit/sync'
+    | '/api/bybit/trades'
+    | '/api/review/$id'
+    | '/api/review/analytics'
     | '/api/trades/$id'
   fileRoutesById: FileRoutesById
 }
@@ -298,6 +370,7 @@ export interface RootRouteChildren {
   NewsRoute: typeof NewsRoute
   RankingsRoute: typeof RankingsRoute
   RegimeRoute: typeof RegimeRoute
+  ReviewRoute: typeof ReviewRoute
   RotationRoute: typeof RotationRoute
   SettingsRoute: typeof SettingsRoute
   TechnicalRoute: typeof TechnicalRoute
@@ -313,6 +386,11 @@ export interface RootRouteChildren {
   ApiTradesRoute: typeof ApiTradesRouteWithChildren
   ApiWatchlistRoute: typeof ApiWatchlistRoute
   TokenSymbolRoute: typeof TokenSymbolRoute
+  ApiBybitApiKeyRoute: typeof ApiBybitApiKeyRoute
+  ApiBybitSyncRoute: typeof ApiBybitSyncRoute
+  ApiBybitTradesRoute: typeof ApiBybitTradesRoute
+  ApiReviewIdRoute: typeof ApiReviewIdRoute
+  ApiReviewAnalyticsRoute: typeof ApiReviewAnalyticsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -350,6 +428,13 @@ declare module '@tanstack/react-router' {
       path: '/rotation'
       fullPath: '/rotation'
       preLoaderRoute: typeof RotationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/review': {
+      id: '/review'
+      path: '/review'
+      fullPath: '/review'
+      preLoaderRoute: typeof ReviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/regime': {
@@ -471,6 +556,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTradesIdRouteImport
       parentRoute: typeof ApiTradesRoute
     }
+    '/api/review/analytics': {
+      id: '/api/review/analytics'
+      path: '/api/review/analytics'
+      fullPath: '/api/review/analytics'
+      preLoaderRoute: typeof ApiReviewAnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/review/$id': {
+      id: '/api/review/$id'
+      path: '/api/review/$id'
+      fullPath: '/api/review/$id'
+      preLoaderRoute: typeof ApiReviewIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/bybit/trades': {
+      id: '/api/bybit/trades'
+      path: '/api/bybit/trades'
+      fullPath: '/api/bybit/trades'
+      preLoaderRoute: typeof ApiBybitTradesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/bybit/sync': {
+      id: '/api/bybit/sync'
+      path: '/api/bybit/sync'
+      fullPath: '/api/bybit/sync'
+      preLoaderRoute: typeof ApiBybitSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/bybit/api-key': {
+      id: '/api/bybit/api-key'
+      path: '/api/bybit/api-key'
+      fullPath: '/api/bybit/api-key'
+      preLoaderRoute: typeof ApiBybitApiKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -493,6 +613,7 @@ const rootRouteChildren: RootRouteChildren = {
   NewsRoute: NewsRoute,
   RankingsRoute: RankingsRoute,
   RegimeRoute: RegimeRoute,
+  ReviewRoute: ReviewRoute,
   RotationRoute: RotationRoute,
   SettingsRoute: SettingsRoute,
   TechnicalRoute: TechnicalRoute,
@@ -508,6 +629,11 @@ const rootRouteChildren: RootRouteChildren = {
   ApiTradesRoute: ApiTradesRouteWithChildren,
   ApiWatchlistRoute: ApiWatchlistRoute,
   TokenSymbolRoute: TokenSymbolRoute,
+  ApiBybitApiKeyRoute: ApiBybitApiKeyRoute,
+  ApiBybitSyncRoute: ApiBybitSyncRoute,
+  ApiBybitTradesRoute: ApiBybitTradesRoute,
+  ApiReviewIdRoute: ApiReviewIdRoute,
+  ApiReviewAnalyticsRoute: ApiReviewAnalyticsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

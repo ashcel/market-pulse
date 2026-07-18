@@ -1,0 +1,45 @@
+from enum import StrEnum
+
+
+class ErrorCode(StrEnum):
+    BYBIT_KEY_NOT_FOUND = "BYBIT_KEY_NOT_FOUND"
+    BYBIT_CREDENTIALS_INVALID = "BYBIT_CREDENTIALS_INVALID"
+    BYBIT_UPSTREAM_ERROR = "BYBIT_UPSTREAM_ERROR"
+    BYBIT_CRYPTO_ERROR = "BYBIT_CRYPTO_ERROR"
+    BYBIT_SYNC_LOG_NOT_FOUND = "BYBIT_SYNC_LOG_NOT_FOUND"
+    BYBIT_SYNC_FORBIDDEN = "BYBIT_SYNC_FORBIDDEN"
+
+
+# Bybit V5 API hosts
+BYBIT_MAINNET_URL = "https://api.bybit.com"
+BYBIT_MAINNET_FAILOVER_URL = "https://api.bytick.com"
+BYBIT_TESTNET_URL = "https://api-testnet.bybit.com"
+
+RECV_WINDOW_MS = 60_000
+TIME_OFFSET_TTL_MS = 60 * 60 * 1000  # 1h
+
+# Bybit's rate-limit retCode
+RET_CODE_RATE_LIMITED = 10006
+
+CATEGORY_LINEAR = "linear"
+
+# Sync bookkeeping
+EXCHANGE_TRADE_ID_PREFIX = "bybit-linear"
+
+# Enrichment
+ESTIMATED_OPEN_OFFSET_MS = 5 * 60 * 1000  # 5 minutes
+OPEN_TIME_SOURCE_ORDER_HISTORY = "order_history"
+OPEN_TIME_SOURCE_ESTIMATED = "estimated"
+
+CLOSE_TRIGGER_LIQUIDATION = "liquidation"
+CLOSE_TRIGGER_SL_HIT = "sl_hit"
+CLOSE_TRIGGER_TP_HIT = "tp_hit"
+CLOSE_TRIGGER_MANUAL_LIMIT = "manual_limit"
+CLOSE_TRIGGER_MANUAL_MARKET = "manual_market"
+
+SYNC_STATUS_SYNCING = "syncing"
+SYNC_STATUS_SUCCESS = "success"
+SYNC_STATUS_FAILED = "failed"
+
+API_KEY_STATUS_ACTIVE = "active"
+API_KEY_STATUS_INACTIVE = "inactive"

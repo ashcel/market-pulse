@@ -7,10 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.auth.router import router as auth_router
+from app.bybit.router import router as bybit_router
 from app.config import settings
 from app.database import engine
 from app.exceptions import register_exception_handlers
 from app.market.router import router as market_router
+from app.review.router import router as review_router
 from app.trades.router import router as trades_router
 
 SHOW_DOCS_IN = {"local", "staging"}
@@ -72,5 +74,7 @@ async def health() -> HealthResponse:
 v1_router.include_router(auth_router)
 v1_router.include_router(market_router)
 v1_router.include_router(trades_router)
+v1_router.include_router(bybit_router)
+v1_router.include_router(review_router)
 
 app.include_router(v1_router)
