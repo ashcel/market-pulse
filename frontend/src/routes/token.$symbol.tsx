@@ -54,6 +54,7 @@ import {
   Send,
   ShieldAlert,
   ShieldCheck,
+  Star,
   Target,
   TrendingDown,
   TrendingUp,
@@ -165,6 +166,7 @@ import type { MarketStructure } from "@/lib/engine/structure";
 import { formatEntryRange, formatMoney, formatUnits } from "@/lib/utils/format";
 import { computeLeverageMetrics, MAX_LEVERAGE, MIN_LEVERAGE } from "@/lib/utils/leverage";
 import { usePreferencesStore, type ChartIndicatorKey } from "@/stores/preferences";
+import { useWatchlistStore } from "@/stores/watchlist";
 import { NotSignedInError, useFollowSignal, useTrackedFollows } from "@/hooks/useTrackedFollows";
 import { useAiSettingsStore } from "@/stores/ai-settings";
 import { resolveAiConfig } from "@/lib/ai/providers";
@@ -359,6 +361,11 @@ function TokenDetailPage() {
   const tradingIntent = usePreferencesStore((s) => s.tradingIntent);
   const setTradingIntent = usePreferencesStore((s) => s.setTradingIntent);
   const marketType = usePreferencesStore((s) => s.marketType);
+  // Watchlist: subscribe to membership only so the star re-renders on toggle.
+  // The store's persist + useWatchlistSync push starred tokens to the server,
+  // which is the set forward-test alerts treat as followed.
+  const isWatched = useWatchlistStore((s) => s.tickers.includes(symbol));
+  const toggleWatch = useWatchlistStore((s) => s.toggle);
   const signal = useTokenSignal(symbol, timeframe, marketType);
   const alignment = useTimeframeAlignment(symbol, marketType);
   const perpQuery = usePerpContext(symbol, marketType);
@@ -521,6 +528,22 @@ function TokenDetailPage() {
               {name} / USDT{marketType === "perp" ? " · Perp" : ""}
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              toggleWatch(symbol);
+              toast.success(isWatched ? `Removed ${symbol} from watchlist` : `Watching ${symbol}`);
+            }}
+            aria-pressed={isWatched}
+            aria-label={isWatched ? `Unwatch ${symbol}` : `Watch ${symbol}`}
+            title={isWatched ? "In your watchlist — click to remove" : "Add to watchlist"}
+            className={cn(
+              "rounded-md border border-border bg-surface p-2 transition-colors hover:text-foreground",
+              isWatched ? "text-warning" : "text-muted-foreground",
+            )}
+          >
+            <Star className={cn("h-4 w-4", isWatched && "fill-warning")} />
+          </button>
         </div>
 
         {signal.isLoading ? (
