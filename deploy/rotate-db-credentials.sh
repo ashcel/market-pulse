@@ -2,12 +2,13 @@
 # One-shot credential rotation + hardening for the forward-test Postgres.
 # Run manually on the VPS as ubuntu (needs sudo): it
 #   1. rotates the postgres password to a fresh random value,
-#   2. moves it into ~/.pgpass, the untracked repo .env,
-#      /etc/market-pulse-worker.env and a new /etc/market-pulse.env,
+#   2. moves it into ~/.pgpass, the untracked repo .env, the backend's
+#      pydantic-settings env (backend/.env, used by the FastAPI API and the
+#      Python arq worker) and a new /etc/market-pulse.env,
 #   3. wires the web service to that env file via a systemd drop-in,
 #   4. recreates the DB container so the loopback-only port binding
 #      (docker-compose.yml) takes effect,
-#   5. restarts web + worker and verifies old creds are dead.
+#   5. restarts web + api + arq worker and verifies old creds are dead.
 #
 # After a successful run: change the DATABASE_URL fallback in
 # src/server/db/client.ts to postgres:postgres (see the TODO there) and commit.
@@ -34,9 +35,10 @@ DATABASE_URL=postgres://postgres:${NEW}@localhost:5435/market_pulse
 EOF
 echo "step3: repo .env written"
 
-# 4. Worker env: swap the password inside DATABASE_URL in place.
-sudo sed -i -E "s#(://[^:/]+:)[^@]+@#\\1${NEW}@#" /etc/market-pulse-worker.env
-echo "step4: /etc/market-pulse-worker.env updated"
+# 4. Backend env (pydantic-settings; FastAPI API + Python arq worker):
+#    swap the password inside DATABASE_URL in place.
+sed -i -E "s#(://[^:/]+:)[^@]+@#\\1${NEW}@#" "$REPO/backend/.env"
+echo "step4: backend/.env updated"
 
 # 5. Web env file (the service previously relied on the hardcoded fallback).
 sudo install -m 600 /dev/null /etc/market-pulse.env
@@ -58,7 +60,7 @@ echo "step7: DB container recreated"
 
 # 8. Restart consumers.
 sudo systemctl daemon-reload
-sudo systemctl restart market-pulse market-pulse-worker
+sudo systemctl restart market-pulse market-pulse-api market-pulse-arq
 echo "step8: services restarted"
 
 # 9. Verify.

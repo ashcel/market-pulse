@@ -14,8 +14,6 @@
     "db:migrate": "bun run src/server/db/migrate.ts",
     "db:seed-admin": "bun run src/server/scripts/seed-admin.ts",
     "db:invite": "bun run src/server/scripts/mint-invite.ts",
-    "worker": "bun run src/server/worker/index.ts",
-    "worker:once": "bun run src/server/worker/index.ts --once",
     "record:report": "bun run src/server/scripts/record-report.ts"
   },
   "dependencies": {

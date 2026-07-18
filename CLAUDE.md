@@ -13,7 +13,7 @@ Bun is the package manager (`bun.lock`, `bunfig.toml`).
 - `bunx vitest run` — the test suite (canonical runner; CI uses `bun test`)
 - `bunx tsc --noEmit` — typecheck
 - `bun run db:migrate` / `db:seed-admin` / `db:invite` — Postgres schema + auth CLIs
-- `bun run worker` (`worker:once` for a single pass) — the forward-test eval+settle loop
+- The forward-test eval+settle worker is **Python** now: `cd backend && .venv/bin/arq app.worker.config.WorkerSettings` (arq cron, 5-min tick). The old TS `bun run worker` was removed at the 2026-07-17 cutover.
 
 DB-integration tests (`repo-invariants`, `idempotency`) need a reachable
 `DATABASE_URL` and self-skip without one.
@@ -28,7 +28,10 @@ TanStack web, port 3002), `market-pulse-api.service` (FastAPI, port 8002),
 and `market-pulse-arq.service` (the **Python** forward-test worker — arq cron
 tick every 5 min; logs: `journalctl -u market-pulse-arq`). The old TS
 `market-pulse-worker.service` was stopped + disabled at the 2026-07-17 Phase
-4 cutover — never re-enable it; it would write dead 1.0.0 records. Postgres
+4 cutover — never re-enable it; it would write dead 1.0.0 records. Its unit
+file and TS source (`frontend/src/server/worker/`) were removed from the repo
+on 2026-07-18, so any lingering VPS unit now points at a deleted entrypoint.
+Postgres
 runs in docker (`market-pulse-db`, port 5435, see `docker-compose.yml`).
 A push to `main` triggers `.github/workflows/deploy.yml`, which pulls,
 rebuilds, runs migrations, and restarts services **in this directory**.
@@ -87,10 +90,10 @@ are shown only where a stop order is evidenced (else % + MAE/MFE). Three planes:
 
 ### 3. Server (system of record)
 
-`src/server/` — **server-only; never import from client code** (reached via API routes, server functions, and the worker; the client bundle must stay free of `postgres`):
+`frontend/src/server/` — **server-only; never import from client code** (reached via API routes and server functions; the client bundle must stay free of `postgres`). This is the retained web tier's read/serve layer, **not** a writer of forward-test records:
 
 - `db/` — postgres.js client + hand-written SQL migrations + typed repo (`repo.ts` is the only SQL surface).
-- `worker/` — the autonomous eval+settle loop over the whole universe (sole writer of shadow/anticipatory records; browser is a read-only view via `/api/forward-test` and `useForwardTestRecord`). Spot-only today; hysteresis holds live server-side.
+- The autonomous eval+settle loop **moved to Python** (`backend/app/worker/` on an arq 5-min cron, sharing `engine/smc/` — the sole writer of shadow/anticipatory records at ENGINE_VERSION 2.0.0). The old TS `src/server/worker/` was removed at the 2026-07-17 cutover. The browser stays a read-only view via `/api/forward-test` + `useForwardTestRecord`.
 - `auth/` — invite-only sessions (opaque httpOnly cookies, no passwords).
 - `forward-test/service.ts` — stats/health read models; `health-watch.ts` pushes worker-staleness alerts into the SSE notification stream (`/api/notifications`).
 

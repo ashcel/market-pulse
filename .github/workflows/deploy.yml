@@ -51,9 +51,10 @@ jobs:
             bun install
             bun run build
 
-            # Restart the live units. market-pulse-worker (the retired TS
-            # worker) stays disabled — restarting it would write dead 1.0.0
-            # records (Phase 4 cutover, 2026-07-17).
+            # Restart the live units. The retired TS worker
+            # (market-pulse-worker) stays disabled and its unit + source were
+            # removed from the repo — it would write dead 1.0.0 records
+            # (Phase 4 cutover, 2026-07-17).
             sudo systemctl restart market-pulse-api
             sudo systemctl restart market-pulse-arq
             sudo systemctl restart market-pulse
