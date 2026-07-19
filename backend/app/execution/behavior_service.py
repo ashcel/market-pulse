@@ -4,7 +4,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bybit.models import BybitTrade
+from app.binance_review.models import BinanceTrade
 
 from .behavior_detectors import TradeRecord
 
@@ -16,18 +16,18 @@ async def get_trade_records_for_behavior(
     now = datetime.now()
     lookback_date = now - timedelta(days=lookback_days)
 
-    # Fetch from BybitTrade table
+    # Fetch from BinanceTrade table (Trade Review's synced Binance history)
     q = (
-        select(BybitTrade)
-        .where(BybitTrade.user_id == user_id)
-        .where(BybitTrade.closed_at >= lookback_date)
-        .order_by(BybitTrade.opened_at.asc())
+        select(BinanceTrade)
+        .where(BinanceTrade.user_id == user_id)
+        .where(BinanceTrade.closed_at >= lookback_date)
+        .order_by(BinanceTrade.opened_at.asc())
     )
     result = await db.execute(q)
-    bybit_trades = result.scalars().all()
+    binance_trades = result.scalars().all()
 
     records = []
-    for t in bybit_trades:
+    for t in binance_trades:
         notional_size = Decimal(str(t.entry_price)) * Decimal(str(t.quantity))
         records.append(
             TradeRecord(
@@ -38,7 +38,7 @@ async def get_trade_records_for_behavior(
                 notional_size=notional_size,
                 risk_percent=Decimal(
                     "0"
-                ),  # Bybit historical trades don't explicitly track account % risk
+                ),  # Synced Binance trade history doesn't track account % risk
                 side=t.side,
             )
         )

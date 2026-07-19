@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 import type { StopMethod } from "@/lib/engine/quant";
 import { useAiSettingsStore } from "@/stores/ai-settings";
 import { PROVIDERS, PROVIDER_ORDER, resolveAiConfig } from "@/lib/ai/providers";
-import { useBybitKeyStatus, useDeleteBybitKey, useSaveBybitKey } from "@/hooks/useReview";
+import { useBinanceKeyStatus, useDeleteBinanceKey, useSaveBinanceKey } from "@/hooks/useReview";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { TradingConstitutionCard } from "@/components/features/trading-constitution-card";
@@ -114,7 +114,7 @@ function SettingsPage() {
 
       <AiAnalystCard />
 
-      <BybitConnectionCard />
+      <BinanceConnectionCard />
 
       <IqCard className="flex flex-col gap-4">
         <CardEyebrow>Notifications</CardEyebrow>
@@ -708,10 +708,10 @@ function AiAnalystCard() {
   );
 }
 
-function BybitConnectionCard() {
-  const { connected, lastSyncedAt, isLoading } = useBybitKeyStatus();
-  const saveKey = useSaveBybitKey();
-  const deleteKey = useDeleteBybitKey();
+function BinanceConnectionCard() {
+  const { connected, lastSyncedAt, isLoading } = useBinanceKeyStatus();
+  const saveKey = useSaveBinanceKey();
+  const deleteKey = useDeleteBinanceKey();
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
   const [showSecret, setShowSecret] = useState(false);
@@ -736,7 +736,7 @@ function BybitConnectionCard() {
   return (
     <IqCard className="flex flex-col gap-5">
       <div className="flex items-center justify-between">
-        <CardEyebrow>Bybit Connection</CardEyebrow>
+        <CardEyebrow>Binance Connection</CardEyebrow>
         <span
           className={cn(
             "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
@@ -749,10 +749,11 @@ function BybitConnectionCard() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Powers Trade Review: connect a Bybit API key so the server can pull your trade history.
-        Unlike the AI key above, this key is stored server-side (encrypted at rest) and used by our
-        backend to sync with Bybit on your behalf — it is not a bring-your-own-key credential and
-        never leaves our server. Create a read-only key in Bybit's API Management if possible.
+        Powers Trade Review: connect a Binance API key so the server can pull your USDT-M futures
+        trade history. Unlike the AI key above, this key is stored server-side (encrypted at rest)
+        and used by our backend to sync with Binance on your behalf — it is not a bring-your-own-key
+        credential and never leaves our server. Create a read-only key (no trading/withdrawal
+        permissions needed) in Binance's API Management.
       </p>
 
       {connected && lastSyncedAt && (
@@ -767,11 +768,11 @@ function BybitConnectionCard() {
           type="text"
           value={apiKey}
           onChange={(e) => setApiKey(e.currentTarget.value)}
-          placeholder="Bybit API key"
+          placeholder="Binance API key"
           autoComplete="off"
           spellCheck={false}
           className="rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-info"
-          aria-label="Bybit API key"
+          aria-label="Binance API key"
         />
       </div>
 
@@ -782,11 +783,11 @@ function BybitConnectionCard() {
             type={showSecret ? "text" : "password"}
             value={apiSecret}
             onChange={(e) => setApiSecret(e.currentTarget.value)}
-            placeholder="Bybit API secret"
+            placeholder="Binance API secret"
             autoComplete="off"
             spellCheck={false}
             className="w-full min-w-0 flex-1 bg-transparent text-sm outline-none"
-            aria-label="Bybit API secret"
+            aria-label="Binance API secret"
           />
           <button
             type="button"

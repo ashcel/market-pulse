@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 
 import { registerLiveInterest, unregisterLiveInterest } from "@/lib/engine/binance-live-feed";
 import type { MarketType } from "@/lib/engine/binance";
@@ -44,8 +44,16 @@ export function useOpenTradesPnl(marketOverride?: MarketType): OpenTradesPnl {
   const { trades, authenticated, isLoading } = useOpenTrades();
   const ticks = useLivePriceStore((s) => s.ticks);
 
+  // Caller ids MUST be unique per hook instance. The floating PnL widget (always
+  // mounted via __root) and the /trades page both call this hook at the same
+  // time; the live-feed registry is keyed by caller id, so if both used the same
+  // `open-pnl:${id}` key, one instance's effect cleanup would unregister the
+  // interest the other still needs — tearing down the socket and freezing PnL.
+  // A per-instance `useId` prefix keeps the two consumers' interests distinct.
+  const instanceId = useId();
+
   // Register live interest for every open symbol; one caller id per trade so
-  // the feed reference-counts correctly and unsubscribes closed positions.
+  // closed positions unsubscribe when the trade list changes.
   const symbolKey = trades.map((t) => t.symbol).join(",");
   useEffect(() => {
     if (!authenticated) return;
@@ -53,14 +61,14 @@ export function useOpenTradesPnl(marketOverride?: MarketType): OpenTradesPnl {
     for (const t of trades) {
       const ticker = normalizeTicker(t.symbol);
       if (!ticker) continue;
-      const cid = `open-pnl:${t.id}`;
+      const cid = `open-pnl:${instanceId}:${t.id}`;
       registerLiveInterest(cid, { kind: "ticker", market, ticker });
       ids.push(cid);
     }
     return () => ids.forEach(unregisterLiveInterest);
     // symbolKey captures the set of symbols; ids are derived from it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbolKey, market, authenticated]);
+  }, [symbolKey, market, authenticated, instanceId]);
 
   const rows: OpenTradePnl[] = trades.map((t) => {
     const livePrice = ticks[tickKey(market, normalizeTicker(t.symbol))]?.price ?? null;

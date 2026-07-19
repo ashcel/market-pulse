@@ -3,14 +3,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { isResponse, requireAuth } from "@/server/auth/session";
 
 /**
- * Server-side proxy for listing synced Bybit trades (the Trade Review
+ * Server-side proxy for listing synced Binance trades (the Trade Review
  * feature's trade list — distinct from the manual journal at api/trades.ts).
  *
  * Routes:
- *   GET /api/bybit/trades?symbol=&page=&per_page= → list synced trades
+ *   GET /api/binance-review/trades?symbol=&page=&per_page= → list synced trades
  *
  * Note: the backend filters by `symbol` (e.g. "BTCUSDT"), not a trade
- * status — every synced Bybit trade is already a closed round-trip.
+ * status — every synced Binance trade is already a closed round-trip.
  */
 
 const BACKEND_BASE = process.env.BACKEND_URL ?? "http://localhost:8002";
@@ -24,7 +24,7 @@ function backendHeaders(userId: string): Record<string, string> {
   };
 }
 
-export const Route = createFileRoute("/api/bybit/trades")({
+export const Route = createFileRoute("/api/binance-review/trades")({
   server: {
     handlers: {
       GET: async ({ request }) => {
@@ -39,9 +39,10 @@ export const Route = createFileRoute("/api/bybit/trades")({
         const params = new URLSearchParams({ page, per_page: perPage });
         if (symbol) params.set("symbol", symbol);
 
-        const res = await fetch(`${BACKEND_BASE}/api/v1/bybit/trades?${params.toString()}`, {
-          headers: backendHeaders(auth.user.id),
-        });
+        const res = await fetch(
+          `${BACKEND_BASE}/api/v1/binance-review/trades?${params.toString()}`,
+          { headers: backendHeaders(auth.user.id) },
+        );
         const data = await res.json();
         return new Response(JSON.stringify(data), {
           status: res.status,

@@ -3,8 +3,8 @@ from datetime import datetime
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bybit.models import BybitTrade
-from app.bybit.schemas import BybitTradeResponse
+from app.binance_review.models import BinanceTrade
+from app.binance_review.schemas import BinanceTradeResponse
 
 from .analytics import HourRangeResult, compute_analytics
 from .exceptions import ReviewNotFoundError, ReviewTradeForbiddenError, ReviewTradeNotFoundError
@@ -33,11 +33,11 @@ def _hour_range(result: HourRangeResult | None) -> HourRange | None:
     )
 
 
-async def _get_owned_trade(db: AsyncSession, bybit_trade_id: str, user_id: str) -> BybitTrade:
-    result = await db.execute(select(BybitTrade).where(BybitTrade.id == bybit_trade_id))
+async def _get_owned_trade(db: AsyncSession, binance_trade_id: str, user_id: str) -> BinanceTrade:
+    result = await db.execute(select(BinanceTrade).where(BinanceTrade.id == binance_trade_id))
     trade = result.scalar_one_or_none()
     if not trade:
-        raise ReviewTradeNotFoundError(bybit_trade_id)
+        raise ReviewTradeNotFoundError(binance_trade_id)
     if trade.user_id != user_id:
         raise ReviewTradeForbiddenError()
     return trade
@@ -50,13 +50,13 @@ async def get_analytics(
     start: datetime | None = None,
     end: datetime | None = None,
 ) -> AnalyticsData:
-    q = select(BybitTrade).where(BybitTrade.user_id == user_id)
+    q = select(BinanceTrade).where(BinanceTrade.user_id == user_id)
     if symbol:
-        q = q.where(BybitTrade.symbol == symbol.upper())
+        q = q.where(BinanceTrade.symbol == symbol.upper())
     if start:
-        q = q.where(BybitTrade.closed_at >= start)
+        q = q.where(BinanceTrade.closed_at >= start)
     if end:
-        q = q.where(BybitTrade.closed_at <= end)
+        q = q.where(BinanceTrade.closed_at <= end)
 
     result = await db.execute(q)
     trades = list(result.scalars().all())
@@ -75,12 +75,12 @@ async def get_analytics(
             expectancy_pct=analytics.rr.expectancy_pct,
         ),
         best_trade=(
-            BybitTradeResponse.model_validate(analytics.best_trade)
+            BinanceTradeResponse.model_validate(analytics.best_trade)
             if analytics.best_trade is not None
             else None
         ),
         worst_trade=(
-            BybitTradeResponse.model_validate(analytics.worst_trade)
+            BinanceTradeResponse.model_validate(analytics.worst_trade)
             if analytics.worst_trade is not None
             else None
         ),
@@ -133,20 +133,20 @@ async def get_analytics(
 
 
 async def save_review(
-    db: AsyncSession, user_id: str, bybit_trade_id: str, payload: TradeReviewCreate
+    db: AsyncSession, user_id: str, binance_trade_id: str, payload: TradeReviewCreate
 ) -> TradeReview:
-    await _get_owned_trade(db, bybit_trade_id, user_id)
+    await _get_owned_trade(db, binance_trade_id, user_id)
 
     result = await db.execute(
         select(func.max(TradeReview.version)).where(
-            TradeReview.bybit_trade_id == bybit_trade_id, TradeReview.user_id == user_id
+            TradeReview.binance_trade_id == binance_trade_id, TradeReview.user_id == user_id
         )
     )
     prev_max = result.scalar()
     version = (prev_max or 0) + 1
 
     review = TradeReview(
-        bybit_trade_id=bybit_trade_id,
+        binance_trade_id=binance_trade_id,
         user_id=user_id,
         review_mode=payload.review_mode,
         severity_score=payload.severity_score,
@@ -164,16 +164,16 @@ async def save_review(
     return review
 
 
-async def get_review(db: AsyncSession, user_id: str, bybit_trade_id: str) -> TradeReview:
-    await _get_owned_trade(db, bybit_trade_id, user_id)
+async def get_review(db: AsyncSession, user_id: str, binance_trade_id: str) -> TradeReview:
+    await _get_owned_trade(db, binance_trade_id, user_id)
 
     result = await db.execute(
         select(TradeReview)
-        .where(TradeReview.bybit_trade_id == bybit_trade_id, TradeReview.user_id == user_id)
+        .where(TradeReview.binance_trade_id == binance_trade_id, TradeReview.user_id == user_id)
         .order_by(TradeReview.version.desc())
         .limit(1)
     )
     review = result.scalar_one_or_none()
     if not review:
-        raise ReviewNotFoundError(bybit_trade_id)
+        raise ReviewNotFoundError(binance_trade_id)
     return review

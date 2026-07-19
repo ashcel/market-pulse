@@ -27,30 +27,30 @@ async def get_analytics_endpoint(
 
 
 @router.post(
-    "/{bybit_trade_id}",
+    "/{binance_trade_id}",
     response_model=TradeReviewEnvelope,
     status_code=status.HTTP_201_CREATED,
     summary="Persist a client-generated trade review verbatim",
 )
 async def save_review_endpoint(
-    bybit_trade_id: str,
+    binance_trade_id: str,
     payload: TradeReviewCreate,
     db: DbSession,
     user_id: CurrentUserId,
 ) -> TradeReviewEnvelope:
-    review = await save_review(db, user_id, bybit_trade_id, payload)
+    review = await save_review(db, user_id, binance_trade_id, payload)
     return TradeReviewEnvelope(data=TradeReviewResponse.model_validate(review))
 
 
 @router.get(
-    "/{bybit_trade_id}",
+    "/{binance_trade_id}",
     response_model=TradeReviewEnvelope,
     summary="Get the latest review for a trade",
 )
 async def get_review_endpoint(
-    bybit_trade_id: str,
+    binance_trade_id: str,
     db: DbSession,
     user_id: CurrentUserId,
 ) -> TradeReviewEnvelope:
-    review = await get_review(db, user_id, bybit_trade_id)
+    review = await get_review(db, user_id, binance_trade_id)
     return TradeReviewEnvelope(data=TradeReviewResponse.model_validate(review))

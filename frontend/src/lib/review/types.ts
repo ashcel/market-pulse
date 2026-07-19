@@ -1,11 +1,11 @@
 // Trade Review types — shared by the client-side generation pipeline
 // (severity → candles → prompt → BYOK LLM call → parse) and the backend
-// response shapes it reads/writes through the api/bybit.* and api/review.*
-// proxy routes.
+// response shapes it reads/writes through the api/binance-review.* and
+// api/review.* proxy routes.
 
 export type ReviewTradeSide = "LONG" | "SHORT";
 
-/** A synced Bybit trade, as returned by GET /api/bybit/trades `data[]`. */
+/** A synced Binance USDT-M futures trade, as returned by GET /api/binance-review/trades `data[]`. */
 export interface ReviewTrade {
   id: string;
   user_id: string;

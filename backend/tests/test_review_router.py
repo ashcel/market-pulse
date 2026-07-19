@@ -11,7 +11,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from app.bybit.models import BybitApiKey, BybitTrade
+from app.binance_review.models import BinanceReviewKey, BinanceTrade
 from app.config import settings
 from app.database import get_db
 from app.main import app
@@ -35,12 +35,12 @@ async def review_client(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[AsyncC
         poolclass=StaticPool,
     )
     tables = [
-        BybitApiKey.metadata.tables["bybit_api_keys"],
-        BybitApiKey.metadata.tables["bybit_trades"],
-        BybitApiKey.metadata.tables["trade_reviews"],
+        BinanceReviewKey.metadata.tables["binance_review_keys"],
+        BinanceReviewKey.metadata.tables["binance_trades"],
+        BinanceReviewKey.metadata.tables["trade_reviews"],
     ]
     async with engine.begin() as conn:
-        await conn.run_sync(BybitApiKey.metadata.create_all, tables=tables)
+        await conn.run_sync(BinanceReviewKey.metadata.create_all, tables=tables)
     factory = async_sessionmaker(engine, expire_on_commit=False)
 
     async def override_get_db() -> AsyncIterator[object]:
@@ -63,10 +63,10 @@ async def _seed_trade(user_id: str, trade_id: str = "trade-1") -> None:
     now = datetime.now()
     async with factory() as session:
         session.add(
-            BybitTrade(
+            BinanceTrade(
                 id=trade_id,
                 user_id=user_id,
-                exchange_trade_id=f"bybit-linear-{trade_id}",
+                exchange_trade_id=f"binance-futures-{trade_id}",
                 symbol="BTCUSDT",
                 side="LONG",
                 leverage=10.0,
@@ -111,7 +111,7 @@ async def test_post_persists_review_verbatim(review_client: AsyncClient) -> None
     )
     assert resp.status_code == 201
     data = resp.json()["data"]
-    assert data["bybit_trade_id"] == "trade-1"
+    assert data["binance_trade_id"] == "trade-1"
     assert data["version"] == 1
     assert data["full_review"] == REVIEW_PAYLOAD["full_review"]
     assert data["grade"] == "B+"

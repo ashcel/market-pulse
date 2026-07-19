@@ -185,3 +185,43 @@ class BinanceExecClient:
         if end_time:
             params["endTime"] = end_time
         return await self._request("GET", "/fapi/v1/income", params)
+
+    async def get_user_trades(
+        self,
+        symbol: str,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        from_id: int | None = None,
+        limit: int = 1000,
+    ) -> list[dict]:
+        """Account trade list for one symbol — `/fapi/v1/userTrades`. Used by
+        Trade Review to reconstruct entry/exit prices, quantities, fees, and
+        the closing fill's originating orderId (see app.binance_review)."""
+        params: dict[str, Any] = {"symbol": symbol, "limit": limit}
+        if start_time:
+            params["startTime"] = start_time
+        if end_time:
+            params["endTime"] = end_time
+        if from_id is not None:
+            params["fromId"] = from_id
+        return await self._request("GET", "/fapi/v1/userTrades", params)
+
+    async def get_all_orders(
+        self,
+        symbol: str,
+        start_time: int | None = None,
+        end_time: int | None = None,
+        order_id: int | None = None,
+        limit: int = 500,
+    ) -> list[dict]:
+        """All historical orders for one symbol — `/fapi/v1/allOrders`. Used
+        by Trade Review to classify a closing fill as SL/TP/liquidation/manual
+        by looking up the order that produced it."""
+        params: dict[str, Any] = {"symbol": symbol, "limit": limit}
+        if start_time:
+            params["startTime"] = start_time
+        if end_time:
+            params["endTime"] = end_time
+        if order_id is not None:
+            params["orderId"] = order_id
+        return await self._request("GET", "/fapi/v1/allOrders", params)

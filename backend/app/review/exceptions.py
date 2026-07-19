@@ -7,7 +7,7 @@ class ReviewTradeNotFoundError(NotFoundError):
     code = ErrorCode.REVIEW_TRADE_NOT_FOUND
 
     def __init__(self, trade_id: str) -> None:
-        super().__init__(f"Bybit trade '{trade_id}' not found")
+        super().__init__(f"Binance trade '{trade_id}' not found")
 
 
 class ReviewTradeForbiddenError(AppError):

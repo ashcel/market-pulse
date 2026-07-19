@@ -3,11 +3,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { isResponse, requireAuth } from "@/server/auth/session";
 
 /**
- * Server-side proxy that triggers a Bybit trade-history sync for the signed-in
- * user. See api/bybit.api-key.ts for the auth/proxy pattern this mirrors.
+ * Server-side proxy that triggers a Binance trade-history sync for the
+ * signed-in user. See api/binance-review.api-key.ts for the auth/proxy
+ * pattern this mirrors.
  *
  * Routes:
- *   POST /api/bybit/sync → sync trades from Bybit into the backend's store
+ *   POST /api/binance-review/sync → sync trades from Binance into the backend's store
  */
 
 const BACKEND_BASE = process.env.BACKEND_URL ?? "http://localhost:8002";
@@ -21,14 +22,14 @@ function backendHeaders(userId: string): Record<string, string> {
   };
 }
 
-export const Route = createFileRoute("/api/bybit/sync")({
+export const Route = createFileRoute("/api/binance-review/sync")({
   server: {
     handlers: {
       POST: async ({ request }) => {
         const auth = await requireAuth(request);
         if (isResponse(auth)) return auth;
 
-        const res = await fetch(`${BACKEND_BASE}/api/v1/bybit/sync`, {
+        const res = await fetch(`${BACKEND_BASE}/api/v1/binance-review/sync`, {
           method: "POST",
           headers: backendHeaders(auth.user.id),
         });

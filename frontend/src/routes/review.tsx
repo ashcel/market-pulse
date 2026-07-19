@@ -29,11 +29,11 @@ import {
 } from "@/components/ui/table";
 import { useExecutions, type ExecutionRecord } from "@/hooks/useExecutions";
 import {
-  useBybitKeyStatus,
+  useBinanceKeyStatus,
   useGenerateTradeReview,
   useReviewAnalytics,
   useReviewTrades,
-  useSyncBybit,
+  useSyncBinance,
   useTradeReview,
 } from "@/hooks/useReview";
 import { resolveAiConfig } from "@/lib/ai/providers";
@@ -48,7 +48,7 @@ export const Route = createFileRoute("/review")({
       { title: "Trade Review — Market Pulse" },
       {
         name: "description",
-        content: "Sync your Bybit trade history and generate AI-powered per-trade reviews.",
+        content: "Sync your Binance trade history and generate AI-powered per-trade reviews.",
       },
       { property: "og:title", content: "Trade Review — Market Pulse" },
       {
@@ -124,7 +124,7 @@ function ReviewPage() {
       <PageHeader
         eyebrow="Trade Review"
         title="Trade Review"
-        subtitle="Sync your Bybit history, see where your edge actually is, and get an honest per-trade AI review — generated in your browser with your own AI key."
+        subtitle="Sync your Binance history, see where your edge actually is, and get an honest per-trade AI review — generated in your browser with your own AI key."
       />
 
       <SyncCard authenticated={authenticated} />
@@ -162,7 +162,7 @@ function ReviewPage() {
           ) : filteredTrades.length === 0 ? (
             <IqCard className="text-center text-sm text-muted-foreground py-6">
               {trades.length === 0
-                ? "No trades synced yet — connect Bybit above and hit Sync now."
+                ? "No trades synced yet — connect Binance above and hit Sync now."
                 : `No ${sideFilter.toLowerCase()} trades.`}
             </IqCard>
           ) : (
@@ -186,7 +186,7 @@ function ReviewPage() {
 function NotSignedInCard() {
   return (
     <IqCard className="space-y-2 text-center text-sm text-muted-foreground">
-      <p>Trade Review lives on the server — sign in to connect Bybit and review your trades.</p>
+      <p>Trade Review lives on the server — sign in to connect Binance and review your trades.</p>
       <p>
         <Link to="/login" className="font-medium text-info underline-offset-2 hover:underline">
           Sign in
@@ -200,15 +200,15 @@ function NotSignedInCard() {
 // ── Sync / connection card ──────────────────────────────────────────────────
 
 function SyncCard({ authenticated }: { authenticated: boolean }) {
-  const { connected, lastSyncedAt, isLoading } = useBybitKeyStatus();
-  const sync = useSyncBybit();
+  const { connected, lastSyncedAt, isLoading } = useBinanceKeyStatus();
+  const sync = useSyncBinance();
 
   if (!authenticated) return null;
 
   return (
     <IqCard className="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <CardEyebrow>Bybit Sync</CardEyebrow>
+        <CardEyebrow>Binance Sync</CardEyebrow>
         <div className="mt-1 flex items-center gap-2">
           <span
             className={cn(
@@ -243,7 +243,7 @@ function SyncCard({ authenticated }: { authenticated: boolean }) {
         </Button>
       ) : (
         <Button size="sm" variant="outline" className="text-xs" asChild>
-          <Link to="/settings">Connect Bybit in Settings</Link>
+          <Link to="/settings">Connect Binance in Settings</Link>
         </Button>
       )}
     </IqCard>

@@ -38,9 +38,9 @@ import { Route as ApiExecutionPermitRouteImport } from './routes/api/execution.p
 import { Route as ApiExecutionExecutionsRouteImport } from './routes/api/execution.executions'
 import { Route as ApiExecutionExecuteRouteImport } from './routes/api/execution.execute'
 import { Route as ApiExecutionConstitutionRouteImport } from './routes/api/execution.constitution'
-import { Route as ApiBybitTradesRouteImport } from './routes/api/bybit.trades'
-import { Route as ApiBybitSyncRouteImport } from './routes/api/bybit.sync'
-import { Route as ApiBybitApiKeyRouteImport } from './routes/api/bybit.api-key'
+import { Route as ApiBinanceReviewTradesRouteImport } from './routes/api/binance-review.trades'
+import { Route as ApiBinanceReviewSyncRouteImport } from './routes/api/binance-review.sync'
+import { Route as ApiBinanceReviewApiKeyRouteImport } from './routes/api/binance-review.api-key'
 import { Route as ApiExecutionPermitIdRouteImport } from './routes/api/execution.permit.$id'
 
 const TradesRoute = TradesRouteImport.update({
@@ -189,19 +189,19 @@ const ApiExecutionConstitutionRoute =
     path: '/api/execution/constitution',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiBybitTradesRoute = ApiBybitTradesRouteImport.update({
-  id: '/api/bybit/trades',
-  path: '/api/bybit/trades',
+const ApiBinanceReviewTradesRoute = ApiBinanceReviewTradesRouteImport.update({
+  id: '/api/binance-review/trades',
+  path: '/api/binance-review/trades',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiBybitSyncRoute = ApiBybitSyncRouteImport.update({
-  id: '/api/bybit/sync',
-  path: '/api/bybit/sync',
+const ApiBinanceReviewSyncRoute = ApiBinanceReviewSyncRouteImport.update({
+  id: '/api/binance-review/sync',
+  path: '/api/binance-review/sync',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiBybitApiKeyRoute = ApiBybitApiKeyRouteImport.update({
-  id: '/api/bybit/api-key',
-  path: '/api/bybit/api-key',
+const ApiBinanceReviewApiKeyRoute = ApiBinanceReviewApiKeyRouteImport.update({
+  id: '/api/binance-review/api-key',
+  path: '/api/binance-review/api-key',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiExecutionPermitIdRoute = ApiExecutionPermitIdRouteImport.update({
@@ -233,9 +233,9 @@ export interface FileRoutesByFullPath {
   '/api/trades': typeof ApiTradesRouteWithChildren
   '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
-  '/api/bybit/api-key': typeof ApiBybitApiKeyRoute
-  '/api/bybit/sync': typeof ApiBybitSyncRoute
-  '/api/bybit/trades': typeof ApiBybitTradesRoute
+  '/api/binance-review/api-key': typeof ApiBinanceReviewApiKeyRoute
+  '/api/binance-review/sync': typeof ApiBinanceReviewSyncRoute
+  '/api/binance-review/trades': typeof ApiBinanceReviewTradesRoute
   '/api/execution/constitution': typeof ApiExecutionConstitutionRoute
   '/api/execution/execute': typeof ApiExecutionExecuteRoute
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
@@ -268,9 +268,9 @@ export interface FileRoutesByTo {
   '/api/trades': typeof ApiTradesRouteWithChildren
   '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
-  '/api/bybit/api-key': typeof ApiBybitApiKeyRoute
-  '/api/bybit/sync': typeof ApiBybitSyncRoute
-  '/api/bybit/trades': typeof ApiBybitTradesRoute
+  '/api/binance-review/api-key': typeof ApiBinanceReviewApiKeyRoute
+  '/api/binance-review/sync': typeof ApiBinanceReviewSyncRoute
+  '/api/binance-review/trades': typeof ApiBinanceReviewTradesRoute
   '/api/execution/constitution': typeof ApiExecutionConstitutionRoute
   '/api/execution/execute': typeof ApiExecutionExecuteRoute
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
@@ -304,9 +304,9 @@ export interface FileRoutesById {
   '/api/trades': typeof ApiTradesRouteWithChildren
   '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
-  '/api/bybit/api-key': typeof ApiBybitApiKeyRoute
-  '/api/bybit/sync': typeof ApiBybitSyncRoute
-  '/api/bybit/trades': typeof ApiBybitTradesRoute
+  '/api/binance-review/api-key': typeof ApiBinanceReviewApiKeyRoute
+  '/api/binance-review/sync': typeof ApiBinanceReviewSyncRoute
+  '/api/binance-review/trades': typeof ApiBinanceReviewTradesRoute
   '/api/execution/constitution': typeof ApiExecutionConstitutionRoute
   '/api/execution/execute': typeof ApiExecutionExecuteRoute
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
@@ -341,9 +341,9 @@ export interface FileRouteTypes {
     | '/api/trades'
     | '/api/watchlist'
     | '/token/$symbol'
-    | '/api/bybit/api-key'
-    | '/api/bybit/sync'
-    | '/api/bybit/trades'
+    | '/api/binance-review/api-key'
+    | '/api/binance-review/sync'
+    | '/api/binance-review/trades'
     | '/api/execution/constitution'
     | '/api/execution/execute'
     | '/api/execution/executions'
@@ -376,9 +376,9 @@ export interface FileRouteTypes {
     | '/api/trades'
     | '/api/watchlist'
     | '/token/$symbol'
-    | '/api/bybit/api-key'
-    | '/api/bybit/sync'
-    | '/api/bybit/trades'
+    | '/api/binance-review/api-key'
+    | '/api/binance-review/sync'
+    | '/api/binance-review/trades'
     | '/api/execution/constitution'
     | '/api/execution/execute'
     | '/api/execution/executions'
@@ -411,9 +411,9 @@ export interface FileRouteTypes {
     | '/api/trades'
     | '/api/watchlist'
     | '/token/$symbol'
-    | '/api/bybit/api-key'
-    | '/api/bybit/sync'
-    | '/api/bybit/trades'
+    | '/api/binance-review/api-key'
+    | '/api/binance-review/sync'
+    | '/api/binance-review/trades'
     | '/api/execution/constitution'
     | '/api/execution/execute'
     | '/api/execution/executions'
@@ -447,9 +447,9 @@ export interface RootRouteChildren {
   ApiTradesRoute: typeof ApiTradesRouteWithChildren
   ApiWatchlistRoute: typeof ApiWatchlistRoute
   TokenSymbolRoute: typeof TokenSymbolRoute
-  ApiBybitApiKeyRoute: typeof ApiBybitApiKeyRoute
-  ApiBybitSyncRoute: typeof ApiBybitSyncRoute
-  ApiBybitTradesRoute: typeof ApiBybitTradesRoute
+  ApiBinanceReviewApiKeyRoute: typeof ApiBinanceReviewApiKeyRoute
+  ApiBinanceReviewSyncRoute: typeof ApiBinanceReviewSyncRoute
+  ApiBinanceReviewTradesRoute: typeof ApiBinanceReviewTradesRoute
   ApiExecutionConstitutionRoute: typeof ApiExecutionConstitutionRoute
   ApiExecutionExecuteRoute: typeof ApiExecutionExecuteRoute
   ApiExecutionExecutionsRoute: typeof ApiExecutionExecutionsRoute
@@ -663,25 +663,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiExecutionConstitutionRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/bybit/trades': {
-      id: '/api/bybit/trades'
-      path: '/api/bybit/trades'
-      fullPath: '/api/bybit/trades'
-      preLoaderRoute: typeof ApiBybitTradesRouteImport
+    '/api/binance-review/trades': {
+      id: '/api/binance-review/trades'
+      path: '/api/binance-review/trades'
+      fullPath: '/api/binance-review/trades'
+      preLoaderRoute: typeof ApiBinanceReviewTradesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/bybit/sync': {
-      id: '/api/bybit/sync'
-      path: '/api/bybit/sync'
-      fullPath: '/api/bybit/sync'
-      preLoaderRoute: typeof ApiBybitSyncRouteImport
+    '/api/binance-review/sync': {
+      id: '/api/binance-review/sync'
+      path: '/api/binance-review/sync'
+      fullPath: '/api/binance-review/sync'
+      preLoaderRoute: typeof ApiBinanceReviewSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/bybit/api-key': {
-      id: '/api/bybit/api-key'
-      path: '/api/bybit/api-key'
-      fullPath: '/api/bybit/api-key'
-      preLoaderRoute: typeof ApiBybitApiKeyRouteImport
+    '/api/binance-review/api-key': {
+      id: '/api/binance-review/api-key'
+      path: '/api/binance-review/api-key'
+      fullPath: '/api/binance-review/api-key'
+      preLoaderRoute: typeof ApiBinanceReviewApiKeyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/execution/permit/$id': {
@@ -740,9 +740,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiTradesRoute: ApiTradesRouteWithChildren,
   ApiWatchlistRoute: ApiWatchlistRoute,
   TokenSymbolRoute: TokenSymbolRoute,
-  ApiBybitApiKeyRoute: ApiBybitApiKeyRoute,
-  ApiBybitSyncRoute: ApiBybitSyncRoute,
-  ApiBybitTradesRoute: ApiBybitTradesRoute,
+  ApiBinanceReviewApiKeyRoute: ApiBinanceReviewApiKeyRoute,
+  ApiBinanceReviewSyncRoute: ApiBinanceReviewSyncRoute,
+  ApiBinanceReviewTradesRoute: ApiBinanceReviewTradesRoute,
   ApiExecutionConstitutionRoute: ApiExecutionConstitutionRoute,
   ApiExecutionExecuteRoute: ApiExecutionExecuteRoute,
   ApiExecutionExecutionsRoute: ApiExecutionExecutionsRoute,

@@ -12,13 +12,13 @@ from app.database import Base
 class TradeReview(Base):
     __tablename__ = "trade_reviews"
     __table_args__ = (
-        sa.Index("trade_reviews_bybit_trade_id_version_idx", "bybit_trade_id", "version"),
+        sa.Index("trade_reviews_binance_trade_id_version_idx", "binance_trade_id", "version"),
     )
 
     id: Mapped[str] = mapped_column(
         String(36), primary_key=True, default=lambda: str(uuid.uuid4())
     )
-    bybit_trade_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    binance_trade_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     review_mode: Mapped[str] = mapped_column(String(20), default="normal", nullable=False)
     severity_score: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

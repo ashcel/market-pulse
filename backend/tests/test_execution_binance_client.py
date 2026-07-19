@@ -156,3 +156,45 @@ async def test_get_open_algo_orders_with_symbol() -> None:
     client._request.assert_awaited_once_with(
         "GET", "/fapi/v1/openAlgoOrders", {"symbol": "BTCUSDT"}
     )
+
+
+@pytest.mark.asyncio
+async def test_get_user_trades_sends_symbol_and_window() -> None:
+    client = BinanceExecClient("api-key", "secret", testnet=True)
+    client._request = AsyncMock(return_value=[{"id": 1}])
+
+    result = await client.get_user_trades("BTCUSDT", start_time=1000, end_time=2000, limit=500)
+
+    client._request.assert_awaited_once_with(
+        "GET",
+        "/fapi/v1/userTrades",
+        {"symbol": "BTCUSDT", "limit": 500, "startTime": 1000, "endTime": 2000},
+    )
+    assert result == [{"id": 1}]
+
+
+@pytest.mark.asyncio
+async def test_get_user_trades_omits_unset_optional_params() -> None:
+    client = BinanceExecClient("api-key", "secret", testnet=True)
+    client._request = AsyncMock(return_value=[])
+
+    await client.get_user_trades("BTCUSDT")
+
+    client._request.assert_awaited_once_with(
+        "GET", "/fapi/v1/userTrades", {"symbol": "BTCUSDT", "limit": 1000}
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_all_orders_sends_symbol_and_window() -> None:
+    client = BinanceExecClient("api-key", "secret", testnet=True)
+    client._request = AsyncMock(return_value=[{"orderId": 1}])
+
+    result = await client.get_all_orders("ETHUSDT", start_time=1000, end_time=2000, limit=200)
+
+    client._request.assert_awaited_once_with(
+        "GET",
+        "/fapi/v1/allOrders",
+        {"symbol": "ETHUSDT", "limit": 200, "startTime": 1000, "endTime": 2000},
+    )
+    assert result == [{"orderId": 1}]

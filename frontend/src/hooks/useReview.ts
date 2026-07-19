@@ -13,26 +13,31 @@ export class NotSignedInError extends Error {
 }
 
 const REVIEW_KEY = ["review"] as const;
-const BYBIT_KEY_STATUS_KEY = [...REVIEW_KEY, "bybit-key-status"] as const;
+const BINANCE_KEY_STATUS_KEY = [...REVIEW_KEY, "binance-key-status"] as const;
 const ANALYTICS_KEY = [...REVIEW_KEY, "analytics"] as const;
 const TRADES_KEY = [...REVIEW_KEY, "trades"] as const;
 const TRADE_REVIEW_KEY = [...REVIEW_KEY, "trade"] as const;
 
-// ── Bybit connection ────────────────────────────────────────────────────────
+// ── Binance connection ──────────────────────────────────────────────────────
+// Trade Review's own read-only Binance key (backend: app.binance_review) —
+// distinct from the live-execution key (app.execution.BinanceExecKey), which
+// gates order placement behind stricter withdrawal-scope/IP-allowlist checks
+// that don't apply to read-only history sync. See backend/app/binance_review/
+// service.py for the full rationale.
 
-export interface BybitKeyStatus {
+export interface BinanceKeyStatus {
   connected: boolean;
   lastSyncedAt: string | null;
   authenticated: boolean;
 }
 
-async function fetchBybitKeyStatus(): Promise<BybitKeyStatus> {
-  const res = await fetch("/api/bybit/api-key", { credentials: "same-origin" });
+async function fetchBinanceKeyStatus(): Promise<BinanceKeyStatus> {
+  const res = await fetch("/api/binance-review/api-key", { credentials: "same-origin" });
   if (res.status === 401) return { connected: false, lastSyncedAt: null, authenticated: false };
-  // BybitKeyNotFoundError → 404 when the user hasn't connected an account yet.
+  // BinanceReviewKeyNotFoundError → 404 when the user hasn't connected an account yet.
   if (res.status === 404) return { connected: false, lastSyncedAt: null, authenticated: true };
-  if (!res.ok) throw new Error(`bybit key status fetch failed: ${res.status}`);
-  // BybitApiKeyResponse: { id, user_id, api_key (masked), status, last_sync_at, ... }
+  if (!res.ok) throw new Error(`binance key status fetch failed: ${res.status}`);
+  // BinanceReviewKeyResponse: { id, user_id, api_key (masked), status, last_sync_at, ... }
   const body = (await res.json()) as {
     data: { status?: string; last_sync_at?: string | null } | null;
   };
@@ -43,23 +48,23 @@ async function fetchBybitKeyStatus(): Promise<BybitKeyStatus> {
   };
 }
 
-/** Whether the signed-in user has a Bybit API key on file (never exposes the secret). */
-export function useBybitKeyStatus() {
+/** Whether the signed-in user has a Trade Review Binance API key on file (never exposes the secret). */
+export function useBinanceKeyStatus() {
   const query = useQuery({
-    queryKey: BYBIT_KEY_STATUS_KEY,
-    queryFn: fetchBybitKeyStatus,
+    queryKey: BINANCE_KEY_STATUS_KEY,
+    queryFn: fetchBinanceKeyStatus,
     staleTime: 30_000,
   });
   const data = query.data ?? { connected: false, lastSyncedAt: null, authenticated: true };
   return { ...query, ...data };
 }
 
-/** Save (or replace) the Bybit API key + secret. Stored server-side — NOT BYOK. */
-export function useSaveBybitKey() {
+/** Save (or replace) the Binance API key + secret. Stored server-side — NOT BYOK. */
+export function useSaveBinanceKey() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: { apiKey: string; apiSecret: string }): Promise<void> => {
-      const res = await fetch("/api/bybit/api-key", {
+      const res = await fetch("/api/binance-review/api-key", {
         method: "POST",
         credentials: "same-origin",
         headers: { "content-type": "application/json" },
@@ -68,35 +73,39 @@ export function useSaveBybitKey() {
       if (res.status === 401) throw new NotSignedInError();
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-        throw new Error(body.error?.message ?? `save bybit key failed: ${res.status}`);
+        throw new Error(body.error?.message ?? `save binance key failed: ${res.status}`);
       }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: BYBIT_KEY_STATUS_KEY }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: BINANCE_KEY_STATUS_KEY }),
   });
 }
 
-/** Disconnect the Bybit account (removes the stored key+secret). */
-export function useDeleteBybitKey() {
+/** Disconnect the Binance account (removes the stored key+secret). */
+export function useDeleteBinanceKey() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (): Promise<void> => {
-      const res = await fetch("/api/bybit/api-key", {
+      const res = await fetch("/api/binance-review/api-key", {
         method: "DELETE",
         credentials: "same-origin",
       });
       if (res.status === 401) throw new NotSignedInError();
-      if (!res.ok && res.status !== 404) throw new Error(`delete bybit key failed: ${res.status}`);
+      if (!res.ok && res.status !== 404)
+        throw new Error(`delete binance key failed: ${res.status}`);
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: BYBIT_KEY_STATUS_KEY }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: BINANCE_KEY_STATUS_KEY }),
   });
 }
 
-/** Trigger a Bybit trade-history sync for the signed-in user. */
-export function useSyncBybit() {
+/** Trigger a Binance trade-history sync for the signed-in user. */
+export function useSyncBinance() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (): Promise<void> => {
-      const res = await fetch("/api/bybit/sync", { method: "POST", credentials: "same-origin" });
+      const res = await fetch("/api/binance-review/sync", {
+        method: "POST",
+        credentials: "same-origin",
+      });
       if (res.status === 401) throw new NotSignedInError();
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
@@ -106,7 +115,7 @@ export function useSyncBybit() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: TRADES_KEY });
       void queryClient.invalidateQueries({ queryKey: ANALYTICS_KEY });
-      void queryClient.invalidateQueries({ queryKey: BYBIT_KEY_STATUS_KEY });
+      void queryClient.invalidateQueries({ queryKey: BINANCE_KEY_STATUS_KEY });
     },
   });
 }
@@ -141,20 +150,22 @@ export interface ReviewTradesResult {
 }
 
 async function fetchReviewTrades(symbol?: string): Promise<ReviewTradesResult> {
-  // GET /bybit/trades filters by `symbol` (base+quote, e.g. "BTCUSDT") and
-  // paginates via page/per_page — there is no trade-status field on
-  // BybitTradeResponse (every synced trade is a closed round-trip).
+  // GET /binance-review/trades filters by `symbol` (base+quote, e.g.
+  // "BTCUSDT") and paginates via page/per_page — there is no trade-status
+  // field on BinanceTradeResponse (every synced trade is a closed round-trip).
   const params = new URLSearchParams();
   if (symbol) params.set("symbol", symbol);
   const qs = params.toString();
-  const res = await fetch(`/api/bybit/trades${qs ? `?${qs}` : ""}`, { credentials: "same-origin" });
+  const res = await fetch(`/api/binance-review/trades${qs ? `?${qs}` : ""}`, {
+    credentials: "same-origin",
+  });
   if (res.status === 401) return { trades: [], authenticated: false, total: 0 };
   if (!res.ok) throw new Error(`review trades fetch failed: ${res.status}`);
   const body = (await res.json()) as { data: ReviewTrade[]; meta: { total: number } };
   return { trades: body.data, authenticated: true, total: body.meta.total };
 }
 
-/** Synced Bybit trades feeding the Trade Review page (distinct from the manual /trades journal). */
+/** Synced Binance trades feeding the Trade Review page (distinct from the manual /trades journal). */
 export function useReviewTrades(symbol?: string) {
   const query = useQuery({
     queryKey: [...TRADES_KEY, symbol],

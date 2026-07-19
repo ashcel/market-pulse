@@ -18,7 +18,7 @@ from arq.cron import CronJob
 from app.config import settings
 
 from .binance import close_http_client
-from .bybit_sync_pass import run_bybit_sync_pass
+from .binance_review_sync_pass import run_binance_review_sync_pass
 from .passes import run_once
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -34,9 +34,9 @@ async def forward_test_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -> s
     return await run_once()
 
 
-async def bybit_sync_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -> str:  # noqa: ARG001
-    """Hourly background Bybit closed-PnL sync for every active-keyed user."""
-    return await run_bybit_sync_pass()
+async def binance_review_sync_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -> str:  # noqa: ARG001
+    """Hourly background Binance realized-PnL sync for every active-keyed user."""
+    return await run_binance_review_sync_pass()
 
 
 async def shutdown(_ctx: dict[Any, Any]) -> None:
@@ -53,7 +53,7 @@ class WorkerSettings:
             timeout=600,
         ),
         cron(
-            bybit_sync_tick,
+            binance_review_sync_tick,
             hour=set(range(24)),
             minute={3},
             run_at_startup=False,

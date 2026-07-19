@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Trash2, TrendingDown, TrendingUp } from "lucide-react";
 
 import { AssetIcon } from "@/components/features/asset-icon";
@@ -11,6 +11,8 @@ import { useForwardTestRecord } from "@/hooks/useForwardTestRecord";
 import { useForwardTestRecords } from "@/hooks/useForwardTestRecords";
 import { useLivePrice } from "@/hooks/useLivePrice";
 import { useTrackedFollows, useUnfollowSignal } from "@/hooks/useTrackedFollows";
+import { runAiAnalyst } from "@/lib/ai/client";
+import { resolveAiConfig } from "@/lib/ai/providers";
 import { INTENTS } from "@/lib/engine/intent";
 import {
   evaluateTrackedSignal,
@@ -18,14 +20,18 @@ import {
   summarizeTrackedSignals,
   type TrackedSignal,
   type TrackedSignalStatus,
+  type TrackedSignalSummary,
 } from "@/lib/engine/tracker";
 import {
   MIN_SHADOW_RECORD_TRADES,
   type ShadowSignal,
   type ShadowSignalStatus,
 } from "@/lib/engine/shadow";
+import { useAiSettingsStore } from "@/stores/ai-settings";
 import { formatEntryRange, formatMoney } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
+
+const PAGE_SIZE = 10;
 
 function humanize(value: string): string {
   return value
@@ -92,6 +98,51 @@ const FILTERS: { label: string; value: Filter }[] = [
 
 const INTENT_LABEL = new Map(INTENTS.map((def) => [def.intent, def.label]));
 
+/** Client-side page slice — both lists here are already fully fetched (no server-side paging in the underlying hooks). */
+function usePageSlice<T>(items: T[], page: number, pageSize = PAGE_SIZE) {
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const clampedPage = Math.min(Math.max(1, page), totalPages);
+  const start = (clampedPage - 1) * pageSize;
+  return { pageItems: items.slice(start, start + pageSize), totalPages, clampedPage };
+}
+
+function Pager({
+  page,
+  totalPages,
+  onPageChange,
+}: {
+  page: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex items-center justify-between gap-2 pt-1">
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-7 px-2.5 text-xs"
+        disabled={page <= 1}
+        onClick={() => onPageChange(page - 1)}
+      >
+        Prev
+      </Button>
+      <span className="text-xs text-muted-foreground">
+        Page {page} of {totalPages}
+      </span>
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-7 px-2.5 text-xs"
+        disabled={page >= totalPages}
+        onClick={() => onPageChange(page + 1)}
+      >
+        Next
+      </Button>
+    </div>
+  );
+}
+
 function TrackerPage() {
   const { data: records = [] } = useForwardTestRecords();
   const { follows: signals, authenticated } = useTrackedFollows();
@@ -110,6 +161,19 @@ function TrackerPage() {
     return true;
   });
 
+  const [autoPage, setAutoPage] = useState(1);
+  const [followPage, setFollowPage] = useState(1);
+
+  // Filters apply to both lists — jump both back to page 1 when they change,
+  // otherwise a filter switch can strand the viewer on a now-empty page.
+  useEffect(() => {
+    setAutoPage(1);
+    setFollowPage(1);
+  }, [filter]);
+
+  const autoSlice = usePageSlice(autoFiltered, autoPage);
+  const followSlice = usePageSlice(filtered, followPage);
+
   return (
     <div className="space-y-5 pb-20 lg:pb-6">
       <PageHeader
@@ -117,6 +181,8 @@ function TrackerPage() {
         title="Signal Tracker"
         subtitle="Every favored call the engine issues is tracked here automatically — follow one from a token's Execution Plan to forward-test your own entry alongside it."
       />
+
+      <TrackerMetricsCard signals={signals} summary={summary} />
 
       <EngineRecord />
 
@@ -156,9 +222,14 @@ function TrackerPage() {
         </IqCard>
       ) : (
         <div className="space-y-2.5">
-          {autoFiltered.map((signal) => (
+          {autoSlice.pageItems.map((signal) => (
             <AutoTrackedSignalRow key={signal.id} signal={signal} />
           ))}
+          <Pager
+            page={autoSlice.clampedPage}
+            totalPages={autoSlice.totalPages}
+            onPageChange={setAutoPage}
+          />
         </div>
       )}
 
@@ -208,10 +279,200 @@ function TrackerPage() {
         </IqCard>
       ) : (
         <div className="space-y-2.5">
-          {filtered.map((signal) => (
+          {followSlice.pageItems.map((signal) => (
             <TrackedSignalRow key={signal.id} signal={signal} />
           ))}
+          <Pager
+            page={followSlice.clampedPage}
+            totalPages={followSlice.totalPages}
+            onPageChange={setFollowPage}
+          />
         </div>
+      )}
+    </div>
+  );
+}
+
+interface TrackerMetrics {
+  opened: number;
+  closed: number;
+  total: number;
+  /** Mean realized R across closed (terminal) followed signals — null when there are none yet. */
+  currentRR: number | null;
+  winRate: number | null;
+  bestTrade: TrackedSignal | null;
+}
+
+function computeTrackerMetrics(
+  signals: TrackedSignal[],
+  summary: TrackedSignalSummary,
+): TrackerMetrics {
+  const bestTrade = signals
+    .filter((s) => isTerminalStatus(s.status) && typeof s.resultR === "number")
+    .reduce<TrackedSignal | null>((best, s) => {
+      if (!best) return s;
+      return (s.resultR ?? -Infinity) > (best.resultR ?? -Infinity) ? s : best;
+    }, null);
+
+  return {
+    opened: summary.open,
+    closed: summary.closed,
+    total: summary.total,
+    currentRR: summary.closed ? summary.averageR : null,
+    winRate: summary.closed ? summary.winRate : null,
+    bestTrade,
+  };
+}
+
+/**
+ * Top-of-page metrics summary — 6 tiles computed entirely from the tracker's
+ * own data (followed `TrackedSignal`s), never from a Binance/exchange
+ * account. The 6th tile (edge verdict) is the only AI-backed one and is
+ * generated on demand, not on mount.
+ */
+function TrackerMetricsCard({
+  signals,
+  summary,
+}: {
+  signals: TrackedSignal[];
+  summary: TrackedSignalSummary;
+}) {
+  const metrics = computeTrackerMetrics(signals, summary);
+  const bestTradeLabel = metrics.bestTrade
+    ? `${metrics.bestTrade.symbol} ${(metrics.bestTrade.resultR ?? 0) >= 0 ? "+" : ""}${metrics.bestTrade.resultR}R`
+    : "—";
+
+  return (
+    <IqCard className="space-y-3">
+      <CardEyebrow>Your Trading Metrics</CardEyebrow>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <StatTile label="Opened trades" value={String(metrics.opened)} />
+        <StatTile label="Closed trades" value={String(metrics.closed)} />
+        <StatTile label="Total trades" value={String(metrics.total)} />
+        <StatTile
+          label="Current RR"
+          value={
+            metrics.currentRR !== null
+              ? `${metrics.currentRR >= 0 ? "+" : ""}${metrics.currentRR}R`
+              : "—"
+          }
+          tone={
+            metrics.currentRR !== null
+              ? metrics.currentRR >= 0
+                ? "bullish"
+                : "bearish"
+              : undefined
+          }
+        />
+        <StatTile
+          label="Best trade"
+          value={bestTradeLabel}
+          tone={
+            metrics.bestTrade
+              ? (metrics.bestTrade.resultR ?? 0) >= 0
+                ? "bullish"
+                : "bearish"
+              : undefined
+          }
+        />
+        <EdgeVerdictTile metrics={metrics} />
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Current RR is the mean realized R across your closed followed signals — same figure as "Avg
+        R (closed)" below, surfaced here for a single at-a-glance summary.
+      </p>
+    </IqCard>
+  );
+}
+
+/** The one AI-backed tile — fires only on button click, result cached in state, never auto-refetched. */
+function EdgeVerdictTile({ metrics }: { metrics: TrackerMetrics }) {
+  const [verdict, setVerdict] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const aiProvider = useAiSettingsStore((s) => s.provider);
+  const aiApiKeys = useAiSettingsStore((s) => s.apiKeys);
+  const aiModels = useAiSettingsStore((s) => s.models);
+  const aiCustomBaseUrl = useAiSettingsStore((s) => s.customBaseUrl);
+  const aiConfig = useMemo(
+    () =>
+      resolveAiConfig({
+        provider: aiProvider,
+        apiKeys: aiApiKeys,
+        models: aiModels,
+        customBaseUrl: aiCustomBaseUrl,
+      }),
+    [aiProvider, aiApiKeys, aiModels, aiCustomBaseUrl],
+  );
+
+  const generateVerdict = async () => {
+    if (!aiConfig || loading) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const system =
+        "You are a terse trading coach reviewing a trader's own forward-tested track record. " +
+        "Reply with exactly one short sentence (max ~25 words) verdicting whether their edge is " +
+        "working, marginal, or broken right now, and the single main reason why. No hedging, no " +
+        "markdown, no preamble — just the sentence.";
+      const bestTradeText = metrics.bestTrade
+        ? `${metrics.bestTrade.symbol} at ${(metrics.bestTrade.resultR ?? 0) >= 0 ? "+" : ""}${metrics.bestTrade.resultR}R`
+        : "none closed yet";
+      const content =
+        `Track record: ${metrics.total} total followed signals, ${metrics.opened} still open, ` +
+        `${metrics.closed} closed. Win rate: ` +
+        `${metrics.winRate !== null ? `${metrics.winRate}%` : "n/a (no closed trades yet)"}. ` +
+        `Average R on closed trades: ` +
+        `${metrics.currentRR !== null ? `${metrics.currentRR >= 0 ? "+" : ""}${metrics.currentRR}R` : "n/a"}. ` +
+        `Best trade: ${bestTradeText}.`;
+      const text = await runAiAnalyst({
+        config: aiConfig,
+        system,
+        messages: [{ role: "user", content }],
+        maxTokens: 120,
+      });
+      setVerdict(text);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Verdict generation failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="col-span-2 rounded-lg border border-border bg-surface p-2.5 sm:col-span-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Current best edge verdict
+        </div>
+        {aiConfig && (
+          <button
+            onClick={generateVerdict}
+            disabled={loading}
+            className="shrink-0 rounded-md border border-info/30 bg-info-soft px-2 py-0.5 text-[10px] font-medium text-info transition-colors hover:bg-info-soft/80 disabled:opacity-50"
+          >
+            {loading ? "Generating…" : verdict ? "Regenerate" : "Generate verdict"}
+          </button>
+        )}
+      </div>
+
+      {!aiConfig ? (
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Add an AI key in{" "}
+          <Link to="/settings" className="font-medium text-info underline-offset-2 hover:underline">
+            Settings
+          </Link>{" "}
+          to generate an on-demand edge verdict.
+        </p>
+      ) : error ? (
+        <p className="mt-1 text-[11px] text-bearish">{error}</p>
+      ) : verdict ? (
+        <p className="mt-1 text-xs leading-relaxed">{verdict}</p>
+      ) : (
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Tap "Generate verdict" for an AI read on your current edge, based on the metrics above.
+        </p>
       )}
     </div>
   );

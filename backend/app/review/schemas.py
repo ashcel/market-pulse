@@ -3,7 +3,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.bybit.schemas import BybitTradeResponse
+from app.binance_review.schemas import BinanceTradeResponse
 
 
 class TradeReviewCreate(BaseModel):
@@ -20,7 +20,7 @@ class TradeReviewResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    bybit_trade_id: str
+    binance_trade_id: str
     user_id: str
     review_mode: str
     severity_score: int
@@ -92,8 +92,8 @@ class StyleSuitability(BaseModel):
 class AnalyticsData(BaseModel):
     total_trades: int
     rr: RRMetrics
-    best_trade: BybitTradeResponse | None = None
-    worst_trade: BybitTradeResponse | None = None
+    best_trade: BinanceTradeResponse | None = None
+    worst_trade: BinanceTradeResponse | None = None
     time_range: HourRange | None = None
     worst_time_range: HourRange | None = None
     sessions: SessionSplit
