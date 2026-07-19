@@ -20,10 +20,11 @@ import {
   summarizeTrackedSignals,
   type TrackedSignal,
   type TrackedSignalStatus,
-  type TrackedSignalSummary,
 } from "@/lib/engine/tracker";
 import {
   MIN_SHADOW_RECORD_TRADES,
+  summarizeShadowRecord,
+  type ShadowRecordSummary,
   type ShadowSignal,
   type ShadowSignalStatus,
 } from "@/lib/engine/shadow";
@@ -182,7 +183,7 @@ function TrackerPage() {
         subtitle="Every favored call the engine issues is tracked here automatically — follow one from a token's Execution Plan to forward-test your own entry alongside it."
       />
 
-      <TrackerMetricsCard signals={signals} summary={summary} />
+      <TrackerMetricsCard records={records} summary={summarizeShadowRecord(records)} />
 
       <EngineRecord />
 
@@ -297,19 +298,19 @@ interface TrackerMetrics {
   opened: number;
   closed: number;
   total: number;
-  /** Mean realized R across closed (terminal) followed signals — null when there are none yet. */
+  /** Mean realized R across closed (terminal) auto-tracked signals — null when there are none yet. */
   currentRR: number | null;
   winRate: number | null;
-  bestTrade: TrackedSignal | null;
+  bestTrade: ShadowSignal | null;
 }
 
 function computeTrackerMetrics(
-  signals: TrackedSignal[],
-  summary: TrackedSignalSummary,
+  records: ShadowSignal[],
+  summary: ShadowRecordSummary,
 ): TrackerMetrics {
-  const bestTrade = signals
-    .filter((s) => isTerminalStatus(s.status) && typeof s.resultR === "number")
-    .reduce<TrackedSignal | null>((best, s) => {
+  const bestTrade = records
+    .filter((s) => s.status !== "active" && typeof s.resultR === "number")
+    .reduce<ShadowSignal | null>((best, s) => {
       if (!best) return s;
       return (s.resultR ?? -Infinity) > (best.resultR ?? -Infinity) ? s : best;
     }, null);
@@ -325,26 +326,27 @@ function computeTrackerMetrics(
 }
 
 /**
- * Top-of-page metrics summary — 6 tiles computed entirely from the tracker's
- * own data (followed `TrackedSignal`s), never from a Binance/exchange
+ * Top-of-page metrics summary — 6 tiles computed entirely from the engine's
+ * auto-tracked forward-test signals (`ShadowSignal`s, the "Signals the Engine
+ * Is Tracking" list), never from the user's own follows or a Binance/exchange
  * account. The 6th tile (edge verdict) is the only AI-backed one and is
  * generated on demand, not on mount.
  */
 function TrackerMetricsCard({
-  signals,
+  records,
   summary,
 }: {
-  signals: TrackedSignal[];
-  summary: TrackedSignalSummary;
+  records: ShadowSignal[];
+  summary: ShadowRecordSummary;
 }) {
-  const metrics = computeTrackerMetrics(signals, summary);
+  const metrics = computeTrackerMetrics(records, summary);
   const bestTradeLabel = metrics.bestTrade
     ? `${metrics.bestTrade.symbol} ${(metrics.bestTrade.resultR ?? 0) >= 0 ? "+" : ""}${metrics.bestTrade.resultR}R`
     : "—";
 
   return (
     <IqCard className="space-y-3">
-      <CardEyebrow>Your Trading Metrics</CardEyebrow>
+      <CardEyebrow>Engine Auto-Track Metrics</CardEyebrow>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         <StatTile label="Opened trades" value={String(metrics.opened)} />
         <StatTile label="Closed trades" value={String(metrics.closed)} />
@@ -378,8 +380,8 @@ function TrackerMetricsCard({
         <EdgeVerdictTile metrics={metrics} />
       </div>
       <p className="text-[11px] text-muted-foreground">
-        Current RR is the mean realized R across your closed followed signals — same figure as "Avg
-        R (closed)" below, surfaced here for a single at-a-glance summary.
+        Computed from every call the engine auto-tracks (not your own follows). Current RR is the
+        mean realized R across closed auto-tracked signals.
       </p>
     </IqCard>
   );
@@ -412,15 +414,15 @@ function EdgeVerdictTile({ metrics }: { metrics: TrackerMetrics }) {
     setError(null);
     try {
       const system =
-        "You are a terse trading coach reviewing a trader's own forward-tested track record. " +
-        "Reply with exactly one short sentence (max ~25 words) verdicting whether their edge is " +
+        "You are a terse trading coach reviewing the engine's auto-tracked forward-test record. " +
+        "Reply with exactly one short sentence (max ~25 words) verdicting whether the engine's edge is " +
         "working, marginal, or broken right now, and the single main reason why. No hedging, no " +
         "markdown, no preamble — just the sentence.";
       const bestTradeText = metrics.bestTrade
         ? `${metrics.bestTrade.symbol} at ${(metrics.bestTrade.resultR ?? 0) >= 0 ? "+" : ""}${metrics.bestTrade.resultR}R`
         : "none closed yet";
       const content =
-        `Track record: ${metrics.total} total followed signals, ${metrics.opened} still open, ` +
+        `Track record: ${metrics.total} total auto-tracked signals, ${metrics.opened} still open, ` +
         `${metrics.closed} closed. Win rate: ` +
         `${metrics.winRate !== null ? `${metrics.winRate}%` : "n/a (no closed trades yet)"}. ` +
         `Average R on closed trades: ` +
