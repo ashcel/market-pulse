@@ -27,6 +27,7 @@ import { PROVIDERS, PROVIDER_ORDER, resolveAiConfig } from "@/lib/ai/providers";
 import { useBybitKeyStatus, useDeleteBybitKey, useSaveBybitKey } from "@/hooks/useReview";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { TradingConstitutionCard } from "@/components/features/trading-constitution-card";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -106,6 +107,8 @@ function SettingsPage() {
       </IqCard>
 
       <AccountSecurityCard />
+
+      <TradingConstitutionCard />
 
       <TradeRiskCard />
 

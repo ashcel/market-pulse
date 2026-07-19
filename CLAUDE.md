@@ -76,10 +76,16 @@ File-based routing lives in `src/routes/` — do not create `src/pages/` or Next
 ## Architecture
 
 Mobile-first crypto decision assistant. Product direction is pinned by
-`docs/decisions/0017-product-direction.md` (2026-07-14 audit): decision
-journal + intelligence brief + behavior review; the engine is a context
-instrument pending its 1.0.0 verdict, AI is a BYOK complement, and R-multiples
-are shown only where a stop order is evidenced (else % + MAE/MFE). Three planes:
+`docs/decisions/0017-product-direction.md` (2026-07-14 audit) **as amended by
+`0020-live-execution-direction.md` (2026-07-19)**: decision journal +
+intelligence brief + behavior review, now plus **user-confirmed live execution
+via Binance** — never auto-trading; a deterministic server-side Trading
+Constitution gates every IQ-placed order and no AI output can override a
+hard-limit rejection. The engine is a context instrument pending its 2.0.0
+verdict, AI is a BYOK complement (as CRO it narrates/gates, never originates
+signals), and R-multiples are shown only where a stop order is evidenced
+(else % + MAE/MFE). Execution ships behind a default-off kill switch,
+testnet-first; withdrawal-scoped keys are still rejected outright. Three planes:
 
 ### 1. Client dashboard (single market snapshot)
 

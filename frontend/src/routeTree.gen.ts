@@ -34,6 +34,7 @@ import { Route as ApiAuthRouteImport } from './routes/api/auth'
 import { Route as ApiTradesIdRouteImport } from './routes/api/trades.$id'
 import { Route as ApiReviewAnalyticsRouteImport } from './routes/api/review.analytics'
 import { Route as ApiReviewIdRouteImport } from './routes/api/review.$id'
+import { Route as ApiExecutionConstitutionRouteImport } from './routes/api/execution.constitution'
 import { Route as ApiBybitTradesRouteImport } from './routes/api/bybit.trades'
 import { Route as ApiBybitSyncRouteImport } from './routes/api/bybit.sync'
 import { Route as ApiBybitApiKeyRouteImport } from './routes/api/bybit.api-key'
@@ -163,6 +164,12 @@ const ApiReviewIdRoute = ApiReviewIdRouteImport.update({
   path: '/api/review/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiExecutionConstitutionRoute =
+  ApiExecutionConstitutionRouteImport.update({
+    id: '/api/execution/constitution',
+    path: '/api/execution/constitution',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiBybitTradesRoute = ApiBybitTradesRouteImport.update({
   id: '/api/bybit/trades',
   path: '/api/bybit/trades',
@@ -205,6 +212,7 @@ export interface FileRoutesByFullPath {
   '/api/bybit/api-key': typeof ApiBybitApiKeyRoute
   '/api/bybit/sync': typeof ApiBybitSyncRoute
   '/api/bybit/trades': typeof ApiBybitTradesRoute
+  '/api/execution/constitution': typeof ApiExecutionConstitutionRoute
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
@@ -235,6 +243,7 @@ export interface FileRoutesByTo {
   '/api/bybit/api-key': typeof ApiBybitApiKeyRoute
   '/api/bybit/sync': typeof ApiBybitSyncRoute
   '/api/bybit/trades': typeof ApiBybitTradesRoute
+  '/api/execution/constitution': typeof ApiExecutionConstitutionRoute
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
@@ -266,6 +275,7 @@ export interface FileRoutesById {
   '/api/bybit/api-key': typeof ApiBybitApiKeyRoute
   '/api/bybit/sync': typeof ApiBybitSyncRoute
   '/api/bybit/trades': typeof ApiBybitTradesRoute
+  '/api/execution/constitution': typeof ApiExecutionConstitutionRoute
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
@@ -298,6 +308,7 @@ export interface FileRouteTypes {
     | '/api/bybit/api-key'
     | '/api/bybit/sync'
     | '/api/bybit/trades'
+    | '/api/execution/constitution'
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
@@ -328,6 +339,7 @@ export interface FileRouteTypes {
     | '/api/bybit/api-key'
     | '/api/bybit/sync'
     | '/api/bybit/trades'
+    | '/api/execution/constitution'
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
@@ -358,6 +370,7 @@ export interface FileRouteTypes {
     | '/api/bybit/api-key'
     | '/api/bybit/sync'
     | '/api/bybit/trades'
+    | '/api/execution/constitution'
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
@@ -389,6 +402,7 @@ export interface RootRouteChildren {
   ApiBybitApiKeyRoute: typeof ApiBybitApiKeyRoute
   ApiBybitSyncRoute: typeof ApiBybitSyncRoute
   ApiBybitTradesRoute: typeof ApiBybitTradesRoute
+  ApiExecutionConstitutionRoute: typeof ApiExecutionConstitutionRoute
   ApiReviewIdRoute: typeof ApiReviewIdRoute
   ApiReviewAnalyticsRoute: typeof ApiReviewAnalyticsRoute
 }
@@ -570,6 +584,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiReviewIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/execution/constitution': {
+      id: '/api/execution/constitution'
+      path: '/api/execution/constitution'
+      fullPath: '/api/execution/constitution'
+      preLoaderRoute: typeof ApiExecutionConstitutionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/bybit/trades': {
       id: '/api/bybit/trades'
       path: '/api/bybit/trades'
@@ -632,6 +653,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiBybitApiKeyRoute: ApiBybitApiKeyRoute,
   ApiBybitSyncRoute: ApiBybitSyncRoute,
   ApiBybitTradesRoute: ApiBybitTradesRoute,
+  ApiExecutionConstitutionRoute: ApiExecutionConstitutionRoute,
   ApiReviewIdRoute: ApiReviewIdRoute,
   ApiReviewAnalyticsRoute: ApiReviewAnalyticsRoute,
 }

@@ -9,6 +9,12 @@ Direction (agreed 2026-07-14, see the audit conversation and the EDR M0 produces
 > behavior with honest metrics. It is read-only: it never executes or manages
 > trades.
 
+**Amended 2026-07-19 (EDR 0020):** the read-only clause is superseded. IQ
+supports **user-confirmed live execution via Binance** through M9's
+Trade-Permit path — never auto-trading; a deterministic server-side
+constitution binds every IQ-placed order and no AI output can override a
+hard-limit rejection. Everything else above stands.
+
 ## Milestone map
 
 | #  | Milestone                                   | File                          | Tasks | Target window    |
@@ -22,6 +28,7 @@ Direction (agreed 2026-07-14, see the audit conversation and the EDR M0 produces
 | M6 | Pre-trade skip check                        | `M6-pre-trade-skip-check.md`  | 6     | Aug 19 – Aug 23  |
 | M7 | TradFi mode (Binance TradFi tickers)        | `M7-tradfi-mode.md`           | 10    | Aug 24 – Aug 31  |
 | M8 | Productization                              | `M8-productization.md`        | 10    | Sep 01 – Sep 08  |
+| M9 | Execution plane — risk desk & trade permits | `M9-execution-plane.md`       | 14    | owner-scheduled  |
 
 Dates assume the agent runs daily and completes 1–2 tasks/day. They are
 targets, not commitments: **a task is done when its Definition of Done is
@@ -71,8 +78,12 @@ run the one-time D-T0 tool-availability check in `DELEGATION.md`.
 - **No outcome peeking** at the 1.0.0 shadow record beyond
   `bun run record:report --integrity` (per `research/verdict-protocol-1.0.0.md`).
   User-trade analytics are a different record and are unrestricted.
-- **Read-only forever:** no order placement, no order management, no
-  withdrawal scopes, ever. API keys are validated to be trade-disabled (M1-T3).
+- **Execution only through the permit path (amended by EDR 0020):** order
+  placement exists solely inside M9's permit-gated, user-confirmed,
+  kill-switched path. Outside M9 tasks, no task may place or manage orders.
+  **Withdrawal scopes are rejected at intake, always.** Sync keys remain
+  read-only-validated (M1-T3); the designated execution key is its own class
+  (M9-T6).
 - **No fake precision:** every user-facing number needs a definition and an
   evidence basis. R is only computed where a stop is evidenced; cohort claims
   need the M5 protocol's minimum n; below it, render "insufficient evidence"
@@ -106,5 +117,7 @@ see their full trade history reconstructed and context-stamped, read honest
 per-trade forensics and (where n allows) cohort claims about their own
 behavior, get an AI-written daily brief grounded only in persisted data, run a
 pre-trade skip check that is willing to say "no opinion", and do all of it for
-TradFi instruments as well as crypto — with zero trades ever executed by the
-product.
+TradFi instruments as well as crypto. When they choose to execute (M9), every
+order first earns a Trade Permit from the deterministic risk desk, is
+explicitly confirmed by the user, and lands with its stop attached — the
+product never trades on its own.

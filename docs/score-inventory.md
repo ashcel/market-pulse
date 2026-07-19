@@ -117,3 +117,115 @@ Pulse Score" (`asset.score`, distinct from `asset.confidence`), the rankings
 "Momentum"/"Volume" columns, the Engine's Live Record shadow-record stats on
 `/tracker`, and the Phase 0.5 anticipatory fill-record note on the token page —
 all added above.
+
+---
+
+## Addendum (M9-T4, 2026-07-19): EDR 0020 decision 5 execution-surface audit
+
+**Purpose:** M9-T4 built the deterministic **Trade Quality Score**
+(`backend/app/execution/quality_score.py`, rubric in
+`docs/trade-quality-score.md`) to replace "AI confidence" framing on
+execution surfaces per EDR 0020 decision 5. This addendum re-audits the same
+kind of "confidence"/win-rate renders as the M0-T4 table above, scoped to
+whether they'd read as **win-probability** framing on an **execution-
+adjacent** surface, and what — if anything — is still pending.
+
+**Method:** started from a first-pass grep-based sweep, then every hit below
+was re-verified directly against current source (2026-07-19) before writing
+this addendum. Correction to the first pass: it under-detected how many
+sites already carry a disclaimer — most of the M0-T5a/b/c "resolved" rows
+above are exactly why. The real gaps left are narrower than the first pass
+implied.
+
+Legend: **Compliant** = already carries a disclaimer materially equivalent
+to `SCORE_DISCLAIMER` in `quality_score.py`, no action needed. **Legit
+outcome stat** = a real, n-gated win-rate from the user's own trade history
+— keep, not a prediction claim. **Pending action** = listed as a follow-up,
+not made in this task. **Flag for owner** = touches a decision EDR 0020
+leaves explicitly open.
+
+### Frontend routes
+
+| Site | Shows | Status | Action |
+|---|---|---|---|
+| `token.$symbol.tsx:3800` `ContextPill` "Signal" (AI analyst sheet) | `evaluation.confidence/100` | Compliant — `title="Heuristic checklist score, not a proven-edge probability."` | none |
+| `token.$symbol.tsx:3962` AI memo copy | `${e.confidence}/100 (heuristic checklist score, not a win probability)` | Compliant — inline | none |
+| `token.$symbol.tsx:2976` `AnticipatoryRecordNote` | `${winRate}% wins, ${averageR}R avg over N settled` | Legit outcome stat — real filled-limit results, `lowSample` → "treat as anecdote", shows `N settled` | none |
+| `index.tsx:247` regime `MetricCard` footer | `regime.data.confidence%` | Compliant — `title="...not a calibrated probability."` | none |
+| `index.tsx:535` TopSetups list | `a.confidence/100` | Compliant — sibling `title="Heuristic checklist score, not a proven-edge probability."` | none |
+| `technical.tsx:111` `ConfidenceGauge` "Overall" | `signalsData.confidence` | Compliant — paragraph at `:120` states "not the probability the trade wins" | none |
+| `technical.tsx:49` onboarding tour step | tour copy | Compliant — "not a probability of success" | none |
+| `rankings.tsx:309` Signal column value | `a.confidence` | Compliant, weakly — disclaimer lives on the column **header**'s `title` (`:226`), not the cell | **Pending (low priority):** header tooltips aren't reachable on touch; consider a cell-level `title` too or a persistent inline note |
+| `regime.tsx:77` `ConfidenceGauge` "Confidence" | `data.confidence` | Compliant — paragraph below: "not a calibrated probability" | none |
+| `rotation.tsx:92,97` Rotation Confidence | `rotation.data.confidence%` | Compliant — label `title`: "...not an independently calibrated probability" | none |
+
+### `review.tsx` + `app/review/` (real trade outcomes, not predictions)
+
+Per this task's brief: these are evidenced win rates from the user's own
+closed trades, gated by sample size — legitimate outcome stats, not
+prediction claims. **Keep as-is**, not replaced.
+
+| Site | Shows | n-gating |
+|---|---|---|
+| `review.tsx:328` best-hour tile | `win_rate% · n=sample_size` | yes, falls back to "Not enough data yet" |
+| `review.tsx:344` worst-hour tile | same shape | yes |
+| `review.tsx:443,463` style-breakdown table | per-style `win_rate` | cells show `—` when `row.n === 0` |
+| `review.tsx:360,363` style-suitability badge | `analytics.style.confidence` ("high"/"low") + `data_quality` | a **data-sufficiency** indicator (trust in the sample), paired with an explicit `data_quality` string — a different concept from engine/AI win-probability framing; no action |
+| `review/schemas.py:56,62,74` (`HourRange`/`SessionStats`/`StyleBucket`.`win_rate`) | backs the tiles above | legit outcome stat |
+| `review/schemas.py:88`, `analytics.py:96` (`StyleSuitability.confidence: "low"\|"high"`) | data-sufficiency flag | compliant / different concept, no action |
+| `review/analytics.py:257`, `review/service.py:128` | win_rate compute + wiring | legit outcome stat |
+
+### `src/lib/ai/analyst-context.ts` (AI prompt construction — not directly rendered, but shapes what the model says)
+
+| Site | Feeds the AI | Status | Action |
+|---|---|---|---|
+| `:115` liquidity pool | `confidence ${p.confidence}/100` | **Pending action** | no qualifier in the prompt text |
+| `:133` signal eval | `Confidence: ${e.confidence}/100` | **Pending action** | same |
+| `:196` per-objective assessment | `Confidence: ${a.confidence}/100` | **Pending action** | same |
+| `:266` upcoming catalyst | `confidence ${e.confidencePct}%` | **Pending action** | same |
+| `:141` backtest line | `${winRate}% win rate, expectancy ${expectancy}R (in-sample..., not forward-tested${lowSample ? "; low sample" : ""})` | **Flag for owner** | see below |
+
+**Pending action (4 sites):** unlike every frontend route hit, none of these
+prompt-text "confidence" mentions carry an inline "heuristic, not a
+win-probability" qualifier, and there's no blanket framing rule anywhere
+else in the file (checked: no "not a calibrated probability"/"not a win
+probability" language elsewhere in `analyst-context.ts`). A model reading
+`Confidence: 82/100` unqualified could narrate it back as "82% chance" —
+AI-confidence framing on an analyst surface the token page treats as
+execution-adjacent. Recommended fix (not made here): one blanket line near
+the top of the built prompt — e.g. "All 'confidence'/'score' figures below
+are rule-based checklist scores, not win probabilities; never state or
+imply a numeric win-probability" — instead of four separate edits. Left as
+a follow-up because `analyst-context.ts` has its own prompt-budget test
+(`analyst-context.test.ts`) that a change here should run against, and this
+task's test-running scope was restricted to the new Python quality-score
+suite only.
+
+**Flag for owner (`:141` backtest win-rate/expectancy):** EDR 0020's "What
+this does not change" section states: *"no backtest-derived win-rate/
+expectancy numbers return to the UI via this direction change."* This line
+already carries real caveats (in-sample, not forward-tested, low-sample
+warning) and is prompt-context rather than a direct UI render, but it is a
+backtest-derived win-rate/expectancy value reaching a model that then talks
+to the user — arguably the thing that sentence warns about, one layer
+removed. EDR 0020 says this "needs its own decision record against the M0
+score-honesty rules if pursued" — not a simple relabel. Recommend the owner
+either (a) explicitly re-affirms this prompt-only usage in an EDR/ADR, or
+(b) strips the line from the prompt. Not decided or edited here.
+
+### Summary
+
+- 10 frontend route sites re-audited: **9 already compliant**, **1 low-
+  priority pending action** (rankings.tsx touch-accessibility).
+- `review.tsx` (4 sites) + backend `review/` (4 sites): all legit outcome
+  stats or a distinct data-sufficiency concept, already n-gated — kept as-is
+  per this task's explicit instruction.
+- `analyst-context.ts`: **4 pending actions** (one shared prompt qualifier
+  covers all) **+ 1 flagged item for owner decision** (backtest line).
+- **Total pending/flagged carried forward: 6.**
+- **Not yet applicable:** the Trade Permit/ticket UI (M9-T5, T9) doesn't
+  exist yet, so there is no execution-surface render of the new
+  `TradeQualityScore` to audit today. When that UI ships it must use
+  `SCORE_DISCLAIMER` from `quality_score.py` verbatim (or a close
+  paraphrase) per `docs/trade-quality-score.md` — add it to this addendum
+  at that time.

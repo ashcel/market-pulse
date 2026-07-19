@@ -15,6 +15,11 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from app.auth.models import User  # noqa: F401
 from app.bybit.models import BybitApiKey, BybitSyncLog, BybitTrade  # noqa: F401
 from app.database import Base
+from app.execution.models import (  # noqa: F401
+    ConstitutionAudit,
+    TradePermit,
+    TradingConstitution,
+)
 from app.forward_test.models import (  # noqa: F401
     AnticipatorySignalRow,
     EngineRun,

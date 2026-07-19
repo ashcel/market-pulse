@@ -76,6 +76,27 @@ PROGRESS.md). Ordered by when they're first needed. ☐ = pending.
 - ☐ **U17 — CI deploy secrets (if U2 chose manual earlier).** M8-T5 revisits
   automation; same GitHub-secrets need as U2.
 
+## During M9 (execution plane — EDR 0020)
+
+- ☐ **U20 — EDR 0020 sign-off.** Like U3: the execution EDR encodes owner
+  decisions (custody flip, permit model, rollout gates). Approve it before
+  M9 work starts — it is your decision record.
+- ☑ **U21 — Binance testnet account + key.** DONE 2026-07-19 — testnet key
+  created. Enter it in Settings when M9-T6 lands. All of Phase C runs against it.
+- ◐ **U22 — Execution-key live tests.** (b) DONE — real execution key exists,
+  read + futures-trade scope, **no withdrawal**, IP-restricted to this server.
+  (a) STILL PENDING — proving the hard withdrawal-scope rejection *live* needs a
+  throwaway withdrawal-enabled key briefly; T6 ships fixture rejection tests
+  meanwhile. NOTE: this live futures-trade key on the dev-and-prod box is
+  exactly the U24 risk — keep `EXECUTION_ENABLED` off until U24 is recorded.
+- ☐ **U23 — Kill-switch custody.** `EXECUTION_ENABLED` lives only in the
+  service env file, set by you, default off. The agent never flips it; never
+  commit it.
+- ☐ **U24 — Infrastructure isolation decision (blocks mainnet).** This VPS is
+  dev-and-prod with push-to-main restarts; decide before M9-T13: separate
+  execution host/service, or documented hardening on this box. Recorded in
+  EDR 0020; mainnet stays disabled until then.
+
 ## Standing
 
 - **New packages:** the 24h supply-chain guard may block fresh releases; the

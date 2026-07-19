@@ -88,6 +88,18 @@ override task order.
 - Needs restart: yes (the live service serves the homepage; a restart picks up the new route bundle)
 - Flags for user: Screenshots cannot be captured headlessly in cron context — please verify visually that homepage no longer implies proven edge. Tour seen-key NOT bumped (v2) — users who dismissed the tour won't see reworded steps unless they reopen via the help button; bump to v3 if desired.
 
+## 2026-07-19 — M9-T1..T5 Execution-plane Phase A (deterministic core)
+- Implemented by: claude-code subagents — sonnet (T1 constitution, T3 sizing, T2 risk engine, T4 quality score, T5 permit) + haiku (T4 confidence-render inventory sweep, read-only). Orchestrated in 3 dependency-ordered waves.
+- Verdict trail: ACCEPT (all five, single attempt each; orchestrator-verified in-tree)
+- Changed: new `backend/app/execution/` plane — `constants.py`, `validation.py`, `models.py` (TradingConstitution + ConstitutionAudit + TradePermit, all insert-only), `schemas.py`, `service.py`, `permit_service.py` (no-update), `router.py`, `risk_engine.py` (pure `evaluate_permit`, 12 hard checks), `sizing.py` (pure `size_position`), `quality_score.py` (pure, 6 components, SCORE_DISCLAIMER). Migrations `fd1fec87d5d7` (constitution) + `275e4b30275e` (trade_permit), chained to head; `env.py` model imports. Frontend: `routes/api/execution.constitution.ts`, `hooks/useConstitution.ts`, `components/features/trading-constitution-card.tsx`, wired into `settings.tsx`. Docs: `trade-quality-score.md` (rubric), `score-inventory.md` (M9 addendum).
+- Verified: `pytest tests/test_execution_*.py` → 1193 passed (31+1104+24+27+7); `ruff check app/execution tests/test_execution_*.py` → clean; `alembic heads` → single linear head 275e4b30275e (no branch); `frontend tsc --noEmit` → clean. All tests PURE — never ran the DB-touching suite against the production DB; migrations hand-written, never executed.
+- Needs restart: no (kill switch off; no service wiring flipped)
+- Flags for user:
+  - **DB migrations NOT applied.** Two new Alembic migrations (`fd1fec87d5d7`, `275e4b30275e`) are hand-written and unrun — production DB. Owner applies when ready: `cd backend && .venv/bin/alembic upgrade head`.
+  - **Phase B–E (T6–T14) not started — blocked on owner actions U21–U24** (testnet key, live withdrawal-key rejection test + IP-allowlisted exec key, kill-switch custody, infra-isolation decision). Real-money/security surface; not built without those.
+  - **Owner decision owed:** `analyst-context.ts:141` feeds backtest win-rate/expectancy into the AI prompt — brushes EDR 0020 evidence-discipline; needs its own EDR before edit (T4 flagged). Plus 6 pending UI/prompt label follow-ups listed in `docs/score-inventory.md`.
+  - Nothing committed — changes left in working tree for owner review.
+
 ## 2026-07-15 — M0-T2 Write EDR 0017 (product direction)
 - Implemented by: claude-code (rank 1; single attempt)
 - Verdict trail: ACCEPT (single attempt)
