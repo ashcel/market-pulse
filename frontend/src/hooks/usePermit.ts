@@ -61,7 +61,10 @@ export function usePermit() {
       return;
     }
 
-    const expiresAt = new Date(permit.decision.expires_at).getTime();
+    const expiresAtStr = permit.decision.expires_at.endsWith("Z")
+      ? permit.decision.expires_at
+      : permit.decision.expires_at + "Z";
+    const expiresAt = new Date(expiresAtStr).getTime();
 
     const updateTimer = () => {
       const now = Date.now();

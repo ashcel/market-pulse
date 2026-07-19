@@ -32,7 +32,7 @@ export function TradeActionOverlay({
       const y = series.priceToCoordinate(plan.entry);
       const timeScale = chart.timeScale();
       const chartWidth = timeScale.width();
-      const x = chartWidth - 140; // 140px from right edge to give room for price scale and labels
+      const x = chartWidth - 160; // Increased margin from 140 to 160px
 
       if (y !== null && x > 0 && y > 0) {
         setPosition({ top: y, left: x });
@@ -93,7 +93,7 @@ export function TradeActionOverlay({
         )}
       >
         <Zap className="h-3.5 w-3.5" />
-        {isLong ? "LONG" : "SHORT"}
+        {isLong ? "Long" : "Short"}
       </Button>
     </div>
   );

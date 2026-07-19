@@ -14,6 +14,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Sidebar } from "../components/features/sidebar";
 import { TopBar } from "../components/features/top-bar";
 import { BottomNav } from "../components/features/bottom-nav";
+import { FloatingPnlWidget } from "../components/features/floating-pnl-widget";
 import { ThemeSync } from "../components/features/theme-sync";
 import { Toaster } from "../components/ui/sonner";
 import { useLiveUniverseSubscription } from "../hooks/useLiveUniverseSubscription";
@@ -154,6 +155,7 @@ function RootContent() {
         </div>
         <BottomNav />
       </div>
+      <FloatingPnlWidget />
     </>
   );
 }

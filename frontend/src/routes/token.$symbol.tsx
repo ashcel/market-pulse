@@ -75,7 +75,7 @@ import { Change } from "@/components/features/change";
 import { ChartEventPopup, ChartEventStrip } from "@/components/features/chart-event-strip";
 import { ZonesPrimitive, type PriceZone } from "@/components/features/chart-zones";
 import { ConfidenceGauge } from "@/components/features/confidence-gauge";
-import { ExecutionPanel } from "@/components/features/execution-panel";
+import { ExecutionPanel, type ExecutionLogContext } from "@/components/features/execution-panel";
 import { IqCard, CardEyebrow } from "@/components/features/iq-card";
 import { MiniChart } from "@/components/features/mini-chart";
 import { TradeActionOverlay } from "@/components/features/trade-action-overlay";
@@ -443,6 +443,23 @@ function TokenDetailPage() {
     riskPrefs,
     symbol,
   ]);
+  // Plan-derived numbers for logging a confirmed trade straight into the
+  // journal (see ExecutionPanel's logContext) — undefined whenever there's
+  // no live plan to log, so a fired-off "no trade" state can never write a
+  // running position with fabricated numbers.
+  const executionLogContext = useMemo<ExecutionLogContext | undefined>(() => {
+    const plan = activeAssessment?.plan;
+    const direction = activeAssessment?.direction;
+    if (!plan || (direction !== "long" && direction !== "short")) return undefined;
+    return {
+      symbol: `${symbol}USDT`,
+      direction,
+      entry_price: plan.entry,
+      quantity: plan.positionSize,
+      leverage: marketType === "perp" ? leverage : 1,
+      strategy: activeAssessment?.definition.label,
+    };
+  }, [activeAssessment, symbol, marketType, leverage]);
   const marketOutlook = useMemo(() => describeMarketOutlook(evalsByTimeframe), [evalsByTimeframe]);
   // Per-timeframe market structure for the alignment ladder — a projection of
   // the same alignment payload, display-only.
@@ -790,6 +807,7 @@ function TokenDetailPage() {
               onSelect={setTradingIntent}
               activeTab={activeTab}
               onTabChange={setActiveTab}
+              onOpenTrade={() => setTradeOpen(true)}
               className="lg:h-full lg:min-h-0"
             />
           </div>
@@ -797,8 +815,14 @@ function TokenDetailPage() {
           <TradeDrawer
             symbol={symbol}
             ticket={tradeTicketDefaults}
+            logContext={executionLogContext}
             open={tradeOpen}
             onOpenChange={setTradeOpen}
+            timeframe={timeframe}
+            evaluation={data.evaluation}
+            assessment={activeAssessment}
+            chartStructure={chartStructure}
+            externalContext={externalContext.data ?? null}
           />
 
           {/* AI analyst: on-demand, opened from quick actions below. Kept
@@ -2311,6 +2335,7 @@ function AssistantPanel({
   onSelect,
   activeTab,
   onTabChange,
+  onOpenTrade,
   className,
 }: {
   symbol: string;
@@ -2332,6 +2357,8 @@ function AssistantPanel({
   onSelect: (intent: TradingIntent) => void;
   activeTab: string;
   onTabChange: (tab: string) => void;
+  /** Opens the trade drawer (constitution-gated permit → confirm), prefilled from this plan. */
+  onOpenTrade: () => void;
   className?: string;
 }) {
   const byIntent = new Map(assessments.map((a) => [a.intent, a]));
@@ -2718,28 +2745,44 @@ function AssistantPanel({
                       </div>
                     ) : (
                       (active.verdict === "favored" || active.verdict === "caution") &&
-                      active.direction !== "none" &&
-                      (hasOpenSignal(symbol, active.intent, active.direction) ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled
-                          className="w-full gap-1.5 text-xs"
-                        >
-                          <BookmarkCheck className="h-3.5 w-3.5" />
-                          Following this signal
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full gap-1.5 text-xs"
-                          onClick={openFollowDialog}
-                        >
-                          <Bookmark className="h-3.5 w-3.5" />
-                          Follow this signal
-                        </Button>
-                      ))
+                      active.direction !== "none" && (
+                        // The plan and the action are one unit: placing a
+                        // trade is the primary path out of this tab, prefilled
+                        // straight from the plan above (see tradeTicketDefaults
+                        // + executionLogContext); "Follow" is the separate,
+                        // secondary paper-tracking bookmark.
+                        <div className="flex flex-col gap-1.5">
+                          <Button
+                            size="sm"
+                            className="w-full gap-1.5 text-xs font-semibold"
+                            onClick={onOpenTrade}
+                          >
+                            <Send className="h-3.5 w-3.5" />
+                            Place Trade — Get Permit
+                          </Button>
+                          {hasOpenSignal(symbol, active.intent, active.direction) ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled
+                              className="w-full gap-1.5 text-xs"
+                            >
+                              <BookmarkCheck className="h-3.5 w-3.5" />
+                              Following this signal
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full gap-1.5 text-xs"
+                              onClick={openFollowDialog}
+                            >
+                              <Bookmark className="h-3.5 w-3.5" />
+                              Follow this signal
+                            </Button>
+                          )}
+                        </div>
+                      )
                     )}
                   </>
                 ) : (
@@ -3720,7 +3763,6 @@ function TokenQuickActions({
   if (aiOpen || tradeOpen) return null;
   return (
     <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-2 sm:flex-row">
-
       <button
         type="button"
         data-tour="ai"
@@ -3738,26 +3780,149 @@ function TokenQuickActions({
 function TradeDrawer({
   symbol,
   ticket,
+  logContext,
   open,
   onOpenChange,
+  timeframe,
+  evaluation,
+  assessment,
+  chartStructure,
+  externalContext,
 }: {
   symbol: string;
   ticket: Partial<TradeTicketState>;
+  logContext?: ExecutionLogContext;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  timeframe?: TokenTimeframe;
+  evaluation?: SignalEvaluation;
+  assessment?: DisplayIntentAssessment | null;
+  chartStructure?: ChartStructure | null;
+  externalContext?: ExternalContext | null;
 }) {
+  const [analysis, setAnalysis] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const aiProvider = useAiSettingsStore((s) => s.provider);
+  const aiApiKeys = useAiSettingsStore((s) => s.apiKeys);
+  const aiModels = useAiSettingsStore((s) => s.models);
+  const aiCustomBaseUrl = useAiSettingsStore((s) => s.customBaseUrl);
+  const aiConfig = useMemo(
+    () =>
+      resolveAiConfig({
+        provider: aiProvider,
+        apiKeys: aiApiKeys,
+        models: aiModels,
+        customBaseUrl: aiCustomBaseUrl,
+      }),
+    [aiProvider, aiApiKeys, aiModels, aiCustomBaseUrl],
+  );
+
+  useEffect(() => {
+    if (!open || !evaluation || analysis || loading) return;
+
+    const fallback = () =>
+      deterministicFallback({
+        symbol,
+        range: timeframe || "1H",
+        evaluation,
+        assessment: assessment || null,
+        thinkingMode: false,
+      });
+
+    if (!aiConfig) {
+      setAnalysis(fallback());
+      return;
+    }
+
+    setLoading(true);
+    const system = buildAnalystSystem(
+      symbol,
+      timeframe || "1H",
+      evaluation,
+      assessment || null,
+      false, // thinkingMode
+      chartStructure || null,
+      externalContext || null,
+    );
+
+    runAiAnalyst({
+      config: aiConfig,
+      system,
+      messages: [
+        {
+          role: "user",
+          content:
+            "Provide a concise, 1-2 sentence quick note summarizing the core logic of this trade setup. Keep it very brief.",
+        },
+      ],
+    })
+      .then((text) => setAnalysis(text))
+      .catch(() => setAnalysis(fallback()))
+      .finally(() => setLoading(false));
+  }, [
+    open,
+    evaluation,
+    analysis,
+    loading,
+    aiConfig,
+    symbol,
+    timeframe,
+    assessment,
+    chartStructure,
+    externalContext,
+  ]);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2 pr-10">
+      <SheetContent side="left" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+        <div className="flex shrink-0 flex-col gap-1.5 border-b border-border px-3 py-2 pr-10">
           <div className="flex min-w-0 items-center gap-2">
             <Zap className="h-4 w-4 shrink-0 text-primary" />
             <SheetTitle className="truncate text-xs font-bold">{symbol} Trade</SheetTitle>
             <InfoHint text="Requests a constitution-gated permit using this token's current execution plan. The backend rechecks account state and derives executable quantity from the persisted permit snapshot." />
           </div>
+          {/* Echo the plan this was opened from, so the drawer never reads as
+              a disconnected detour from the Plan tab it was launched from. */}
+          {assessment?.plan && assessment.direction !== "none" && (
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[10px] font-bold uppercase",
+                  assessment.direction === "short"
+                    ? "border-bearish/30 bg-bearish-soft text-bearish"
+                    : "border-bullish/30 bg-bullish-soft text-bullish",
+                )}
+              >
+                {assessment.direction}
+              </Badge>
+              <span className="num text-muted-foreground">
+                Entry {formatEntryRange(assessment.plan.entryLow, assessment.plan.entryHigh)} · Stop{" "}
+                {formatMoney(assessment.plan.stop)} · T1 {formatMoney(assessment.plan.target1)}
+              </span>
+            </div>
+          )}
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-3">
-          <ExecutionPanel initialTicket={ticket} className="w-full" />
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 flex flex-col gap-4">
+          <ExecutionPanel initialTicket={ticket} logContext={logContext} className="w-full" />
+
+          {evaluation && (
+            <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+              <div className="flex items-center gap-2 font-bold mb-2 text-muted-foreground text-[10px] uppercase tracking-wider">
+                <Brain className="h-3.5 w-3.5" /> Setup Analysis
+              </div>
+              {loading ? (
+                <div className="animate-pulse text-muted-foreground italic text-xs">
+                  Generating AI Analysis...
+                </div>
+              ) : (
+                <div className="prose prose-sm dark:prose-invert text-xs leading-relaxed max-w-none">
+                  {analysis && <MarkdownText text={analysis} />}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </SheetContent>
     </Sheet>

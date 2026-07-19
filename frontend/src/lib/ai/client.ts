@@ -70,7 +70,8 @@ async function runOpenAiCompatible(opts: RunAiAnalystOptions): Promise<string> {
     if (typeof window !== "undefined") headers["HTTP-Referer"] = window.location.origin;
   }
 
-  const res = await post(`${config.baseUrl}/chat/completions`, {
+  const cleanBaseUrl = config.baseUrl.replace(/\/chat\/completions\/?$/, '').replace(/\/$/, '');
+  const res = await post(`${cleanBaseUrl}/chat/completions`, {
     method: "POST",
     headers,
     signal,
@@ -93,7 +94,8 @@ async function runOpenAiCompatible(opts: RunAiAnalystOptions): Promise<string> {
 
 async function runAnthropic(opts: RunAiAnalystOptions): Promise<string> {
   const { config, system, messages, signal, maxTokens = DEFAULT_MAX_TOKENS } = opts;
-  const res = await post(`${config.baseUrl}/v1/messages`, {
+  const cleanBaseUrl = config.baseUrl.replace(/\/v1\/messages\/?$/, '').replace(/\/$/, '');
+  const res = await post(`${cleanBaseUrl}/v1/messages`, {
     method: "POST",
     headers: {
       "content-type": "application/json",

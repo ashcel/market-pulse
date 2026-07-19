@@ -7,6 +7,7 @@ import {
   ArrowLeftRight,
   BarChart3,
   Bookmark,
+  CandlestickChart,
   ClipboardList,
   LineChart,
   Newspaper,
@@ -24,6 +25,7 @@ export const NAV = [
   { to: "/technical", label: "Technical", icon: LineChart },
   { to: "/tracker", label: "Tracker", icon: Bookmark },
   { to: "/review", label: "Trade Review", icon: ClipboardList },
+  { to: "/trades", label: "Trades", icon: CandlestickChart },
   { to: "/news", label: "News", icon: Newspaper },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
