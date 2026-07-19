@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/features/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useForwardTestRecord } from "@/hooks/useForwardTestRecord";
+import { useForwardTestRecords } from "@/hooks/useForwardTestRecords";
 import { useLivePrice } from "@/hooks/useLivePrice";
 import { useTrackedFollows, useUnfollowSignal } from "@/hooks/useTrackedFollows";
 import { INTENTS } from "@/lib/engine/intent";
@@ -18,7 +19,11 @@ import {
   type TrackedSignal,
   type TrackedSignalStatus,
 } from "@/lib/engine/tracker";
-import { MIN_SHADOW_RECORD_TRADES } from "@/lib/engine/shadow";
+import {
+  MIN_SHADOW_RECORD_TRADES,
+  type ShadowSignal,
+  type ShadowSignalStatus,
+} from "@/lib/engine/shadow";
 import { formatEntryRange, formatMoney } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
 
@@ -61,6 +66,22 @@ const STATUS_TONE: Record<TrackedSignalStatus, string> = {
   "stopped-out": "border-bearish/30 bg-bearish-soft text-bearish",
 };
 
+const SHADOW_STATUS_LABEL: Record<ShadowSignalStatus, string> = {
+  active: "Active",
+  "target1-hit": "Target 1 hit",
+  "target2-hit": "Target 2 hit",
+  "stopped-out": "Stopped out",
+  expired: "Expired",
+};
+
+const SHADOW_STATUS_TONE: Record<ShadowSignalStatus, string> = {
+  active: "border-info/30 bg-info-soft text-info",
+  "target1-hit": "border-bullish/30 bg-bullish-soft text-bullish",
+  "target2-hit": "border-bullish/30 bg-bullish-soft text-bullish",
+  "stopped-out": "border-bearish/30 bg-bearish-soft text-bearish",
+  expired: "border-border bg-surface text-muted-foreground",
+};
+
 type Filter = "all" | "open" | "closed";
 
 const FILTERS: { label: string; value: Filter }[] = [
@@ -72,9 +93,16 @@ const FILTERS: { label: string; value: Filter }[] = [
 const INTENT_LABEL = new Map(INTENTS.map((def) => [def.intent, def.label]));
 
 function TrackerPage() {
+  const { data: records = [] } = useForwardTestRecords();
   const { follows: signals, authenticated } = useTrackedFollows();
   const [filter, setFilter] = useState<Filter>("all");
   const summary = summarizeTrackedSignals(signals);
+
+  const autoFiltered = records.filter((r) => {
+    if (filter === "open") return r.status === "active";
+    if (filter === "closed") return r.status !== "active";
+    return true;
+  });
 
   const filtered = signals.filter((s) => {
     if (filter === "open") return !isTerminalStatus(s.status);
@@ -87,10 +115,52 @@ function TrackerPage() {
       <PageHeader
         eyebrow="Forward Test"
         title="Signal Tracker"
-        subtitle="Follow a signal from any token's Execution Plan, then watch what actually happens — no backtest hindsight."
+        subtitle="Every favored call the engine issues is tracked here automatically — follow one from a token's Execution Plan to forward-test your own entry alongside it."
       />
 
       <EngineRecord />
+
+      <div className="flex items-center gap-1.5">
+        {FILTERS.map((f) => (
+          <button
+            key={f.value}
+            onClick={() => setFilter(f.value)}
+            className={cn(
+              "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
+              filter === f.value
+                ? "border-info/30 bg-info-soft text-info"
+                : "border-border bg-surface text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-1.5 pt-1">
+        <CardEyebrow>Signals the Engine Is Tracking</CardEyebrow>
+      </div>
+      <p className="-mt-3 text-xs text-muted-foreground">
+        Auto-tracked — recorded the instant the engine favors a call and settled against real
+        candles. No follow needed.
+      </p>
+
+      {records.length === 0 ? (
+        <IqCard className="text-center text-sm text-muted-foreground">
+          No favored verdicts recorded yet. Open a few tokens and the engine starts building this
+          list automatically as verdicts fire.
+        </IqCard>
+      ) : autoFiltered.length === 0 ? (
+        <IqCard className="text-center text-sm text-muted-foreground">
+          No signals match this filter.
+        </IqCard>
+      ) : (
+        <div className="space-y-2.5">
+          {autoFiltered.map((signal) => (
+            <AutoTrackedSignalRow key={signal.id} signal={signal} />
+          ))}
+        </div>
+      )}
 
       <div className="flex items-center gap-1.5 pt-1">
         <CardEyebrow>Signals You Followed</CardEyebrow>
@@ -117,23 +187,6 @@ function TrackerPage() {
         </p>
       )}
 
-      <div className="flex items-center gap-1.5">
-        {FILTERS.map((f) => (
-          <button
-            key={f.value}
-            onClick={() => setFilter(f.value)}
-            className={cn(
-              "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
-              filter === f.value
-                ? "border-info/30 bg-info-soft text-info"
-                : "border-border bg-surface text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-
       {!authenticated && signals.length === 0 ? (
         <IqCard className="space-y-2 text-center text-sm text-muted-foreground">
           <p>
@@ -144,13 +197,13 @@ function TrackerPage() {
             <Link to="/login" className="font-medium text-info underline-offset-2 hover:underline">
               Sign in
             </Link>{" "}
-            to see and follow signals.
+            to follow your own entries alongside the engine's auto-tracked calls above.
           </p>
         </IqCard>
       ) : filtered.length === 0 ? (
         <IqCard className="text-center text-sm text-muted-foreground">
           {signals.length === 0
-            ? "Nothing tracked yet — follow a signal from a token's Execution Plan to start forward-testing it here."
+            ? "You haven't followed any signals yet — the engine's own tracked calls are above; follow one from a token's Execution Plan to forward-test your own entry too."
             : "No signals match this filter."}
         </IqCard>
       ) : (
@@ -305,6 +358,82 @@ function StatTile({
         {value}
       </div>
     </div>
+  );
+}
+
+/**
+ * The engine's own auto-recorded favored call — same visual language as
+ * `TrackedSignalRow` (below), adapted for `ShadowSignal`'s shape: a single
+ * `entry` (no ideal zone), no follow-time confidence, and no unfollow action
+ * since this record isn't owned by the viewer. Live price/unrealized R is
+ * display-only, exactly like the followed rows — the settled record itself
+ * only ever comes from the worker.
+ */
+function AutoTrackedSignalRow({ signal }: { signal: ShadowSignal }) {
+  const terminal = signal.status !== "active";
+  const live = useLivePrice(signal.symbol, !terminal, signal.market);
+
+  const long = signal.direction === "long";
+  const currentPrice = live?.price ?? signal.closePrice ?? signal.entry;
+
+  let liveR: number | null = null;
+  if (signal.status === "active") {
+    const riskPerUnit = Math.abs(signal.entry - signal.stop);
+    if (riskPerUnit > 0) {
+      const raw = long
+        ? (currentPrice - signal.entry) / riskPerUnit
+        : (signal.entry - currentPrice) / riskPerUnit;
+      liveR = Math.round(raw * 100) / 100;
+    }
+  }
+
+  return (
+    <IqCard className="flex flex-wrap items-center gap-3 p-3">
+      <AssetIcon ticker={signal.symbol} className="h-8 w-8 text-sm" />
+      <div className="min-w-[110px] flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="font-semibold">{signal.symbol}</span>
+          {long ? (
+            <TrendingUp className="h-3.5 w-3.5 text-bullish" />
+          ) : (
+            <TrendingDown className="h-3.5 w-3.5 text-bearish" />
+          )}
+          <span className="text-xs text-muted-foreground">
+            {INTENT_LABEL.get(signal.intent) ?? signal.intent} · {signal.timeframe}
+          </span>
+        </div>
+        <div className="mt-0.5 text-[11px] text-muted-foreground">
+          Recorded {new Date(signal.openedAt).toLocaleString()}
+        </div>
+      </div>
+
+      <Badge variant="outline" className={cn("shrink-0", SHADOW_STATUS_TONE[signal.status])}>
+        {SHADOW_STATUS_LABEL[signal.status]}
+      </Badge>
+
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
+        <Metric label="Entry" value={formatMoney(signal.entry)} />
+        <Metric label="Stop" value={formatMoney(signal.stop)} />
+        <Metric label="Target 1" value={formatMoney(signal.target1)} />
+        <Metric label="Target 2" value={formatMoney(signal.target2)} />
+        <Metric
+          label={terminal ? "Closed at" : "Current"}
+          value={formatMoney(terminal ? (signal.closePrice ?? currentPrice) : currentPrice)}
+        />
+        <Metric
+          label={terminal ? "Result" : "Unrealized"}
+          value={
+            terminal
+              ? signal.resultR !== undefined
+                ? `${signal.resultR >= 0 ? "+" : ""}${signal.resultR}R`
+                : "—"
+              : liveR !== null
+                ? `${liveR >= 0 ? "+" : ""}${liveR}R`
+                : "—"
+          }
+        />
+      </div>
+    </IqCard>
   );
 }
 

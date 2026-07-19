@@ -7,18 +7,24 @@ import {
   listTrackedByOwner,
   type FollowInput,
 } from "@/server/db/repo";
-import { forwardTestStats, healthSnapshot, recentRuns } from "@/server/forward-test/service";
+import {
+  forwardTestStats,
+  healthSnapshot,
+  recentRuns,
+  shadowRecords,
+} from "@/server/forward-test/service";
 
 /**
  * Auth-gated forward-test API (Phase B′). All handlers run behind the session
  * cookie except `?view=health`, which is deliberately public — it's the
  * worker's liveness check (WS4: "observable without SSH"), meant for curl /
  * uptime monitoring, and exposes only run status + open-record counts, never
- * user data. The engine's shadow-record stats are global (the shared track
- * record every tester evaluates); `follows` and `POST` are scoped to the
- * session user.
+ * user data. The engine's shadow-record stats (and the individual records
+ * themselves) are global (the shared track record every tester evaluates);
+ * `follows` and `POST` are scoped to the session user.
  *
  *   GET    ?view=stats   (default) → global shadow record stats for this engine
+ *          ?view=records           → global auto-tracked favored shadow signals
  *          ?view=runs             → recent scheduled evaluation passes
  *          ?view=health           → last run age/status + open-record counts (no auth)
  *          ?view=follows          → the current user's tracked signals
@@ -36,6 +42,7 @@ export const Route = createFileRoute("/api/forward-test")({
         if (isResponse(auth)) return auth;
 
         if (view === "runs") return Response.json(await recentRuns());
+        if (view === "records") return Response.json(await shadowRecords());
         if (view === "follows") return Response.json(await listTrackedByOwner(auth.user.id));
         return Response.json(await forwardTestStats());
       },

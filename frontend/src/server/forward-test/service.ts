@@ -1,5 +1,6 @@
 import {
   countOpenRecords,
+  listFavoredShadowRecords,
   listRecentRuns,
   loadShadowSignals,
   type EngineRunRow,
@@ -10,6 +11,7 @@ import {
   summarizeShadowRecord,
   type ShadowComboStat,
   type ShadowRecordSummary,
+  type ShadowSignal,
 } from "@/lib/engine/shadow";
 import { ENGINE_VERSION } from "@/lib/engine/version";
 
@@ -39,6 +41,16 @@ export async function forwardTestStats(engineVersion = ENGINE_VERSION): Promise<
 
 export async function recentRuns(limit = 20): Promise<EngineRunRow[]> {
   return listRecentRuns(limit);
+}
+
+/**
+ * Read model behind `/api/forward-test?view=records` — the individual
+ * auto-recorded favored-verdict shadow signals themselves (not just their
+ * aggregate stats), most-recent first. Global like `forwardTestStats`: these
+ * are the engine's own calls, not scoped to any one user.
+ */
+export async function shadowRecords(limit = 200): Promise<ShadowSignal[]> {
+  return listFavoredShadowRecords(limit);
 }
 
 export type ForwardTestHealthStatus = "ok" | "stale" | "error" | "never-run";

@@ -240,7 +240,7 @@ async def test_sl_failure_flattens_position_after_consumption():
         m_client_inst = m_client.return_value
         m_client_inst.place_order = AsyncMock(
             side_effect=[
-                {"orderId": "entry"},
+                {"orderId": "entry", "executedQty": "0.1"},
                 Exception("SL error"),
                 {"orderId": "close"},
             ]
@@ -276,7 +276,7 @@ async def test_idempotency_key_propagated_after_consumption():
         m_key.return_value = MagicMock(encrypted_secret="enc", testnet=True)
         m_decrypt.return_value = "secret"
         m_client_inst = m_client.return_value
-        m_client_inst.place_order = AsyncMock(return_value={"orderId": "id"})
+        m_client_inst.place_order = AsyncMock(return_value={"orderId": "id", "executedQty": "0.1"})
 
         await place_execution_order(
             MagicMock(),
@@ -291,8 +291,10 @@ async def test_idempotency_key_propagated_after_consumption():
             999,
             "idem",
         )
+        # MARKET entries must not carry price/timeInForce (Binance -1106).
         m_client_inst.place_order.assert_any_call(
-            "BTCUSDT", "BUY", "MARKET", 0.1, price=65000.0, new_client_order_id="idem_entry"
+            "BTCUSDT", "BUY", "MARKET", 0.1, price=None, time_in_force=None,
+            new_client_order_id="idem_entry"
         )
 
 
@@ -309,7 +311,9 @@ async def test_entry_order_references_permit_after_consumption():
         m_consume.return_value = permit_values(permit_id="permit_123")
         m_key.return_value = MagicMock(encrypted_secret="enc", testnet=True)
         m_decrypt.return_value = "secret"
-        m_client.return_value.place_order = AsyncMock(return_value={"orderId": "id"})
+        m_client.return_value.place_order = AsyncMock(
+            return_value={"orderId": "id", "executedQty": "0.1"}
+        )
 
         res = await place_execution_order(
             MagicMock(),

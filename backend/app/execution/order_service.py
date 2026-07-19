@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -42,6 +43,13 @@ class PermitExecutionValues:
     risk_percent: float
     quantity: float
 
+
+# MARKET entries: Binance's immediate place_order response can report
+# executedQty=0 a beat before the real (async) fill lands (observed live on
+# testnet). Poll get_order this many times, this far apart, before giving up
+# and leaving the record for the existing reconcile path.
+ENTRY_FILL_POLL_ATTEMPTS = 5
+ENTRY_FILL_POLL_INTERVAL_SECONDS = 0.4
 
 TERMINAL_EXECUTION_STATUSES = frozenset(
     {"PROTECTED", "FLATTENED", "ENTRY_REJECTED", "UNPROTECTED_CRITICAL"}
@@ -114,7 +122,13 @@ def _assert_execution_ready() -> None:
 
 
 def _client_order_ids(idempotency_key: str) -> tuple[str, str, str]:
-    return (f"{idempotency_key}_entry", f"{idempotency_key}_sl", f"{idempotency_key}_tp")
+    # Binance rejects newClientOrderId >= 36 chars (-4015). A permit UUID key
+    # ("exec-<uuid>") already blows that with the "_entry" suffix, so collapse
+    # any over-long key to a stable 24-char digest (deterministic → idempotent).
+    base = idempotency_key
+    if len(base) + len("_entry") > 35:
+        base = hashlib.sha1(idempotency_key.encode()).hexdigest()[:24]
+    return (f"{base}_entry", f"{base}_sl", f"{base}_tp")
 
 
 def _execution_response(record: ExecutionRecord) -> dict:
@@ -522,12 +536,32 @@ async def _resume_execution(db: AsyncSession, user_id: str, record: ExecutionRec
                     side,
                     record.entry_type,
                     quantity,
-                    price=record.entry_price,
+                    # MARKET orders must not carry price/timeInForce (-1106);
+                    # LIMIT orders require both (-1102 without timeInForce).
+                    price=record.entry_price if record.entry_type == "LIMIT" else None,
+                    time_in_force="GTC" if record.entry_type == "LIMIT" else None,
                     new_client_order_id=record.entry_client_order_id,
                 ),
             )
             record.entry_order_id = str(entry.get("orderId")) if entry.get("orderId") else None
-            record.filled_quantity = _filled_quantity(entry, fallback=quantity)
+            filled = _filled_quantity(entry, fallback=0.0)
+            status_upper = str(entry.get("status", "")).upper()
+            if record.entry_type == "MARKET" and filled <= 0 and status_upper != "FILLED":
+                # The immediate response hasn't caught up to the real fill yet.
+                # LIMIT entries never take this branch -- they legitimately
+                # rest at 0 fill and are left to the existing reconcile path.
+                polled = await _await_market_entry_fill(db, client, record)
+                if polled is None:
+                    # Poll budget exhausted; record stays resumable (see the
+                    # RECONCILIATION_REQUIRED mark inside the helper) rather
+                    # than being guessed at or flattened.
+                    return _execution_response(record)
+                filled = polled
+            elif filled <= 0 and status_upper == "FILLED":
+                # Status confirms a fill but the quantity fields were empty;
+                # trust the confirmed status over an absent number.
+                filled = quantity
+            record.filled_quantity = filled
             await _mark(db, record, "ENTRY_CONFIRMED", "entry_confirmed")
         except TimeoutError:
             return _execution_response(record)
@@ -607,14 +641,80 @@ async def _resume_execution(db: AsyncSession, user_id: str, record: ExecutionRec
 
 
 def _filled_quantity(order: dict, *, fallback: float) -> float:
-    for key in ("executedQty", "cumQty", "origQty"):
+    # A present-but-zero executedQty means "not filled yet" -- Binance's
+    # immediate MARKET-order response can read executedQty="0" a beat before
+    # the real fill lands, and silently returning that 0 is what caused a
+    # confirmed fill to be treated as unprotected. Zero at a key falls
+    # through to the next one; if nothing yields a positive fill, the
+    # caller's fallback decides (0.0 to signal "still unconfirmed", a polled
+    # value once one is available, or a resting quantity for LIMIT).
+    for key in ("executedQty", "cumQty"):
         raw = order.get(key)
-        if raw not in (None, ""):
-            try:
-                return float(raw)
-            except (TypeError, ValueError):
-                continue
+        if raw in (None, ""):
+            continue
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            return value
     return fallback
+
+
+async def _await_market_entry_fill(
+    db: AsyncSession,
+    client: BinanceExecClient,
+    record: ExecutionRecord,
+) -> float | None:
+    """Poll a just-placed MARKET entry until the exchange reports a real fill.
+
+    Bounded to a handful of short-interval attempts, and wrapped in an
+    overall timeout so a hanging get_order call can't stall the request
+    indefinitely. On success returns the confirmed fill quantity; on
+    exhaustion/timeout marks the record RECONCILIATION_REQUIRED (same
+    degrade-gracefully pattern as `_exchange_call`) and returns None so the
+    caller does not proceed to place SL/TP against an unconfirmed fill.
+    """
+    timeout = getattr(execution_settings, "ORDER_TIMEOUT_SECONDS", 10.0)
+    if not isinstance(timeout, int | float) or timeout <= 0:
+        timeout = 10.0
+    budget = min(timeout * 0.8, ENTRY_FILL_POLL_ATTEMPTS * ENTRY_FILL_POLL_INTERVAL_SECONDS)
+
+    async def _poll() -> float | None:
+        for attempt in range(ENTRY_FILL_POLL_ATTEMPTS):
+            if attempt:
+                await asyncio.sleep(ENTRY_FILL_POLL_INTERVAL_SECONDS)
+            try:
+                polled = await client.get_order(
+                    record.symbol,
+                    order_id=record.entry_order_id,
+                    orig_client_order_id=record.entry_client_order_id,
+                )
+            except Exception:
+                continue
+            filled = _filled_quantity(polled, fallback=0.0)
+            if filled > 0:
+                return filled
+            if str(polled.get("status", "")).upper() == "FILLED":
+                return filled if filled > 0 else record.quantity
+        return None
+
+    try:
+        result = await asyncio.wait_for(_poll(), timeout=budget)
+    except Exception:
+        result = None
+
+    if result is not None:
+        return result
+
+    await _mark(
+        db,
+        record,
+        "RECONCILIATION_REQUIRED",
+        "entry_fill_poll_exhausted",
+        error="entry fill could not be confirmed within poll budget",
+    )
+    return None
 
 
 async def _reconcile_execution(
@@ -623,9 +723,14 @@ async def _reconcile_execution(
     record: ExecutionRecord,
 ) -> None:
     try:
-        if record.entry_order_id is None:
+        # entry_order_id can already be known (a MARKET entry whose fill poll
+        # was exhausted) while filled_quantity is still unconfirmed (0) --
+        # that case still needs a lookup, just by order_id instead of the
+        # client order id.
+        if record.entry_order_id is None or not record.filled_quantity:
             entry = await client.get_order(
                 record.symbol,
+                order_id=record.entry_order_id,
                 orig_client_order_id=record.entry_client_order_id,
             )
             record.entry_order_id = str(entry.get("orderId")) if entry.get("orderId") else None

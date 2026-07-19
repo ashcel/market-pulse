@@ -11,6 +11,7 @@ import {
   AlarmClock,
   Target,
   AlertTriangle,
+  Zap,
 } from "lucide-react";
 
 import { AssetIcon } from "@/components/features/asset-icon";
@@ -26,6 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useExecutions, type ExecutionRecord } from "@/hooks/useExecutions";
 import {
   useBybitKeyStatus,
   useGenerateTradeReview,
@@ -126,6 +128,8 @@ function ReviewPage() {
       />
 
       <SyncCard authenticated={authenticated} />
+
+      <LiveExecutionsSection />
 
       {!authenticated ? (
         <NotSignedInCard />
@@ -243,6 +247,114 @@ function SyncCard({ authenticated }: { authenticated: boolean }) {
         </Button>
       )}
     </IqCard>
+  );
+}
+
+// ── Live executions (Binance testnet) ───────────────────────────────────────
+
+const EXECUTION_STATUS_TONE: Record<string, "bullish" | "bearish" | "neutral"> = {
+  PROTECTED: "bullish",
+  FLATTENED: "bearish",
+  UNPROTECTED_CRITICAL: "bearish",
+  ENTRY_REJECTED: "bearish",
+  TP_FAILED: "bearish",
+  RECONCILIATION_REQUIRED: "bearish",
+  PENDING_ENTRY: "neutral",
+  ENTRY_SUBMITTED: "neutral",
+  ENTRY_CONFIRMED: "neutral",
+  PROTECTION_SUBMITTED: "neutral",
+  FLATTEN_SUBMITTED: "neutral",
+};
+
+function executionStatusTone(status: string): "bullish" | "bearish" | "neutral" {
+  return EXECUTION_STATUS_TONE[status] ?? "neutral";
+}
+
+function executionStatusClass(status: string): string {
+  const tone = executionStatusTone(status);
+  if (tone === "bullish") return "border-bullish/30 bg-bullish-soft text-bullish";
+  if (tone === "bearish") return "border-bearish/30 bg-bearish-soft text-bearish";
+  return "border-border bg-muted text-muted-foreground";
+}
+
+function executionStatusLabel(status: string): string {
+  return status
+    .split("_")
+    .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
+/** Live executions section — user-confirmed Binance (testnet) order placements. */
+function LiveExecutionsSection() {
+  const { executions, authenticated, isLoading } = useExecutions();
+
+  if (!authenticated) return null;
+  if (!isLoading && executions.length === 0) return null;
+
+  return (
+    <IqCard padded={false} className="overflow-hidden">
+      <div className="flex items-center justify-between gap-2 p-4 pb-2 sm:p-5 sm:pb-2">
+        <div>
+          <CardEyebrow>Live Executions · Binance testnet</CardEyebrow>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Order-placement records from confirmed executions — not PnL-settled trades yet.
+          </p>
+        </div>
+        <Zap className="h-4 w-4 shrink-0 text-muted-foreground" />
+      </div>
+
+      {isLoading ? (
+        <div className="p-4 pt-2 text-center text-sm text-muted-foreground sm:p-5 sm:pt-2">
+          Loading executions…
+        </div>
+      ) : (
+        <div className="divide-y divide-border/40">
+          {executions.map((execution) => (
+            <ExecutionRow key={execution.id} execution={execution} />
+          ))}
+        </div>
+      )}
+    </IqCard>
+  );
+}
+
+function ExecutionRow({ execution }: { execution: ExecutionRecord }) {
+  const isBuy = execution.side === "BUY";
+  return (
+    <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 sm:px-5">
+      <div className="flex min-w-[100px] flex-1 items-center gap-1.5">
+        <span className="font-semibold">{baseSymbol(execution.symbol)}</span>
+        {isBuy ? (
+          <TrendingUp className="h-3.5 w-3.5 text-bullish" />
+        ) : (
+          <TrendingDown className="h-3.5 w-3.5 text-bearish" />
+        )}
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          {execution.entry_type}
+        </span>
+      </div>
+
+      <div className="text-right text-xs">
+        <div className="num font-semibold">{formatMoney(execution.entry_price)}</div>
+        <div className="text-[10px] text-muted-foreground">
+          {execution.filled_quantity}/{execution.quantity} filled
+        </div>
+      </div>
+
+      <div className="text-right text-xs">
+        <div className="num font-semibold">{execution.leverage}×</div>
+        <div className="text-[10px] text-muted-foreground">
+          {new Date(execution.created_at).toLocaleString()}
+        </div>
+      </div>
+
+      <Badge
+        variant="outline"
+        className={cn("shrink-0 text-[10px]", executionStatusClass(execution.status))}
+      >
+        {executionStatusLabel(execution.status)}
+      </Badge>
+    </div>
   );
 }
 

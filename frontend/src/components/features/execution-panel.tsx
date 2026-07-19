@@ -28,6 +28,15 @@ export interface ExecutionLogContext {
   strategy?: string;
 }
 
+export interface ExecutionResult {
+  execution_id?: string;
+  entry_order_id?: string;
+  sl_order_id?: string;
+  tp_order_id?: string;
+  status?: string;
+  filled_quantity?: number;
+}
+
 export function ExecutionPanel({
   initialTicket,
   className,
@@ -40,6 +49,10 @@ export function ExecutionPanel({
 }) {
   const [step, setStep] = useState<Step>("TICKET");
   const [isConfirming, setIsConfirming] = useState(false);
+  const [executionError, setExecutionError] = useState<string | null>(null);
+  const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(
+    null
+  );
   const ticket = useTradeTicket(initialTicket);
   const permitReq = usePermit();
   const createTrade = useCreateTrade();
@@ -59,23 +72,100 @@ export function ExecutionPanel({
 
   const handleConfirm = async () => {
     setIsConfirming(true);
+    setExecutionError(null);
+    setExecutionResult(null);
+
     try {
-      if (logContext) {
-        // Mirror the approved trade into the journal so it shows up on
-        // /trades with live PnL immediately. A journal-logging failure must
-        // never block the confirm UX — the permit was already approved
-        // server-side; only this local /trades mirror failed.
-        await createTrade.mutateAsync(logContext);
-      } else {
-        // No plan-derived context available (e.g. ticket opened without an
-        // active engine plan) — preserve the prior simulated-confirm delay.
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Get the permit_id from the approved permit
+      const approvedPermit = permitReq.permit as PermitCardApproved;
+      const permitId = approvedPermit?.permit_id;
+
+      if (!permitId) {
+        setExecutionError("Permit ID not found. Please request a new permit.");
+        setIsConfirming(false);
+        return;
       }
-    } catch (err) {
-      console.error("Failed to log confirmed trade to the journal", err);
-    } finally {
-      setIsConfirming(false);
+
+      // Call the execution endpoint to submit the permit
+      const executeRes = await fetch("/api/execution/execute", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ permit_id: permitId }),
+      });
+
+      let executeData: unknown;
+      try {
+        executeData = await executeRes.json();
+      } catch {
+        setExecutionError("Failed to parse execution response");
+        setIsConfirming(false);
+        return;
+      }
+
+      // Check for error responses
+      if (!executeRes.ok) {
+        const errorResp = executeData as { error?: { message?: string }; detail?: string };
+        const errorMessage = errorResp?.error?.message || errorResp?.detail;
+
+        // Special case: kill switch (execution_disabled)
+        if (
+          executeRes.status === 409 &&
+          errorMessage?.includes("execution_disabled")
+        ) {
+          setExecutionError(
+            "Live execution is turned off (testnet kill switch). The permit is approved but no order was placed."
+          );
+          setIsConfirming(false);
+          return;
+        }
+
+        // Other error cases
+        if (executeRes.status === 503) {
+          setExecutionError(
+            "Execution service is not ready. Please try again in a moment."
+          );
+        } else if (executeRes.status === 404 || executeRes.status === 410) {
+          setExecutionError("Permit not found or has expired. Please request a new permit.");
+        } else if (executeRes.status === 409) {
+          setExecutionError("Permit has already been used. Please request a new permit.");
+        } else {
+          setExecutionError(
+            errorMessage || "Failed to execute trade. Please try again."
+          );
+        }
+        setIsConfirming(false);
+        return;
+      }
+
+      // Success: store the execution result
+      const successData = executeData as { data?: ExecutionResult; error?: null };
+      if (successData?.data) {
+        setExecutionResult(successData.data);
+      }
+
+      // Log the trade to the journal if context is available
+      if (logContext) {
+        try {
+          // Mirror the approved trade into the journal so it shows up on
+          // /trades with live PnL immediately. A journal-logging failure must
+          // never block the execution UX — execution was already confirmed
+          // server-side; only this local /trades mirror failed.
+          await createTrade.mutateAsync(logContext);
+        } catch (err) {
+          console.error("Failed to log confirmed trade to the journal", err);
+          // Non-blocking: execution succeeded, journal log is best-effort
+        }
+      }
+
+      // Transition to submitted state
       setStep("SUBMITTED");
+    } catch (err) {
+      console.error("Execution error:", err);
+      setExecutionError(
+        err instanceof Error ? err.message : "An unexpected error occurred"
+      );
+      setIsConfirming(false);
     }
   };
 
@@ -113,28 +203,39 @@ export function ExecutionPanel({
       )}
 
       {step === "PERMIT" && permitReq.permit && (
-        <PermitCard
-          permit={permitReq.permit}
-          timeRemainingSeconds={permitReq.timeRemainingSeconds}
-          isExpired={permitReq.isExpired}
-          onConfirm={handleConfirm}
-          onRequestNew={() => setStep("TICKET")}
-          isConfirming={isConfirming}
-          ticket={ticket.state}
-          estimatedRR={ticket.estimatedRR}
-        />
+        <>
+          {executionError && (
+            <div className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              {executionError}
+            </div>
+          )}
+          <PermitCard
+            permit={permitReq.permit}
+            timeRemainingSeconds={permitReq.timeRemainingSeconds}
+            isExpired={permitReq.isExpired}
+            onConfirm={handleConfirm}
+            onRequestNew={() => setStep("TICKET")}
+            isConfirming={isConfirming}
+            ticket={ticket.state}
+            estimatedRR={ticket.estimatedRR}
+          />
+        </>
       )}
 
       {step === "SUBMITTED" && (
         <IqCard className="flex flex-col items-center justify-center gap-4 py-12 text-center">
           <CheckCircle2 className="h-16 w-16 text-bullish" />
           <div className="flex flex-col gap-1">
-            <h3 className="text-xl font-bold">Trade Submitted</h3>
+            <h3 className="text-xl font-bold">Order Submitted</h3>
             <p className="text-sm text-muted-foreground">
-              {logContext
-                ? "Your order has been sent to the execution engine and logged as a running position."
-                : "Your order has been sent to the execution engine."}
+              Order submitted to the exchange.
+              {logContext && " Logged as a running position."}
             </p>
+            {executionResult?.entry_order_id && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Entry Order · {executionResult.entry_order_id}
+              </p>
+            )}
           </div>
           <div className="mt-4 flex items-center gap-2">
             {logContext && (

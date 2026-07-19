@@ -152,6 +152,19 @@ export async function loadShadowSignals(engineVersion?: string): Promise<ShadowS
   return rows.map((r) => rowToShadow(r as Record<string, unknown>));
 }
 
+/**
+ * Most-recent shadow records, newest first — every row is a "favored" verdict
+ * by construction (the Python worker only opens a shadow record when the
+ * engine adopts a favored call; see `buildShadowSignal`). This is the tracker
+ * page's auto-tracked list read: global, not user-scoped, no follow required.
+ */
+export async function listFavoredShadowRecords(limit = 200): Promise<ShadowSignal[]> {
+  const rows = await sql`
+    select * from shadow_signal order by opened_at desc limit ${limit}
+  `;
+  return rows.map((r) => rowToShadow(r as Record<string, unknown>));
+}
+
 export async function patchShadow(id: string, patch: Partial<ShadowSignal>): Promise<void> {
   await sql`
     update shadow_signal set
