@@ -18,6 +18,7 @@ from arq.cron import CronJob
 from app.config import settings
 
 from .binance import close_http_client
+from .bybit_sync_pass import run_bybit_sync_pass
 from .passes import run_once
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -33,6 +34,11 @@ async def forward_test_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -> s
     return await run_once()
 
 
+async def bybit_sync_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -> str:  # noqa: ARG001
+    """Hourly background Bybit closed-PnL sync for every active-keyed user."""
+    return await run_bybit_sync_pass()
+
+
 async def shutdown(_ctx: dict[Any, Any]) -> None:
     await close_http_client()
 
@@ -45,7 +51,14 @@ class WorkerSettings:
             minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55},
             run_at_startup=True,
             timeout=600,
-        )
+        ),
+        cron(
+            bybit_sync_tick,
+            hour=set(range(24)),
+            minute={3},
+            run_at_startup=False,
+            timeout=900,
+        ),
     ]
     on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(str(settings.REDIS_URL))
