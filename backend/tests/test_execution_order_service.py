@@ -23,6 +23,7 @@ from app.execution.exceptions import (
 from app.execution.models import ExecutionRecord, TradePermit
 from app.execution.order_service import (
     PermitExecutionValues,
+    _flatten_unprotected_position,
     consume_permit_for_execution,
     place_execution_order,
 )
@@ -33,12 +34,19 @@ class FakeBinanceClient:
         self,
         *,
         place_results: list[object] | None = None,
+        algo_results: list[object] | None = None,
         order_results: dict[str, dict] | None = None,
+        algo_order_results: list[dict] | None = None,
     ) -> None:
         self.place_results = list(place_results or [])
+        self.algo_results = list(algo_results or [])
         self.order_results = order_results or {}
+        self.algo_order_results = list(algo_order_results or [])
         self.place_calls: list[dict[str, object]] = []
+        self.algo_calls: list[dict[str, object]] = []
+        self.cancel_algo_calls: list[dict[str, object]] = []
         self.get_order_calls: list[str] = []
+        self.get_open_algo_orders_calls: list[str | None] = []
 
     async def place_order(self, symbol, side, order_type, quantity, **kwargs):
         self.place_calls.append(
@@ -56,6 +64,51 @@ class FakeBinanceClient:
         if isinstance(result, Exception):
             raise result
         return result
+
+    async def place_algo_order(
+        self,
+        symbol,
+        side,
+        order_type,
+        *,
+        trigger_price,
+        close_position=False,
+        quantity=None,
+        working_type="CONTRACT_PRICE",
+        reduce_only=False,
+        new_client_strategy_id=None,
+    ):
+        self.algo_calls.append(
+            {
+                "symbol": symbol,
+                "side": side,
+                "order_type": order_type,
+                "trigger_price": trigger_price,
+                "close_position": close_position,
+                "quantity": quantity,
+                "working_type": working_type,
+                "reduce_only": reduce_only,
+                "new_client_strategy_id": new_client_strategy_id,
+            }
+        )
+        result = (
+            self.algo_results.pop(0)
+            if self.algo_results
+            else {"algoId": 12345, "algoStatus": "NEW"}
+        )
+        if result == "timeout":
+            await asyncio.sleep(0.05)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    async def cancel_algo_order(self, algo_id=None, client_algo_id=None):
+        self.cancel_algo_calls.append({"algo_id": algo_id, "client_algo_id": client_algo_id})
+        return {"algoId": algo_id, "algoStatus": "CANCELED"}
+
+    async def get_open_algo_orders(self, symbol: str | None = None) -> list[dict]:
+        self.get_open_algo_orders_calls.append(symbol)
+        return self.algo_order_results
 
     async def get_order(
         self,
@@ -241,10 +294,11 @@ async def test_sl_failure_flattens_position_after_consumption():
         m_client_inst.place_order = AsyncMock(
             side_effect=[
                 {"orderId": "entry", "executedQty": "0.1"},
-                Exception("SL error"),
                 {"orderId": "close"},
             ]
         )
+        m_client_inst.place_algo_order = AsyncMock(side_effect=Exception("SL error"))
+        m_client_inst.cancel_algo_order = AsyncMock(return_value={"algoStatus": "CANCELED"})
 
         res = await place_execution_order(
             MagicMock(),
@@ -277,6 +331,9 @@ async def test_idempotency_key_propagated_after_consumption():
         m_decrypt.return_value = "secret"
         m_client_inst = m_client.return_value
         m_client_inst.place_order = AsyncMock(return_value={"orderId": "id", "executedQty": "0.1"})
+        m_client_inst.place_algo_order = AsyncMock(
+            return_value={"algoId": 12345, "algoStatus": "NEW"}
+        )
 
         await place_execution_order(
             MagicMock(),
@@ -313,6 +370,9 @@ async def test_entry_order_references_permit_after_consumption():
         m_decrypt.return_value = "secret"
         m_client.return_value.place_order = AsyncMock(
             return_value={"orderId": "id", "executedQty": "0.1"}
+        )
+        m_client.return_value.place_algo_order = AsyncMock(
+            return_value={"algoId": 12345, "algoStatus": "NEW"}
         )
 
         res = await place_execution_order(
@@ -533,18 +593,16 @@ async def test_execution_not_ready_fails_closed_for_invalid_and_inconsistent_set
 async def test_duplicate_click_returns_existing_execution_without_resubmitting(session_factory):
     await add_permit(session_factory, approved_permit())
     fake = FakeBinanceClient(
-        place_results=[
-            {"orderId": "entry", "executedQty": "0.1"},
-            {"orderId": "sl"},
-            {"orderId": "tp"},
-        ]
+        place_results=[{"orderId": "entry", "executedQty": "0.1"}],
+        algo_results=[{"algoId": "sl"}, {"algoId": "tp"}],
     )
     first = await execute_with_real_db(session_factory, fake)
     second = await execute_with_real_db(session_factory, fake)
 
     assert first["execution_id"] == second["execution_id"]
     assert second["status"] == "PROTECTED"
-    assert len(fake.place_calls) == 3
+    assert len(fake.place_calls) == 1
+    assert len(fake.algo_calls) == 2
 
 
 @pytest.mark.asyncio
@@ -552,11 +610,8 @@ async def test_duplicate_idempotency_key_for_different_permit_is_rejected(sessio
     await add_permit(session_factory, approved_permit(permit_id="permit-1"))
     await add_permit(session_factory, approved_permit(permit_id="permit-2"))
     fake = FakeBinanceClient(
-        place_results=[
-            {"orderId": "entry", "executedQty": "0.1"},
-            {"orderId": "sl"},
-            {"orderId": "tp"},
-        ]
+        place_results=[{"orderId": "entry", "executedQty": "0.1"}],
+        algo_results=[{"algoId": "sl"}, {"algoId": "tp"}],
     )
     await execute_with_real_db(session_factory, fake, permit_id="permit-1", idempotency_key="same")
 
@@ -573,11 +628,8 @@ async def test_duplicate_idempotency_key_for_different_permit_is_rejected(sessio
 async def test_duplicate_permit_with_new_idempotency_key_is_rejected(session_factory):
     await add_permit(session_factory, approved_permit())
     first_fake = FakeBinanceClient(
-        place_results=[
-            {"orderId": "entry", "executedQty": "0.1"},
-            {"orderId": "sl"},
-            {"orderId": "tp"},
-        ]
+        place_results=[{"orderId": "entry", "executedQty": "0.1"}],
+        algo_results=[{"algoId": "sl"}, {"algoId": "tp"}],
     )
     await execute_with_real_db(session_factory, first_fake, idempotency_key="first")
 
@@ -590,11 +642,8 @@ async def test_duplicate_permit_with_new_idempotency_key_is_rejected(session_fac
 async def test_replay_attack_after_consumption_is_rejected(session_factory):
     await add_permit(session_factory, approved_permit())
     fake = FakeBinanceClient(
-        place_results=[
-            {"orderId": "entry", "executedQty": "0.1"},
-            {"orderId": "sl"},
-            {"orderId": "tp"},
-        ]
+        place_results=[{"orderId": "entry", "executedQty": "0.1"}],
+        algo_results=[{"algoId": "sl"}, {"algoId": "tp"}],
     )
     await execute_with_real_db(session_factory, fake, idempotency_key="original-click")
 
@@ -662,7 +711,7 @@ async def test_retry_after_timeout_recovers_by_client_order_id(session_factory):
             )
 
     retry_fake = FakeBinanceClient(
-        place_results=[{"orderId": "sl"}, {"orderId": "tp"}],
+        algo_results=[{"algoId": "sl"}, {"algoId": "tp"}],
         order_results={"retry-idem_entry": {"orderId": "entry", "executedQty": "0.1"}},
     )
     recovered = await execute_with_real_db(
@@ -673,7 +722,7 @@ async def test_retry_after_timeout_recovers_by_client_order_id(session_factory):
 
     assert recovered["status"] == "PROTECTED"
     assert retry_fake.get_order_calls == ["retry-idem_entry"]
-    assert [c["order_type"] for c in retry_fake.place_calls] == [
+    assert [c["order_type"] for c in retry_fake.algo_calls] == [
         "STOP_MARKET",
         "TAKE_PROFIT_MARKET",
     ]
@@ -694,14 +743,14 @@ async def test_worker_restart_resumes_entry_confirmed_record(session_factory):
         record.filled_quantity = record.quantity
         await session.commit()
 
-    fake = FakeBinanceClient(place_results=[{"orderId": "sl"}, {"orderId": "tp"}])
+    fake = FakeBinanceClient(algo_results=[{"algoId": "sl"}, {"algoId": "tp"}])
     result = await execute_with_real_db(
         session_factory,
         fake,
         idempotency_key="worker-restart",
     )
     assert result["status"] == "PROTECTED"
-    assert [c["order_type"] for c in fake.place_calls] == ["STOP_MARKET", "TAKE_PROFIT_MARKET"]
+    assert [c["order_type"] for c in fake.algo_calls] == ["STOP_MARKET", "TAKE_PROFIT_MARKET"]
 
 
 @pytest.mark.asyncio
@@ -715,7 +764,7 @@ async def test_process_restart_reconciles_unknown_entry_submission(session_facto
         await session.commit()
 
     fake = FakeBinanceClient(
-        place_results=[{"orderId": "sl"}, {"orderId": "tp"}],
+        algo_results=[{"algoId": "sl"}, {"algoId": "tp"}],
         order_results={"process-restart_entry": {"orderId": "entry", "executedQty": "0.1"}},
     )
     result = await execute_with_real_db(
@@ -731,17 +780,18 @@ async def test_process_restart_reconciles_unknown_entry_submission(session_facto
 async def test_partial_fill_protects_only_filled_quantity(session_factory):
     await add_permit(session_factory, approved_permit())
     fake = FakeBinanceClient(
-        place_results=[
-            {"orderId": "entry", "executedQty": "0.04"},
-            {"orderId": "sl"},
-            {"orderId": "tp"},
-        ]
+        place_results=[{"orderId": "entry", "executedQty": "0.04"}],
+        algo_results=[{"algoId": "sl"}, {"algoId": "tp"}],
     )
     result = await execute_with_real_db(session_factory, fake)
 
     assert result["filled_quantity"] == 0.04
     assert result["protected_quantity"] == 0.04
-    assert fake.place_calls[1]["quantity"] == 0.04
+    # closePosition=true SL/TP orders close the whole position on trigger --
+    # no per-order quantity/reduceOnly is sent alongside them.
+    assert fake.algo_calls[0]["close_position"] is True
+    assert fake.algo_calls[0]["quantity"] is None
+    assert fake.algo_calls[0]["trigger_price"] == 64000.0
 
 
 @pytest.mark.asyncio
@@ -750,26 +800,28 @@ async def test_sl_failure_persists_flattened_recovery(session_factory):
     fake = FakeBinanceClient(
         place_results=[
             {"orderId": "entry", "executedQty": "0.1"},
-            RuntimeError("SL failure"),
             {"orderId": "close"},
-        ]
+        ],
+        algo_results=[RuntimeError("SL failure")],
     )
     result = await execute_with_real_db(session_factory, fake)
 
     assert result["status"] == "FLATTENED"
     assert result["flattened"] is True
-    assert [c["order_type"] for c in fake.place_calls] == ["MARKET", "STOP_MARKET", "MARKET"]
+    assert [c["order_type"] for c in fake.place_calls] == ["MARKET", "MARKET"]
+    assert [c["order_type"] for c in fake.algo_calls] == ["STOP_MARKET"]
+    # The SL placement itself failed, so no algo order id was ever recorded
+    # to cancel -- flatten proceeds straight to the MARKET close (T1's
+    # existing behavior), no cancel_algo_order call expected.
+    assert fake.cancel_algo_calls == []
 
 
 @pytest.mark.asyncio
 async def test_tp_failure_keeps_stop_protected_state(session_factory):
     await add_permit(session_factory, approved_permit())
     fake = FakeBinanceClient(
-        place_results=[
-            {"orderId": "entry", "executedQty": "0.1"},
-            {"orderId": "sl"},
-            RuntimeError("TP failure"),
-        ]
+        place_results=[{"orderId": "entry", "executedQty": "0.1"}],
+        algo_results=[{"algoId": "sl"}, RuntimeError("TP failure")],
     )
     result = await execute_with_real_db(session_factory, fake)
 
@@ -804,8 +856,10 @@ async def test_reconciliation_recovers_submitted_stop(session_factory):
         await session.commit()
 
     fake = FakeBinanceClient(
-        place_results=[{"orderId": "tp"}],
-        order_results={"sl-reconcile_sl": {"orderId": "sl"}},
+        algo_results=[{"algoId": "tp"}],
+        algo_order_results=[
+            {"symbol": "BTCUSDT", "orderType": "STOP_MARKET", "algoId": "sl"}
+        ],
     )
     result = await execute_with_real_db(
         session_factory,
@@ -814,6 +868,7 @@ async def test_reconciliation_recovers_submitted_stop(session_factory):
     )
     assert result["status"] == "PROTECTED"
     assert result["sl_order_id"] == "sl"
+    assert fake.get_open_algo_orders_calls == ["BTCUSDT"]
 
 
 @pytest.mark.asyncio
@@ -844,9 +899,115 @@ async def test_kill_during_execution_resumes_without_duplicate_entry(session_fac
         await session.commit()
 
     fake = FakeBinanceClient(
-        place_results=[{"orderId": "sl"}, {"orderId": "tp"}],
+        algo_results=[{"algoId": "sl"}, {"algoId": "tp"}],
         order_results={"kill-retry_entry": {"orderId": "entry", "executedQty": "0.1"}},
     )
     result = await execute_with_real_db(session_factory, fake, idempotency_key="kill-retry")
     assert result["status"] == "PROTECTED"
-    assert fake.place_calls[0]["order_type"] == "STOP_MARKET"
+    assert fake.algo_calls[0]["order_type"] == "STOP_MARKET"
+
+
+@pytest.mark.asyncio
+async def test_flatten_cancels_outstanding_algo_sl_and_tp_orders():
+    # Exercises _flatten_unprotected_position directly: a position that
+    # already has both an algo SL and TP placed must have both canceled
+    # (each independently) before/around the MARKET close, so no orphaned
+    # trigger order is left resting on the exchange.
+    fake = FakeBinanceClient(place_results=[{"orderId": "close"}])
+    record = SimpleNamespace(
+        symbol="BTCUSDT",
+        side="BUY",
+        quantity=0.1,
+        filled_quantity=0.1,
+        sl_order_id="algo-sl-1",
+        tp_order_id="algo-tp-1",
+        status="UNPROTECTED_CRITICAL",
+        updated_at=None,
+        last_error=None,
+        event_log=[],
+        flattened=False,
+        retry_count=0,
+    )
+
+    await _flatten_unprotected_position(MagicMock(), fake, record)
+
+    assert record.flattened is True
+    assert record.status == "FLATTENED"
+    assert {c["algo_id"] for c in fake.cancel_algo_calls} == {"algo-sl-1", "algo-tp-1"}
+    assert fake.place_calls[0]["order_type"] == "MARKET"
+
+
+@pytest.mark.asyncio
+async def test_flatten_cancel_failure_does_not_block_flatten():
+    # A cancel failing (e.g. the algo order already triggered/expired) must
+    # not prevent the flatten MARKET close from proceeding.
+    fake = FakeBinanceClient(place_results=[{"orderId": "close"}])
+    fake.cancel_algo_order = AsyncMock(side_effect=RuntimeError("already gone"))
+    record = SimpleNamespace(
+        symbol="BTCUSDT",
+        side="SELL",
+        quantity=0.2,
+        filled_quantity=0.2,
+        sl_order_id="algo-sl-2",
+        tp_order_id=None,
+        status="UNPROTECTED_CRITICAL",
+        updated_at=None,
+        last_error=None,
+        event_log=[],
+        flattened=False,
+        retry_count=0,
+    )
+
+    await _flatten_unprotected_position(MagicMock(), fake, record)
+
+    assert record.flattened is True
+    assert record.status == "FLATTENED"
+    assert fake.place_calls[0]["order_type"] == "MARKET"
+
+
+@pytest.mark.asyncio
+async def test_flatten_with_no_algo_orders_behaves_as_before():
+    # Neither id set (e.g. SL placement itself failed) -- no cancel calls,
+    # same as pre-algo-order behavior.
+    fake = FakeBinanceClient(place_results=[{"orderId": "close"}])
+    record = SimpleNamespace(
+        symbol="BTCUSDT",
+        side="BUY",
+        quantity=0.1,
+        filled_quantity=0.1,
+        sl_order_id=None,
+        tp_order_id=None,
+        status="UNPROTECTED_CRITICAL",
+        updated_at=None,
+        last_error=None,
+        event_log=[],
+        flattened=False,
+        retry_count=0,
+    )
+
+    await _flatten_unprotected_position(MagicMock(), fake, record)
+
+    assert record.flattened is True
+    assert fake.cancel_algo_calls == []
+
+
+@pytest.mark.asyncio
+async def test_filled_market_entry_reaches_protected_via_algo_sl_and_tp(session_factory):
+    await add_permit(session_factory, approved_permit())
+    fake = FakeBinanceClient(
+        place_results=[{"orderId": "entry", "executedQty": "0.1"}],
+        algo_results=[{"algoId": 111}, {"algoId": 222}],
+    )
+    result = await execute_with_real_db(session_factory, fake)
+
+    assert result["status"] == "PROTECTED"
+    assert result["sl_order_id"] == "111"
+    assert result["tp_order_id"] == "222"
+    assert [c["order_type"] for c in fake.algo_calls] == [
+        "STOP_MARKET",
+        "TAKE_PROFIT_MARKET",
+    ]
+    assert fake.algo_calls[0]["trigger_price"] == 64000.0
+    assert fake.algo_calls[0]["close_position"] is True
+    assert fake.algo_calls[1]["trigger_price"] == 67000.0
+    assert fake.algo_calls[1]["close_position"] is True

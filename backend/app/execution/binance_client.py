@@ -54,10 +54,10 @@ class BinanceExecClient:
                 return resp.json()
 
     async def test_connection(self) -> dict:
-        return await self._request("GET", "/fapi/v1/account")
+        return await self._request("GET", "/fapi/v2/account")
 
     async def get_account(self) -> dict:
-        return await self._request("GET", "/fapi/v1/account")
+        return await self._request("GET", "/fapi/v2/account")
 
     async def get_balance(self) -> list[dict]:
         return await self._request("GET", "/fapi/v2/balance")
@@ -120,6 +120,55 @@ class BinanceExecClient:
         if orig_client_order_id:
             params["origClientOrderId"] = orig_client_order_id
         return await self._request("DELETE", "/fapi/v1/order", params)
+
+    async def place_algo_order(
+        self,
+        symbol: str,
+        side: str,
+        order_type: str,
+        *,
+        trigger_price: float,
+        close_position: bool = False,
+        quantity: float | None = None,
+        working_type: str = "CONTRACT_PRICE",
+        reduce_only: bool = False,
+        new_client_strategy_id: str | None = None,
+    ) -> dict:
+        params = {
+            "algoType": "CONDITIONAL",
+            "symbol": symbol,
+            "side": side,
+            "type": order_type,
+            "triggerPrice": trigger_price,
+            "workingType": working_type,
+        }
+        if close_position:
+            params["closePosition"] = "true"
+        else:
+            if quantity is not None:
+                params["quantity"] = quantity
+            if reduce_only:
+                params["reduceOnly"] = "true"
+        if new_client_strategy_id is not None:
+            params["newClientStrategyId"] = new_client_strategy_id
+
+        return await self._request("POST", "/fapi/v1/algoOrder", params)
+
+    async def cancel_algo_order(
+        self, algo_id: int | str | None = None, client_algo_id: str | None = None
+    ) -> dict:
+        params = {}
+        if algo_id is not None:
+            params["algoId"] = algo_id
+        if client_algo_id is not None:
+            params["clientAlgoId"] = client_algo_id
+        return await self._request("DELETE", "/fapi/v1/algoOrder", params)
+
+    async def get_open_algo_orders(self, symbol: str | None = None) -> list[dict]:
+        params = {}
+        if symbol:
+            params["symbol"] = symbol
+        return await self._request("GET", "/fapi/v1/openAlgoOrders", params)
 
     async def get_income_history(
         self,

@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import hashlib
 import uuid
 from dataclasses import dataclass
@@ -578,21 +579,25 @@ async def _resume_execution(db: AsyncSession, user_id: str, record: ExecutionRec
         sl_side = "SELL" if side == "BUY" else "BUY"
         await _mark(db, record, "PROTECTION_SUBMITTED", "sl_submit_started")
         try:
+            # SL/TP conditional orders moved to the Algo Order endpoint on
+            # 2025-12-09 -- the old /fapi/v1/order STOP_MARKET/TAKE_PROFIT_MARKET
+            # path now returns -4120. closePosition=true closes the whole
+            # position on trigger, which is the correct behavior for a single
+            # protective stop (no quantity/reduceOnly alongside it).
             sl = await _exchange_call(
                 db,
                 record,
                 "stop_loss",
-                client.place_order(
+                client.place_algo_order(
                     symbol,
                     sl_side,
                     "STOP_MARKET",
-                    record.filled_quantity or quantity,
-                    stop_price=record.stop_price,
-                    reduce_only=True,
-                    new_client_order_id=record.sl_client_order_id,
+                    trigger_price=record.stop_price,
+                    close_position=True,
+                    working_type="CONTRACT_PRICE",
                 ),
             )
-            record.sl_order_id = str(sl.get("orderId")) if sl.get("orderId") else None
+            record.sl_order_id = str(sl.get("algoId")) if sl.get("algoId") else None
             record.protected_quantity = record.filled_quantity or quantity
             await _mark(db, record, "PROTECTED", "stop_loss_confirmed")
         except TimeoutError:
@@ -620,17 +625,16 @@ async def _resume_execution(db: AsyncSession, user_id: str, record: ExecutionRec
                 db,
                 record,
                 "take_profit",
-                client.place_order(
+                client.place_algo_order(
                     symbol,
                     tp_side,
                     "TAKE_PROFIT_MARKET",
-                    record.protected_quantity or record.filled_quantity or quantity,
-                    stop_price=record.target_price,
-                    reduce_only=True,
-                    new_client_order_id=record.tp_client_order_id,
+                    trigger_price=record.target_price,
+                    close_position=True,
+                    working_type="CONTRACT_PRICE",
                 ),
             )
-            record.tp_order_id = str(tp.get("orderId")) if tp.get("orderId") else None
+            record.tp_order_id = str(tp.get("algoId")) if tp.get("algoId") else None
             await _mark(db, record, "PROTECTED", "take_profit_confirmed")
         except TimeoutError:
             return _execution_response(record)
@@ -737,11 +741,23 @@ async def _reconcile_execution(
             record.filled_quantity = _filled_quantity(entry, fallback=record.quantity)
             await _mark(db, record, "ENTRY_CONFIRMED", "entry_reconciled")
         if record.sl_order_id is None and record.status in {"PROTECTION_SUBMITTED"}:
-            sl = await client.get_order(
-                record.symbol,
-                orig_client_order_id=record.sl_client_order_id,
+            # The SL is an Algo order now, not a regular one -- it has no
+            # origClientOrderId to look up via get_order. Find it in the
+            # open algo orders instead, matched by symbol + order type.
+            algo_orders = await client.get_open_algo_orders(record.symbol)
+            sl = next(
+                (
+                    order
+                    for order in algo_orders
+                    if str(order.get("symbol", record.symbol)) == record.symbol
+                    and str(order.get("orderType", order.get("type", ""))).upper()
+                    == "STOP_MARKET"
+                ),
+                None,
             )
-            record.sl_order_id = str(sl.get("orderId")) if sl.get("orderId") else None
+            if sl is None or sl.get("algoId") is None:
+                raise RuntimeError("open algo stop-loss order not found")
+            record.sl_order_id = str(sl["algoId"])
             record.protected_quantity = record.filled_quantity or record.quantity
             await _mark(db, record, "PROTECTED", "stop_loss_reconciled")
     except Exception as exc:
@@ -754,11 +770,26 @@ async def _reconcile_execution(
         )
 
 
+async def _cancel_algo_order_if_present(client: BinanceExecClient, algo_id: str | None) -> None:
+    if algo_id is None:
+        return
+    # Best-effort: a stale/already-triggered algo order failing to cancel
+    # must never block the flatten itself.
+    with contextlib.suppress(Exception):
+        await client.cancel_algo_order(algo_id=algo_id)
+
+
 async def _flatten_unprotected_position(
     db: AsyncSession,
     client: BinanceExecClient,
     record: ExecutionRecord,
 ) -> None:
+    # An algo SL/TP already placed on this record must not be left dangling
+    # once the position is flattened -- cancel each independently so a
+    # failure on one doesn't stop the other or the flatten below.
+    await _cancel_algo_order_if_present(client, record.sl_order_id)
+    await _cancel_algo_order_if_present(client, record.tp_order_id)
+
     close_side = "SELL" if record.side == "BUY" else "BUY"
     try:
         await _mark(db, record, "FLATTEN_SUBMITTED", "flatten_started")
