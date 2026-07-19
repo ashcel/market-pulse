@@ -11,7 +11,7 @@ export interface TradeTicketState {
   correlation_bucket: string;
 }
 
-const DEFAULT_STATE: TradeTicketState = {
+export const DEFAULT_TRADE_TICKET_STATE: TradeTicketState = {
   symbol: "",
   side: "LONG",
   entry_type: "MARKET",
@@ -23,8 +23,12 @@ const DEFAULT_STATE: TradeTicketState = {
   correlation_bucket: "other",
 };
 
-export function useTradeTicket() {
-  const [state, setState] = useState<TradeTicketState>(DEFAULT_STATE);
+export function useTradeTicket(initialState: Partial<TradeTicketState> = {}) {
+  const getInitialState = useCallback(
+    (): TradeTicketState => ({ ...DEFAULT_TRADE_TICKET_STATE, ...initialState }),
+    [initialState],
+  );
+  const [state, setState] = useState<TradeTicketState>(getInitialState);
 
   const setField = useCallback(
     <K extends keyof TradeTicketState>(field: K, value: TradeTicketState[K]) => {
@@ -34,7 +38,11 @@ export function useTradeTicket() {
   );
 
   const reset = useCallback(() => {
-    setState(DEFAULT_STATE);
+    setState(getInitialState());
+  }, [getInitialState]);
+
+  const replace = useCallback((next: Partial<TradeTicketState>) => {
+    setState((prev) => ({ ...prev, ...next }));
   }, []);
 
   const isValid = useMemo(() => {
@@ -78,6 +86,7 @@ export function useTradeTicket() {
   return {
     state,
     setField,
+    replace,
     reset,
     isValid,
     estimatedRR,

@@ -75,6 +75,7 @@ import { Change } from "@/components/features/change";
 import { ChartEventPopup, ChartEventStrip } from "@/components/features/chart-event-strip";
 import { ZonesPrimitive, type PriceZone } from "@/components/features/chart-zones";
 import { ConfidenceGauge } from "@/components/features/confidence-gauge";
+import { ExecutionPanel } from "@/components/features/execution-panel";
 import { IqCard, CardEyebrow } from "@/components/features/iq-card";
 import { MiniChart } from "@/components/features/mini-chart";
 import { StructureAlignmentCard } from "@/components/features/structure-alignment-card";
@@ -169,6 +170,7 @@ import { usePreferencesStore, type ChartIndicatorKey } from "@/stores/preference
 import { useWatchlistStore } from "@/stores/watchlist";
 import { NotSignedInError, useFollowSignal, useTrackedFollows } from "@/hooks/useTrackedFollows";
 import { useAiSettingsStore } from "@/stores/ai-settings";
+import type { TradeTicketState } from "@/hooks/useTradeTicket";
 import { resolveAiConfig } from "@/lib/ai/providers";
 import { runAiAnalyst, type AiMessage } from "@/lib/ai/client";
 import {
@@ -336,6 +338,7 @@ function TokenDetailPage() {
   // The AI analyst is now an on-demand drawer, closed by default so the page
   // stays focused on the decision itself.
   const [aiOpen, setAiOpen] = useState(false);
+  const [tradeOpen, setTradeOpen] = useState(false);
   // Fullscreen chart: the whole price-structure card pins to the viewport so
   // the header (lean badge, timeframe pills) and legend come along. Escape
   // closes; body scroll locks while open.
@@ -361,6 +364,8 @@ function TokenDetailPage() {
   const tradingIntent = usePreferencesStore((s) => s.tradingIntent);
   const setTradingIntent = usePreferencesStore((s) => s.setTradingIntent);
   const marketType = usePreferencesStore((s) => s.marketType);
+  const riskPrefs = usePreferencesStore((s) => s.risk);
+  const leverage = usePreferencesStore((s) => s.leverage);
   // Watchlist: subscribe to membership only so the star re-renders on toggle.
   // The store's persist + useWatchlistSync push starred tokens to the server,
   // which is the set forward-test alerts treat as followed.
@@ -415,6 +420,28 @@ function TokenDetailPage() {
     !!alignment.data,
   );
   const activeAssessment = assessments.find((a) => a.intent === tradingIntent) ?? null;
+  const tradeTicketDefaults = useMemo<Partial<TradeTicketState>>(() => {
+    const plan = activeAssessment?.plan;
+    const direction = activeAssessment?.direction;
+    return {
+      symbol: `${symbol}USDT`,
+      side: direction === "short" ? "SHORT" : "LONG",
+      entry_type: "LIMIT",
+      entry_price: plan?.entry ?? "",
+      stop_price: plan?.stop ?? "",
+      target_price: plan?.target1 ?? "",
+      risk_percent: riskPrefs.maxRiskPerTradePercent,
+      leverage: marketType === "perp" ? leverage : 1,
+      correlation_bucket: marketType === "perp" ? "crypto_perp" : "crypto_spot",
+    };
+  }, [
+    activeAssessment?.direction,
+    activeAssessment?.plan,
+    leverage,
+    marketType,
+    riskPrefs,
+    symbol,
+  ]);
   const marketOutlook = useMemo(() => describeMarketOutlook(evalsByTimeframe), [evalsByTimeframe]);
   // Per-timeframe market structure for the alignment ladder — a projection of
   // the same alignment payload, display-only.
@@ -765,7 +792,14 @@ function TokenDetailPage() {
             />
           </div>
 
-          {/* AI analyst: on-demand, opened from the floating button below. Kept
+          <TradeDrawer
+            symbol={symbol}
+            ticket={tradeTicketDefaults}
+            open={tradeOpen}
+            onOpenChange={setTradeOpen}
+          />
+
+          {/* AI analyst: on-demand, opened from quick actions below. Kept
               mounted so the chat history survives closing/reopening the drawer. */}
           <AiDrawer
             symbol={symbol}
@@ -777,18 +811,12 @@ function TokenDetailPage() {
             open={aiOpen}
             onOpenChange={setAiOpen}
           />
-          {!aiOpen && (
-            <button
-              type="button"
-              data-tour="ai"
-              onClick={() => setAiOpen(true)}
-              aria-label="Open AI analyst"
-              className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-            >
-              <Bot className="h-5 w-5" />
-              <span className="hidden sm:inline">Ask AI</span>
-            </button>
-          )}
+          <TokenQuickActions
+            aiOpen={aiOpen}
+            tradeOpen={tradeOpen}
+            onTrade={() => setTradeOpen(true)}
+            onAi={() => setAiOpen(true)}
+          />
 
           <div className="hidden shrink-0 items-center justify-between rounded-lg border border-border bg-card px-4 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground lg:flex">
             <div className="flex items-center gap-2">
@@ -3653,6 +3681,72 @@ const SUGGESTED_PROMPTS = [
   "Critique the risk/reward and position sizing.",
 ] as const;
 
+function TokenQuickActions({
+  aiOpen,
+  tradeOpen,
+  onTrade,
+  onAi,
+}: {
+  aiOpen: boolean;
+  tradeOpen: boolean;
+  onTrade: () => void;
+  onAi: () => void;
+}) {
+  if (aiOpen || tradeOpen) return null;
+  return (
+    <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-2 sm:flex-row">
+      <button
+        type="button"
+        onClick={onTrade}
+        aria-label="Open trade ticket"
+        className="flex h-11 items-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-lg transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+      >
+        <Zap className="h-5 w-5" />
+        <span className="hidden sm:inline">Trade</span>
+      </button>
+      <button
+        type="button"
+        data-tour="ai"
+        onClick={onAi}
+        aria-label="Open LLM chat"
+        className="flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm font-semibold text-foreground shadow-lg transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+      >
+        <Bot className="h-5 w-5 text-info" />
+        <span className="hidden sm:inline">LLM Chat</span>
+      </button>
+    </div>
+  );
+}
+
+function TradeDrawer({
+  symbol,
+  ticket,
+  open,
+  onOpenChange,
+}: {
+  symbol: string;
+  ticket: Partial<TradeTicketState>;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2 pr-10">
+          <div className="flex min-w-0 items-center gap-2">
+            <Zap className="h-4 w-4 shrink-0 text-primary" />
+            <SheetTitle className="truncate text-xs font-bold">{symbol} Trade</SheetTitle>
+            <InfoHint text="Requests a constitution-gated permit using this token's current execution plan. The backend rechecks account state and derives executable quantity from the persisted permit snapshot." />
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          <ExecutionPanel initialTicket={ticket} className="w-full" />
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 function AiDrawer({
   symbol,
   timeframe,
@@ -3784,7 +3878,7 @@ function AiDrawer({
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2 pr-10">
           <div className="flex min-w-0 items-center gap-2">
             <Bot className="h-4 w-4 shrink-0 text-info" />
-            <SheetTitle className="truncate text-xs font-bold">AI Analyst</SheetTitle>
+            <SheetTitle className="truncate text-xs font-bold">LLM Chat</SheetTitle>
             <InfoHint text="A second read on the setup: it cross-checks the engine's plan against the chart's demand/supply zones, support/resistance levels and volume, and will flag conflicts. It also sees curated external context (market backdrop, recent catalysts, upcoming events) as secondary evidence — never as an override of the technicals." />
           </div>
           <label className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">

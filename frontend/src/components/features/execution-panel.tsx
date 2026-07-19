@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { TradeTicket } from "./trade-ticket";
 import { PermitCard } from "./permit-card";
 import { useTradeTicket } from "@/hooks/useTradeTicket";
@@ -7,14 +7,29 @@ import { IqCard } from "@/components/features/iq-card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2 } from "lucide-react";
 import type { PermitCardApproved } from "@/lib/types/execution";
+import type { TradeTicketState } from "@/hooks/useTradeTicket";
 
 type Step = "TICKET" | "PERMIT" | "SUBMITTED";
 
-export function ExecutionPanel() {
+export function ExecutionPanel({
+  initialTicket,
+  className,
+}: {
+  initialTicket?: Partial<TradeTicketState>;
+  className?: string;
+}) {
   const [step, setStep] = useState<Step>("TICKET");
   const [isConfirming, setIsConfirming] = useState(false);
-  const ticket = useTradeTicket();
+  const ticket = useTradeTicket(initialTicket);
   const permitReq = usePermit();
+
+  useEffect(() => {
+    if (!initialTicket) return;
+    ticket.replace(initialTicket);
+    permitReq.clearPermit();
+    setStep("TICKET");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(initialTicket)]);
 
   const handleRequestPermit = async () => {
     await permitReq.requestPermit(ticket.state);
@@ -37,7 +52,7 @@ export function ExecutionPanel() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-md">
+    <div className={className ?? "mx-auto w-full max-w-md"}>
       {/* Optionally show last quality score if available across steps */}
       {step === "SUBMITTED" && permitReq.permit?.decision?.status === "APPROVED" && (
         <div className="mb-4 text-center text-xs text-muted-foreground">

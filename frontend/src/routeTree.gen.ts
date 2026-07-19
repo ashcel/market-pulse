@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TradesRouteImport } from './routes/trades'
-import { Route as TradeRouteImport } from './routes/trade'
 import { Route as TrackerRouteImport } from './routes/tracker'
 import { Route as TechnicalRouteImport } from './routes/technical'
 import { Route as SettingsRouteImport } from './routes/settings'
@@ -45,11 +44,6 @@ import { Route as ApiExecutionPermitIdRouteImport } from './routes/api/execution
 const TradesRoute = TradesRouteImport.update({
   id: '/trades',
   path: '/trades',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TradeRoute = TradeRouteImport.update({
-  id: '/trade',
-  path: '/trade',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TrackerRoute = TrackerRouteImport.update({
@@ -216,7 +210,6 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
-  '/trade': typeof TradeRoute
   '/trades': typeof TradesRoute
   '/api/auth': typeof ApiAuthRoute
   '/api/external-context': typeof ApiExternalContextRoute
@@ -250,7 +243,6 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
-  '/trade': typeof TradeRoute
   '/trades': typeof TradesRoute
   '/api/auth': typeof ApiAuthRoute
   '/api/external-context': typeof ApiExternalContextRoute
@@ -285,7 +277,6 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
-  '/trade': typeof TradeRoute
   '/trades': typeof TradesRoute
   '/api/auth': typeof ApiAuthRoute
   '/api/external-context': typeof ApiExternalContextRoute
@@ -321,7 +312,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/technical'
     | '/tracker'
-    | '/trade'
     | '/trades'
     | '/api/auth'
     | '/api/external-context'
@@ -355,7 +345,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/technical'
     | '/tracker'
-    | '/trade'
     | '/trades'
     | '/api/auth'
     | '/api/external-context'
@@ -389,7 +378,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/technical'
     | '/tracker'
-    | '/trade'
     | '/trades'
     | '/api/auth'
     | '/api/external-context'
@@ -424,7 +412,6 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   TechnicalRoute: typeof TechnicalRoute
   TrackerRoute: typeof TrackerRoute
-  TradeRoute: typeof TradeRoute
   TradesRoute: typeof TradesRoute
   ApiAuthRoute: typeof ApiAuthRoute
   ApiExternalContextRoute: typeof ApiExternalContextRoute
@@ -452,13 +439,6 @@ declare module '@tanstack/react-router' {
       path: '/trades'
       fullPath: '/trades'
       preLoaderRoute: typeof TradesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/trade': {
-      id: '/trade'
-      path: '/trade'
-      fullPath: '/trade'
-      preLoaderRoute: typeof TradeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tracker': {
@@ -709,7 +689,6 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   TechnicalRoute: TechnicalRoute,
   TrackerRoute: TrackerRoute,
-  TradeRoute: TradeRoute,
   TradesRoute: TradesRoute,
   ApiAuthRoute: ApiAuthRoute,
   ApiExternalContextRoute: ApiExternalContextRoute,
