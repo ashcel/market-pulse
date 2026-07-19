@@ -126,9 +126,7 @@ async def list_constitution_audits(
     per_page: int = 20,
 ) -> tuple[list[ConstitutionAudit], int]:
     offset = (page - 1) * per_page
-    count_q = select(func.count(ConstitutionAudit.id)).where(
-        ConstitutionAudit.user_id == user_id
-    )
+    count_q = select(func.count(ConstitutionAudit.id)).where(ConstitutionAudit.user_id == user_id)
     total = (await db.execute(count_q)).scalar() or 0
 
     q = (

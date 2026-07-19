@@ -13,11 +13,11 @@ switches, the encryption passphrase, and venue base URLs.
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+DEFAULT_ENCRYPTION_SECRET = "change-me-in-production"
+
 
 class ExecutionConfig(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_prefix="EXECUTION_", env_file=".env", extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_prefix="EXECUTION_", env_file=".env", extra="ignore")
 
     # Global kill switch. Default OFF — no order path is live until an operator
     # sets EXECUTION_ENABLED=true in the service env. Never commit it on.
@@ -29,7 +29,7 @@ class ExecutionConfig(BaseSettings):
 
     # Separate encryption passphrase for the execution key class (kept distinct
     # from the read-only sync key class). SHA-256 -> Fernet, same shape as bybit.
-    ENCRYPTION_SECRET: str = "change-me-in-production"
+    ENCRYPTION_SECRET: str = DEFAULT_ENCRYPTION_SECRET
 
     # Binance USDⓈ-M futures venues.
     BINANCE_TESTNET_FUTURES_URL: str = "https://testnet.binancefuture.com"
@@ -39,12 +39,41 @@ class ExecutionConfig(BaseSettings):
     # considered stale and the permit fails closed (STALE_ACCOUNT_STATE).
     ACCOUNT_STATE_MAX_AGE_SECONDS: int = 15
 
+    # External order calls are bounded. Timeout recovery is state-machine based:
+    # persist the current state, reconcile by deterministic client order ids,
+    # then resume instead of submitting a fresh logical execution.
+    ORDER_TIMEOUT_SECONDS: float = 10.0
+
+    # Mainnet stays closed until a separate hardening pass records the
+    # production isolation and operational controls.
+    MAINNET_HARDENED: bool = False
+
     def futures_base_url(self) -> str:
         return (
-            self.BINANCE_TESTNET_FUTURES_URL
-            if self.TESTNET
-            else self.BINANCE_MAINNET_FUTURES_URL
+            self.BINANCE_TESTNET_FUTURES_URL if self.TESTNET else self.BINANCE_MAINNET_FUTURES_URL
         )
+
+    def execution_readiness_errors(self) -> list[str]:
+        errors: list[str] = []
+        if not self.ENABLED:
+            errors.append("execution_disabled")
+        if (
+            self.ENCRYPTION_SECRET == DEFAULT_ENCRYPTION_SECRET
+            or not self.ENCRYPTION_SECRET.strip()
+        ):
+            errors.append("default_encryption_secret")
+        if self.ACCOUNT_STATE_MAX_AGE_SECONDS <= 0:
+            errors.append("invalid_account_state_max_age")
+        if self.ORDER_TIMEOUT_SECONDS <= 0:
+            errors.append("invalid_order_timeout")
+        if (
+            not self.BINANCE_TESTNET_FUTURES_URL.strip()
+            or not self.BINANCE_MAINNET_FUTURES_URL.strip()
+        ):
+            errors.append("invalid_exchange_base_url")
+        if self.ENABLED and not self.TESTNET and not self.MAINNET_HARDENED:
+            errors.append("mainnet_not_hardened")
+        return errors
 
 
 execution_settings = ExecutionConfig()

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TradesRouteImport } from './routes/trades'
+import { Route as TradeRouteImport } from './routes/trade'
 import { Route as TrackerRouteImport } from './routes/tracker'
 import { Route as TechnicalRouteImport } from './routes/technical'
 import { Route as SettingsRouteImport } from './routes/settings'
@@ -34,14 +35,21 @@ import { Route as ApiAuthRouteImport } from './routes/api/auth'
 import { Route as ApiTradesIdRouteImport } from './routes/api/trades.$id'
 import { Route as ApiReviewAnalyticsRouteImport } from './routes/api/review.analytics'
 import { Route as ApiReviewIdRouteImport } from './routes/api/review.$id'
+import { Route as ApiExecutionPermitRouteImport } from './routes/api/execution.permit'
 import { Route as ApiExecutionConstitutionRouteImport } from './routes/api/execution.constitution'
 import { Route as ApiBybitTradesRouteImport } from './routes/api/bybit.trades'
 import { Route as ApiBybitSyncRouteImport } from './routes/api/bybit.sync'
 import { Route as ApiBybitApiKeyRouteImport } from './routes/api/bybit.api-key'
+import { Route as ApiExecutionPermitIdRouteImport } from './routes/api/execution.permit.$id'
 
 const TradesRoute = TradesRouteImport.update({
   id: '/trades',
   path: '/trades',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TradeRoute = TradeRouteImport.update({
+  id: '/trade',
+  path: '/trade',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TrackerRoute = TrackerRouteImport.update({
@@ -164,6 +172,11 @@ const ApiReviewIdRoute = ApiReviewIdRouteImport.update({
   path: '/api/review/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiExecutionPermitRoute = ApiExecutionPermitRouteImport.update({
+  id: '/api/execution/permit',
+  path: '/api/execution/permit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiExecutionConstitutionRoute =
   ApiExecutionConstitutionRouteImport.update({
     id: '/api/execution/constitution',
@@ -185,6 +198,11 @@ const ApiBybitApiKeyRoute = ApiBybitApiKeyRouteImport.update({
   path: '/api/bybit/api-key',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiExecutionPermitIdRoute = ApiExecutionPermitIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiExecutionPermitRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -198,6 +216,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
+  '/trade': typeof TradeRoute
   '/trades': typeof TradesRoute
   '/api/auth': typeof ApiAuthRoute
   '/api/external-context': typeof ApiExternalContextRoute
@@ -213,9 +232,11 @@ export interface FileRoutesByFullPath {
   '/api/bybit/sync': typeof ApiBybitSyncRoute
   '/api/bybit/trades': typeof ApiBybitTradesRoute
   '/api/execution/constitution': typeof ApiExecutionConstitutionRoute
+  '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
+  '/api/execution/permit/$id': typeof ApiExecutionPermitIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -229,6 +250,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
+  '/trade': typeof TradeRoute
   '/trades': typeof TradesRoute
   '/api/auth': typeof ApiAuthRoute
   '/api/external-context': typeof ApiExternalContextRoute
@@ -244,9 +266,11 @@ export interface FileRoutesByTo {
   '/api/bybit/sync': typeof ApiBybitSyncRoute
   '/api/bybit/trades': typeof ApiBybitTradesRoute
   '/api/execution/constitution': typeof ApiExecutionConstitutionRoute
+  '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
+  '/api/execution/permit/$id': typeof ApiExecutionPermitIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -261,6 +285,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
+  '/trade': typeof TradeRoute
   '/trades': typeof TradesRoute
   '/api/auth': typeof ApiAuthRoute
   '/api/external-context': typeof ApiExternalContextRoute
@@ -276,9 +301,11 @@ export interface FileRoutesById {
   '/api/bybit/sync': typeof ApiBybitSyncRoute
   '/api/bybit/trades': typeof ApiBybitTradesRoute
   '/api/execution/constitution': typeof ApiExecutionConstitutionRoute
+  '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
+  '/api/execution/permit/$id': typeof ApiExecutionPermitIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -294,6 +321,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/technical'
     | '/tracker'
+    | '/trade'
     | '/trades'
     | '/api/auth'
     | '/api/external-context'
@@ -309,9 +337,11 @@ export interface FileRouteTypes {
     | '/api/bybit/sync'
     | '/api/bybit/trades'
     | '/api/execution/constitution'
+    | '/api/execution/permit'
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
+    | '/api/execution/permit/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -325,6 +355,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/technical'
     | '/tracker'
+    | '/trade'
     | '/trades'
     | '/api/auth'
     | '/api/external-context'
@@ -340,9 +371,11 @@ export interface FileRouteTypes {
     | '/api/bybit/sync'
     | '/api/bybit/trades'
     | '/api/execution/constitution'
+    | '/api/execution/permit'
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
+    | '/api/execution/permit/$id'
   id:
     | '__root__'
     | '/'
@@ -356,6 +389,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/technical'
     | '/tracker'
+    | '/trade'
     | '/trades'
     | '/api/auth'
     | '/api/external-context'
@@ -371,9 +405,11 @@ export interface FileRouteTypes {
     | '/api/bybit/sync'
     | '/api/bybit/trades'
     | '/api/execution/constitution'
+    | '/api/execution/permit'
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
+    | '/api/execution/permit/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -388,6 +424,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   TechnicalRoute: typeof TechnicalRoute
   TrackerRoute: typeof TrackerRoute
+  TradeRoute: typeof TradeRoute
   TradesRoute: typeof TradesRoute
   ApiAuthRoute: typeof ApiAuthRoute
   ApiExternalContextRoute: typeof ApiExternalContextRoute
@@ -403,6 +440,7 @@ export interface RootRouteChildren {
   ApiBybitSyncRoute: typeof ApiBybitSyncRoute
   ApiBybitTradesRoute: typeof ApiBybitTradesRoute
   ApiExecutionConstitutionRoute: typeof ApiExecutionConstitutionRoute
+  ApiExecutionPermitRoute: typeof ApiExecutionPermitRouteWithChildren
   ApiReviewIdRoute: typeof ApiReviewIdRoute
   ApiReviewAnalyticsRoute: typeof ApiReviewAnalyticsRoute
 }
@@ -414,6 +452,13 @@ declare module '@tanstack/react-router' {
       path: '/trades'
       fullPath: '/trades'
       preLoaderRoute: typeof TradesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/trade': {
+      id: '/trade'
+      path: '/trade'
+      fullPath: '/trade'
+      preLoaderRoute: typeof TradeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tracker': {
@@ -584,6 +629,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiReviewIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/execution/permit': {
+      id: '/api/execution/permit'
+      path: '/api/execution/permit'
+      fullPath: '/api/execution/permit'
+      preLoaderRoute: typeof ApiExecutionPermitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/execution/constitution': {
       id: '/api/execution/constitution'
       path: '/api/execution/constitution'
@@ -612,6 +664,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiBybitApiKeyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/execution/permit/$id': {
+      id: '/api/execution/permit/$id'
+      path: '/$id'
+      fullPath: '/api/execution/permit/$id'
+      preLoaderRoute: typeof ApiExecutionPermitIdRouteImport
+      parentRoute: typeof ApiExecutionPermitRoute
+    }
   }
 }
 
@@ -627,6 +686,17 @@ const ApiTradesRouteWithChildren = ApiTradesRoute._addFileChildren(
   ApiTradesRouteChildren,
 )
 
+interface ApiExecutionPermitRouteChildren {
+  ApiExecutionPermitIdRoute: typeof ApiExecutionPermitIdRoute
+}
+
+const ApiExecutionPermitRouteChildren: ApiExecutionPermitRouteChildren = {
+  ApiExecutionPermitIdRoute: ApiExecutionPermitIdRoute,
+}
+
+const ApiExecutionPermitRouteWithChildren =
+  ApiExecutionPermitRoute._addFileChildren(ApiExecutionPermitRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
@@ -639,6 +709,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   TechnicalRoute: TechnicalRoute,
   TrackerRoute: TrackerRoute,
+  TradeRoute: TradeRoute,
   TradesRoute: TradesRoute,
   ApiAuthRoute: ApiAuthRoute,
   ApiExternalContextRoute: ApiExternalContextRoute,
@@ -654,6 +725,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiBybitSyncRoute: ApiBybitSyncRoute,
   ApiBybitTradesRoute: ApiBybitTradesRoute,
   ApiExecutionConstitutionRoute: ApiExecutionConstitutionRoute,
+  ApiExecutionPermitRoute: ApiExecutionPermitRouteWithChildren,
   ApiReviewIdRoute: ApiReviewIdRoute,
   ApiReviewAnalyticsRoute: ApiReviewAnalyticsRoute,
 }

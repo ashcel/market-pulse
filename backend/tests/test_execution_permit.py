@@ -20,9 +20,14 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 from app.execution import permit_service
+from app.execution.permit_request_schemas import PermitRequest
+from app.execution.permit_request_service import request_permit
 from app.execution.permit_service import is_expired
+from app.execution.permits_router import PermitRequestBody
 from app.execution.quality_score import (
     StopPlacementQuality,
     TradeQualityInput,
@@ -120,9 +125,7 @@ def approved_decision():
     proposal = base_proposal()
     account = base_account()
     constitution = FakeConstitution()
-    decision = evaluate_permit(
-        proposal, account, constitution, now=NOW, session=SESSION_OK
-    )
+    decision = evaluate_permit(proposal, account, constitution, now=NOW, session=SESSION_OK)
     assert decision.status is PermitStatus.APPROVED
     return decision
 
@@ -133,9 +136,7 @@ def rejected_decision():
     proposal = base_proposal(leverage=Decimal("50"))
     account = base_account(daily_realized_pnl_percent=Decimal("-5"))
     constitution = FakeConstitution()
-    decision = evaluate_permit(
-        proposal, account, constitution, now=NOW, session=SESSION_OK
-    )
+    decision = evaluate_permit(proposal, account, constitution, now=NOW, session=SESSION_OK)
     assert decision.status is PermitStatus.REJECTED
     assert PermitCheck.DAILY_LOSS_LIMIT in decision.reasons
     assert PermitCheck.MAX_LEVERAGE in decision.reasons
@@ -281,3 +282,162 @@ def test_permit_card_group_mapping_covers_every_check() -> None:
         "portfolio_risk",
         "daily_budget",
     }
+
+
+async def test_request_permit_uses_current_sizing_signature(monkeypatch) -> None:
+    constitution = FakeConstitution(allowed_sessions=[], allowed_symbols=[])
+    created_permit = SimpleNamespace(
+        id="permit-1",
+        expires_at=NOW + timedelta(seconds=90),
+    )
+    create_permit_mock = AsyncMock(return_value=created_permit)
+    monkeypatch.setattr(
+        "app.execution.permit_request_service.get_current_constitution",
+        AsyncMock(return_value=constitution),
+    )
+    monkeypatch.setattr("app.execution.permit_request_service.create_permit", create_permit_mock)
+    monkeypatch.setattr("app.execution.permit_request_service._determine_session", lambda: "london")
+    monkeypatch.setattr(
+        "app.execution.permit_request_service.get_account_state",
+        AsyncMock(return_value=base_account()),
+    )
+    monkeypatch.setattr(
+        "app.execution.permit_request_service.get_trade_records_for_behavior",
+        AsyncMock(return_value=[]),
+    )
+
+    ticket = PermitRequest(
+        symbol="BTCUSDT",
+        side="LONG",
+        entry_price=Decimal("65000.00"),
+        stop_price=Decimal("64000.00"),
+        take_profit_price=Decimal("67000.00"),
+        risk_percent=Decimal("1.0"),
+        leverage=Decimal("2"),
+        correlation_bucket="majors",
+    )
+
+    card, permit_id = await request_permit(
+        db=AsyncMock(),
+        user_id="user-1",
+        ticket=ticket,
+    )
+
+    assert permit_id == "permit-1"
+    assert card.permit_id == "permit-1"
+    proposal = create_permit_mock.call_args.kwargs["proposal"]
+    assert proposal.symbol == "BTCUSDT"
+    assert proposal.leverage == Decimal("2")
+    assert proposal.proposed_notional_percent > 0
+
+
+def test_permit_request_body_ignores_forged_account_state() -> None:
+    body = PermitRequestBody.model_validate(
+        {
+            "proposal": {
+                "symbol": "BTCUSDT",
+                "side": "LONG",
+                "entry_price": "65000.00",
+                "stop_price": "64000.00",
+                "take_profit_price": "67000.00",
+                "risk_percent": "1.0",
+                "leverage": "2",
+                "correlation_bucket": "majors",
+            },
+            "account_state": {
+                "balance": "999999999",
+                "open_position_count": 0,
+                "daily_realized_pnl_percent": "100",
+                "weekly_realized_pnl_percent": "100",
+                "is_stale": False,
+            },
+        }
+    )
+
+    assert not hasattr(body, "account_state")
+
+
+async def test_stale_account_state_rejects_and_persists(monkeypatch) -> None:
+    constitution = FakeConstitution(allowed_sessions=[], allowed_symbols=[])
+    created_permit = SimpleNamespace(id="permit-stale", expires_at=NOW + timedelta(seconds=90))
+    create_permit_mock = AsyncMock(return_value=created_permit)
+    monkeypatch.setattr(
+        "app.execution.permit_request_service.get_current_constitution",
+        AsyncMock(return_value=constitution),
+    )
+    monkeypatch.setattr("app.execution.permit_request_service.create_permit", create_permit_mock)
+    monkeypatch.setattr("app.execution.permit_request_service._determine_session", lambda: "london")
+    monkeypatch.setattr(
+        "app.execution.permit_request_service.get_account_state",
+        AsyncMock(return_value=base_account(is_stale=True)),
+    )
+    monkeypatch.setattr(
+        "app.execution.permit_request_service.get_trade_records_for_behavior",
+        AsyncMock(return_value=[]),
+    )
+
+    card, permit_id = await request_permit(
+        db=AsyncMock(),
+        user_id="user-1",
+        ticket=PermitRequest(
+            symbol="BTCUSDT",
+            side="LONG",
+            entry_price=Decimal("65000.00"),
+            stop_price=Decimal("64000.00"),
+            take_profit_price=Decimal("67000.00"),
+            risk_percent=Decimal("1.0"),
+            leverage=Decimal("2"),
+            correlation_bucket="majors",
+        ),
+    )
+
+    assert permit_id == "permit-stale"
+    assert isinstance(card, PermitCardRejected)
+    assert card.reasons == ["STALE_ACCOUNT_STATE"]
+    decision = create_permit_mock.call_args.kwargs["decision"]
+    assert decision.status is PermitStatus.REJECTED
+    assert decision.reasons == (PermitCheck.STALE_ACCOUNT_STATE,)
+    create_permit_mock.assert_awaited_once()
+
+
+async def test_account_service_failure_rejects_and_persists(monkeypatch) -> None:
+    constitution = FakeConstitution(allowed_sessions=[], allowed_symbols=[])
+    created_permit = SimpleNamespace(
+        id="permit-unavailable",
+        expires_at=NOW + timedelta(seconds=90),
+    )
+    create_permit_mock = AsyncMock(return_value=created_permit)
+    monkeypatch.setattr(
+        "app.execution.permit_request_service.get_current_constitution",
+        AsyncMock(return_value=constitution),
+    )
+    monkeypatch.setattr("app.execution.permit_request_service.create_permit", create_permit_mock)
+    monkeypatch.setattr("app.execution.permit_request_service._determine_session", lambda: "london")
+    monkeypatch.setattr(
+        "app.execution.permit_request_service.get_account_state",
+        AsyncMock(side_effect=RuntimeError("Binance unavailable")),
+    )
+
+    card, permit_id = await request_permit(
+        db=AsyncMock(),
+        user_id="user-1",
+        ticket=PermitRequest(
+            symbol="BTCUSDT",
+            side="LONG",
+            entry_price=Decimal("65000.00"),
+            stop_price=Decimal("64000.00"),
+            take_profit_price=Decimal("67000.00"),
+            risk_percent=Decimal("1.0"),
+            leverage=Decimal("2"),
+            correlation_bucket="majors",
+        ),
+    )
+
+    assert permit_id == "permit-unavailable"
+    assert isinstance(card, PermitCardRejected)
+    assert card.reasons == ["STALE_ACCOUNT_STATE"]
+    decision = create_permit_mock.call_args.kwargs["decision"]
+    account_state = create_permit_mock.call_args.kwargs["account_state"]
+    assert decision.reasons == (PermitCheck.STALE_ACCOUNT_STATE,)
+    assert account_state.is_stale is True
+    create_permit_mock.assert_awaited_once()

@@ -11,6 +11,8 @@ from app.bybit.router import router as bybit_router
 from app.config import settings
 from app.database import engine
 from app.exceptions import register_exception_handlers
+from app.execution.exec_key_router import router as exec_key_router
+from app.execution.permits_router import router as permits_router
 from app.execution.router import router as execution_router
 from app.market.router import router as market_router
 from app.review.router import router as review_router
@@ -78,5 +80,7 @@ v1_router.include_router(trades_router)
 v1_router.include_router(bybit_router)
 v1_router.include_router(review_router)
 v1_router.include_router(execution_router)
+v1_router.include_router(permits_router)
+v1_router.include_router(exec_key_router)
 
 app.include_router(v1_router)

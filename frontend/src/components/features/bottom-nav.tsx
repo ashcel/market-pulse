@@ -1,12 +1,12 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Layers, BarChart3, Newspaper, Settings } from "lucide-react";
+import { LayoutDashboard, Layers, BarChart3, Settings, Zap } from "lucide-react";
 
 const TABS = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/markets", label: "Markets", icon: Layers },
+  { to: "/trade", label: "Trade", icon: Zap },
   { to: "/rankings", label: "Rankings", icon: BarChart3 },
-  { to: "/news", label: "News", icon: Newspaper },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 

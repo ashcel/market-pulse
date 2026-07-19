@@ -140,9 +140,7 @@ def test_approved_with_headroom_on_every_check() -> None:
     account = base_account()
     constitution = FakeConstitution(max_correlated_exposure_percent=80.0)
 
-    decision = evaluate_permit(
-        proposal, account, constitution, now=NOW, session=SESSION_OK
-    )
+    decision = evaluate_permit(proposal, account, constitution, now=NOW, session=SESSION_OK)
 
     assert decision.status is PermitStatus.APPROVED
     assert decision.reasons == ()

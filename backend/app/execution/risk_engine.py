@@ -298,9 +298,7 @@ def _check_symbol_not_allowed(
     return PermitCheckResult(PermitCheck.SYMBOL_NOT_ALLOWED, passed, detail)
 
 
-def _check_session_not_allowed(
-    constitution: ConstitutionInput, session: str
-) -> PermitCheckResult:
+def _check_session_not_allowed(constitution: ConstitutionInput, session: str) -> PermitCheckResult:
     # Same "empty = unrestricted" convention as the symbol allow-list.
     passed = not constitution.allowed_sessions or session in constitution.allowed_sessions
     detail = f"session '{session}' vs allow-list {list(constitution.allowed_sessions)}"

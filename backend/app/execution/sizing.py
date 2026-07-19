@@ -184,9 +184,7 @@ def size_position(
         notional: Decimal = Decimal("0"),
         realized_risk_amount: Decimal = Decimal("0"),
     ) -> SizingResult:
-        realized_risk_fraction = (
-            realized_risk_amount / balance_d if balance_d > 0 else Decimal("0")
-        )
+        realized_risk_fraction = realized_risk_amount / balance_d if balance_d > 0 else Decimal("0")
         return SizingResult(
             approved=False,
             symbol=symbol,

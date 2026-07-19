@@ -12,6 +12,7 @@ import {
   Newspaper,
   Settings,
   Sparkles,
+  Zap,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -23,6 +24,7 @@ export const NAV = [
   { to: "/rankings", label: "Rankings", icon: BarChart3 },
   { to: "/technical", label: "Technical", icon: LineChart },
   { to: "/tracker", label: "Tracker", icon: Bookmark },
+  { to: "/trade", label: "Trade Desk", icon: Zap },
   { to: "/review", label: "Trade Review", icon: ClipboardList },
   { to: "/news", label: "News", icon: Newspaper },
   { to: "/settings", label: "Settings", icon: Settings },

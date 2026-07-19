@@ -335,9 +335,7 @@ def _score_behavior_flags(inp: TradeQualityInput) -> ComponentScore:
         )
     weight = WEIGHT_BEHAVIOR_FLAGS
     fraction = _clamp01(1.0 - (len(flags) / len(KNOWN_BEHAVIOR_DETECTORS)))
-    detail = (
-        f"behavior flags present: {sorted(flags)}" if flags else "no behavior flags present"
-    )
+    detail = f"behavior flags present: {sorted(flags)}" if flags else "no behavior flags present"
     return ComponentScore(
         component=QualityComponent.BEHAVIOR_FLAGS,
         weight=weight,

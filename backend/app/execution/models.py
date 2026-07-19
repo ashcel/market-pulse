@@ -21,14 +21,10 @@ class TradingConstitution(Base):
 
     __tablename__ = "trading_constitutions"
     __table_args__ = (
-        sa.UniqueConstraint(
-            "user_id", "version", name="trading_constitutions_user_id_version_key"
-        ),
+        sa.UniqueConstraint("user_id", "version", name="trading_constitutions_user_id_version_key"),
     )
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False)
 
@@ -55,15 +51,9 @@ class ConstitutionAudit(Base):
     """
 
     __tablename__ = "constitution_audits"
-    __table_args__ = (
-        sa.Index(
-            "constitution_audits_user_id_version_idx", "user_id", "version"
-        ),
-    )
+    __table_args__ = (sa.Index("constitution_audits_user_id_version_idx", "user_id", "version"),)
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     constitution_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -120,13 +110,9 @@ class TradePermit(Base):
     """
 
     __tablename__ = "trade_permits"
-    __table_args__ = (
-        sa.Index("trade_permits_user_id_created_at_idx", "user_id", "created_at"),
-    )
+    __table_args__ = (sa.Index("trade_permits_user_id_created_at_idx", "user_id", "created_at"),)
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
 
     # Denormalized from proposal_snapshot for cheap filtering/listing —
@@ -149,5 +135,72 @@ class TradePermit(Base):
     evaluated_at: Mapped[datetime] = mapped_column(nullable=False)
     session: Mapped[str] = mapped_column(String(20), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(nullable=False, index=True)
+    consumed_at: Mapped[datetime | None] = mapped_column(nullable=True, index=True)
+    consumed_by_execution_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True, unique=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(), nullable=False)
+
+
+class ExecutionRecord(Base):
+    """One durable record per consumed permit authorization.
+
+    This is intentionally not an execution state machine yet. Phase 2 only
+    needs a transactional marker that a permit was consumed exactly once and
+    the order-submission inputs were derived from the permit snapshot.
+    """
+
+    __tablename__ = "execution_records"
+    __table_args__ = (
+        sa.UniqueConstraint("permit_id", name="execution_records_permit_id_key"),
+        sa.UniqueConstraint("idempotency_key", name="execution_records_idempotency_key_key"),
+        sa.Index("execution_records_user_id_created_at_idx", "user_id", "created_at"),
+        sa.Index("execution_records_status_idx", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    permit_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    symbol: Mapped[str] = mapped_column(String(20), nullable=False)
+    side: Mapped[str] = mapped_column(String(10), nullable=False)
+    entry_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    entry_price: Mapped[float] = mapped_column(Float, nullable=False)
+    stop_price: Mapped[float] = mapped_column(Float, nullable=False)
+    target_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    leverage: Mapped[float] = mapped_column(Float, nullable=False)
+    risk_percent: Mapped[float] = mapped_column(Float, nullable=False)
+    quantity: Mapped[float] = mapped_column(Float, nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING_ENTRY")
+    entry_client_order_id: Mapped[str] = mapped_column(String(160), nullable=False, unique=True)
+    sl_client_order_id: Mapped[str] = mapped_column(String(160), nullable=False, unique=True)
+    tp_client_order_id: Mapped[str | None] = mapped_column(String(160), nullable=True, unique=True)
+    entry_order_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    sl_order_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    tp_order_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    filled_quantity: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    protected_quantity: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    flattened: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=False)
+    retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_error: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    event_log: Mapped[list[dict[str, Any]]] = mapped_column(sa.JSON, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(), nullable=False)
+
+
+class BinanceExecKey(Base):
+    __tablename__ = "binance_exec_keys"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True, index=True)
+    api_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    encrypted_secret: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    testnet: Mapped[bool] = mapped_column(sa.Boolean, default=True)
+    ip_allowlisted: Mapped[bool] = mapped_column(sa.Boolean, default=False)
+    permissions: Mapped[str] = mapped_column(sa.Text, nullable=False, default="{}")
+    intake_verified_at: Mapped[datetime] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(), nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(
+        default=None, onupdate=lambda: datetime.now(), nullable=True
+    )
