@@ -29,40 +29,28 @@ export function TradeTicket({
 
       <div className="flex flex-col gap-4">
         {/* Symbol & Side */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="symbol" className="text-xs font-medium text-muted-foreground">
-              Symbol
-            </Label>
-            <Input
-              id="symbol"
-              placeholder="e.g. BTCUSDT"
-              value={state.symbol}
-              onChange={(e) => setField("symbol", e.target.value.toUpperCase())}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label className="text-xs font-medium text-muted-foreground">Side</Label>
-            <ToggleGroup
-              type="single"
-              value={state.side}
-              onValueChange={(val) => val && setField("side", val as "LONG" | "SHORT")}
-              className="justify-start"
+
+        <div className="flex flex-col gap-2">
+          <Label className="text-xs font-medium text-muted-foreground">Side</Label>
+          <ToggleGroup
+            type="single"
+            value={state.side}
+            onValueChange={(val) => val && setField("side", val as "LONG" | "SHORT")}
+            className="justify-start w-full"
+          >
+            <ToggleGroupItem
+              value="LONG"
+              className="flex-1 data-[state=on]:bg-bullish data-[state=on]:text-bullish-foreground"
             >
-              <ToggleGroupItem
-                value="LONG"
-                className="flex-1 data-[state=on]:bg-bullish data-[state=on]:text-bullish-foreground"
-              >
-                LONG
-              </ToggleGroupItem>
-              <ToggleGroupItem
-                value="SHORT"
-                className="flex-1 data-[state=on]:bg-bearish data-[state=on]:text-bearish-foreground"
-              >
-                SHORT
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </div>
+              LONG
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="SHORT"
+              className="flex-1 data-[state=on]:bg-bearish data-[state=on]:text-bearish-foreground"
+            >
+              SHORT
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
 
         {/* Entry Type & Price */}
@@ -138,19 +126,12 @@ export function TradeTicket({
           </div>
         </div>
 
-        {/* Risk Slider */}
+        {/* Risk Display */}
         <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <Label className="text-xs font-medium text-muted-foreground">Risk per Trade</Label>
+          <div className="flex items-center justify-between rounded-md bg-muted/30 p-2">
+            <Label className="text-xs font-medium text-muted-foreground">Risk per Trade (Global)</Label>
             <span className="text-sm font-semibold num">{state.risk_percent.toFixed(1)}%</span>
           </div>
-          <Slider
-            min={0.5}
-            max={3.0}
-            step={0.1}
-            value={[state.risk_percent]}
-            onValueChange={([val]) => setField("risk_percent", val)}
-          />
         </div>
       </div>
 
@@ -166,15 +147,6 @@ export function TradeTicket({
           <span className="text-xs italic text-muted-foreground">calculated at submission</span>
         </div>
       </div>
-
-      <Button
-        size="lg"
-        className="w-full font-semibold"
-        disabled={!isValid || isSubmitting}
-        onClick={onSubmit}
-      >
-        {isSubmitting ? "Evaluating..." : "Request Permit"}
-      </Button>
     </IqCard>
   );
 }

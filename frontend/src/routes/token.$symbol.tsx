@@ -78,6 +78,7 @@ import { ConfidenceGauge } from "@/components/features/confidence-gauge";
 import { ExecutionPanel } from "@/components/features/execution-panel";
 import { IqCard, CardEyebrow } from "@/components/features/iq-card";
 import { MiniChart } from "@/components/features/mini-chart";
+import { TradeActionOverlay } from "@/components/features/trade-action-overlay";
 import { StructureAlignmentCard } from "@/components/features/structure-alignment-card";
 import { TokenEventsCard } from "@/components/features/token-events-card";
 import {
@@ -757,6 +758,7 @@ function TokenDetailPage() {
                             activeAssessment?.verdict === "caution") &&
                           setupValidity?.valid !== false
                         }
+                        onTrade={() => setTradeOpen(true)}
                       />
                     )}
                   </div>
@@ -1192,6 +1194,7 @@ function TokenChart({
   planTimeframe,
   planStrong,
   events,
+  onTrade,
 }: TokenSignalData & {
   symbol: string;
   timeframe: TokenTimeframe;
@@ -1212,6 +1215,7 @@ function TokenChart({
   planTimeframe: TokenTimeframe | null;
   /** True when the verdict actually wants the trade (favored/caution) — gates the shaded zones. */
   planStrong: boolean;
+  onTrade?: () => void;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -1879,6 +1883,13 @@ function TokenChart({
           ref={hostRef}
           className={cn("w-full", fillHeight ? "h-full" : "h-[360px] sm:h-[400px] lg:h-full")}
         />
+        <TradeActionOverlay
+          chart={chartRef.current}
+          series={candleSeriesRef.current}
+          plan={plan}
+          planStrong={planStrong}
+          onTrade={() => onTrade?.()}
+        />
         {eventPopup && !hiddenIndicators.events && (
           <ChartEventPopup
             events={eventPopup.events}
@@ -1926,24 +1937,38 @@ function computeSetupZones(
   const long = risk.direction === "long";
   const zones: PriceZone[] = [];
 
-  // Green-red position bands: reward up to target 1, risk down to the stop.
+  // Green-red position bands: reward up to targets, risk down to the stop.
   zones.push({
     priceLow: Math.min(risk.entry, risk.target1),
     priceHigh: Math.max(risk.entry, risk.target1),
     from: planStart as UTCTimestamp,
     fill: "rgba(34,197,94,0.10)",
     border: "rgba(34,197,94,0.28)",
-    label: "REWARD → T1",
+    label: `TP1 ${risk.target1 < 10 ? risk.target1.toPrecision(5) : risk.target1.toFixed(2)} (${risk.rewardRisk1.toFixed(2)}R)`,
     labelColor: "rgba(34,197,94,0.85)",
     labelAlign: long ? "top" : "bottom",
   });
+
+  if (risk.target2 && risk.target2 !== risk.target1) {
+    zones.push({
+      priceLow: Math.min(risk.target1, risk.target2),
+      priceHigh: Math.max(risk.target1, risk.target2),
+      from: planStart as UTCTimestamp,
+      fill: "rgba(34,197,94,0.05)",
+      border: "rgba(34,197,94,0.15)",
+      label: `TP2 ${risk.target2 < 10 ? risk.target2.toPrecision(5) : risk.target2.toFixed(2)} (${risk.rewardRisk2.toFixed(2)}R)`,
+      labelColor: "rgba(34,197,94,0.70)",
+      labelAlign: long ? "top" : "bottom",
+    });
+  }
+
   zones.push({
     priceLow: Math.min(risk.entry, risk.stop),
     priceHigh: Math.max(risk.entry, risk.stop),
     from: planStart as UTCTimestamp,
     fill: "rgba(244,63,94,0.10)",
     border: "rgba(244,63,94,0.28)",
-    label: "RISK → STOP",
+    label: `SL ${risk.stop < 10 ? risk.stop.toPrecision(5) : risk.stop.toFixed(2)} (1R)`,
     labelColor: "rgba(244,63,94,0.85)",
     labelAlign: long ? "bottom" : "top",
   });
@@ -3695,15 +3720,7 @@ function TokenQuickActions({
   if (aiOpen || tradeOpen) return null;
   return (
     <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-2 sm:flex-row">
-      <button
-        type="button"
-        onClick={onTrade}
-        aria-label="Open trade ticket"
-        className="flex h-11 items-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-lg transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-      >
-        <Zap className="h-5 w-5" />
-        <span className="hidden sm:inline">Trade</span>
-      </button>
+
       <button
         type="button"
         data-tour="ai"
