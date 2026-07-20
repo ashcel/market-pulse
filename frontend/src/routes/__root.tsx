@@ -91,22 +91,25 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "IQ is a mobile-first market intelligence platform. Understand today's regime, capital rotation, and technical structure in under 10 seconds.",
+          "Market Pulse is a capital-at-risk decision journal wrapped in a market-intelligence brief. Understand today's regime, capital rotation, and technical structure in under 10 seconds.",
       },
       { name: "author", content: "HeyDewi" },
       { property: "og:title", content: "Market Pulse" },
       {
         property: "og:description",
         content:
-          "Understand today's market regime, capital rotation, and top assets before you trade.",
+          "Market Pulse is a capital-at-risk decision journal wrapped in a market-intelligence brief. Understand today's market regime, capital rotation, and top assets before you trade.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:image", content: "/market-pulse.png" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: "/market-pulse.png" },
       { name: "theme-color", content: "#0e1015" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/market-pulse.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/market-pulse.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {

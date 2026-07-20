@@ -1,16 +1,16 @@
-import { Search, Sun, Moon, Menu } from "lucide-react";
+import { Search, Sun, Moon, Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useUiStore } from "@/stores/ui";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { IqLogo, NAV } from "./sidebar";
+import { IqLogo, NAV_GROUPS } from "./sidebar";
 import { SearchCommand } from "./search-command";
 import { NotificationBell } from "./notification-bell";
 import { cn } from "@/lib/utils";
 
 export function TopBar() {
-  const { theme, toggleTheme } = useUiStore();
+  const { theme, toggleTheme, sidebarOpen, setSidebar } = useUiStore();
   const marketType = usePreferencesStore((s) => s.marketType);
   const setMarketType = usePreferencesStore((s) => s.setMarketType);
   const [mounted, setMounted] = useState(false);
@@ -19,6 +19,21 @@ export function TopBar() {
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-background/85 px-4 backdrop-blur sm:px-6">
+      {/* Desktop sidebar toggle */}
+      <button
+        onClick={() => setSidebar(!sidebarOpen)}
+        className="hidden h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground lg:flex"
+        aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+        title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+      >
+        {sidebarOpen ? (
+          <PanelLeftClose className="h-4 w-4" />
+        ) : (
+          <PanelLeftOpen className="h-4 w-4" />
+        )}
+      </button>
+
+      {/* Mobile hamburger */}
       <MobileNav />
       <div className="flex items-center gap-2 lg:hidden">
         <IqLogo className="[&>div:last-child]:hidden" />
@@ -96,25 +111,34 @@ function MobileNav() {
       <SheetContent side="left" className="w-72 bg-sidebar p-5">
         <SheetTitle className="sr-only">Navigation</SheetTitle>
         <IqLogo />
-        <nav className="mt-8 flex flex-col gap-0.5">
-          {NAV.map((item) => {
-            const active = pathname === item.to;
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                onClick={() => setOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70",
-                  "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                  active && "bg-sidebar-accent text-sidebar-accent-foreground",
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            );
-          })}
+        <nav className="mt-8 flex flex-col gap-4">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label}>
+              <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+                {group.label}
+              </div>
+              <div className="flex flex-col gap-0.5">
+                {group.items.map((item) => {
+                  const active = pathname === item.to;
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      onClick={() => setOpen(false)}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70",
+                        "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                        active && "bg-sidebar-accent text-sidebar-accent-foreground",
+                      )}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
       </SheetContent>
     </Sheet>
