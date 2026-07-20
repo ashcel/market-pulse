@@ -223,7 +223,7 @@ def build_permit_card(
         return PermitCardRejected(
             permit_id=permit_id,
             decision=decision_section,
-            reasons=[reason.value for reason in decision.reasons],
+            reasons=[c.detail for c in decision.checks if not c.passed],
         )
 
     return PermitCardApproved(

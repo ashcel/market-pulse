@@ -14,7 +14,7 @@ export const useUiStore = create<UiState>()(
   persist(
     (set) => ({
       theme: "dark",
-      sidebarOpen: false,
+      sidebarOpen: true,
       toggleTheme: () => set((s) => ({ theme: s.theme === "dark" ? "light" : "dark" })),
       setSidebar: (open) => set({ sidebarOpen: open }),
     }),

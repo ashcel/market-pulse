@@ -20,10 +20,24 @@ async def _get_latest_or_none(db: AsyncSession, user_id: str) -> TradingConstitu
 
 
 async def get_current_constitution(db: AsyncSession, user_id: str) -> TradingConstitution:
-    """The active config: the highest-`version` row for this user."""
+    """The active config: the highest-`version` row for this user.
+    If none exists, seeds a default constitution seamlessly."""
     constitution = await _get_latest_or_none(db, user_id)
     if constitution is None:
-        raise ConstitutionNotFoundError(user_id)
+        default_payload = ConstitutionCreate(
+            risk_per_trade_percent=1.0,
+            daily_loss_limit_percent=3.0,
+            weekly_loss_limit_percent=8.0,
+            max_leverage=5,
+            max_concurrent_positions=3,
+            max_correlated_exposure_percent=40.0,
+            min_risk_reward=1.5,
+            allowed_sessions=["asia", "london", "new_york"],
+            allowed_symbols=[],
+            binding_cooldowns={},
+        )
+        # Seed a default version, marking the system as the creator
+        constitution = await create_constitution_version(db, user_id, default_payload, changed_by_user_id="SYSTEM")
     return constitution
 
 

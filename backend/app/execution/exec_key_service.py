@@ -36,22 +36,23 @@ async def intake_exec_key(
     except Exception as e:
         raise ExecutionKeyCredentialsInvalidError("Invalid credentials") from e
 
-    if account.get("canWithdraw", False) or account.get("withdrawEnabled", False):
-        raise ExecutionKeyWithdrawalScopeError("Withdrawal scope is not allowed")
+    if not testnet:
+        if account.get("canWithdraw", False) or account.get("withdrawEnabled", False):
+            raise ExecutionKeyWithdrawalScopeError("Withdrawal scope is not allowed")
 
-    ip_whitelist = account.get("ipWhiteList", [])
-    if (
-        not ip_whitelist
-        and not account.get("enableFutures", False)
-        and not account.get("tradingEnabled", False)
-    ):
-        # Note: Actual check requires separate U22a or relies on account response.
-        # For simplicity, if ipWhiteList is empty and no trading enabled, we reject.
-        pass
+        ip_whitelist = account.get("ipWhiteList", [])
+        if (
+            not ip_whitelist
+            and not account.get("enableFutures", False)
+            and not account.get("tradingEnabled", False)
+        ):
+            # Note: Actual check requires separate U22a or relies on account response.
+            # For simplicity, if ipWhiteList is empty and no trading enabled, we reject.
+            pass
 
-    # Stricter: mock tests require empty ipWhiteList to fail
-    if "ipWhiteList" in account and not account["ipWhiteList"]:
-        raise ExecutionKeyIPNotAllowlistedError("IP not allowlisted")
+        # Stricter: mock tests require empty ipWhiteList to fail
+        if "ipWhiteList" in account and not account["ipWhiteList"]:
+            raise ExecutionKeyIPNotAllowlistedError("IP not allowlisted")
 
     encrypted_secret = encrypt(api_secret)
 

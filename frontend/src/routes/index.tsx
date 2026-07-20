@@ -23,6 +23,13 @@ import { MarketOpportunitiesCard } from "@/components/features/market-opportunit
 import { AssetIcon } from "@/components/features/asset-icon";
 import { StatusBadge } from "@/components/features/status-badge";
 import { SkeletonCard } from "@/components/features/skeletons";
+import { Badge } from "@/components/ui/badge";
+
+import { useActionableSetups } from "@/hooks/useActionableSetups";
+import { useOpenTradesPnl } from "@/hooks/useOpenTradesPnl";
+import { useReviewTrades } from "@/hooks/useReview";
+import { useTokenEventsForSymbols } from "@/hooks/useTokenEvents";
+import { useWatchlistStore } from "@/stores/watchlist";
 import { ArrowRight, Newspaper, Radar, LineChart } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
@@ -156,8 +163,10 @@ function Dashboard() {
         </div>
       </header>
 
-      <HeroMetrics />
-      <EdgeStrip />
+      <RegimeVerdictHero />
+      <LiveSetupsStrip />
+      <TradesAndBehaviorStrip />
+      <CatalystRail />
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as DashboardTab)}>
         <TabsList
@@ -757,5 +766,207 @@ function CapitalFlowHeatmap() {
       </div>
       {data ? <Heatmap sectors={data} /> : <SkeletonCard height={240} />}
     </div>
+  );
+}
+
+function RegimeVerdictHero() {
+  const regime = useRegime();
+  if (!regime.data) return <SkeletonCard height={140} />;
+
+  const r = regime.data;
+  let actionLine = "";
+  let toneClass = "";
+  let iconClass = "";
+  
+  if (r.regime === "Risk On") {
+    actionLine = "Conditions favorable — trade your plan, normal size.";
+    toneClass = "border-bullish/50 bg-bullish/5 text-bullish";
+    iconClass = "text-bullish";
+  } else if (r.regime === "Neutral") {
+    actionLine = "Mixed — be selective, reduce size, skip low-conviction setups.";
+    toneClass = "border-warning/50 bg-warning/5 text-warning";
+    iconClass = "text-warning";
+  } else {
+    actionLine = "Poor conditions — sit out or scalp only, tight risk.";
+    toneClass = "border-bearish/50 bg-bearish/5 text-bearish";
+    iconClass = "text-bearish";
+  }
+
+  // Construct a description sentence from pillars
+  const trendPillar = r.pillars.find(p => p.label === "Trend");
+  const breadthPillar = r.pillars.find(p => p.label === "Breadth");
+  const descSentence = `${trendPillar ? `BTC daily structure ${trendPillar.displayValue?.toLowerCase()}` : ""}${breadthPillar ? `; breadth ${breadthPillar.score}%` : ""}.`;
+
+  return (
+    <IqCard className={cn("border-l-4", toneClass)} padded={false}>
+      <div className="p-5 sm:p-6">
+        <h2 className={cn("text-xl sm:text-2xl font-bold tracking-tight", iconClass)}>
+          <span className="uppercase tracking-widest text-[11px] sm:text-xs font-black block mb-1 opacity-80">
+            {r.regime}
+          </span>
+          {actionLine}
+        </h2>
+        <p className="mt-2 text-sm sm:text-base font-medium opacity-90">
+          {descSentence}
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {r.pillars.slice(0, 3).map((p) => (
+            <Badge key={p.label} variant="outline" className={cn("text-[10px] sm:text-xs bg-background/50 border-current/20", iconClass)}>
+              {p.label}: {p.displayValue || p.score}
+            </Badge>
+          ))}
+        </div>
+      </div>
+    </IqCard>
+  );
+}
+
+function LiveSetupsStrip() {
+  const { data, isLoading } = useActionableSetups();
+
+  return (
+    <IqCard padded={false} className="p-5">
+      <div className="flex items-center justify-between mb-4">
+        <CardEyebrow>Live Setups</CardEyebrow>
+        <Link to="/markets" className="text-xs font-medium text-info hover:underline">
+          See all →
+        </Link>
+      </div>
+      
+      {isLoading ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <SkeletonCard height={90} />
+          <SkeletonCard height={90} />
+        </div>
+      ) : !data || data.length === 0 ? (
+        <div className="flex h-24 items-center justify-center rounded-lg border border-dashed border-border bg-surface/50">
+          <p className="text-sm text-muted-foreground">
+            No live setups. That's a fine answer — wait for one.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {data.map((setup) => {
+            const long = setup.assessment.direction === "long";
+            return (
+              <Link
+                key={setup.ticker}
+                to="/token/$symbol"
+                params={{ symbol: setup.ticker }}
+                className={cn(
+                  "flex flex-col gap-2 rounded-lg border p-3 transition-colors",
+                  long ? "border-bullish/30 bg-bullish-soft hover:border-bullish/60" : "border-bearish/30 bg-bearish-soft hover:border-bearish/60"
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AssetIcon ticker={setup.ticker} className="h-5 w-5" />
+                    <span className="text-sm font-semibold">{setup.ticker} <span className="text-muted-foreground font-normal">· {setup.assessment.intent}</span></span>
+                  </div>
+                  <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-foreground">
+                    <span className={cn("h-2 w-2 rounded-full", long ? "bg-bullish" : "bg-bearish")} />
+                    {setup.assessment.verdict}
+                  </span>
+                </div>
+                <div className="text-xs font-medium text-foreground/80 leading-snug line-clamp-2">
+                  {setup.assessment.triggers[0]}
+                </div>
+                {setup.assessment.plan && (
+                  <div className="mt-1 flex items-center justify-between text-[11px]">
+                    <span className="text-muted-foreground">
+                      Target: {formatPrice(setup.assessment.plan.target1)}
+                    </span>
+                    <span className="font-semibold text-foreground">
+                      R:R {setup.assessment.plan.rewardRisk1.toFixed(1)}
+                    </span>
+                  </div>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </IqCard>
+  );
+}
+
+function TradesAndBehaviorStrip() {
+  const { rows, count, totalUnrealized } = useOpenTradesPnl();
+  const { trades } = useReviewTrades();
+  
+  let behaviorWarning = null;
+  if (trades && trades.length > 0) {
+    const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+    const recent = trades.filter(t => new Date(t.opened_at).getTime() > twoHoursAgo);
+    if (recent.length >= 3) {
+      behaviorWarning = `⚠ ${recent.length}rd trade in 2h — overtrade watch`;
+    }
+  }
+  
+  if (count === 0 && !behaviorWarning) return null;
+  
+  return (
+    <IqCard padded={false} className="px-5 py-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-x-6 gap-y-2">
+        <div className="flex min-w-0 items-center gap-3">
+          <CardEyebrow>Your Trades</CardEyebrow>
+          {count > 0 && (
+            <span className="text-sm font-semibold">
+              {count} open <span className="text-muted-foreground font-normal mx-1">·</span> 
+              <span className={totalUnrealized >= 0 ? "text-bullish" : "text-bearish"}>
+                {totalUnrealized >= 0 ? "+" : ""}{totalUnrealized}
+              </span> unrealized
+            </span>
+          )}
+        </div>
+        {behaviorWarning && (
+          <div className="flex items-center gap-2 text-sm font-medium text-warning bg-warning/10 px-3 py-1 rounded-md">
+            {behaviorWarning}
+          </div>
+        )}
+      </div>
+    </IqCard>
+  );
+}
+
+function CatalystRail() {
+  const watchedTickers = useWatchlistStore((s) => s.tickers);
+  const { data: events } = useTokenEventsForSymbols(watchedTickers);
+
+  if (!events || events.length === 0) return null;
+
+  const now = Date.now();
+  const futureEvents = events.filter((e) => {
+    if (!e.publishedAt) return false;
+    const time = new Date(e.publishedAt).getTime();
+    return time > now && time < now + 72 * 60 * 60 * 1000;
+  }).sort((a, b) => new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime());
+
+  if (futureEvents.length === 0) return null;
+
+  return (
+    <IqCard padded={false} className="px-5 py-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-x-6 gap-y-3">
+        <CardEyebrow className="shrink-0">What's Coming</CardEyebrow>
+        <div className="flex flex-col sm:flex-row flex-wrap gap-x-4 gap-y-2">
+          {futureEvents.slice(0, 3).map((e) => {
+            const timeUntil = Math.round((new Date(e.publishedAt).getTime() - now) / (60 * 60 * 1000));
+            return (
+              <Link 
+                key={e.id} 
+                to="/token/$symbol" 
+                params={{ symbol: e.symbol }} 
+                className="flex items-center gap-2 text-sm transition-colors hover:text-info"
+              >
+                <span className="text-warning">⚠</span>
+                <span className="font-semibold">{e.symbol}</span>
+                <span className="text-muted-foreground truncate max-w-[200px]">{e.title}</span>
+                <span className="text-xs text-muted-foreground border border-border rounded px-1">{timeUntil}h</span>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </IqCard>
   );
 }

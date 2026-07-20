@@ -504,6 +504,20 @@ function TokenDetailPage() {
     : null;
   const change24h = live?.change24h ?? (data ? computeChange24h(data.candles) : 0);
   const name = UNIVERSE.find((u) => u.ticker === symbol)?.name ?? symbol;
+
+  // Dynamic document title: "$price - $TICKER - Market Pulse"
+  // Updates whenever the live price ticks so the browser tab always shows the
+  // latest quote. Restored to the static fallback on unmount.
+  useEffect(() => {
+    if (!lastClose) return;
+    const priceStr = lastClose >= 1
+      ? lastClose.toLocaleString("en-US", { maximumFractionDigits: 2 })
+      : lastClose.toPrecision(5);
+    document.title = `$${priceStr} - ${symbol} - Market Pulse`;
+    return () => {
+      document.title = "Market Pulse";
+    };
+  }, [lastClose, symbol]);
   const stats = useMemo(() => (data ? compute24hStats(data.candles) : null), [data]);
   const spark = useMemo(
     () => data?.candles.slice(-32).map((c, i) => ({ t: i, v: c.close })) ?? [],
