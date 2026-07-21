@@ -20,6 +20,7 @@ import { formatPrice } from "@/components/features/market-card";
 import { Heatmap } from "@/components/features/heatmap";
 import { MacroStrip } from "@/components/features/macro-strip";
 import { MarketOpportunitiesCard } from "@/components/features/market-opportunities-card";
+import { FundingPlaysCard } from "@/components/features/funding-plays-card";
 import { AssetIcon } from "@/components/features/asset-icon";
 import { StatusBadge } from "@/components/features/status-badge";
 import { SkeletonCard } from "@/components/features/skeletons";
@@ -209,6 +210,8 @@ function Dashboard() {
             </div>
             <MarketOpportunitiesCard />
           </div>
+
+          <FundingPlaysCard />
         </TabsContent>
 
         <TabsContent value="market" className="mt-4 flex flex-col gap-5">

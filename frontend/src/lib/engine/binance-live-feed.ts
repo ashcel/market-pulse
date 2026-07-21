@@ -1,3 +1,4 @@
+import { fundingKey, useLiveFundingStore } from "@/stores/live-funding";
 import { klineKey, useLiveKlineStore } from "@/stores/live-klines";
 import { useLivePriceStore } from "@/stores/live-prices";
 
@@ -21,6 +22,10 @@ import { resolveExchangeSymbol } from "./symbol-map";
  *    computes for one specific symbol+interval, written to live-klines.ts.
  *    Only ever wanted for whichever timeframe is currently open on the
  *    token page — miniTicker alone can't give a correct per-interval bar.
+ *  - "markPrice" (markPrice, perp only): mark/index price + current funding
+ *    rate + next funding time, updated ~every 3s by Binance. Written to
+ *    live-funding.ts. Lets the token page show funding + a countdown that
+ *    updates in real time instead of only on usePerpContext's 120s REST poll.
  *
  * Every consumer registers a single want under its own stable id via
  * registerLiveInterest/unregisterLiveInterest. Replacing or deleting a
@@ -44,7 +49,8 @@ const MAX_RECONNECT_ATTEMPTS = 5;
 
 export type LiveWant =
   | { kind: "ticker"; market: MarketType; ticker: string }
-  | { kind: "kline"; market: MarketType; ticker: string; timeframe: TokenTimeframe };
+  | { kind: "kline"; market: MarketType; ticker: string; timeframe: TokenTimeframe }
+  | { kind: "markPrice"; market: MarketType; ticker: string };
 
 // callerId -> single want. The union of these values (per market) is the
 // desired subscription set — recomputed from scratch on every registry
@@ -53,7 +59,8 @@ const registry = new Map<string, LiveWant>();
 
 type ResolvedWant =
   | { kind: "ticker"; ticker: string; priceScale: number }
-  | { kind: "kline"; ticker: string; timeframe: TokenTimeframe; priceScale: number };
+  | { kind: "kline"; ticker: string; timeframe: TokenTimeframe; priceScale: number }
+  | { kind: "markPrice"; ticker: string; priceScale: number };
 
 interface MarketSocket {
   socket: WebSocket | null;
@@ -88,6 +95,12 @@ function streamNameFor(want: LiveWant): { stream: string; resolved: ResolvedWant
       resolved: { kind: "ticker", ticker, priceScale },
     };
   }
+  if (want.kind === "markPrice") {
+    return {
+      stream: `${symbol.toLowerCase()}@markPrice`.toLowerCase(),
+      resolved: { kind: "markPrice", ticker, priceScale },
+    };
+  }
   const interval = BINANCE_INTERVALS[want.timeframe];
   return {
     stream: `${symbol.toLowerCase()}@kline_${interval}`.toLowerCase(),
@@ -114,6 +127,8 @@ function clearStaleStreams(
     if (next.has(stream)) continue;
     if (want.kind === "ticker") {
       useLivePriceStore.getState().clearTick(market, want.ticker);
+    } else if (want.kind === "markPrice") {
+      useLiveFundingStore.getState().clearFunding(market, want.ticker);
     } else {
       useLiveKlineStore.getState().clearKline(klineKey(market, want.ticker, want.timeframe));
     }
@@ -160,6 +175,15 @@ interface KlineFrame {
   k?: { t?: number; o?: string; h?: string; l?: string; c?: string; v?: string; x?: boolean };
 }
 
+interface MarkPriceFrame {
+  e?: string; // "markPriceUpdate"
+  s?: string; // symbol
+  p?: string; // mark price
+  i?: string; // index price
+  r?: string; // current funding rate
+  T?: number; // next funding time, epoch ms
+}
+
 function connect(market: MarketType): void {
   const state = sockets[market];
   const url = `${WS_BASE[market]}?streams=${state.streams.join("/")}`;
@@ -170,7 +194,7 @@ function connect(market: MarketType): void {
     try {
       const payload = JSON.parse(event.data as string) as {
         stream?: string;
-        data?: TickerFrame & KlineFrame;
+        data?: TickerFrame & KlineFrame & MarkPriceFrame;
       };
       const streamName = payload.stream?.toLowerCase();
       const want = streamName ? state.streamToWant.get(streamName) : undefined;
@@ -183,6 +207,22 @@ function connect(market: MarketType): void {
         useLivePriceStore.getState().setTick(market, want.ticker, {
           price: price / want.priceScale,
           change24h: Number((((price - open) / open) * 100).toFixed(2)),
+          updatedAt: Date.now(),
+        });
+        return;
+      }
+
+      if (want.kind === "markPrice") {
+        const markPrice = Number(payload.data.p);
+        const indexPrice = Number(payload.data.i);
+        const fundingRate = Number(payload.data.r);
+        const nextFundingMs = Number(payload.data.T);
+        if (![markPrice, indexPrice, fundingRate, nextFundingMs].every(Number.isFinite)) return;
+        useLiveFundingStore.getState().setFunding(market, want.ticker, {
+          markPrice: markPrice / want.priceScale,
+          indexPrice: indexPrice / want.priceScale,
+          fundingRate,
+          nextFundingMs,
           updatedAt: Date.now(),
         });
         return;

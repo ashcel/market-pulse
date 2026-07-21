@@ -29,6 +29,17 @@ const FUTURES_BASE_OVERRIDES: Record<string, { base: string; scale: number }> = 
   BOB: { base: "1000000BOB", scale: 1_000_000 },
 };
 
+// Reverse of FUTURES_BASE_OVERRIDES: exchange futures base -> app ticker
+// (e.g. "1000PEPE" -> "PEPE"), for scan paths that start from exchange pairs.
+const FUTURES_BASE_TO_TICKER: Record<string, string> = Object.fromEntries(
+  Object.entries(FUTURES_BASE_OVERRIDES).map(([ticker, { base }]) => [base, ticker]),
+);
+
+/** App ticker for a futures base asset — undoes the 1000×-style rename. */
+export function futuresBaseToTicker(base: string): string {
+  return FUTURES_BASE_TO_TICKER[base] ?? base;
+}
+
 /** Strips everything but letters/digits and uppercases — the one ticker-normalization rule. */
 export function normalizeTicker(raw: string): string {
   return raw.replace(/[^a-z0-9]/gi, "").toUpperCase();

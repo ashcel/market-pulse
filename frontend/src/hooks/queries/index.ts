@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import { fetchOpportunityScan } from "@/lib/engine/discovery";
+import { fetchFundingScan } from "@/lib/engine/funding-scan";
 import { fetchRsScan } from "@/lib/engine/rs-scan";
 import { fetchMacroSnapshot } from "@/lib/engine/macro";
 import { fetchMarketSnapshot, type MarketSnapshot } from "@/lib/engine/market";
@@ -97,6 +98,17 @@ export const useOpportunityScan = () =>
     queryFn: fetchOpportunityScan,
     staleTime: 2 * 60_000,
     refetchInterval: 5 * 60_000,
+  });
+
+// Full-exchange funding-play scan (premiumIndex + fundingInfo, cached ~20s
+// server-side). Discovery/advisor layer like the opportunity scan: ranks
+// every perp's current funding window, never a trading verdict.
+export const useFundingScan = () =>
+  useQuery({
+    queryKey: ["funding-scan"],
+    queryFn: fetchFundingScan,
+    staleTime: 20_000,
+    refetchInterval: 30_000,
   });
 
 // Full-exchange relative-strength scan vs BTC (24h ticker + top/bottom kline

@@ -80,3 +80,6 @@ export const TICKER_PRICE_WEIGHT = 2;
 
 /** GET /ticker/24hr weight when `symbol` is omitted (the full-exchange array). */
 export const TICKER_24H_ALL_WEIGHT = 80;
+
+/** GET /fapi/v1/premiumIndex weight when `symbol` is omitted (the full-exchange array). */
+export const PREMIUM_INDEX_ALL_WEIGHT = 10;
