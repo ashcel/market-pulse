@@ -6,6 +6,7 @@ import type {
   BreadthContext,
   ContextEventItem,
   ExternalContext,
+  RelativeContext,
   UpcomingCatalystItem,
 } from "@/lib/engine/external-context";
 import type { IntentAssessment } from "@/lib/engine/intent";
@@ -21,11 +22,16 @@ import type { Candle } from "@/lib/engine/types";
 export const MEMO_INSTRUCTION =
   "Write a concise analyst memo for this setup, grounded strictly in the data above.";
 
-function humanize(value: string): string {
+export function humanize(value: string): string {
   return value.replaceAll("-", " ");
 }
 
-function num(value: number): string {
+/**
+ * Compact numeric formatter shared by every grounded prompt: fixed to a
+ * price-appropriate precision, trailing zeros stripped. Exported so the desk-
+ * review evidence pack renders the same figures the analyst prompt does.
+ */
+export function num(value: number): string {
   if (!Number.isFinite(value)) return "n/a";
   const abs = Math.abs(value);
   const digits = abs >= 100 ? 2 : abs >= 1 ? 3 : abs >= 0.01 ? 5 : 8;
@@ -64,7 +70,7 @@ export function buildChartStructure(
   };
 }
 
-function chartStructureBlock(s: ChartStructure): string {
+export function chartStructureBlock(s: ChartStructure): string {
   const zones = s.zones.length
     ? s.zones
         .map(
@@ -90,7 +96,7 @@ function swingText(swing: SwingPoint | null): string {
   return `${swing.label ?? "first swing"} at ${num(swing.price)}`;
 }
 
-function structureLine(s: SignalEvaluation["structure"]): string {
+export function structureLine(s: SignalEvaluation["structure"]): string {
   const event =
     s.event && s.eventSwing
       ? `${s.event === "bos" ? "BOS (trend-extending break)" : "CHoCH (break against the trend)"} at ${num(s.eventSwing.price)}`
@@ -98,12 +104,12 @@ function structureLine(s: SignalEvaluation["structure"]): string {
   return `${s.trend} — last swing high ${swingText(s.lastHigh)}, last swing low ${swingText(s.lastLow)}; latest structural break: ${event}`;
 }
 
-function equalLevelsText(levels: EqualLevel[]): string {
+export function equalLevelsText(levels: EqualLevel[]): string {
   if (levels.length === 0) return "none";
   return levels.map((l) => `${num(l.price)} (${l.swings.length} touches)`).join(", ");
 }
 
-function liquidityText(pools: LiquidityPool[], sweeps: LiquiditySweep[]): string {
+export function liquidityText(pools: LiquidityPool[], sweeps: LiquiditySweep[]): string {
   // A swept pool's stops are gone even when swing bookkeeping still reads it
   // as intact — never present one to the analyst as a live magnet.
   const sweptPools = new Set(sweeps.map((s) => s.pool));
@@ -117,7 +123,7 @@ function liquidityText(pools: LiquidityPool[], sweeps: LiquiditySweep[]): string
     .join("; ");
 }
 
-function sweepsText(sweeps: LiquiditySweep[]): string {
+export function sweepsText(sweeps: LiquiditySweep[]): string {
   if (sweeps.length === 0) return "none";
   return sweeps
     .map(
@@ -232,7 +238,7 @@ function signedPct(value: number, unit = "%"): string {
   return `${value >= 0 ? "+" : ""}${num(value)}${unit}`;
 }
 
-function breadthLine(b: BreadthContext): string {
+export function breadthLine(b: BreadthContext): string {
   const bits: string[] = [];
   if (b.btcRegime) bits.push(`BTC regime ${b.btcRegime}`);
   if (b.btcChange24hPct !== null) bits.push(`BTC 24h ${signedPct(b.btcChange24hPct)}`);
@@ -256,12 +262,29 @@ function breadthLine(b: BreadthContext): string {
   return `- Market backdrop [${b.provenance.source}, as of ${ageFrom(b.provenance.asOf)} ago]${staleSuffix(b.provenance)}: ${bits.join("; ")}.`;
 }
 
-function eventLine(e: ContextEventItem): string {
+/**
+ * Retrospective relative-strength line. Extracted verbatim from
+ * `externalContextBlock` (byte-identical output) so both the analyst prompt and
+ * the desk-review evidence pack read the same figures from one source.
+ */
+export function relativeLine(symbol: string, r: RelativeContext): string {
+  const ratioText =
+    r.ratio !== null
+      ? `; ${symbol}/BTC ratio ${num(r.ratio)}${
+          r.ratioChange7dPct !== null ? ` (7d ${signedPct(r.ratioChange7dPct)})` : ""
+        }`
+      : "";
+  return `- Relative strength vs BTC [${r.provenance.source}, as of ${ageFrom(r.provenance.asOf)} ago]${staleSuffix(r.provenance)}: 24h ${signedPct(r.rsBtc24hPp, "pp")}, 7d ${signedPct(r.rsBtc7dPp, "pp")}${
+    r.corrBtc7d !== null ? `, 7d correlation ${num(r.corrBtc7d)}` : ""
+  }${ratioText}.`;
+}
+
+export function eventLine(e: ContextEventItem): string {
   const day = e.publishedAt.slice(0, 10);
   return `  - [${e.severity}/${e.kind}] ${day}, ${ageFrom(e.publishedAt)} ago (${e.source}): "${truncateTitle(e.title)}"`;
 }
 
-function upcomingLine(e: UpcomingCatalystItem): string {
+export function upcomingLine(e: UpcomingCatalystItem): string {
   const cred: string[] = [];
   if (e.confidencePct !== null) cred.push(`confidence ${e.confidencePct}%`);
   if (e.votes !== null) cred.push(`${e.votes} votes`);
@@ -299,20 +322,7 @@ function externalContextBlock(ctx: ExternalContext): string | null {
     const parts: string[] = [];
     parts.push("### What might explain the current move? (retrospective — treat as uncertain)");
     if (ctx.breadth) parts.push(breadthLine(ctx.breadth));
-    if (ctx.relative) {
-      const r = ctx.relative;
-      const ratioText =
-        r.ratio !== null
-          ? `; ${ctx.symbol}/BTC ratio ${num(r.ratio)}${
-              r.ratioChange7dPct !== null ? ` (7d ${signedPct(r.ratioChange7dPct)})` : ""
-            }`
-          : "";
-      parts.push(
-        `- Relative strength vs BTC [${r.provenance.source}, as of ${ageFrom(r.provenance.asOf)} ago]${staleSuffix(r.provenance)}: 24h ${signedPct(r.rsBtc24hPp, "pp")}, 7d ${signedPct(r.rsBtc7dPp, "pp")}${
-          r.corrBtc7d !== null ? `, 7d correlation ${num(r.corrBtc7d)}` : ""
-        }${ratioText}.`,
-      );
-    }
+    if (ctx.relative) parts.push(relativeLine(ctx.symbol, ctx.relative));
     if (catalysts.length) {
       parts.push(
         `- Recent catalysts for ${ctx.symbol}, last 48h [news feeds]:`,

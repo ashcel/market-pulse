@@ -68,7 +68,11 @@ export const NAV = NAV_GROUPS.flatMap((g) => g.items) as readonly NavItem[];
 export function IqLogo({ className }: { className?: string }) {
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
-      <img src="/market-pulse.png" alt="Market Pulse Logo" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+      <img
+        src="/market-pulse.png"
+        alt="Market Pulse Logo"
+        className="h-9 w-9 shrink-0 rounded-lg object-cover"
+      />
       <div className="leading-tight min-w-0">
         <div className="text-base font-semibold tracking-tight">Market Pulse</div>
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -97,7 +101,11 @@ export function Sidebar() {
         {/* Logo / brand */}
         <div className={cn("flex items-center px-4 py-5", collapsed ? "justify-center" : "")}>
           {collapsed ? (
-            <img src="/market-pulse.png" alt="Market Pulse Logo" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+            <img
+              src="/market-pulse.png"
+              alt="Market Pulse Logo"
+              className="h-9 w-9 shrink-0 rounded-lg object-cover"
+            />
           ) : (
             <IqLogo />
           )}
@@ -235,8 +243,6 @@ export function Sidebar() {
             </motion.div>
           )}
         </AnimatePresence>
-
-
       </motion.aside>
     </TooltipProvider>
   );

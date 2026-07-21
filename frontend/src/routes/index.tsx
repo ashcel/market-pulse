@@ -30,7 +30,7 @@ import { useOpenTradesPnl } from "@/hooks/useOpenTradesPnl";
 import { useReviewTrades } from "@/hooks/useReview";
 import { useTokenEventsForSymbols } from "@/hooks/useTokenEvents";
 import { useWatchlistStore } from "@/stores/watchlist";
-import { ArrowRight, Newspaper, Radar, LineChart } from "lucide-react";
+import { ArrowRight, Newspaper, Radar, LineChart, Bot, Sparkles, Target } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -135,7 +135,7 @@ function Dashboard() {
   const [tab, setTab] = useState<DashboardTab>("opportunities");
 
   return (
-    <div className="mx-auto flex max-w-[1400px] flex-col gap-5">
+    <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -157,16 +157,11 @@ function Dashboard() {
                   minute: "2-digit",
                 })}
               </span>
+              <HelpButton onClick={tour.start} />
             </div>
           )}
-          <HelpButton onClick={tour.start} />
         </div>
       </header>
-
-      <RegimeVerdictHero />
-      <LiveSetupsStrip />
-      <TradesAndBehaviorStrip />
-      <CatalystRail />
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as DashboardTab)}>
         <TabsList
@@ -188,14 +183,35 @@ function Dashboard() {
         </TabsList>
 
         <TabsContent value="opportunities" className="mt-4 flex flex-col gap-5">
-          <TopSetups />
-          <MarketOpportunitiesCard />
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-4">
+            <RegimeVerdictHero />
+            <AiOverview />
+          </div>
+
+          <HeroMetrics />
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
+            <div className="lg:col-span-2 h-full">
+              <LiveSetupsStrip />
+            </div>
+            <div className="flex flex-col gap-4 lg:col-span-1 h-full">
+              <EdgeStrip />
+              <MacroStrip />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <CardEyebrow>Market Opportunities · Worth Scanning</CardEyebrow>
+              <span className="text-xs text-muted-foreground">
+                Activity scan · not a trade signal
+              </span>
+            </div>
+            <MarketOpportunitiesCard />
+          </div>
         </TabsContent>
 
         <TabsContent value="market" className="mt-4 flex flex-col gap-5">
-          <div data-tour="macro">
-            <MacroStrip />
-          </div>
           <MarketOverviewStrip />
           <TopAssets />
           <CapitalFlowHeatmap />
@@ -419,14 +435,10 @@ function FearGreed({ value }: { value: number }) {
   );
 }
 
-// What are today's tape conditions per trading objective? One compact strip —
-// derived from regime + volatility — describing what kind of tape this is
-// before picking a token; the token page then answers per asset. Each
-// style chip carries its one-line rationale as a tooltip.
 function EdgeStrip() {
   const regime = useRegime();
   const volatility = useVolatility();
-  if (!regime.data || !volatility.data) return null;
+  if (!regime.data || !volatility.data) return <SkeletonCard className="h-full min-h-[160px]" />;
 
   const entries = marketIntentOutlook(
     regime.data.regime,
@@ -436,44 +448,53 @@ function EdgeStrip() {
   const edge = marketEdge(regime.data.regime, regime.data.trendStrength, volatility.data.label);
 
   return (
-    <IqCard padded={false} data-tour="tape" className="px-4 py-3">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <CardEyebrow>Tape Overview</CardEyebrow>
-          <span className="text-sm font-semibold capitalize">{edge.label}</span>
-        </div>
-        <p
-          className="hidden min-w-0 flex-1 truncate text-xs text-muted-foreground lg:block"
-          title={edge.detail}
-        >
-          {edge.detail}
-        </p>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {entries.map((entry) => (
-            <span
-              key={entry.intent}
-              title={entry.note}
-              className="flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1"
-            >
-              <span className="text-[11px] font-medium">{entry.label}</span>
-              <StatusBadge
-                tone={
-                  entry.stance === "favored"
-                    ? "bullish"
-                    : entry.stance === "selective"
-                      ? "warning"
-                      : "bearish"
-                }
-              >
-                {entry.stance}
-              </StatusBadge>
-            </span>
-          ))}
-        </div>
+    <IqCard padded={false} data-tour="tape" className="flex flex-col p-5 h-full">
+      <div className="mb-4">
+        <CardEyebrow>Today's Edge</CardEyebrow>
+        <div className="text-xs text-muted-foreground mt-1 truncate">{edge.detail}</div>
       </div>
-      <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground lg:hidden">
-        {edge.detail}
-      </p>
+      <div className="flex flex-col gap-2.5 flex-1 justify-center">
+        {entries.map((entry) => (
+          <div
+            key={entry.intent}
+            className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-surface/30 p-3"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-6 h-6 rounded bg-muted/50 flex items-center justify-center shrink-0">
+                {entry.intent === "scalp" && (
+                  <span className="text-info text-sm font-bold">⚡</span>
+                )}
+                {entry.intent === "intraday" && (
+                  <span className="text-info text-sm font-bold">⏱</span>
+                )}
+                {entry.intent === "swing" && (
+                  <span className="text-warning text-sm font-bold">📈</span>
+                )}
+                {entry.intent === "position" && (
+                  <span className="text-bearish text-sm font-bold">📉</span>
+                )}
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-semibold capitalize text-foreground">
+                  {entry.label}
+                </span>
+                <span className="text-[10px] text-muted-foreground truncate">{entry.note}</span>
+              </div>
+            </div>
+            <StatusBadge
+              tone={
+                entry.stance === "favored"
+                  ? "bullish"
+                  : entry.stance === "selective"
+                    ? "warning"
+                    : "bearish"
+              }
+            >
+              {entry.stance}
+            </StatusBadge>
+          </div>
+        ))}
+      </div>
     </IqCard>
   );
 }
@@ -769,50 +790,144 @@ function CapitalFlowHeatmap() {
   );
 }
 
+function AiOverview() {
+  return (
+    <IqCard
+      className="border-border bg-card relative overflow-hidden flex flex-col h-full"
+      padded={false}
+    >
+      <div className="p-5 sm:p-6 flex flex-col h-full">
+        <div className="flex items-center gap-2 mb-4">
+          <CardEyebrow className="flex items-center gap-1.5">
+            <Bot className="w-4 h-4" /> AI Overview
+          </CardEyebrow>
+          <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+            Beta
+          </span>
+        </div>
+        <ul className="flex flex-col gap-2.5 mb-6 flex-1">
+          <li className="flex items-start gap-2 text-sm">
+            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-bullish/70" />
+            <span className="text-muted-foreground">
+              Trend remains supported across higher timeframes.
+            </span>
+          </li>
+          <li className="flex items-start gap-2 text-sm">
+            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-bullish/70" />
+            <span className="text-muted-foreground">
+              Market breadth improved, rotation flowing into majors.
+            </span>
+          </li>
+          <li className="flex items-start gap-2 text-sm">
+            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-bullish/70" />
+            <span className="text-muted-foreground">
+              Volatility is low and stable — supportive for trend continuation.
+            </span>
+          </li>
+          <li className="flex items-start gap-2 text-sm">
+            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-bullish/70" />
+            <span className="text-muted-foreground">
+              No major macro or event risks on the radar today.
+            </span>
+          </li>
+        </ul>
+        <div className="mt-auto flex items-center justify-between">
+          <div className="text-xs font-medium">
+            <span className="text-bullish">Recommendation: </span>
+            <span className="text-foreground">Trade your plan • Normal size • Focus on trend</span>
+          </div>
+          <button className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-surface/80">
+            <Sparkles className="h-3.5 w-3.5" />
+            Ask AI
+          </button>
+        </div>
+      </div>
+    </IqCard>
+  );
+}
+
 function RegimeVerdictHero() {
   const regime = useRegime();
-  if (!regime.data) return <SkeletonCard height={140} />;
+  if (!regime.data) return <SkeletonCard className="h-full min-h-[240px]" />;
 
   const r = regime.data;
   let actionLine = "";
   let toneClass = "";
   let iconClass = "";
-  
+
   if (r.regime === "Risk On") {
     actionLine = "Conditions favorable — trade your plan, normal size.";
-    toneClass = "border-bullish/50 bg-bullish/5 text-bullish";
+    toneClass = "border-bullish/50 bg-bullish-soft";
     iconClass = "text-bullish";
   } else if (r.regime === "Neutral") {
     actionLine = "Mixed — be selective, reduce size, skip low-conviction setups.";
-    toneClass = "border-warning/50 bg-warning/5 text-warning";
+    toneClass = "border-warning/50 bg-warning-soft";
     iconClass = "text-warning";
   } else {
     actionLine = "Poor conditions — sit out or scalp only, tight risk.";
-    toneClass = "border-bearish/50 bg-bearish/5 text-bearish";
+    toneClass = "border-bearish/50 bg-bearish-soft";
     iconClass = "text-bearish";
   }
 
-  // Construct a description sentence from pillars
-  const trendPillar = r.pillars.find(p => p.label === "Trend");
-  const breadthPillar = r.pillars.find(p => p.label === "Breadth");
+  const trendPillar = r.pillars.find((p) => p.label === "Trend");
+  const breadthPillar = r.pillars.find((p) => p.label === "Breadth");
   const descSentence = `${trendPillar ? `BTC daily structure ${trendPillar.displayValue?.toLowerCase()}` : ""}${breadthPillar ? `; breadth ${breadthPillar.score}%` : ""}.`;
 
   return (
-    <IqCard className={cn("border-l-4", toneClass)} padded={false}>
-      <div className="p-5 sm:p-6">
-        <h2 className={cn("text-xl sm:text-2xl font-bold tracking-tight", iconClass)}>
-          <span className="uppercase tracking-widest text-[11px] sm:text-xs font-black block mb-1 opacity-80">
-            {r.regime}
-          </span>
-          {actionLine}
-        </h2>
-        <p className="mt-2 text-sm sm:text-base font-medium opacity-90">
-          {descSentence}
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
+    <IqCard
+      className={cn("border bg-card relative overflow-hidden flex flex-col h-full", toneClass)}
+      padded={false}
+    >
+      <div className="p-5 sm:p-6 flex flex-col h-full justify-between">
+        <div>
+          <CardEyebrow className="mb-4">Market Outlook</CardEyebrow>
+          <div className="flex justify-between items-start">
+            <div>
+              <h2
+                className={cn(
+                  "text-3xl sm:text-4xl font-black tracking-tight uppercase",
+                  iconClass,
+                )}
+              >
+                {r.regime}
+              </h2>
+              <p className="mt-3 text-sm font-medium text-foreground">{actionLine}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{descSentence}</p>
+            </div>
+            {r.regime === "Risk On" && (
+              <div className="mr-4 mt-2 opacity-90">
+                <svg
+                  width="64"
+                  height="64"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={iconClass}
+                >
+                  <path d="M4 14l3-3m0 0l3 3m-3-3v6m8-6h-6m6 0l2-2m0 0l2 2m-2-2v6" />
+                  <path d="M3 9c0-3 3-4 5-4h8c2 0 5 1 5 4v6h-21v-6z" />
+                  <path d="M6 5l-2-2" />
+                  <path d="M18 5l2-2" />
+                </svg>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="mt-8 flex flex-wrap gap-3">
           {r.pillars.slice(0, 3).map((p) => (
-            <Badge key={p.label} variant="outline" className={cn("text-[10px] sm:text-xs bg-background/50 border-current/20", iconClass)}>
-              {p.label}: {p.displayValue || p.score}
+            <Badge
+              key={p.label}
+              variant="outline"
+              className={cn(
+                "text-xs bg-background/40 border-current/20 px-3 py-1 font-medium",
+                iconClass,
+              )}
+            >
+              <span className="text-muted-foreground mr-1">{p.label}:</span>{" "}
+              {p.displayValue || `${p.score}%`}
             </Badge>
           ))}
         </div>
@@ -825,28 +940,29 @@ function LiveSetupsStrip() {
   const { data, isLoading } = useActionableSetups();
 
   return (
-    <IqCard padded={false} className="p-5">
+    <IqCard padded={false} className="p-5 flex flex-col h-full">
       <div className="flex items-center justify-between mb-4">
         <CardEyebrow>Live Setups</CardEyebrow>
-        <Link to="/markets" className="text-xs font-medium text-info hover:underline">
-          See all →
+        <Link to="/markets" className="text-[10px] text-muted-foreground hover:text-foreground">
+          View all →
         </Link>
       </div>
-      
+
       {isLoading ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <SkeletonCard height={90} />
-          <SkeletonCard height={90} />
+        <div className="flex flex-col gap-3 flex-1">
+          <SkeletonCard className="h-24 w-full" />
+          <SkeletonCard className="h-24 w-full" />
+          <SkeletonCard className="h-24 w-full" />
         </div>
       ) : !data || data.length === 0 ? (
-        <div className="flex h-24 items-center justify-center rounded-lg border border-dashed border-border bg-surface/50">
-          <p className="text-sm text-muted-foreground">
-            No live setups. That's a fine answer — wait for one.
-          </p>
+        <div className="flex flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-border/50 bg-surface/30 p-6 text-center">
+          <Target className="h-8 w-8 text-muted-foreground/50 mb-3" />
+          <p className="text-sm font-medium text-foreground">No live setups right now.</p>
+          <p className="text-xs text-muted-foreground mt-1">That's a fine answer — wait for one.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {data.map((setup) => {
+        <div className="flex flex-col gap-3">
+          {data.slice(0, 3).map((setup) => {
             const long = setup.assessment.direction === "long";
             return (
               <Link
@@ -855,16 +971,25 @@ function LiveSetupsStrip() {
                 params={{ symbol: setup.ticker }}
                 className={cn(
                   "flex flex-col gap-2 rounded-lg border p-3 transition-colors",
-                  long ? "border-bullish/30 bg-bullish-soft hover:border-bullish/60" : "border-bearish/30 bg-bearish-soft hover:border-bearish/60"
+                  long
+                    ? "border-bullish/30 bg-bullish-soft hover:border-bullish/60"
+                    : "border-bearish/30 bg-bearish-soft hover:border-bearish/60",
                 )}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <AssetIcon ticker={setup.ticker} className="h-5 w-5" />
-                    <span className="text-sm font-semibold">{setup.ticker} <span className="text-muted-foreground font-normal">· {setup.assessment.intent}</span></span>
+                    <span className="text-sm font-semibold">
+                      {setup.ticker}{" "}
+                      <span className="text-muted-foreground font-normal">
+                        · {setup.assessment.intent}
+                      </span>
+                    </span>
                   </div>
                   <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-foreground">
-                    <span className={cn("h-2 w-2 rounded-full", long ? "bg-bullish" : "bg-bearish")} />
+                    <span
+                      className={cn("h-2 w-2 rounded-full", long ? "bg-bullish" : "bg-bearish")}
+                    />
                     {setup.assessment.verdict}
                   </span>
                 </div>
@@ -893,18 +1018,18 @@ function LiveSetupsStrip() {
 function TradesAndBehaviorStrip() {
   const { rows, count, totalUnrealized } = useOpenTradesPnl();
   const { trades } = useReviewTrades();
-  
+
   let behaviorWarning = null;
   if (trades && trades.length > 0) {
     const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
-    const recent = trades.filter(t => new Date(t.opened_at).getTime() > twoHoursAgo);
+    const recent = trades.filter((t) => new Date(t.opened_at).getTime() > twoHoursAgo);
     if (recent.length >= 3) {
       behaviorWarning = `⚠ ${recent.length}rd trade in 2h — overtrade watch`;
     }
   }
-  
+
   if (count === 0 && !behaviorWarning) return null;
-  
+
   return (
     <IqCard padded={false} className="px-5 py-4">
       <div className="flex flex-col sm:flex-row sm:items-center gap-x-6 gap-y-2">
@@ -912,10 +1037,12 @@ function TradesAndBehaviorStrip() {
           <CardEyebrow>Your Trades</CardEyebrow>
           {count > 0 && (
             <span className="text-sm font-semibold">
-              {count} open <span className="text-muted-foreground font-normal mx-1">·</span> 
+              {count} open <span className="text-muted-foreground font-normal mx-1">·</span>
               <span className={totalUnrealized >= 0 ? "text-bullish" : "text-bearish"}>
-                {totalUnrealized >= 0 ? "+" : ""}{totalUnrealized}
-              </span> unrealized
+                {totalUnrealized >= 0 ? "+" : ""}
+                {totalUnrealized}
+              </span>{" "}
+              unrealized
             </span>
           )}
         </div>
@@ -936,11 +1063,13 @@ function CatalystRail() {
   if (!events || events.length === 0) return null;
 
   const now = Date.now();
-  const futureEvents = events.filter((e) => {
-    if (!e.publishedAt) return false;
-    const time = new Date(e.publishedAt).getTime();
-    return time > now && time < now + 72 * 60 * 60 * 1000;
-  }).sort((a, b) => new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime());
+  const futureEvents = events
+    .filter((e) => {
+      if (!e.publishedAt) return false;
+      const time = new Date(e.publishedAt).getTime();
+      return time > now && time < now + 72 * 60 * 60 * 1000;
+    })
+    .sort((a, b) => new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime());
 
   if (futureEvents.length === 0) return null;
 
@@ -950,18 +1079,22 @@ function CatalystRail() {
         <CardEyebrow className="shrink-0">What's Coming</CardEyebrow>
         <div className="flex flex-col sm:flex-row flex-wrap gap-x-4 gap-y-2">
           {futureEvents.slice(0, 3).map((e) => {
-            const timeUntil = Math.round((new Date(e.publishedAt).getTime() - now) / (60 * 60 * 1000));
+            const timeUntil = Math.round(
+              (new Date(e.publishedAt).getTime() - now) / (60 * 60 * 1000),
+            );
             return (
-              <Link 
-                key={e.id} 
-                to="/token/$symbol" 
-                params={{ symbol: e.symbol }} 
+              <Link
+                key={e.id}
+                to="/token/$symbol"
+                params={{ symbol: e.symbol }}
                 className="flex items-center gap-2 text-sm transition-colors hover:text-info"
               >
                 <span className="text-warning">⚠</span>
                 <span className="font-semibold">{e.symbol}</span>
                 <span className="text-muted-foreground truncate max-w-[200px]">{e.title}</span>
-                <span className="text-xs text-muted-foreground border border-border rounded px-1">{timeUntil}h</span>
+                <span className="text-xs text-muted-foreground border border-border rounded px-1">
+                  {timeUntil}h
+                </span>
               </Link>
             );
           })}

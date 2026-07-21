@@ -171,15 +171,16 @@ import { usePreferencesStore, type ChartIndicatorKey } from "@/stores/preference
 import { useWatchlistStore } from "@/stores/watchlist";
 import { NotSignedInError, useFollowSignal, useTrackedFollows } from "@/hooks/useTrackedFollows";
 import { useAiSettingsStore } from "@/stores/ai-settings";
+import { useAiContext } from "@/stores/ai-context";
 import type { TradeTicketState } from "@/hooks/useTradeTicket";
 import { resolveAiConfig } from "@/lib/ai/providers";
 import { runAiAnalyst, type AiMessage } from "@/lib/ai/client";
 import {
   buildAnalystSystem,
   buildChartStructure,
-  MEMO_INSTRUCTION,
   type ChartStructure,
 } from "@/lib/ai/analyst-context";
+import { MarkdownText } from "@/components/features/markdown-text";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/token/$symbol")({
@@ -281,11 +282,6 @@ const TOUR_STEPS: TourStep[] = [
     title: "Execution plan",
     body: "When your objective has a payable setup: entry, stop, profit targets, and a position sized from your account settings — automatically halved when the trade is counter-trend. When there's no plan, the assistant points at the objective that is payable instead.",
   },
-  {
-    target: "ai",
-    title: "AI analyst",
-    body: "Generate a written memo of the whole setup, pick a suggested prompt, or ask your own questions. Collapse it with the Hide button when you want more chart space.",
-  },
 ];
 
 class ChartErrorBoundary extends React.Component<
@@ -338,7 +334,7 @@ function TokenDetailPage() {
   const [timeframe, setTimeframe] = useState<TokenTimeframe>("4H");
   // The AI analyst is now an on-demand drawer, closed by default so the page
   // stays focused on the decision itself.
-  const [aiOpen, setAiOpen] = useState(false);
+  const setAiContext = useAiContext((s) => s.setContext);
   const [tradeOpen, setTradeOpen] = useState(false);
   // Fullscreen chart: the whole price-structure card pins to the viewport so
   // the header (lean badge, timeframe pills) and legend come along. Escape
@@ -510,9 +506,10 @@ function TokenDetailPage() {
   // latest quote. Restored to the static fallback on unmount.
   useEffect(() => {
     if (!lastClose) return;
-    const priceStr = lastClose >= 1
-      ? lastClose.toLocaleString("en-US", { maximumFractionDigits: 2 })
-      : lastClose.toPrecision(5);
+    const priceStr =
+      lastClose >= 1
+        ? lastClose.toLocaleString("en-US", { maximumFractionDigits: 2 })
+        : lastClose.toPrecision(5);
     document.title = `$${priceStr} - ${symbol} - Market Pulse`;
     return () => {
       document.title = "Market Pulse";
@@ -582,6 +579,36 @@ function TokenDetailPage() {
     }));
     return buildChartEvents(past, upcoming);
   }, [tokenEvents.data, externalContext.data]);
+
+  useEffect(() => {
+    if (data?.evaluation) {
+      setAiContext({
+        symbol,
+        timeframe,
+        evaluation: data.evaluation,
+        assessment: activeAssessment,
+        // Full per-intent map — already computed above for every objective, not
+        // just the active one — so the AI Desk Review can match evidence to
+        // whichever intent the trader's free-text idea parses to, not just
+        // whatever tab happens to be open.
+        assessments: Object.fromEntries(assessments.map((a) => [a.intent, a])) as Partial<
+          Record<TradingIntent, DisplayIntentAssessment>
+        >,
+        chartStructure,
+        externalContext: externalContext.data,
+      });
+    }
+    return () => setAiContext(null);
+  }, [
+    symbol,
+    timeframe,
+    data?.evaluation,
+    activeAssessment,
+    assessments,
+    chartStructure,
+    externalContext.data,
+    setAiContext,
+  ]);
 
   return (
     // Locked to the viewport on desktop: only the right panel and chat scroll.
@@ -839,25 +866,6 @@ function TokenDetailPage() {
             externalContext={externalContext.data ?? null}
           />
 
-          {/* AI analyst: on-demand, opened from quick actions below. Kept
-              mounted so the chat history survives closing/reopening the drawer. */}
-          <AiDrawer
-            symbol={symbol}
-            timeframe={timeframe}
-            evaluation={data.evaluation}
-            assessment={activeAssessment}
-            chartStructure={chartStructure}
-            externalContext={externalContext.data ?? null}
-            open={aiOpen}
-            onOpenChange={setAiOpen}
-          />
-          <TokenQuickActions
-            aiOpen={aiOpen}
-            tradeOpen={tradeOpen}
-            onTrade={() => setTradeOpen(true)}
-            onAi={() => setAiOpen(true)}
-          />
-
           <div className="hidden shrink-0 items-center justify-between rounded-lg border border-border bg-card px-4 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground lg:flex">
             <div className="flex items-center gap-2">
               <span>
@@ -896,10 +904,6 @@ function TokenDetailPage() {
         open={tour.open && !signal.isLoading}
         onClose={tour.close}
         onStepChange={(target) => {
-          if (target === "ai") {
-            setAiOpen(true);
-            return;
-          }
           // Each tour step lives on a specific tab — surface it before the
           // spotlight measures the target (ProductTour re-measures after 120ms).
           const tabForTarget: Record<string, string> = {
@@ -3757,40 +3761,6 @@ function KeyInsightBox({ label, value, tone, dir, wide }: InsightRow) {
   );
 }
 
-const SUGGESTED_PROMPTS = [
-  "Summarize this setup in plain words.",
-  "What would invalidate this setup?",
-  "Critique the risk/reward and position sizing.",
-] as const;
-
-function TokenQuickActions({
-  aiOpen,
-  tradeOpen,
-  onTrade,
-  onAi,
-}: {
-  aiOpen: boolean;
-  tradeOpen: boolean;
-  onTrade: () => void;
-  onAi: () => void;
-}) {
-  if (aiOpen || tradeOpen) return null;
-  return (
-    <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-2 sm:flex-row">
-      <button
-        type="button"
-        data-tour="ai"
-        onClick={onAi}
-        aria-label="Open LLM chat"
-        className="flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm font-semibold text-foreground shadow-lg transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-      >
-        <Bot className="h-5 w-5 text-info" />
-        <span className="hidden sm:inline">LLM Chat</span>
-      </button>
-    </div>
-  );
-}
-
 function TradeDrawer({
   symbol,
   ticket,
@@ -3943,287 +3913,6 @@ function TradeDrawer({
   );
 }
 
-function AiDrawer({
-  symbol,
-  timeframe,
-  evaluation,
-  assessment,
-  chartStructure,
-  externalContext,
-  open,
-  onOpenChange,
-}: {
-  symbol: string;
-  timeframe: TokenTimeframe;
-  evaluation: SignalEvaluation;
-  assessment: DisplayIntentAssessment | null;
-  chartStructure: ChartStructure | null;
-  externalContext: ExternalContext | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const [thinkingMode, setThinkingMode] = useState(true);
-  const [question, setQuestion] = useState("");
-  const [chat, setChat] = useState<
-    Array<{ role: "user" | "assistant"; text: string; source?: string }>
-  >([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const aiProvider = useAiSettingsStore((s) => s.provider);
-  const aiApiKeys = useAiSettingsStore((s) => s.apiKeys);
-  const aiModels = useAiSettingsStore((s) => s.models);
-  const aiCustomBaseUrl = useAiSettingsStore((s) => s.customBaseUrl);
-  const aiConfig = useMemo(
-    () =>
-      resolveAiConfig({
-        provider: aiProvider,
-        apiKeys: aiApiKeys,
-        models: aiModels,
-        customBaseUrl: aiCustomBaseUrl,
-      }),
-    [aiProvider, aiApiKeys, aiModels, aiCustomBaseUrl],
-  );
-
-  const runAnalysis = useCallback(
-    async (ask?: string) => {
-      const fallback = () =>
-        deterministicFallback({
-          symbol,
-          range: timeframe,
-          evaluation,
-          assessment,
-          question: ask,
-          thinkingMode,
-        });
-
-      // No key configured — deterministic memo, exactly as before.
-      if (!aiConfig) {
-        setChat((items) =>
-          [
-            ...items,
-            ...(ask ? [{ role: "user" as const, text: ask }] : []),
-            { role: "assistant" as const, text: fallback(), source: "deterministic fallback" },
-          ].slice(-10),
-        );
-        setQuestion("");
-        return;
-      }
-
-      const priorForModel = chat;
-      setChat((items) =>
-        [...items, ...(ask ? [{ role: "user" as const, text: ask }] : [])].slice(-10),
-      );
-      setQuestion("");
-      setLoading(true);
-      setError(null);
-      try {
-        const system = buildAnalystSystem(
-          symbol,
-          timeframe,
-          evaluation,
-          assessment,
-          thinkingMode,
-          chartStructure,
-          externalContext,
-        );
-        // Replay prior turns, but drop any leading assistant memos so the
-        // history starts with a user turn (required by the Anthropic API).
-        const history = priorForModel.reduce<AiMessage[]>((acc, m) => {
-          if (acc.length === 0 && m.role !== "user") return acc;
-          return [...acc, { role: m.role, content: m.text }];
-        }, []);
-        const messages: AiMessage[] = [
-          ...history,
-          { role: "user", content: ask ?? MEMO_INSTRUCTION },
-        ];
-        const text = await runAiAnalyst({ config: aiConfig, system, messages });
-        setChat((items) =>
-          [...items, { role: "assistant" as const, text, source: aiConfig.model }].slice(-10),
-        );
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Request failed.");
-        setChat((items) =>
-          [
-            ...items,
-            { role: "assistant" as const, text: fallback(), source: "deterministic fallback" },
-          ].slice(-10),
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
-    [
-      aiConfig,
-      chat,
-      evaluation,
-      assessment,
-      chartStructure,
-      externalContext,
-      symbol,
-      timeframe,
-      thinkingMode,
-    ],
-  );
-
-  // On-demand drawer, opened from the floating button on the token page. The
-  // component stays mounted while closed so chat history survives reopening.
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2 pr-10">
-          <div className="flex min-w-0 items-center gap-2">
-            <Bot className="h-4 w-4 shrink-0 text-info" />
-            <SheetTitle className="truncate text-xs font-bold">LLM Chat</SheetTitle>
-            <InfoHint text="A second read on the setup: it cross-checks the engine's plan against the chart's demand/supply zones, support/resistance levels and volume, and will flag conflicts. It also sees curated external context (market backdrop, recent catalysts, upcoming events) as secondary evidence — never as an override of the technicals." />
-          </div>
-          <label className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground">
-            <Brain className="h-3.5 w-3.5" />
-            <Switch checked={thinkingMode} onCheckedChange={setThinkingMode} />
-          </label>
-        </div>
-
-        <div className="flex min-h-0 flex-1 flex-col gap-2.5 p-3">
-          <div className="grid shrink-0 grid-cols-3 gap-1.5">
-            <ContextPill
-              label="Signal"
-              value={`${evaluation.confidence}/100`}
-              title="Heuristic checklist score, not a proven-edge probability."
-            />
-            <ContextPill label="Regime" value={evaluation.regime.replaceAll("-", " ")} />
-            <ContextPill label="Source" value={aiConfig ? aiConfig.model : "fallback"} />
-          </div>
-
-          {!aiConfig && (
-            <Link
-              to="/settings"
-              className="shrink-0 rounded-md border border-info/30 bg-info-soft px-2.5 py-1.5 text-[11px] leading-snug text-info transition-colors hover:bg-info/20"
-            >
-              Using the built-in deterministic analyst. Add your own API key in Settings for
-              AI-written analysis.
-            </Link>
-          )}
-
-          <div className="min-h-[160px] flex-1 overflow-y-auto rounded-lg border border-border bg-surface p-3 lg:min-h-0">
-            {chat.length === 0 && !loading ? (
-              <div className="flex h-full min-h-[130px] flex-col justify-center gap-1.5">
-                <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-                  <Bot className="h-4 w-4 text-info" />
-                  Ask the analyst about this setup
-                </div>
-                {SUGGESTED_PROMPTS.map((prompt) => (
-                  <button
-                    key={prompt}
-                    type="button"
-                    onClick={() => runAnalysis(prompt)}
-                    className="rounded-md border border-border bg-card px-2.5 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:border-info/40 hover:text-foreground"
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {chat.map((item, index) => (
-                  <div
-                    key={`${item.role}-${index}`}
-                    className={cn(
-                      "rounded-lg border p-3 text-sm",
-                      item.role === "assistant"
-                        ? "border-info/20 bg-background"
-                        : "ml-8 border-border bg-card text-muted-foreground",
-                    )}
-                  >
-                    <div className="mb-2 truncate text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      {item.role === "assistant" ? (item.source ?? "assistant") : "you"}
-                    </div>
-                    {item.role === "assistant" ? (
-                      <MarkdownText text={item.text} />
-                    ) : (
-                      <p>{item.text}</p>
-                    )}
-                  </div>
-                ))}
-                {loading && (
-                  <div className="flex items-center gap-2 rounded-lg border border-info/20 bg-background p-3 text-sm text-muted-foreground">
-                    <span className="h-3 w-3 animate-spin rounded-full border border-info border-t-transparent" />
-                    Analyzing with {aiConfig?.model ?? "the model"}…
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {error && (
-            <div className="shrink-0 rounded-md border border-bearish/30 bg-bearish-soft px-2.5 py-1.5 text-[11px] leading-snug text-bearish">
-              {error} Showing the deterministic memo instead.
-            </div>
-          )}
-
-          <div className="grid shrink-0 grid-cols-3 gap-1.5 lg:grid-cols-1">
-            <Button
-              type="button"
-              size="sm"
-              className="h-8"
-              disabled={loading}
-              onClick={() => runAnalysis()}
-            >
-              <Play className="h-3.5 w-3.5" />
-              Run analysis
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-8"
-              disabled={loading}
-              onClick={() => runAnalysis("What would invalidate this setup?")}
-            >
-              Invalidation
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-8"
-              disabled={loading}
-              onClick={() => runAnalysis("Critique the risk/reward and position sizing.")}
-            >
-              Risk check
-            </Button>
-          </div>
-
-          <form
-            className="flex shrink-0 gap-1.5"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const ask = question.trim();
-              if (ask) runAnalysis(ask);
-            }}
-          >
-            <Textarea
-              value={question}
-              onChange={(event) => setQuestion(event.currentTarget.value)}
-              placeholder="Ask about this setup..."
-              className="min-h-9 flex-1 resize-none text-sm"
-              rows={1}
-            />
-            <Button
-              type="submit"
-              size="icon"
-              className="h-9 w-9 shrink-0"
-              disabled={loading || question.trim().length === 0}
-              aria-label="Send"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </form>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
-
 function deterministicFallback(req: {
   symbol: string;
   range: string;
@@ -4265,67 +3954,6 @@ function deterministicFallback(req: {
     lines.push(`- **Risk evidence:** ${weakest.name} - ${weakest.explanation}`);
   if (req.question) lines.push(`\n### Prompt\n- ${req.question}`);
   return lines.join("\n");
-}
-
-function MarkdownText({ text }: { text: string }) {
-  const lines = text.split(/\r?\n/);
-  const blocks: ReactNode[] = [];
-  let list: ReactNode[] = [];
-  const flushList = () => {
-    if (list.length === 0) return;
-    blocks.push(<ul key={`ul-${blocks.length}`}>{list}</ul>);
-    list = [];
-  };
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line) {
-      flushList();
-      continue;
-    }
-    if (line.startsWith("### ")) {
-      flushList();
-      blocks.push(<h4 key={`h-${blocks.length}`}>{renderInline(line.slice(4))}</h4>);
-    } else if (line.startsWith("## ")) {
-      flushList();
-      blocks.push(<h4 key={`h-${blocks.length}`}>{renderInline(line.slice(3))}</h4>);
-    } else if (line.startsWith("- ")) {
-      list.push(<li key={`li-${blocks.length}-${list.length}`}>{renderInline(line.slice(2))}</li>);
-    } else if (/^\d+\.\s/.test(line)) {
-      list.push(
-        <li key={`li-${blocks.length}-${list.length}`}>
-          {renderInline(line.replace(/^\d+\.\s/, ""))}
-        </li>,
-      );
-    } else {
-      flushList();
-      blocks.push(<p key={`p-${blocks.length}`}>{renderInline(line)}</p>);
-    }
-  }
-  flushList();
-  return (
-    <div className="space-y-2 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_h4]:font-semibold [&_li]:ml-4 [&_li]:list-disc [&_strong]:text-foreground">
-      {blocks}
-    </div>
-  );
-}
-
-function renderInline(text: string): ReactNode[] {
-  const nodes: ReactNode[] = [];
-  const pattern = /(`[^`]+`|\*\*[^*]+\*\*)/g;
-  let last = 0;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(text)) !== null) {
-    if (match.index > last) nodes.push(text.slice(last, match.index));
-    const token = match[0];
-    if (token.startsWith("`")) {
-      nodes.push(<code key={`${match.index}-code`}>{token.slice(1, -1)}</code>);
-    } else {
-      nodes.push(<strong key={`${match.index}-strong`}>{token.slice(2, -2)}</strong>);
-    }
-    last = match.index + token.length;
-  }
-  if (last < text.length) nodes.push(text.slice(last));
-  return nodes;
 }
 
 function PerpLeverage({

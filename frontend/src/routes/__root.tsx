@@ -138,23 +138,30 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+import { useState } from "react";
+import { AskAiSidebar } from "../components/features/ask-ai-sidebar";
+
 function RootContent() {
   useNotificationStream();
   useTriggerAlerts();
   useLiveUniverseSubscription();
   useWatchlistSync();
+  const [askAiOpen, setAskAiOpen] = useState(true);
 
   return (
     <>
       <ThemeSync />
       <Toaster position="top-right" />
-      <div className="flex min-h-screen w-full bg-background">
+      <div className="flex h-screen w-full bg-background overflow-hidden">
         <Sidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <TopBar />
-          <main className="flex-1 px-4 pb-24 pt-4 sm:px-6 sm:pt-6 lg:pb-8">
-            <Outlet />
-          </main>
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <TopBar onToggleAskAi={() => setAskAiOpen(!askAiOpen)} />
+          <div className="flex flex-1 overflow-hidden">
+            <main className="flex-1 overflow-y-auto px-4 pb-24 pt-4 sm:px-6 sm:pt-6 lg:pb-8">
+              <Outlet />
+            </main>
+            <AskAiSidebar open={askAiOpen} onClose={() => setAskAiOpen(false)} />
+          </div>
         </div>
         <BottomNav />
       </div>

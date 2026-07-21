@@ -21,7 +21,7 @@ export function useActionableSetups() {
 
   // Focus on candidates that the 1H engine already flagged
   const candidates = (assets || []).filter(
-    (a) => a.decision === "buy-candidate" || a.decision === "short-candidate"
+    (a) => a.decision === "buy-candidate" || a.decision === "short-candidate",
   );
 
   const queries = useQueries({
@@ -61,10 +61,10 @@ export function useActionableSetups() {
 
     for (const a of assessments) {
       if (a.verdict === "avoid") continue;
-      
+
       const targetPrice = a.plan?.entry ?? a.anticipatoryPlan?.entry;
-      const proximity = targetPrice 
-        ? Math.abs(currentPrice - targetPrice) / currentPrice 
+      const proximity = targetPrice
+        ? Math.abs(currentPrice - targetPrice) / currentPrice
         : Infinity;
 
       actionable.push({ ticker, assessment: a, proximity });
@@ -72,7 +72,7 @@ export function useActionableSetups() {
   });
 
   actionable.sort((a, b) => a.proximity - b.proximity);
-  
+
   // Return the top 3
   return { data: actionable.slice(0, 3), isLoading: false };
 }

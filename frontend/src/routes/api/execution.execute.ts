@@ -29,22 +29,16 @@ export const Route = createFileRoute("/api/execution/execute")({
 
         const { permit_id } = body as { permit_id?: string };
         if (!permit_id || typeof permit_id !== "string") {
-          return Response.json(
-            { error: "permit_id is required" },
-            { status: 400 }
-          );
+          return Response.json({ error: "permit_id is required" }, { status: 400 });
         }
 
-        const res = await fetch(
-          `${BACKEND_BASE}/api/v1/execution/permits/${permit_id}/execute`,
-          {
-            method: "POST",
-            headers: backendHeaders(auth.user.id),
-            body: JSON.stringify({
-              idempotency_key: `exec-${permit_id}`,
-            }),
-          }
-        );
+        const res = await fetch(`${BACKEND_BASE}/api/v1/execution/permits/${permit_id}/execute`, {
+          method: "POST",
+          headers: backendHeaders(auth.user.id),
+          body: JSON.stringify({
+            idempotency_key: `exec-${permit_id}`,
+          }),
+        });
 
         let data;
         try {

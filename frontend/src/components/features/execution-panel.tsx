@@ -50,9 +50,7 @@ export function ExecutionPanel({
   const [step, setStep] = useState<Step>("TICKET");
   const [isConfirming, setIsConfirming] = useState(false);
   const [executionError, setExecutionError] = useState<string | null>(null);
-  const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(
-    null
-  );
+  const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
   const ticket = useTradeTicket(initialTicket);
   const permitReq = usePermit();
   const createTrade = useCreateTrade();
@@ -109,12 +107,9 @@ export function ExecutionPanel({
         const errorMessage = errorResp?.error?.message || errorResp?.detail;
 
         // Special case: kill switch (execution_disabled)
-        if (
-          executeRes.status === 409 &&
-          errorMessage?.includes("execution_disabled")
-        ) {
+        if (executeRes.status === 409 && errorMessage?.includes("execution_disabled")) {
           setExecutionError(
-            "Live execution is turned off (testnet kill switch). The permit is approved but no order was placed."
+            "Live execution is turned off (testnet kill switch). The permit is approved but no order was placed.",
           );
           setIsConfirming(false);
           return;
@@ -122,17 +117,13 @@ export function ExecutionPanel({
 
         // Other error cases
         if (executeRes.status === 503) {
-          setExecutionError(
-            "Execution service is not ready. Please try again in a moment."
-          );
+          setExecutionError("Execution service is not ready. Please try again in a moment.");
         } else if (executeRes.status === 404 || executeRes.status === 410) {
           setExecutionError("Permit not found or has expired. Please request a new permit.");
         } else if (executeRes.status === 409) {
           setExecutionError("Permit has already been used. Please request a new permit.");
         } else {
-          setExecutionError(
-            errorMessage || "Failed to execute trade. Please try again."
-          );
+          setExecutionError(errorMessage || "Failed to execute trade. Please try again.");
         }
         setIsConfirming(false);
         return;
@@ -162,9 +153,7 @@ export function ExecutionPanel({
       setStep("SUBMITTED");
     } catch (err) {
       console.error("Execution error:", err);
-      setExecutionError(
-        err instanceof Error ? err.message : "An unexpected error occurred"
-      );
+      setExecutionError(err instanceof Error ? err.message : "An unexpected error occurred");
       setIsConfirming(false);
     }
   };

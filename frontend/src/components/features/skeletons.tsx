@@ -1,11 +1,17 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-export function SkeletonCard({ className, height = 140 }: { className?: string; height?: number }) {
+export function SkeletonCard({
+  className,
+  height,
+}: {
+  className?: string;
+  height?: number | string;
+}) {
   return (
     <div
       className={cn("rounded-xl border border-border bg-card p-4 sm:p-5", className)}
-      style={{ height }}
+      style={height ? { height } : undefined}
     >
       <Skeleton className="h-3 w-20" />
       <Skeleton className="mt-4 h-8 w-32" />

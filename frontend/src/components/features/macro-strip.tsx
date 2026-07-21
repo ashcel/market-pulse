@@ -21,23 +21,25 @@ const REGIME_COPY: Record<CorrelationRegime, { title: string; detail: string }> 
   },
 };
 
+import { SkeletonCard } from "@/components/features/skeletons";
+
 export function MacroStrip() {
   const macro = useMacro();
   const data = macro.data;
 
   if (!data) {
-    return <IqCard className="h-24 animate-pulse bg-surface" />;
+    return <SkeletonCard className="h-full min-h-[160px]" />;
   }
 
   const regime = data.correlationRegime;
   const correlation = data.btcNdxCorrelation;
 
   return (
-    <IqCard padded={false} className="p-4">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+    <IqCard padded={false} className="p-5 flex flex-col h-full">
+      <div className="flex flex-col gap-2 mb-4">
         <div className="flex items-center gap-2">
           <CardEyebrow>Macro Context</CardEyebrow>
-          {data.source === "demo" && <StatusBadge tone="warning">Demo data</StatusBadge>}
+          {data.source === "demo" && <StatusBadge tone="warning">Demo</StatusBadge>}
         </div>
         {regime && correlation !== null && (
           <div className="flex items-center gap-2 text-xs">
@@ -52,14 +54,11 @@ export function MacroStrip() {
               BTC↔NDX {correlation > 0 ? "+" : ""}
               {correlation} · {REGIME_COPY[regime].title}
             </span>
-            <span className="hidden text-muted-foreground lg:inline">
-              {REGIME_COPY[regime].detail}
-            </span>
           </div>
         )}
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="mt-auto grid grid-cols-2 gap-2">
         {data.instruments.map((instrument) => (
           <MacroCell key={instrument.id} instrument={instrument} />
         ))}

@@ -1,4 +1,4 @@
-import { Search, Sun, Moon, Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Search, Sun, Moon, Menu, PanelLeftClose, PanelLeftOpen, Sparkles } from "lucide-react";
 import { useUiStore } from "@/stores/ui";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useEffect, useState } from "react";
@@ -9,7 +9,7 @@ import { SearchCommand } from "./search-command";
 import { NotificationBell } from "./notification-bell";
 import { cn } from "@/lib/utils";
 
-export function TopBar() {
+export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
   const { theme, toggleTheme, sidebarOpen, setSidebar } = useUiStore();
   const marketType = usePreferencesStore((s) => s.marketType);
   const setMarketType = usePreferencesStore((s) => s.setMarketType);
@@ -89,6 +89,15 @@ export function TopBar() {
         >
           {mounted && theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </button>
+        {onToggleAskAi && (
+          <button
+            onClick={onToggleAskAi}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-info transition-colors hover:bg-surface"
+            aria-label="Toggle AI"
+          >
+            <Sparkles className="h-4 w-4" />
+          </button>
+        )}
         <div className="ml-1 h-8 w-8 rounded-full bg-gradient-to-br from-info to-primary" />
       </div>
     </header>

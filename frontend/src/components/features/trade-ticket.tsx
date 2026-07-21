@@ -32,7 +32,7 @@ export function TradeTicket({
     queryKey: ["health"],
     queryFn: () => fetchHealthServer(),
   });
-  
+
   const isLive = health?.environment === "production" || health?.environment === "live";
 
   return (
@@ -43,9 +43,7 @@ export function TradeTicket({
           <span
             className={cn(
               "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-              isLive
-                ? "bg-bullish/20 text-bullish"
-                : "bg-warning/20 text-warning"
+              isLive ? "bg-bullish/20 text-bullish" : "bg-warning/20 text-warning",
             )}
           >
             {isLive ? "LIVE" : "TESTNET"}
@@ -176,12 +174,16 @@ export function TradeTicket({
       {/* Summary Strip: Est. RR is the star */}
       <div className="flex flex-col gap-3 rounded-lg bg-muted/30 p-3">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs text-muted-foreground/70 uppercase font-semibold tracking-wide">Est. Reward/Risk</span>
+          <span className="text-xs text-muted-foreground/70 uppercase font-semibold tracking-wide">
+            Est. Reward/Risk
+          </span>
           <Badge
             variant="secondary"
             className={cn(
               "text-base font-bold num px-3 py-1.5",
-              estimatedRR !== null && estimatedRR >= 2 ? "bg-bullish/20 text-bullish" : "bg-muted text-foreground"
+              estimatedRR !== null && estimatedRR >= 2
+                ? "bg-bullish/20 text-bullish"
+                : "bg-muted text-foreground",
             )}
           >
             {estimatedRR !== null ? `${estimatedRR.toFixed(2)}R` : "—"}
@@ -201,7 +203,7 @@ export function TradeTicket({
           "w-full font-bold mt-2",
           state.side === "LONG"
             ? "bg-bullish text-bullish-foreground hover:bg-bullish/90"
-            : "bg-bearish text-bearish-foreground hover:bg-bearish/90"
+            : "bg-bearish text-bearish-foreground hover:bg-bearish/90",
         )}
       >
         {isSubmitting ? "Requesting Permit..." : state.side === "LONG" ? "Long" : "Short"}

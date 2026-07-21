@@ -87,9 +87,9 @@ export function TradeActionOverlay({
         size="sm"
         className={cn(
           "h-8 gap-1.5 px-3 font-bold shadow-lg transition-transform hover:scale-105",
-          isLong 
-            ? "bg-bullish text-bullish-foreground hover:bg-bullish/90" 
-            : "bg-bearish text-bearish-foreground hover:bg-bearish/90"
+          isLong
+            ? "bg-bullish text-bullish-foreground hover:bg-bullish/90"
+            : "bg-bearish text-bearish-foreground hover:bg-bearish/90",
         )}
       >
         <Zap className="h-3.5 w-3.5" />
