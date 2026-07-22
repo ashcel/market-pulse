@@ -19,12 +19,16 @@ import {
   EyeOff,
   ExternalLink,
   Link2,
+  Coins,
+  Gem,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StopMethod } from "@/lib/engine/quant";
+import type { CapSegment } from "@/stores/preferences";
 import { useAiSettingsStore } from "@/stores/ai-settings";
 import { PROVIDERS, PROVIDER_ORDER, resolveAiConfig } from "@/lib/ai/providers";
 import { useBinanceKeyStatus, useDeleteBinanceKey, useSaveBinanceKey } from "@/hooks/useReview";
+import { putCapSegment } from "@/hooks/usePreferencesSync";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { TradingConstitutionCard } from "@/components/features/trading-constitution-card";
@@ -109,6 +113,8 @@ function SettingsPage() {
       <AccountSecurityCard />
 
       <TradingConstitutionCard />
+
+      <TradingFocusCard />
 
       <TradeRiskCard />
 
@@ -349,6 +355,81 @@ function AccountSecurityCard() {
           {message}
         </p>
       ) : null}
+    </IqCard>
+  );
+}
+
+const CAP_SEGMENT_OPTIONS: {
+  segment: Exclude<CapSegment, null>;
+  label: string;
+  hint: string;
+  icon: typeof Coins;
+}[] = [
+  { segment: "bigcap", label: "Big caps", hint: "BTC / ETH / majors", icon: Coins },
+  { segment: "smallcap", label: "Small caps", hint: "Higher volatility", icon: Gem },
+];
+
+function TradingFocusCard() {
+  const { capSegment, setCapSegment } = usePreferencesStore();
+  const [justChanged, setJustChanged] = useState(false);
+
+  const choose = (segment: Exclude<CapSegment, null>) => {
+    if (segment === capSegment) return;
+    setCapSegment(segment);
+    putCapSegment(segment);
+    setJustChanged(true);
+  };
+
+  return (
+    <IqCard className="flex flex-col gap-4">
+      <CardEyebrow>Trading Focus</CardEyebrow>
+      <p className="text-xs text-muted-foreground">
+        What you mainly trade, big caps or small caps. Changing this re-applies the matching risk
+        defaults below (max risk per trade, minimum reward/risk, leverage) — you can still hand-tune
+        them afterwards.
+      </p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {CAP_SEGMENT_OPTIONS.map((o) => (
+          <button
+            key={o.segment}
+            onClick={() => choose(o.segment)}
+            className={cn(
+              "flex items-center gap-3 rounded-lg border px-3 py-3 text-left transition-colors",
+              capSegment === o.segment
+                ? "border-info bg-info-soft"
+                : "border-border bg-surface hover:border-muted-foreground/40",
+            )}
+          >
+            <o.icon
+              className={cn(
+                "h-4 w-4 shrink-0",
+                capSegment === o.segment ? "text-info" : "text-muted-foreground",
+              )}
+            />
+            <div>
+              <div
+                className={cn(
+                  "text-sm font-semibold",
+                  capSegment === o.segment ? "text-info" : "text-foreground",
+                )}
+              >
+                {o.label}
+              </div>
+              <div className="text-[11px] text-muted-foreground">{o.hint}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+      {justChanged && (
+        <p className="text-xs text-bullish">
+          Risk defaults updated to match — see Trade Risk below.
+        </p>
+      )}
+      {capSegment === null && (
+        <p className="text-xs text-muted-foreground">
+          Not set yet — pick one to apply risk defaults.
+        </p>
+      )}
     </IqCard>
   );
 }

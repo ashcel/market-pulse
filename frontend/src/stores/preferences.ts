@@ -13,6 +13,24 @@ export interface RiskPreferences {
   stopMethod: StopMethod;
 }
 
+/** Which segment of the market the trader mainly works — drives risk defaults. `null` = not chosen yet. */
+export type CapSegment = "bigcap" | "smallcap" | null;
+
+/** Risk/leverage defaults applied when the user picks a cap segment. Small caps move faster and
+ * gap harder, so they get tighter risk, lower leverage, and demand more reward for the risk taken. */
+export function riskDefaultsForCapSegment(
+  segment: Exclude<CapSegment, null>,
+): Pick<RiskPreferences, "maxRiskPerTradePercent" | "minimumRewardRisk"> & { leverage: number } {
+  return segment === "bigcap"
+    ? { maxRiskPerTradePercent: 1.0, minimumRewardRisk: 1.5, leverage: 5 }
+    : { maxRiskPerTradePercent: 0.5, minimumRewardRisk: 2.0, leverage: 2 };
+}
+
+/** Sanitize a persisted/server value down to a valid CapSegment, else null. */
+export function sanitizeCapSegment(value: unknown): CapSegment {
+  return value === "bigcap" || value === "smallcap" ? value : null;
+}
+
 /** Toggleable overlays on the token detail chart. */
 export type ChartIndicatorKey =
   | "volume"
@@ -49,6 +67,8 @@ interface PreferencesState {
   /** Leverage for perpetual position sizing (margin + liquidation display). */
   leverage: number;
   hiddenChartIndicators: Partial<Record<ChartIndicatorKey, boolean>>;
+  /** Big-cap vs small-cap trading focus, chosen once via the first-run modal (or later in Settings). */
+  capSegment: CapSegment;
   setRefreshInterval: (ms: number) => void;
   setActiveAsset: (ticker: string) => void;
   toggleNotification: (key: keyof PreferencesState["notifications"]) => void;
@@ -57,6 +77,9 @@ interface PreferencesState {
   setMarketType: (market: MarketType) => void;
   setLeverage: (leverage: number) => void;
   toggleChartIndicator: (key: ChartIndicatorKey) => void;
+  /** Explicit user choice: sets the segment AND applies its risk defaults (leverage + risk prefs).
+   * The user can still hand-tune those afterwards in Settings. */
+  setCapSegment: (segment: Exclude<CapSegment, null>) => void;
 }
 
 export const usePreferencesStore = create<PreferencesState>()(
@@ -82,6 +105,7 @@ export const usePreferencesStore = create<PreferencesState>()(
       marketType: "spot",
       leverage: 5,
       hiddenChartIndicators: {},
+      capSegment: null,
       setRefreshInterval: (ms) => set({ refreshIntervalMs: ms }),
       setActiveAsset: (ticker) => set({ activeAsset: ticker }),
       toggleNotification: (key) =>
@@ -99,6 +123,19 @@ export const usePreferencesStore = create<PreferencesState>()(
             [key]: !s.hiddenChartIndicators[key],
           },
         })),
+      setCapSegment: (segment) =>
+        set((s) => {
+          const defaults = riskDefaultsForCapSegment(segment);
+          return {
+            capSegment: segment,
+            leverage: clampLeverage(defaults.leverage),
+            risk: {
+              ...s.risk,
+              maxRiskPerTradePercent: defaults.maxRiskPerTradePercent,
+              minimumRewardRisk: defaults.minimumRewardRisk,
+            },
+          };
+        }),
     }),
     {
       name: "iq-preferences",
@@ -117,6 +154,7 @@ export const usePreferencesStore = create<PreferencesState>()(
             ...current.hiddenChartIndicators,
             ...stored.hiddenChartIndicators,
           },
+          capSegment: sanitizeCapSegment(stored.capSegment),
         };
       },
     },

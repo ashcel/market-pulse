@@ -21,6 +21,8 @@ import { useLiveUniverseSubscription } from "../hooks/useLiveUniverseSubscriptio
 import { useWatchlistSync } from "../hooks/useTokenEvents";
 import { useNotificationStream } from "../hooks/useNotificationStream";
 import { useTriggerAlerts } from "../hooks/useTriggerAlerts";
+import { usePreferencesSync } from "../hooks/usePreferencesSync";
+import { CapSegmentModal } from "../components/features/cap-segment-modal";
 
 function NotFoundComponent() {
   return (
@@ -146,12 +148,14 @@ function RootContent() {
   useTriggerAlerts();
   useLiveUniverseSubscription();
   useWatchlistSync();
+  usePreferencesSync();
   const [askAiOpen, setAskAiOpen] = useState(true);
 
   return (
     <>
       <ThemeSync />
       <Toaster position="top-right" />
+      <CapSegmentModal />
       <div className="flex h-screen w-full bg-background overflow-hidden">
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
