@@ -20,9 +20,21 @@ import { resolveAiConfig } from "@/lib/ai/providers";
 import { runAiAnalyst, runAiAnalystStream, type AiMessage } from "@/lib/ai/client";
 import {
   buildAnalystSystem,
+  buildGeneralAnalystSystem,
   MEMO_INSTRUCTION,
   type ChartStructure,
+  type EconCalendarItem,
+  type MarketConditionSummary,
 } from "@/lib/ai/analyst-context";
+import { fearGreedLabel } from "@/lib/engine/external-context";
+import {
+  useEconomicEvents,
+  useRegime,
+  useRotation,
+  useSectors,
+  useSentiment,
+  useSnapshotMeta,
+} from "@/hooks/queries";
 import {
   computeDeskAnchor,
   parseTradeIdeaFast,
@@ -196,6 +208,38 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
   const reviews = useDeskReviewsStore((s) => s.reviews);
   const addReview = useDeskReviewsStore((s) => s.addReview);
 
+  // Economic calendar + market condition — every AI entry point below (plain
+  // chat, ungrounded chat, desk review) threads the same two payloads in.
+  // Fetched here (not inside the pure lib/ai builders) so those stay
+  // network-free; this sidebar stays mounted for the page's lifetime, so the
+  // query is warm well before the trader asks anything.
+  const econEvents = useEconomicEvents(7, "medium");
+  const econCalendar = useMemo<EconCalendarItem[] | null>(
+    () => (econEvents.data && econEvents.data.length > 0 ? econEvents.data : null),
+    [econEvents.data],
+  );
+
+  const regime = useRegime();
+  const rotation = useRotation();
+  const sectors = useSectors();
+  const sentiment = useSentiment();
+  const snapshotMeta = useSnapshotMeta();
+  const marketCondition = useMemo<MarketConditionSummary | null>(() => {
+    if (!regime.data || !rotation.data || !sentiment.data) return null;
+    const sectorList = sectors.data ?? [];
+    return {
+      regime: regime.data.regime,
+      regimeConfidence: regime.data.confidence,
+      rotationWinning: rotation.data.winning,
+      rotationLosing: rotation.data.losing,
+      sectorsUp: sectorList.filter((s) => s.change > 0).length,
+      sectorsTotal: sectorList.length,
+      fearGreed: sentiment.data.fearGreed,
+      fearGreedLabel: fearGreedLabel(sentiment.data.fearGreed),
+      updatedAt: snapshotMeta.data?.updatedAt ?? new Date().toISOString(),
+    };
+  }, [regime.data, rotation.data, sectors.data, sentiment.data, snapshotMeta.data]);
+
   const aiProvider = useAiSettingsStore((s) => s.provider);
   const aiApiKeys = useAiSettingsStore((s) => s.apiKeys);
   const aiModels = useAiSettingsStore((s) => s.models);
@@ -289,18 +333,19 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
       abortRef.current = controller;
 
       try {
-        let system = "You are Market Pulse AI, a helpful trading and market analysis assistant.";
-        if (context?.symbol && context?.timeframe && context?.evaluation) {
-          system = buildAnalystSystem(
-            context.symbol,
-            context.timeframe,
-            context.evaluation,
-            context.assessment || null,
-            false,
-            context.chartStructure || null,
-            context.externalContext || null,
-          );
-        }
+        const system =
+          context?.symbol && context?.timeframe && context?.evaluation
+            ? buildAnalystSystem(
+                context.symbol,
+                context.timeframe,
+                context.evaluation,
+                context.assessment || null,
+                false,
+                context.chartStructure || null,
+                context.externalContext || null,
+                econCalendar,
+              )
+            : buildGeneralAnalystSystem(marketCondition, econCalendar);
 
         const history = priorForModel.reduce<AiMessage[]>((acc, m) => {
           if (acc.length === 0 && m.role !== "user") return acc;
@@ -337,7 +382,7 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
         setChatLoading(false);
       }
     },
-    [aiConfig, chat, context],
+    [aiConfig, chat, context, econCalendar, marketCondition],
   );
 
   // Composer submit: fast-parse → (LLM parse fallback) → chips, or plain chat.
@@ -416,6 +461,7 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
         assessment: gate.assessment,
         chartStructure: gate.chartStructure,
         externalContext: gate.externalContext,
+        econCalendar,
       });
       const anchor = computeDeskAnchor(idea, gate.assessment);
       const system = buildDeskSystem(idea, anchor, pack);
@@ -456,7 +502,7 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
         setReviewStreaming(false);
       }
     },
-    [aiConfig, context, recordHistory],
+    [aiConfig, context, recordHistory, econCalendar],
   );
 
   // Follow-up question scoped to the rendered review's system prompt.

@@ -26,10 +26,12 @@ import { Route as ApiWatchlistRouteImport } from './routes/api/watchlist'
 import { Route as ApiTradesRouteImport } from './routes/api/trades'
 import { Route as ApiTrackTokenRouteImport } from './routes/api/track-token'
 import { Route as ApiTokenEventsRouteImport } from './routes/api/token-events'
+import { Route as ApiPreferencesRouteImport } from './routes/api/preferences'
 import { Route as ApiNotificationsRouteImport } from './routes/api/notifications'
 import { Route as ApiKlinesRouteImport } from './routes/api/klines'
 import { Route as ApiForwardTestRouteImport } from './routes/api/forward-test'
 import { Route as ApiExternalContextRouteImport } from './routes/api/external-context'
+import { Route as ApiEconomicEventsRouteImport } from './routes/api/economic-events'
 import { Route as ApiAuthRouteImport } from './routes/api/auth'
 import { Route as ApiTradesIdRouteImport } from './routes/api/trades.$id'
 import { Route as ApiReviewAnalyticsRouteImport } from './routes/api/review.analytics'
@@ -128,6 +130,11 @@ const ApiTokenEventsRoute = ApiTokenEventsRouteImport.update({
   path: '/api/token-events',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPreferencesRoute = ApiPreferencesRouteImport.update({
+  id: '/api/preferences',
+  path: '/api/preferences',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiNotificationsRoute = ApiNotificationsRouteImport.update({
   id: '/api/notifications',
   path: '/api/notifications',
@@ -146,6 +153,11 @@ const ApiForwardTestRoute = ApiForwardTestRouteImport.update({
 const ApiExternalContextRoute = ApiExternalContextRouteImport.update({
   id: '/api/external-context',
   path: '/api/external-context',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiEconomicEventsRoute = ApiEconomicEventsRouteImport.update({
+  id: '/api/economic-events',
+  path: '/api/economic-events',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthRoute = ApiAuthRouteImport.update({
@@ -224,10 +236,12 @@ export interface FileRoutesByFullPath {
   '/tracker': typeof TrackerRoute
   '/trades': typeof TradesRoute
   '/api/auth': typeof ApiAuthRoute
+  '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
+  '/api/preferences': typeof ApiPreferencesRoute
   '/api/token-events': typeof ApiTokenEventsRoute
   '/api/track-token': typeof ApiTrackTokenRoute
   '/api/trades': typeof ApiTradesRouteWithChildren
@@ -259,10 +273,12 @@ export interface FileRoutesByTo {
   '/tracker': typeof TrackerRoute
   '/trades': typeof TradesRoute
   '/api/auth': typeof ApiAuthRoute
+  '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
+  '/api/preferences': typeof ApiPreferencesRoute
   '/api/token-events': typeof ApiTokenEventsRoute
   '/api/track-token': typeof ApiTrackTokenRoute
   '/api/trades': typeof ApiTradesRouteWithChildren
@@ -295,10 +311,12 @@ export interface FileRoutesById {
   '/tracker': typeof TrackerRoute
   '/trades': typeof TradesRoute
   '/api/auth': typeof ApiAuthRoute
+  '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
+  '/api/preferences': typeof ApiPreferencesRoute
   '/api/token-events': typeof ApiTokenEventsRoute
   '/api/track-token': typeof ApiTrackTokenRoute
   '/api/trades': typeof ApiTradesRouteWithChildren
@@ -332,10 +350,12 @@ export interface FileRouteTypes {
     | '/tracker'
     | '/trades'
     | '/api/auth'
+    | '/api/economic-events'
     | '/api/external-context'
     | '/api/forward-test'
     | '/api/klines'
     | '/api/notifications'
+    | '/api/preferences'
     | '/api/token-events'
     | '/api/track-token'
     | '/api/trades'
@@ -367,10 +387,12 @@ export interface FileRouteTypes {
     | '/tracker'
     | '/trades'
     | '/api/auth'
+    | '/api/economic-events'
     | '/api/external-context'
     | '/api/forward-test'
     | '/api/klines'
     | '/api/notifications'
+    | '/api/preferences'
     | '/api/token-events'
     | '/api/track-token'
     | '/api/trades'
@@ -402,10 +424,12 @@ export interface FileRouteTypes {
     | '/tracker'
     | '/trades'
     | '/api/auth'
+    | '/api/economic-events'
     | '/api/external-context'
     | '/api/forward-test'
     | '/api/klines'
     | '/api/notifications'
+    | '/api/preferences'
     | '/api/token-events'
     | '/api/track-token'
     | '/api/trades'
@@ -438,10 +462,12 @@ export interface RootRouteChildren {
   TrackerRoute: typeof TrackerRoute
   TradesRoute: typeof TradesRoute
   ApiAuthRoute: typeof ApiAuthRoute
+  ApiEconomicEventsRoute: typeof ApiEconomicEventsRoute
   ApiExternalContextRoute: typeof ApiExternalContextRoute
   ApiForwardTestRoute: typeof ApiForwardTestRoute
   ApiKlinesRoute: typeof ApiKlinesRoute
   ApiNotificationsRoute: typeof ApiNotificationsRoute
+  ApiPreferencesRoute: typeof ApiPreferencesRoute
   ApiTokenEventsRoute: typeof ApiTokenEventsRoute
   ApiTrackTokenRoute: typeof ApiTrackTokenRoute
   ApiTradesRoute: typeof ApiTradesRouteWithChildren
@@ -579,6 +605,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTokenEventsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/preferences': {
+      id: '/api/preferences'
+      path: '/api/preferences'
+      fullPath: '/api/preferences'
+      preLoaderRoute: typeof ApiPreferencesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/notifications': {
       id: '/api/notifications'
       path: '/api/notifications'
@@ -605,6 +638,13 @@ declare module '@tanstack/react-router' {
       path: '/api/external-context'
       fullPath: '/api/external-context'
       preLoaderRoute: typeof ApiExternalContextRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/economic-events': {
+      id: '/api/economic-events'
+      path: '/api/economic-events'
+      fullPath: '/api/economic-events'
+      preLoaderRoute: typeof ApiEconomicEventsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth': {
@@ -731,10 +771,12 @@ const rootRouteChildren: RootRouteChildren = {
   TrackerRoute: TrackerRoute,
   TradesRoute: TradesRoute,
   ApiAuthRoute: ApiAuthRoute,
+  ApiEconomicEventsRoute: ApiEconomicEventsRoute,
   ApiExternalContextRoute: ApiExternalContextRoute,
   ApiForwardTestRoute: ApiForwardTestRoute,
   ApiKlinesRoute: ApiKlinesRoute,
   ApiNotificationsRoute: ApiNotificationsRoute,
+  ApiPreferencesRoute: ApiPreferencesRoute,
   ApiTokenEventsRoute: ApiTokenEventsRoute,
   ApiTrackTokenRoute: ApiTrackTokenRoute,
   ApiTradesRoute: ApiTradesRouteWithChildren,

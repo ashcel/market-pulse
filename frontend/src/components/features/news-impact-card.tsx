@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import type { NewsItem } from "@/lib/types";
+import type { NewsPriorityResult } from "@/lib/engine/news-priority";
 import { StatusBadge } from "./status-badge";
 import { IqCard } from "./iq-card";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
@@ -14,7 +15,16 @@ function timeAgo(min: number) {
 const impactTone = { high: "bearish", medium: "warning", low: "info" } as const;
 const dirIcon = { bullish: TrendingUp, bearish: TrendingDown, neutral: Minus };
 
-export function NewsImpactCard({ item, className }: { item: NewsItem; className?: string }) {
+export function NewsImpactCard({
+  item,
+  priority,
+  className,
+}: {
+  item: NewsItem;
+  /** Why this item was ranked where it is — renders a small "top of feed" badge. */
+  priority?: NewsPriorityResult;
+  className?: string;
+}) {
   const Icon = dirIcon[item.direction];
   return (
     <IqCard interactive className={cn("flex flex-col gap-3", className)}>
@@ -22,6 +32,10 @@ export function NewsImpactCard({ item, className }: { item: NewsItem; className?
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge tone={impactTone[item.impact]}>{item.impact}</StatusBadge>
+            {priority?.isMacro && <StatusBadge tone="warning">Macro</StatusBadge>}
+            {!priority?.isMacro && priority && priority.matchedTickers.length > 0 && (
+              <StatusBadge tone="info">{priority.matchedTickers[0]}</StatusBadge>
+            )}
             <span className="text-[11px] text-muted-foreground">{timeAgo(item.minutesAgo)}</span>
             <span className="text-[11px] text-muted-foreground">· {item.source}</span>
           </div>

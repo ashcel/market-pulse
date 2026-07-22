@@ -127,6 +127,30 @@ export const useRsScan = () =>
 export const useNews = () =>
   useQuery({ queryKey: ["news"], queryFn: fetchNews, staleTime: 5 * 60_000 });
 
+/** Mirrors the /api/auth GET shape without importing server code. */
+export interface CurrentUser {
+  id: string;
+  email: string;
+  displayName: string;
+  isAdmin: boolean;
+  createdAt: string;
+}
+
+// The signed-in user, or null when signed out. Cheap + cached — every
+// authed-only UI (first-run modal, account settings...) reads this instead
+// of re-deriving auth state itself.
+export const useCurrentUser = () =>
+  useQuery<CurrentUser | null>({
+    queryKey: ["auth", "me"],
+    queryFn: async () => {
+      const res = await fetch("/api/auth", { credentials: "same-origin" });
+      if (!res.ok) return null;
+      const data = (await res.json()) as { user: CurrentUser | null };
+      return data.user;
+    },
+    staleTime: 5 * 60_000,
+  });
+
 // Daily stocks/dollar/gold context plus BTC↔Nasdaq correlation. Daily data
 // moves slowly, so this refreshes far less often than the crypto snapshot.
 export const useMacro = () =>
@@ -136,3 +160,36 @@ export const useMacro = () =>
     staleTime: 5 * 60_000,
     refetchInterval: 10 * 60_000,
   });
+
+/** Mirrors the server's EconomicEventRow (repo.ts) without importing server code. */
+export interface UpcomingEconomicEvent {
+  id: string;
+  title: string;
+  country: string;
+  impact: "high" | "medium" | "low" | "holiday";
+  forecast: string | null;
+  previous: string | null;
+  occursAt: string;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Upcoming macro calendar events (Fed decisions, CPI, jobs...) — read-only;
+// the worker's econ pass is the sole writer. Defaults to the next 3 days,
+// high-impact only, for a slim above-the-fold strip.
+export function useEconomicEvents(days = 3, minImpact: "high" | "medium" | "low" = "high") {
+  return useQuery<UpcomingEconomicEvent[]>({
+    queryKey: ["economic-events", days, minImpact],
+    queryFn: async () => {
+      const res = await fetch(`/api/economic-events?days=${days}&minImpact=${minImpact}`, {
+        credentials: "same-origin",
+      });
+      if (!res.ok) return [];
+      const data = (await res.json()) as { events: UpcomingEconomicEvent[] };
+      return data.events;
+    },
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+  });
+}

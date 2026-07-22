@@ -61,6 +61,19 @@ describe("buildDeskSystem", () => {
     expect(prompt).toContain("FORCED");
     expect(prompt).toContain('MUST be exactly "reject"');
   });
+
+  it("adds the economic-calendar grounding rule only when the pack carries econ items", () => {
+    const withoutEcon = buildDeskSystem(idea, conditionalAnchor, pack);
+    expect(withoutEcon).not.toContain("SCHEDULING FACTS only");
+
+    const packWithEcon: EvidencePack = {
+      ...pack,
+      items: [...pack.items, item("M1", "econ", "FOMC rate decision, US, high impact.")],
+    };
+    const withEcon = buildDeskSystem(idea, conditionalAnchor, packWithEcon);
+    expect(withEcon).toContain("SCHEDULING FACTS only");
+    expect(withEcon).toContain('prefix "M"');
+  });
 });
 
 describe("parseDeskReview enforcement", () => {

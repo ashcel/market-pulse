@@ -11,6 +11,7 @@ import type {
 } from "@/lib/engine/external-context";
 import type { IntentAssessment } from "@/lib/engine/intent";
 import type { LiquidityPool, LiquiditySweep } from "@/lib/engine/liquidity";
+import { prioritizeNews, scoreNewsPriority } from "@/lib/engine/news-priority";
 import type { SignalEvaluation } from "@/lib/engine/quant";
 import type { EqualLevel, SwingPoint } from "@/lib/engine/structure";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
@@ -281,7 +282,27 @@ export function relativeLine(symbol: string, r: RelativeContext): string {
 
 export function eventLine(e: ContextEventItem): string {
   const day = e.publishedAt.slice(0, 10);
-  return `  - [${e.severity}/${e.kind}] ${day}, ${ageFrom(e.publishedAt)} ago (${e.source}): "${truncateTitle(e.title)}"`;
+  // Title-content-based, independent of the row's stored `kind` — catches
+  // macro/economy headlines wherever they show up so the model can cite them
+  // explicitly (see `prioritizeContextEvents` for the matching reorder).
+  const macroTag = scoreNewsPriority(e.title, { tickers: [] }).isMacro ? "[MACRO] " : "";
+  return `  - ${macroTag}[${e.severity}/${e.kind}] ${day}, ${ageFrom(e.publishedAt)} ago (${e.source}): "${truncateTitle(e.title)}"`;
+}
+
+/**
+ * Reorder a symbol's retrospective news items — macro/economy headlines first,
+ * then mentions of the focused ticker(s), then everything else in its original
+ * (recency) order — so the character-budget trim below drops plain-recency
+ * items before it drops the ones a trader would actually want kept. Callers
+ * token-scoped to one symbol should pass `[symbol]`; a future caller covering
+ * many symbols at once (e.g. the whole tracked universe) should pass
+ * `UNIVERSE ∪ watchlist` instead.
+ */
+export function prioritizeContextEvents<T extends { title: string }>(
+  events: readonly T[],
+  tickers: readonly string[],
+): T[] {
+  return prioritizeNews(events, { tickers });
 }
 
 export function upcomingLine(e: UpcomingCatalystItem): string {
@@ -313,9 +334,12 @@ function externalContextBlock(ctx: ExternalContext): string | null {
   if (!hasRetro && !hasForward) return null;
 
   // Progressive trimming: drop lowest-priority items until under budget.
+  // Catalysts/high-impact are reordered macro-first, ticker-first before any
+  // trimming happens, so a busy news day drops plain-recency items ahead of
+  // the ones that actually matter (see `prioritizeContextEvents`).
   let marketEvents = ctx.marketEvents ?? [];
-  let highImpact = ctx.recentHighImpact ?? [];
-  let catalysts = ctx.recentCatalysts ?? [];
+  let highImpact = prioritizeContextEvents(ctx.recentHighImpact ?? [], [ctx.symbol]);
+  let catalysts = prioritizeContextEvents(ctx.recentCatalysts ?? [], [ctx.symbol]);
   const upcoming = ctx.upcoming ?? [];
 
   const render = (): string => {
@@ -381,6 +405,53 @@ const EXTERNAL_CONTEXT_RULES = [
   "- If external context is missing or thin, proceed on the technical data alone and say so.",
 ];
 
+// ── Upcoming economic calendar (market-wide scheduling facts) ───────────────
+// A separate surface from `externalContext.upcoming`/`marketEvents`: those are
+// crypto-specific (unlocks, listings, upgrades) sourced from catalyst_event;
+// this is the macro calendar (Fed decisions, CPI, jobs reports, ...) sourced
+// from economic_event via /api/economic-events. Every AI entry point that
+// builds a system prompt threads this in the same way it threads
+// `externalContext` — fetched by the caller/hook layer, passed in as plain
+// data so this module stays pure and network-free.
+
+/** One upcoming macro-calendar release (mirrors `UpcomingEconomicEvent` in hooks/queries, minus bookkeeping fields). */
+export interface EconCalendarItem {
+  title: string;
+  country: string;
+  impact: "high" | "medium" | "low" | "holiday";
+  forecast: string | null;
+  previous: string | null;
+  occursAt: string;
+}
+
+/** This section is a scheduling reference, not the main event — keep it terse. */
+export const ECON_CALENDAR_MAX_ITEMS = 10;
+
+export function econCalendarLine(e: EconCalendarItem): string {
+  const bits: string[] = [];
+  if (e.forecast !== null && e.forecast !== "") bits.push(`forecast ${e.forecast}`);
+  if (e.previous !== null && e.previous !== "") bits.push(`previous ${e.previous}`);
+  const detail = bits.length ? ` (${bits.join(", ")})` : "";
+  return `  - ${e.occursAt.slice(0, 10)} [${e.impact}] ${e.country}: "${truncateTitle(e.title)}"${detail}`;
+}
+
+/**
+ * Render the "Upcoming economic calendar" body: soonest-first regardless of
+ * input order, capped to `ECON_CALENDAR_MAX_ITEMS` lines. Returns null when
+ * there's nothing to show so the section (and its rules) vanish entirely,
+ * same convention as `externalContextBlock`.
+ */
+export function econCalendarBlock(events: readonly EconCalendarItem[]): string | null {
+  if (events.length === 0) return null;
+  const sorted = [...events].sort((a, b) => Date.parse(a.occursAt) - Date.parse(b.occursAt));
+  return sorted.slice(0, ECON_CALENDAR_MAX_ITEMS).map(econCalendarLine).join("\n");
+}
+
+const ECON_CALENDAR_RULES = [
+  "- The 'Upcoming economic calendar' section lists scheduled macro releases (Fed decisions, CPI, jobs reports, etc.), market-wide and not specific to any one asset. Every line is a SCHEDULING FACT only — country, impact, forecast, and previous exactly as given. Never infer direction, magnitude, or price impact beyond what is stated.",
+  "- Use it only to flag timing risk — e.g. a high-impact release landing inside the idea's horizon — never to predict how price will react to it.",
+];
+
 /**
  * Build the system prompt: the analyst persona plus a full data dump of the
  * current signal. `detailed` (from the panel's reasoning toggle) asks for a
@@ -395,10 +466,13 @@ export function buildAnalystSystem(
   detailed: boolean,
   structure: ChartStructure | null = null,
   externalContext: ExternalContext | null = null,
+  /** Next-7-days, high+medium impact, soonest first — see `ECON_CALENDAR_RULES`. */
+  econCalendar: readonly EconCalendarItem[] | null = null,
 ): string {
   // Rendered up front so the rules list below can include the external-context
   // rules exactly when the section itself will appear.
   const externalBlock = externalContext ? externalContextBlock(externalContext) : null;
+  const econBlock = econCalendar ? econCalendarBlock(econCalendar) : null;
   const parts = [
     `You are the AI analyst inside a crypto trading dashboard, acting as a SECOND analyst reviewing the engine's work on ${symbol}/USDT (${timeframe}).`,
     "",
@@ -415,6 +489,7 @@ export function buildAnalystSystem(
         ]
       : []),
     ...(externalBlock ? EXTERNAL_CONTEXT_RULES : []),
+    ...(econBlock ? ECON_CALENDAR_RULES : []),
     "- Be direct. Reference concrete numbers (entry, stop, targets, R multiples, zone ranges, S/R levels, volume vs average).",
     detailed
       ? "- Give a thorough read of the evidence, but stay under ~250 words."
@@ -440,6 +515,76 @@ export function buildAnalystSystem(
   }
   if (externalBlock) {
     parts.push("", "## External market context (secondary evidence — see rules)", externalBlock);
+  }
+  if (econBlock) {
+    parts.push(
+      "",
+      "## Upcoming economic calendar (next 7 days — scheduling facts, not signals)",
+      econBlock,
+    );
+  }
+  return parts.join("\n");
+}
+
+// ── General (non-token) market condition — for the sidebar's ungrounded mode ─
+// The sidebar's plain-chat fallback has no engine evaluation to ground on when
+// no token page is open (e.g. "what's the market condition today?" from the
+// homepage). This gives it a compact market-wide snapshot instead of running
+// with zero data — sourced from the same MarketSnapshot the dashboard reads
+// (regime, rotation, sector breadth, Fear & Greed), passed in by the caller.
+
+/** Compact market-wide snapshot for questions asked with no token page open. */
+export interface MarketConditionSummary {
+  regime: "Risk On" | "Risk Off" | "Neutral";
+  regimeConfidence: number;
+  rotationWinning: string;
+  rotationLosing: string;
+  sectorsUp: number;
+  sectorsTotal: number;
+  fearGreed: number;
+  fearGreedLabel: string;
+  updatedAt: string;
+}
+
+export function marketConditionBlock(m: MarketConditionSummary): string {
+  return [
+    `- Regime: ${m.regime} (confidence ${m.regimeConfidence}/100)`,
+    `- Sector rotation: capital flowing into ${m.rotationWinning}, out of ${m.rotationLosing}`,
+    `- Breadth: ${m.sectorsUp}/${m.sectorsTotal} tracked sectors positive`,
+    `- Sentiment: Fear & Greed ${m.fearGreed} (${m.fearGreedLabel})`,
+    `- As of ${ageFrom(m.updatedAt)} ago`,
+  ].join("\n");
+}
+
+/**
+ * System prompt for the sidebar's ungrounded chat mode (no token page open, so
+ * no engine evaluation exists to ground on). Deliberately thinner than
+ * `buildAnalystSystem`: a market-condition snapshot plus the same economic
+ * calendar every entry point gets, so "what's the market condition?" and
+ * "what's coming up this week?" are answerable without a symbol in view.
+ */
+export function buildGeneralAnalystSystem(
+  marketCondition: MarketConditionSummary | null,
+  econCalendar: readonly EconCalendarItem[] | null,
+): string {
+  const econBlock = econCalendar ? econCalendarBlock(econCalendar) : null;
+  const parts = [
+    "You are Market Pulse AI, a helpful crypto trading and market analysis assistant.",
+    "",
+    "Rules:",
+    "- Use ONLY the data provided below. You have no live market feed and no per-token engine read in this mode — if the trader's question needs a specific token's chart or signal, tell them to open that token's page and ask there instead of guessing.",
+    "- Never invent prices, levels, or news.",
+    ...(econBlock ? ECON_CALENDAR_RULES : []),
+  ];
+  if (marketCondition) {
+    parts.push("", "## Current market condition", marketConditionBlock(marketCondition));
+  }
+  if (econBlock) {
+    parts.push(
+      "",
+      "## Upcoming economic calendar (next 7 days — scheduling facts, not signals)",
+      econBlock,
+    );
   }
   return parts.join("\n");
 }

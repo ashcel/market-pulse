@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { EXTERNAL_CONTEXT_CHAR_BUDGET, buildAnalystSystem } from "./analyst-context";
+import {
+  ECON_CALENDAR_MAX_ITEMS,
+  EXTERNAL_CONTEXT_CHAR_BUDGET,
+  buildAnalystSystem,
+  buildGeneralAnalystSystem,
+  econCalendarBlock,
+  type EconCalendarItem,
+  type MarketConditionSummary,
+} from "./analyst-context";
 import { computePivots } from "@/lib/engine/analysis";
 import { generateMockCandles } from "@/lib/engine/mock-candles";
 import { evaluateSignal } from "@/lib/engine/quant";
@@ -151,5 +159,152 @@ describe("buildAnalystSystem external context section", () => {
     expect(section).toContain("Team & investor cliff unlock");
     // Titles are truncated, never dumped whole.
     expect(section).not.toContain("x".repeat(150));
+  });
+
+  it("reorders macro headlines ahead of plain recency so they survive the budget trim to top-2", () => {
+    // Titles are truncated to a fixed length regardless of padding (see
+    // EVENT_TITLE_MAX), so overflow has to come from item COUNT rather than
+    // per-item size — 14 plain items plus 1 macro item, well past the real
+    // service-layer cap, but this exercises the pure trim in isolation. The
+    // Fed/macro headline is OLDEST (last in recency order) — a naive
+    // recency-only trim would drop it; prioritization must move it ahead of
+    // same-tier items so it survives.
+    const pad = "x".repeat(160);
+    const plain = Array.from({ length: 14 }, (_, i) =>
+      event(`Item ${i + 1} ${pad}`, "info", i + 1),
+    );
+    const ctx: ExternalContext = {
+      ...contextWithBreadth(),
+      recentCatalysts: [
+        ...plain,
+        event(`Fed holds interest rates steady, Powell signals caution ${pad}`, "info", 999),
+      ],
+    };
+    const prompt = build(ctx);
+    const section = prompt.slice(prompt.indexOf("## External market context"));
+    expect(section.length).toBeLessThanOrEqual(EXTERNAL_CONTEXT_CHAR_BUDGET + 200);
+    const catalystsBlock = section.slice(section.indexOf("Recent catalysts for BTC"));
+    expect(catalystsBlock).toContain("[MACRO]");
+    expect(catalystsBlock).toContain("Fed holds interest rates steady");
+    // A naive recency-only trim to top-2 would have kept only "Item 1"/"Item
+    // 2" and dropped the (oldest) macro item entirely.
+    expect(catalystsBlock).not.toContain("Item 13");
+    expect(catalystsBlock).not.toContain("Item 14");
+  });
+
+  it("tags macro headlines with [MACRO] in the rendered line, leaves others untagged", () => {
+    const ctx: ExternalContext = {
+      ...contextWithBreadth(),
+      recentCatalysts: [event("CPI inflation data comes in hot", "info", 1)],
+      recentHighImpact: [event("Team announces roadmap update", "warning", 90)],
+    };
+    const prompt = build(ctx);
+    expect(prompt).toContain("[MACRO] [info/regulatory]");
+    expect(prompt).toContain("Team announces roadmap update");
+    const roadmapLine = prompt
+      .split("\n")
+      .find((l) => l.includes("Team announces roadmap update"))!;
+    expect(roadmapLine).not.toContain("[MACRO]");
+  });
+});
+
+describe("economic calendar section", () => {
+  function econItem(
+    daysAhead_: number,
+    impact: EconCalendarItem["impact"] = "high",
+  ): EconCalendarItem {
+    return {
+      title: `Release ${daysAhead_}`,
+      country: "US",
+      impact,
+      forecast: "3.1%",
+      previous: "3.0%",
+      occursAt: daysAhead(daysAhead_),
+    };
+  }
+
+  it("returns null (and the section vanishes) with no events", () => {
+    expect(econCalendarBlock([])).toBeNull();
+    const prompt = build(emptyContext());
+    expect(prompt).not.toContain("Upcoming economic calendar");
+  });
+
+  it("sorts soonest-first regardless of input order and caps to the max", () => {
+    const shuffled = [econItem(5), econItem(1), econItem(3)];
+    const block = econCalendarBlock(shuffled)!;
+    const lines = block.split("\n");
+    expect(lines[0]).toContain("Release 1");
+    expect(lines[1]).toContain("Release 3");
+    expect(lines[2]).toContain("Release 5");
+
+    const many = Array.from({ length: ECON_CALENDAR_MAX_ITEMS + 5 }, (_, i) => econItem(i + 1));
+    const cappedBlock = econCalendarBlock(many)!;
+    expect(cappedBlock.split("\n").length).toBe(ECON_CALENDAR_MAX_ITEMS);
+  });
+
+  it("renders country/impact/forecast/previous and is included with rules in buildAnalystSystem", () => {
+    const prompt = buildAnalystSystem("BTC", "4H", evaluation, null, false, null, null, [
+      econItem(2, "high"),
+    ]);
+    expect(prompt).toContain(
+      "## Upcoming economic calendar (next 7 days — scheduling facts, not signals)",
+    );
+    expect(prompt).toContain("[high] US:");
+    expect(prompt).toContain("forecast 3.1%, previous 3.0%");
+    expect(prompt).toContain("SCHEDULING FACT only");
+  });
+
+  it("omits the section and rules when econCalendar is null or empty", () => {
+    const withNull = buildAnalystSystem("BTC", "4H", evaluation, null, false, null, null, null);
+    const withEmpty = buildAnalystSystem("BTC", "4H", evaluation, null, false, null, null, []);
+    for (const prompt of [withNull, withEmpty]) {
+      expect(prompt).not.toContain("Upcoming economic calendar");
+      expect(prompt).not.toContain("SCHEDULING FACT only");
+    }
+  });
+});
+
+describe("buildGeneralAnalystSystem (ungrounded sidebar mode)", () => {
+  const condition: MarketConditionSummary = {
+    regime: "Risk On",
+    regimeConfidence: 68,
+    rotationWinning: "Layer 1",
+    rotationLosing: "DeFi",
+    sectorsUp: 5,
+    sectorsTotal: 8,
+    fearGreed: 71,
+    fearGreedLabel: "Greed",
+    updatedAt: new Date(NOW - 5 * 60_000).toISOString(),
+  };
+
+  it("renders a market-condition block answering 'what's the market condition?'", () => {
+    const prompt = buildGeneralAnalystSystem(condition, null);
+    expect(prompt).toContain("## Current market condition");
+    expect(prompt).toContain("Regime: Risk On (confidence 68/100)");
+    expect(prompt).toContain("capital flowing into Layer 1, out of DeFi");
+    expect(prompt).toContain("Breadth: 5/8 tracked sectors positive");
+    expect(prompt).toContain("Fear & Greed 71 (Greed)");
+  });
+
+  it("omits the market-condition block when null, without throwing", () => {
+    const prompt = buildGeneralAnalystSystem(null, null);
+    expect(prompt).not.toContain("Current market condition");
+    expect(prompt).toContain("Market Pulse AI");
+  });
+
+  it("includes the economic calendar block alongside market condition", () => {
+    const prompt = buildGeneralAnalystSystem(condition, [
+      {
+        title: "FOMC rate decision",
+        country: "US",
+        impact: "high",
+        forecast: null,
+        previous: null,
+        occursAt: daysAhead(2),
+      },
+    ]);
+    expect(prompt).toContain("## Current market condition");
+    expect(prompt).toContain("## Upcoming economic calendar");
+    expect(prompt).toContain("FOMC rate decision");
   });
 });

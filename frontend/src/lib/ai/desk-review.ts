@@ -99,6 +99,12 @@ export function buildDeskSystem(idea: TradeIdea, anchor: DeskAnchor, pack: Evide
     "- `invalidation` is the concrete price/structure event that kills this idea. `watch` is what to monitor over the idea's horizon.",
   );
 
+  if (pack.items.some((it) => it.topic === "econ")) {
+    parts.push(
+      "- Economic-calendar entries in the pack (ID prefix \"M\") are SCHEDULING FACTS only — impact/forecast/previous exactly as given, market-wide and not specific to this idea's symbol. Never treat one as a directional signal; only cite it for timing risk against the idea's horizon.",
+    );
+  }
+
   parts.push(
     "",
     "## Output contract",

@@ -750,6 +750,64 @@ export async function pruneCatalystEvents(olderThanIso: string): Promise<number>
   return result.count;
 }
 
+// ── Economic calendar (ForexFactory macro events) ─────────────────────────────
+
+export type EconImpact = "high" | "medium" | "low" | "holiday";
+
+export interface EconomicEventRow {
+  id: string;
+  title: string;
+  /** Affected currency code (USD, EUR, GBP, …). */
+  country: string;
+  impact: EconImpact;
+  forecast: string | null;
+  previous: string | null;
+  occursAt: string;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function rowToEconomicEvent(r: Record<string, unknown>): EconomicEventRow {
+  return {
+    id: r.id as string,
+    title: r.title as string,
+    country: r.country as string,
+    impact: r.impact as EconImpact,
+    forecast: (r.forecast as string | null) ?? null,
+    previous: (r.previous as string | null) ?? null,
+    occursAt: iso(r.occurs_at as Date)!,
+    source: r.source as string,
+    createdAt: iso(r.created_at as Date)!,
+    updatedAt: iso(r.updated_at as Date)!,
+  };
+}
+
+/**
+ * Upcoming macro events from now through `untilIso`, soonest first. Read-only
+ * serving surface behind /api/economic-events; the worker's econ pass is the
+ * sole writer. `minImpact` filters out the low-signal tail (holidays, low) when
+ * asked — impacts rank high > medium > low > holiday.
+ */
+export async function listUpcomingEconomicEvents(
+  untilIso: string,
+  opts: { minImpact?: EconImpact; limit?: number } = {},
+): Promise<EconomicEventRow[]> {
+  const { minImpact, limit = 100 } = opts;
+  const rank: Record<EconImpact, number> = { high: 3, medium: 2, low: 1, holiday: 0 };
+  const allowed = (Object.keys(rank) as EconImpact[]).filter(
+    (i) => rank[i] >= (minImpact ? rank[minImpact] : 0),
+  );
+  const rows = await sql`
+    select * from economic_event
+    where occurs_at >= now() and occurs_at <= ${untilIso}
+      and impact = any(${allowed})
+    order by occurs_at asc
+    limit ${limit}
+  `;
+  return rows.map((r) => rowToEconomicEvent(r as Record<string, unknown>));
+}
+
 export async function getWatchlist(userId: string): Promise<string[]> {
   const rows = await sql<{ symbol: string }[]>`
     select symbol from user_watchlist where user_id = ${userId} order by added_at
@@ -778,5 +836,38 @@ export async function trackToken(ticker: string): Promise<void> {
   await sql`
     insert into tracked_token (ticker) values (${ticker.toUpperCase()})
     on conflict (ticker) do update set last_opened_at = now()
+  `;
+}
+
+// ── User preferences (cap-segment sync) ────────────────────────────────────
+
+export interface UserPreferenceRow {
+  capSegment: "bigcap" | "smallcap" | null;
+  updatedAt: string;
+}
+
+/** The caller's server-side preference row, or null if never set. */
+export async function getUserPreference(userId: string): Promise<UserPreferenceRow | null> {
+  const rows = await sql<{ cap_segment: string | null; updated_at: Date }[]>`
+    select cap_segment, updated_at from user_preference where user_id = ${userId}
+  `;
+  if (!rows.length) return null;
+  const row = rows[0];
+  return {
+    capSegment:
+      row.cap_segment === "bigcap" || row.cap_segment === "smallcap" ? row.cap_segment : null,
+    updatedAt: row.updated_at.toISOString(),
+  };
+}
+
+/** Upsert the caller's cap-segment choice. */
+export async function upsertUserPreference(
+  userId: string,
+  capSegment: "bigcap" | "smallcap",
+): Promise<void> {
+  await sql`
+    insert into user_preference (user_id, cap_segment, updated_at)
+    values (${userId}, ${capSegment}, now())
+    on conflict (user_id) do update set cap_segment = excluded.cap_segment, updated_at = now()
   `;
 }

@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import cast
 
 from smc.catalyst_events import CatalystEventInput
+from smc.econ_events import EconEventInput
 from smc.external_context import MarketContextSnapshotInput
 from smc.token_events import TokenEventInput
 from sqlalchemy import CursorResult, DateTime, bindparam, text
@@ -150,6 +151,55 @@ async def upsert_catalyst_events(db: AsyncSession, events: list[CatalystEventInp
         written += cast("CursorResult[object]", result).rowcount or 0
     await db.commit()
     return written
+
+
+async def upsert_economic_events(db: AsyncSession, events: list[EconEventInput]) -> int:
+    """Idempotent upsert of ForexFactory macro-calendar rows. DO UPDATE (not
+    do-nothing) so a forecast/previous/impact revision from a later re-fetch
+    wins — ForexFactory tweaks estimates as a release nears. The dedup key
+    already pins (source, country, title, feed-date), so a genuine reschedule
+    (date change) lands as a new row, mirroring catalyst_event's semantics."""
+    written = 0
+    stmt = text(
+        "insert into economic_event"
+        " (title, country, impact, forecast, previous, occurs_at, source, dedup_key)"
+        " values (:title, :country, :impact, :forecast, :previous, :occurs_at,"
+        " :source, :dedup_key)"
+        " on conflict (dedup_key) do update set"
+        " impact = excluded.impact,"
+        " forecast = excluded.forecast,"
+        " previous = excluded.previous,"
+        " occurs_at = excluded.occurs_at,"
+        " updated_at = now()"
+    ).bindparams(bindparam("occurs_at", type_=DateTime(timezone=True)))
+    for e in events:
+        result = await db.execute(
+            stmt,
+            {
+                "title": e.title,
+                "country": e.country,
+                "impact": e.impact,
+                "forecast": e.forecast,
+                "previous": e.previous,
+                "occurs_at": _parse_iso(e.occurs_at),
+                "source": e.source,
+                "dedup_key": e.dedup_key,
+            },
+        )
+        written += cast("CursorResult[object]", result).rowcount or 0
+    await db.commit()
+    return written
+
+
+async def prune_economic_events(db: AsyncSession, older_than_iso: str) -> int:
+    result = await db.execute(
+        text("delete from economic_event where occurs_at < :cutoff").bindparams(
+            bindparam("cutoff", type_=DateTime(timezone=True))
+        ),
+        {"cutoff": _parse_iso(older_than_iso)},
+    )
+    await db.commit()
+    return cast("CursorResult[object]", result).rowcount or 0
 
 
 async def prune_market_context_snapshots(db: AsyncSession, older_than_iso: str) -> int:

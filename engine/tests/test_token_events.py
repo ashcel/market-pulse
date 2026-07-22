@@ -144,6 +144,52 @@ class TestClassifyTokenEvents:
         )
         assert any(e.symbol == "AAVE" and e.kind == "security" for e in critical)
 
+    def test_macro_headline_tagged_under_market_without_ticker(self) -> None:
+        events = classify_token_events(
+            [item("Fed holds rates steady as inflation cools", guid="g-macro")],
+            "cnbc-economy",
+        )
+        assert len(events) == 1
+        macro = events[0]
+        assert macro.symbol == "MARKET"
+        assert macro.kind == "macro"
+        assert macro.severity == "info"
+        assert macro.dedup_key == "cnbc-economy:g-macro:MARKET:macro"
+
+    def test_macro_variants_all_match(self) -> None:
+        for headline in (
+            "FOMC minutes signal one more rate hike",
+            "US CPI comes in hotter than expected",
+            "Nonfarm payrolls miss, unemployment ticks up",
+            "Trump tariffs rattle global markets",
+            "ECB cuts interest rates by 25bps",
+            "Treasury yields spike after jobs report",
+        ):
+            events = classify_token_events([item(headline)], "reuters")
+            assert any(e.kind == "macro" and e.symbol == "MARKET" for e in events), headline
+
+    def test_macro_is_additive_not_a_replacement(self) -> None:
+        # A headline that is BOTH macro and token-specific yields both rows:
+        # the MARKET macro tag plus the per-token classification, unchanged.
+        events = classify_token_events(
+            [item("Fed rate decision looms as SEC sues Solana over token sales")],
+            "cnbc-top",
+        )
+        kinds = {(e.symbol, e.kind) for e in events}
+        assert ("MARKET", "macro") in kinds
+        assert ("SOL", "regulatory") in kinds
+
+    def test_non_macro_headlines_unchanged(self) -> None:
+        # No macro keyword → no MARKET row (existing empty-output invariants hold).
+        assert classify_token_events([item("Bitcoin price steady this weekend")], "x") == []
+        assert classify_token_events([item("Massive exchange hack drains $100M")], "x") == []
+
+    def test_macro_dedup_key_stable(self) -> None:
+        a = classify_token_events([item("CPI inflation report due Friday")], "src")[0]
+        b = classify_token_events([item("CPI inflation report due Friday")], "src")[0]
+        assert a.dedup_key == b.dedup_key
+        assert a.kind == "macro"
+
     def test_classifies_straight_from_parsed_rss_xml(self) -> None:
         xml = """<rss><channel>
           <item><title>Aave contract vulnerability patched after whitehat report</title>

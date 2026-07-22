@@ -19,8 +19,14 @@ from typing import Literal
 from smc.market import WORKER_UNIVERSE
 from smc.news_rss import RssItemRaw
 
-TokenEventKind = Literal["unlock", "security", "regulatory", "delisting", "listing", "upgrade"]
+TokenEventKind = Literal[
+    "unlock", "security", "regulatory", "delisting", "listing", "upgrade", "macro"
+]
 TokenEventSeverity = Literal["info", "warning", "critical"]
+
+# Reserved pseudo-symbol for market-wide (non-token) events — same convention
+# catalyst_event uses for the market backdrop. Macro headlines file here.
+MARKET_SYMBOL = "MARKET"
 
 
 @dataclass(slots=True)
@@ -171,6 +177,25 @@ _ROUNDUP_HEADLINE_RE = re.compile(
 )
 _ROUNDUP_MIN_ASSETS = 3
 
+# Market-wide macro headlines (central banks, rate decisions, inflation, jobs,
+# tariffs, yields) carry a "macro" tag even when no token ticker is mentioned —
+# the user trades tokenized TradFi and reacts to the same macro tape as
+# equities. This is an ADDITIVE ingestion tag filed under the reserved MARKET
+# pseudo-symbol; it never suppresses the per-token classification below and
+# carries no decision semantics. Word-boundaried so "scalper" ≠ "CPI" etc.
+_MACRO_RE = re.compile(
+    r"\b(fed|fomc|federal reserve|jerome powell|powell"
+    r"|rate (?:decision|hike|cut|hold)s?|interest rate?s?|rate cuts?|rate hikes?"
+    r"|cpi|ppi|pce|inflation|deflation|disinflation"
+    r"|jobs report|nonfarm|non[- ]farm|payrolls?|unemployment|jobless claims"
+    r"|gdp|recession|soft landing"
+    r"|tariffs?|trade war"
+    r"|ecb|european central bank|boj|bank of (?:england|japan)|boe"
+    r"|treasury yields?|bond yields?|10[- ]year yield"
+    r"|quantitative (?:easing|tightening)|qe|qt)\b",
+    re.IGNORECASE,
+)
+
 
 def _hash(s: str) -> str:
     """FNV-1a, for stable dedup keys when a feed item has no guid/url."""
@@ -196,6 +221,33 @@ def classify_token_events(
     events: list[TokenEventInput] = []
     for item in items:
         text = f"{item.headline} {item.description}"
+        article_key = item.guid or item.url or _hash(item.headline)
+        published_ms = item.published_at_ms if item.published_at_ms is not None else now_ms
+        published_at = (
+            datetime.fromtimestamp(published_ms / 1000, tz=UTC)
+            .isoformat(timespec="milliseconds")
+            .replace("+00:00", "Z")
+        )
+
+        # Additive macro tag: a market-wide economic headline files ONE event
+        # under the reserved MARKET symbol even when no token ticker matches.
+        # Runs before (and independently of) the per-token classification so it
+        # never changes existing token-specific output.
+        if _MACRO_RE.search(text):
+            events.append(
+                TokenEventInput(
+                    symbol=MARKET_SYMBOL,
+                    kind="macro",
+                    severity="info",
+                    title=item.headline,
+                    body=item.description or None,
+                    source=source,
+                    url=item.url,
+                    published_at=published_at,
+                    dedup_key=f"{source}:{article_key}:{MARKET_SYMBOL}:macro",
+                )
+            )
+
         rule = next(
             ((kind, severity) for kind, severity, pattern in _KIND_RULES if pattern.search(text)),
             None,
@@ -218,13 +270,6 @@ def classify_token_events(
             set(detect_event_assets(item.headline, extra_tickers)) if severity == "info" else None
         )
 
-        article_key = item.guid or item.url or _hash(item.headline)
-        published_ms = item.published_at_ms if item.published_at_ms is not None else now_ms
-        published_at = (
-            datetime.fromtimestamp(published_ms / 1000, tz=UTC)
-            .isoformat(timespec="milliseconds")
-            .replace("+00:00", "Z")
-        )
         for symbol in assets:
             if headline_assets is not None and symbol not in headline_assets:
                 continue

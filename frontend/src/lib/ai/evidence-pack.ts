@@ -8,15 +8,19 @@
 import {
   breadthLine,
   chartStructureBlock,
+  econCalendarLine,
   equalLevelsText,
   eventLine,
   liquidityText,
   num,
+  prioritizeContextEvents,
   relativeLine,
   sweepsText,
   structureLine,
   upcomingLine,
+  ECON_CALENDAR_MAX_ITEMS,
   type ChartStructure,
+  type EconCalendarItem,
   type VerdictHoldInfo,
 } from "./analyst-context";
 import type { ExternalContext } from "@/lib/engine/external-context";
@@ -34,6 +38,7 @@ export interface EvidenceItem {
     | "objective"
     | "history"
     | "external"
+    | "econ"
     | "chart";
   text: string;
   /** Every numeric value appearing in `text` — the allowed set for claim audits. */
@@ -65,7 +70,7 @@ function stripBullet(line: string): string {
  * context. Each item is one fact-cluster (one to two sentences), reusing the
  * analyst-prompt formatters so figures match. IDs are prefix-numbered per
  * topic: S* structure, L* liquidity, Z* zones, R* risk-plan, O* objective,
- * H* history, X* external, C* chart structure.
+ * H* history, X* external, M* economic calendar, C* chart structure.
  */
 export function buildEvidencePack(input: {
   symbol: string;
@@ -74,6 +79,8 @@ export function buildEvidencePack(input: {
   assessment: (IntentAssessment & { hold?: VerdictHoldInfo }) | null;
   chartStructure: ChartStructure | null;
   externalContext: ExternalContext | null;
+  /** Next-7-days, high+medium impact — same shape `buildAnalystSystem` takes. */
+  econCalendar?: readonly EconCalendarItem[] | null;
 }): EvidencePack {
   const {
     symbol,
@@ -82,6 +89,7 @@ export function buildEvidencePack(input: {
     assessment: a,
     chartStructure,
     externalContext,
+    econCalendar,
   } = input;
   const items: EvidenceItem[] = [];
 
@@ -94,6 +102,7 @@ export function buildEvidencePack(input: {
     objective: 0,
     history: 0,
     external: 0,
+    econ: 0,
     chart: 0,
   };
   const prefix: Record<EvidenceItem["topic"], string> = {
@@ -104,6 +113,7 @@ export function buildEvidencePack(input: {
     objective: "O",
     history: "H",
     external: "X",
+    econ: "M",
     chart: "C",
   };
   const push = (topic: EvidenceItem["topic"], text: string): void => {
@@ -188,17 +198,33 @@ export function buildEvidencePack(input: {
     const x = externalContext;
     if (x.breadth) push("external", stripBullet(breadthLine(x.breadth)));
     if (x.relative) push("external", stripBullet(relativeLine(x.symbol, x.relative)));
-    for (const c of x.recentCatalysts ?? [])
+    // Macro/ticker-tagged items pushed first within each bucket so the pack's
+    // top-3 "external" trim (see `renderEvidencePack`) keeps them over
+    // plain-recency items — same reorder `externalContextBlock` applies.
+    for (const c of prioritizeContextEvents(x.recentCatalysts ?? [], [x.symbol]))
       push(
         "external",
         `Recent catalyst (≤48h, plausible contributor, not established cause): ${stripBullet(eventLine(c))}`,
       );
-    for (const h of x.recentHighImpact ?? [])
+    for (const h of prioritizeContextEvents(x.recentHighImpact ?? [], [x.symbol]))
       push("external", `High-impact context (≤7d): ${stripBullet(eventLine(h))}`);
     for (const u of x.upcoming ?? [])
       push("external", `Upcoming catalyst for ${x.symbol}: ${stripBullet(upcomingLine(u))}`);
     for (const me of x.marketEvents ?? [])
       push("external", `Market-wide upcoming event: ${stripBullet(upcomingLine(me))}`);
+  }
+
+  // ── Upcoming economic calendar (market-wide scheduling facts) ──
+  if (econCalendar && econCalendar.length) {
+    const sorted = [...econCalendar].sort(
+      (a1, b1) => Date.parse(a1.occursAt) - Date.parse(b1.occursAt),
+    );
+    for (const ev of sorted.slice(0, ECON_CALENDAR_MAX_ITEMS)) {
+      push(
+        "econ",
+        `Economic calendar (scheduling fact, not a signal): ${stripBullet(econCalendarLine(ev))}`,
+      );
+    }
   }
 
   // ── Chart structure (support/resistance + volume) ──
@@ -245,15 +271,17 @@ function renderItems(pack: EvidencePack, items: EvidenceItem[]): string {
 
 /**
  * Render the pack to a markdown section under a 6000-char budget. When over,
- * trim in priority order: external beyond top 3, liquidity beyond top 4, zones
- * beyond top 4, then external entirely. Risk-plan, objective, and history items
- * are never trimmed — they are the review's spine.
+ * trim in priority order: external beyond top 3, economic calendar beyond top
+ * 5, liquidity beyond top 4, zones beyond top 4, then external entirely.
+ * Risk-plan, objective, and history items are never trimmed — they are the
+ * review's spine.
  */
 export function renderEvidencePack(pack: EvidencePack): string {
   let current = pack.items;
   let text = renderItems(pack, current);
   const steps: Array<() => EvidenceItem[]> = [
     () => limitTopic(current, "external", 3),
+    () => limitTopic(current, "econ", 5),
     () => limitTopic(current, "liquidity", 4),
     () => limitTopic(current, "zones", 4),
     () => current.filter((it) => it.topic !== "external"),
