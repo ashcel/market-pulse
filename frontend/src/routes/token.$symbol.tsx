@@ -1024,6 +1024,82 @@ function humanSetup(setup: SetupType): string {
     .join(" ");
 }
 
+interface MarketPhase {
+  phase: "No Edge" | "Standby" | "Transition" | "Opportunity";
+  label: string;
+  context: string;
+}
+
+const BIAS_ADJ: Record<"long" | "short", string> = { long: "bullish", short: "bearish" };
+
+/**
+ * Presentation-only read of "why this verdict" as a phase + one-line context
+ * — pure derivation from fields the engine already computes (contextBias,
+ * isCounterTrend, setupType). Adds no new decision logic and changes no
+ * verdict, so it carries no version-bump obligation (CLAUDE.md "Engine
+ * change discipline").
+ */
+function describeMarketPhase(assessment: DisplayIntentAssessment): MarketPhase {
+  const { direction, contextBias, verdict, isCounterTrend, execution, definition } = assessment;
+  const ctxTf = definition.contextTimeframe;
+  const exeTf = definition.executionTimeframe;
+
+  if (direction === "none") {
+    return {
+      phase: "No Edge",
+      label: "No directional edge",
+      context: `Neither ${ctxTf} nor ${exeTf} leans clearly either way — nothing to react to yet.`,
+    };
+  }
+
+  if (isCounterTrend) {
+    const moveWord = direction === "long" ? "Bounce" : "Pullback";
+    const zoneWord = direction === "long" ? "supply" : "demand";
+    return {
+      phase: "Transition",
+      label: `Counter-trend ${moveWord}`,
+      context: `Higher timeframe remains ${BIAS_ADJ[contextBias === "none" ? (direction === "long" ? "short" : "long") : contextBias]}. Short-term momentum has shifted ${BIAS_ADJ[direction]} after a ${humanSetup(execution.setupType).toLowerCase()}. Expect a ${moveWord.toLowerCase()} into ${zoneWord} before trend continuation.`,
+    };
+  }
+
+  if (verdict === "favored" || verdict === "caution") {
+    return {
+      phase: "Opportunity",
+      label: "Trend continuation",
+      context: `${ctxTf} and ${exeTf} agree ${direction} — with-trend conditions, no conflicting higher-timeframe pull to fade.`,
+    };
+  }
+
+  return {
+    phase: "Standby",
+    label: "Waiting for trigger",
+    context: `${ctxTf} leans ${direction}, but ${exeTf} hasn't confirmed the trigger yet — same direction, not tradable at current price.`,
+  };
+}
+
+/** Overview-tab version: phase + label only, no prose — matches the tab's "decide in seconds" rule. Full one-line explanation lives in `MarketPhaseNote` on the Why tab. */
+function MarketPhaseBadge({ assessment }: { assessment: DisplayIntentAssessment }) {
+  const phase = describeMarketPhase(assessment);
+  return (
+    <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+      Market phase: <span className="text-foreground">{phase.phase}</span> · {phase.label}
+    </p>
+  );
+}
+
+/** Names the phase behind the verdict (e.g. "Transition — Counter-trend Pullback") and explains it in one line, so a counter-trend call reads as a legible market state rather than a bare badge. */
+function MarketPhaseNote({ assessment }: { assessment: DisplayIntentAssessment }) {
+  const phase = describeMarketPhase(assessment);
+  return (
+    <div className="mt-1.5">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        Market phase: <span className="text-foreground">{phase.phase}</span> · {phase.label}
+      </p>
+      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{phase.context}</p>
+    </div>
+  );
+}
+
 type GlanceTone = "bullish" | "bearish" | "warning" | "info" | "neutral" | "muted";
 
 const GLANCE_TONE_TEXT: Record<GlanceTone, string> = {
@@ -2534,6 +2610,7 @@ function AssistantPanel({
                     <p className="mt-0.5 text-[10px] text-muted-foreground">
                       {`${active.definition.contextTimeframe} context · ${active.definition.executionTimeframe} trigger · holds ${active.definition.horizon}`}
                     </p>
+                    <MarketPhaseBadge assessment={active} />
                   </div>
                   <ReadStrengthGauge assessment={active} />
                 </div>
@@ -2605,6 +2682,7 @@ function AssistantPanel({
                   <CardEyebrow>Verdict · {active.definition.label}</CardEyebrow>
                   <InfoHint text="'Not yet', 'reduced size', 'wrong direction', and 'unsuitable market' are all different answers. The Overview names the one that applies; this text explains why in plain words." />
                 </div>
+                <MarketPhaseNote assessment={active} />
                 <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
                   {active.summary}
                 </p>
