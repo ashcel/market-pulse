@@ -131,6 +131,14 @@ function extractJsonObject(raw: string): Record<string, unknown> | null {
   }
 }
 
+/** Best-effort salvage of a `"thesis": "..."` field from JSON too broken to parse (e.g. truncated by a token limit), so the UI shows the model's actual read instead of a raw JSON dump. */
+function salvageThesis(raw: string): string | null {
+  const match = raw.match(/"thesis"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  if (!match) return null;
+  const thesis = match[1].replace(/\\"/g, '"').replace(/\\n/g, " ").trim();
+  return thesis === "" ? null : thesis;
+}
+
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -165,7 +173,7 @@ export function parseDeskReview(
     warnings.push("unstructured-response");
     return {
       outcome: anchor.maxOutcome,
-      thesis: rawText.trim(),
+      thesis: salvageThesis(rawText) ?? rawText.trim(),
       challenges: [],
       conditions: [],
       invalidation: null,

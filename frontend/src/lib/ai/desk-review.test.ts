@@ -148,4 +148,12 @@ describe("parseDeskReview enforcement", () => {
     expect(r.warnings).toContain("unstructured-response");
     expect(r.thesis).toBe("totally not json at all");
   });
+
+  it("salvages the thesis text from JSON truncated by a token limit", () => {
+    const raw =
+      '{"outcome": "conditional", "thesis": "Structure supports a long toward 110.", "challenges": [{"claim"';
+    const r = parseDeskReview(raw, forcedReject, pack);
+    expect(r.warnings).toContain("unstructured-response");
+    expect(r.thesis).toBe("Structure supports a long toward 110.");
+  });
 });
