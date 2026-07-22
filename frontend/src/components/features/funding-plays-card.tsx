@@ -1,5 +1,6 @@
 import { useMemo, useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { AlertTriangle } from "lucide-react";
 
 import { AssetIcon } from "@/components/features/asset-icon";
 import { IqCard, CardEyebrow } from "@/components/features/iq-card";
@@ -8,10 +9,44 @@ import { SkeletonCard } from "@/components/features/skeletons";
 import { Badge } from "@/components/ui/badge";
 import { useFundingScan } from "@/hooks/queries";
 import { cn } from "@/lib/utils";
+import type { FundingPlayVerdict } from "@/lib/engine/funding-play";
 
 type Tone = "bullish" | "bearish" | "warning" | "info" | "neutral";
 
 const SHOWN = 6;
+
+/**
+ * Always-visible caution banner: this play was demoted from "advisor that
+ * recommends" to "informational display" by product decision — the strategy
+ * carries outsized risk (funding flips, squeeze risk, exchange/liquidation
+ * risk) and the app does not recommend it. Shared by the dashboard card and
+ * the token-page panel.
+ */
+export function FundingCautionBanner({ className }: { className?: string }) {
+  return (
+    <div
+      role="alert"
+      className={cn(
+        "flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive",
+        className,
+      )}
+    >
+      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <p className="text-[11px] leading-relaxed">
+        <span className="font-semibold">Not recommended.</span> Funding-harvest carries outsized
+        risk — rates can flip before settlement, thin order books invite squeezes, and
+        exchange/liquidation risk applies on top of that. Shown for information only.
+      </p>
+    </div>
+  );
+}
+
+/** Neutral, non-actionable framing for the advisor's internal verdict tiers. */
+export function verdictDisplay(verdict: FundingPlayVerdict): { label: string; tone: Tone } {
+  if (verdict === "take") return { label: "conditions active", tone: "neutral" };
+  if (verdict === "not-yet") return { label: "not-yet", tone: "warning" };
+  return { label: "skip", tone: "neutral" };
+}
 
 function formatCountdown(ms: number): string {
   if (ms <= 0) return "0:00";
@@ -37,13 +72,12 @@ function FundingPlayRow({
   fundingRatePct: number;
   side: "long" | "short";
   countdown: string;
-  verdict: "take" | "not-yet" | "skip";
+  verdict: FundingPlayVerdict;
   netEdgePct: number;
 }) {
   const rateColor = fundingRatePct > 0 ? "text-bullish" : "text-bearish";
   const rateCaption = fundingRatePct > 0 ? "longs pay" : "shorts pay";
-  const verdictTone: Tone =
-    verdict === "take" ? "bullish" : verdict === "not-yet" ? "warning" : "bearish";
+  const { label: verdictLabel, tone: verdictTone } = verdictDisplay(verdict);
 
   return (
     <li>
@@ -65,7 +99,7 @@ function FundingPlayRow({
                   : "border-bearish/30 bg-bearish-soft text-bearish",
               )}
             >
-              harvest {side}
+              {side} receives
             </Badge>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[10px]">
@@ -77,7 +111,7 @@ function FundingPlayRow({
           </div>
         </div>
         <StatusBadge tone={verdictTone} className="shrink-0">
-          {verdict}
+          {verdictLabel}
         </StatusBadge>
       </Link>
     </li>
@@ -100,7 +134,10 @@ export function FundingPlaysCard() {
     return (
       <IqCard padded={false}>
         <div className="flex items-center justify-between p-5 pb-3">
-          <CardEyebrow>Funding Plays</CardEyebrow>
+          <CardEyebrow>Funding Watch</CardEyebrow>
+        </div>
+        <div className="px-5 pb-3">
+          <FundingCautionBanner />
         </div>
         <div className="p-5 pt-2">
           <SkeletonCard height={180} />
@@ -113,8 +150,11 @@ export function FundingPlaysCard() {
     return (
       <IqCard padded={false}>
         <div className="flex items-center justify-between p-5 pb-3">
-          <CardEyebrow>Funding Plays</CardEyebrow>
+          <CardEyebrow>Funding Watch</CardEyebrow>
           {data.source === "demo" && <StatusBadge tone="warning">Demo data</StatusBadge>}
+        </div>
+        <div className="px-5 pb-3">
+          <FundingCautionBanner />
         </div>
         <div className="border-t border-border px-5 py-4">
           <p className="text-sm text-muted-foreground">
@@ -128,8 +168,11 @@ export function FundingPlaysCard() {
   return (
     <IqCard padded={false}>
       <div className="flex items-center justify-between p-5 pb-3">
-        <CardEyebrow>Funding Plays</CardEyebrow>
+        <CardEyebrow>Funding Watch</CardEyebrow>
         {data.source === "demo" && <StatusBadge tone="warning">Demo data</StatusBadge>}
+      </div>
+      <div className="px-5 pb-3">
+        <FundingCautionBanner />
       </div>
       <ul className="divide-y divide-border border-t border-border">
         {top.map((play) => {
@@ -149,8 +192,8 @@ export function FundingPlaysCard() {
         })}
       </ul>
       <div className="border-t border-border px-5 py-2 text-[11px] text-muted-foreground">
-        Harvest extreme funding when rates are ±0.5%/interval or higher — see each token for full
-        hazards and what flips the verdict.
+        Extreme funding shown when rates are ±0.5%/interval or higher — see each token for the full
+        risk read. Informational only; not a recommendation.
       </div>
     </IqCard>
   );

@@ -3,6 +3,7 @@ import { Scale, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 
 import { CardEyebrow } from "@/components/features/iq-card";
 import { StatusBadge } from "@/components/features/status-badge";
+import { FundingCautionBanner, verdictDisplay } from "@/components/features/funding-plays-card";
 import { useFundingScan } from "@/hooks/queries";
 import { useLiveFunding } from "@/hooks/useLiveFunding";
 import { useFundingBacktest } from "@/hooks/useFundingBacktest";
@@ -17,15 +18,6 @@ import type { MarketType } from "@/lib/engine/binance";
 interface FundingPlayPanelProps {
   symbol: string;
   market: MarketType;
-}
-
-type Tone = "bullish" | "bearish" | "warning" | "info" | "neutral";
-
-function formatVerdictTone(verdict: string): Tone {
-  if (verdict === "take") return "bullish";
-  if (verdict === "not-yet") return "warning";
-  if (verdict === "skip") return "bearish";
-  return "neutral";
 }
 
 function formatCountdown(ms: number): string {
@@ -363,8 +355,11 @@ export function FundingPlayPanel({ symbol, market }: FundingPlayPanelProps) {
         <div className="rounded-lg border border-border bg-surface p-2.5">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
-              <CardEyebrow>Funding</CardEyebrow>
+              <CardEyebrow>Funding Watch</CardEyebrow>
             </div>
+          </div>
+          <div className="mt-2">
+            <FundingCautionBanner />
           </div>
           <div className="mt-2 grid grid-cols-2 gap-1.5">
             <div className="rounded-md border border-border bg-card px-2 py-1.5">
@@ -391,20 +386,24 @@ export function FundingPlayPanel({ symbol, market }: FundingPlayPanelProps) {
 
   const minutesToFunding = Math.max(0, (live?.nextFundingMs ?? 0 - nowMs) / 60000);
   const countdown = formatCountdown(minutesToFunding * 60000);
-  const verdictTone = formatVerdictTone(advice.verdict);
+  const { label: verdictLabel, tone: verdictTone } = verdictDisplay(advice.verdict);
 
   return (
     <div className="rounded-lg border border-border bg-surface p-3">
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-1.5 min-w-0">
-          <CardEyebrow className="flex-shrink-0">Funding play</CardEyebrow>
+          <CardEyebrow className="flex-shrink-0">Funding Watch</CardEyebrow>
           <span className="text-sm font-medium text-foreground truncate">
-            harvest {advice.side}
+            {advice.side} receives
           </span>
         </div>
         <StatusBadge tone={verdictTone} className="shrink-0">
-          {advice.verdict}
+          {verdictLabel}
         </StatusBadge>
+      </div>
+
+      <div className="mb-3">
+        <FundingCautionBanner />
       </div>
 
       {/* Rate, interval, countdown */}
