@@ -66,7 +66,7 @@ export function useNotificationStream() {
         }
         return event.ticker
           ? router.navigate({ to: "/token/$symbol", params: { symbol: event.ticker } })
-          : router.navigate({ to: "/regime" });
+          : router.navigate({ to: "/markets", search: { tab: "regime" } });
       });
     };
 

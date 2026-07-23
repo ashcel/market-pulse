@@ -31,7 +31,7 @@ export function NotificationBell() {
 
   const goTo = (event: NotificationEvent) => {
     if (event.ticker) navigate({ to: "/token/$symbol", params: { symbol: event.ticker } });
-    else navigate({ to: "/regime" });
+    else navigate({ to: "/markets", search: { tab: "regime" } });
   };
 
   return (

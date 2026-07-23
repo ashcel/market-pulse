@@ -3,17 +3,11 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Layers,
-  Activity,
-  ArrowLeftRight,
-  BarChart3,
   Bookmark,
   CandlestickChart,
-  ChevronLeft,
   ClipboardList,
-  LineChart,
   Newspaper,
   Settings,
-  Sparkles,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUiStore } from "@/stores/ui";
@@ -40,13 +34,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Analysis",
-    items: [
-      { to: "/regime", label: "Regime", icon: Activity },
-      { to: "/rotation", label: "Rotation", icon: ArrowLeftRight },
-      { to: "/rankings", label: "Rankings", icon: BarChart3 },
-      { to: "/technical", label: "Technical", icon: LineChart },
-      { to: "/news", label: "News", icon: Newspaper },
-    ],
+    items: [{ to: "/news", label: "News", icon: Newspaper }],
   },
   {
     label: "Trading",
