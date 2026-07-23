@@ -32,7 +32,7 @@ import { useTokenEventsForSymbols } from "@/hooks/useTokenEvents";
 import { useWatchlistStore } from "@/stores/watchlist";
 import { ArrowRight, Newspaper, Radar, LineChart, Bot, Sparkles, Target } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { marketEdge, marketIntentOutlook } from "@/lib/engine/intent";
 import { cn } from "@/lib/utils";
@@ -151,12 +151,7 @@ function Dashboard() {
               <StatusBadge tone={meta.data.source === "live" ? "bullish" : "warning"}>
                 {meta.data.source === "live" ? "Live · Binance" : "Demo data"}
               </StatusBadge>
-              <span className="num">
-                {new Date(meta.data.updatedAt).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
+              <HeaderFreshness updatedAt={meta.data.updatedAt} />
               <HelpButton onClick={tour.start} />
             </div>
           )}
@@ -188,6 +183,8 @@ function Dashboard() {
             <AiOverview />
           </div>
 
+          <TradesAndBehaviorStrip />
+
           <HeroMetrics />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
@@ -199,6 +196,8 @@ function Dashboard() {
               <MacroStrip />
             </div>
           </div>
+
+          <CatalystRail />
 
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
@@ -240,6 +239,35 @@ function getGreeting() {
   if (h < 12) return "Good Morning";
   if (h < 18) return "Good Afternoon";
   return "Good Evening";
+}
+
+/** "updated Ns ago" with a freshness dot: green < 60s, amber < 5m, red beyond. */
+function HeaderFreshness({ updatedAt }: { updatedAt: string }) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const updatedMs = new Date(updatedAt).getTime();
+  const seconds = Math.max(0, Math.round((now - updatedMs) / 1000));
+
+  const tone = seconds < 60 ? "bg-bullish" : seconds < 300 ? "bg-warning" : "bg-bearish";
+
+  const label =
+    seconds < 60
+      ? `updated ${seconds}s ago`
+      : seconds < 3600
+        ? `updated ${Math.round(seconds / 60)}m ago`
+        : `updated ${Math.round(seconds / 3600)}h ago`;
+
+  return (
+    <span className="flex items-center gap-1.5 num">
+      <span className={cn("h-1.5 w-1.5 rounded-full", tone)} aria-hidden />
+      {label}
+    </span>
+  );
 }
 
 function HeroMetrics() {
@@ -1015,6 +1043,22 @@ function LiveSetupsStrip() {
   );
 }
 
+/** 1st/2nd/3rd/4th/... — handles the 11th/12th/13th exception. */
+function ordinal(n: number): string {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
+}
+
 function TradesAndBehaviorStrip() {
   const { rows, count, totalUnrealized } = useOpenTradesPnl();
   const { trades } = useReviewTrades();
@@ -1024,7 +1068,7 @@ function TradesAndBehaviorStrip() {
     const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
     const recent = trades.filter((t) => new Date(t.opened_at).getTime() > twoHoursAgo);
     if (recent.length >= 3) {
-      behaviorWarning = `⚠ ${recent.length}rd trade in 2h — overtrade watch`;
+      behaviorWarning = `⚠ ${ordinal(recent.length)} trade in 2h — overtrade watch`;
     }
   }
 
