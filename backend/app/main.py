@@ -10,6 +10,7 @@ from app.auth.router import router as auth_router
 from app.binance_review.router import router as binance_review_router
 from app.config import settings
 from app.database import engine
+from app.events.router import router as events_router
 from app.exceptions import register_exception_handlers
 from app.execution.exec_key_router import router as exec_key_router
 from app.execution.execute_router import router as execute_router
@@ -86,5 +87,6 @@ v1_router.include_router(permits_router)
 v1_router.include_router(execute_router)
 v1_router.include_router(exec_key_router)
 v1_router.include_router(executions_read_router)
+v1_router.include_router(events_router)
 
 app.include_router(v1_router)
