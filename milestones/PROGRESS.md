@@ -17,7 +17,16 @@ override task order.
 
 ---
 
-## 2026-07-17 — Phase 4 Integration + Deploy
+## 2026-07-23 — START-HERE moves #1–#3: verdict-first home + plane tabs + Catalyst Impact Score
+- Implemented by: three parallel Claude Code subagents — sonnet (home wiring), opus (plane consolidation), fable (impact score). Sonnet + fable were killed mid-run by session interrupt and resumed from transcript; single logical attempt each.
+- Verdict trail: ACCEPT (all three; orchestrator re-ran the combined verification after merge-in-tree)
+- Changed:
+  - Move #1 (home): `frontend/src/routes/index.tsx` — rendered the already-built `TradesAndBehaviorStrip` (below the regime hero) and `CatalystRail` (below the setups grid); fixed the "4rd" ordinal bug; replaced the static header timestamp with a ticking `HeaderFreshness` ("updated Ns ago" + green/amber/red dot per HOME-SPEC).
+  - Move #2 (tabs): `/markets` is now the tab host (`?tab=market|rankings|regime|rotation|technical`, validated search param); `rankings/regime/rotation/technical.tsx` reduced to `beforeLoad` redirects; page meat extracted to `components/features/*-panel.tsx` (5 new files); sidebar collapsed to one Markets entry; notification deep links updated. `routeTree.gen.ts` untouched (no route paths changed).
+  - Move #3 step 1 (score): new `backend/app/events/` read plane — pure `impact.py` (`IMPACT_SCORE_VERSION 1.0.0`, magnitude 50/proximity 30/source-confidence 20, unknown-magnitude unlocks capped LOW neutral, historical-reaction factor deliberately omitted for lack of data), service + router serving `GET /api/v1/events/{token-events,catalysts,economic}` with additive `impact`/`direction`/`impact_version`/components fields, compute-on-read (no migration). `app/main.py` +2 lines to mount. Existing TS event routes untouched — UI unchanged.
+- Verified: frontend `bunx tsc --noEmit` clean, `bunx vitest run` 58 files / 1010 tests green, `bun run lint` 0 errors (12 pre-existing warnings); backend `ruff check app/events tests/test_events_*.py` clean, `pytest tests/test_events_impact.py tests/test_events_service.py -q` 65 passed — pure only, production DB never touched.
+- Needs restart: yes — frontend rebuild + `market-pulse.service` restart for the home/tabs; `market-pulse-api.service` restart to expose the new events endpoints. Neither run (owner action, per no-restart constraint).
+- Flags for user: HOME-SPEC.md + dash-ref.png remain deleted-in-tree (unstaged, pre-existing) — spec content recoverable via `git show HEAD:HOME-SPEC.md`. Nothing committed; all changes left in working tree for review. Next per START-HERE order: wire impact onto the home catalyst rail + token verdict card ("Next" step), then Skip Check (move #4, still blocked on M9 Phase B–E / owner U21–U24).
 - Implemented by: Bima (direct)
 - Verdict trail: ACCEPT
 - Changed: `deploy/market-pulse-api.service` (new systemd unit for FastAPI backend), `deploy/Caddyfile` (iq.heydewi.com → serve frontend static files + proxy /api/* to backend:8002), `backend/.env` (production config), `frontend/package.json` (postbuild hook auto-deploys to /var/www/market-pulse)
