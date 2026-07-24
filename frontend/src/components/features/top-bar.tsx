@@ -4,7 +4,7 @@ import { usePreferencesStore } from "@/stores/preferences";
 import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { IqLogo, NAV_GROUPS } from "./sidebar";
+import { IqLogo, NAV } from "./sidebar";
 import { SearchCommand } from "./search-command";
 import { NotificationBell } from "./notification-bell";
 import { cn } from "@/lib/utils";
@@ -120,34 +120,25 @@ function MobileNav() {
       <SheetContent side="left" className="w-72 bg-sidebar p-5">
         <SheetTitle className="sr-only">Navigation</SheetTitle>
         <IqLogo />
-        <nav className="mt-8 flex flex-col gap-4">
-          {NAV_GROUPS.map((group) => (
-            <div key={group.label}>
-              <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-                {group.label}
-              </div>
-              <div className="flex flex-col gap-0.5">
-                {group.items.map((item) => {
-                  const active = pathname === item.to;
-                  return (
-                    <Link
-                      key={item.to}
-                      to={item.to}
-                      onClick={() => setOpen(false)}
-                      className={cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70",
-                        "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                        active && "bg-sidebar-accent text-sidebar-accent-foreground",
-                      )}
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+        <nav className="mt-8 flex flex-col gap-0.5">
+          {NAV.map((item) => {
+            const active = pathname === item.to;
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                onClick={() => setOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70",
+                  "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  active && "bg-sidebar-accent text-sidebar-accent-foreground",
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
       </SheetContent>
     </Sheet>

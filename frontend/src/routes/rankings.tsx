@@ -3,6 +3,6 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 // Consolidated into the Markets view as a tab (START-HERE move #2).
 export const Route = createFileRoute("/rankings")({
   beforeLoad: () => {
-    throw redirect({ to: "/markets", search: { tab: "rankings" } });
+    throw redirect({ to: "/markets", search: { tab: "assets" } });
   },
 });

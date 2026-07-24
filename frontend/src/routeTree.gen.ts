@@ -20,6 +20,8 @@ import { Route as RankingsRouteImport } from './routes/rankings'
 import { Route as NewsRouteImport } from './routes/news'
 import { Route as MarketsRouteImport } from './routes/markets'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as JournalRouteImport } from './routes/journal'
+import { Route as CheckRouteImport } from './routes/check'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TokenSymbolRouteImport } from './routes/token.$symbol'
 import { Route as ApiWatchlistRouteImport } from './routes/api/watchlist'
@@ -36,6 +38,7 @@ import { Route as ApiAuthRouteImport } from './routes/api/auth'
 import { Route as ApiTradesIdRouteImport } from './routes/api/trades.$id'
 import { Route as ApiReviewAnalyticsRouteImport } from './routes/api/review.analytics'
 import { Route as ApiReviewIdRouteImport } from './routes/api/review.$id'
+import { Route as ApiExecutionSkipCheckRouteImport } from './routes/api/execution.skip-check'
 import { Route as ApiExecutionPermitRouteImport } from './routes/api/execution.permit'
 import { Route as ApiExecutionExecutionsRouteImport } from './routes/api/execution.executions'
 import { Route as ApiExecutionExecuteRouteImport } from './routes/api/execution.execute'
@@ -98,6 +101,16 @@ const MarketsRoute = MarketsRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JournalRoute = JournalRouteImport.update({
+  id: '/journal',
+  path: '/journal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckRoute = CheckRouteImport.update({
+  id: '/check',
+  path: '/check',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -180,6 +193,11 @@ const ApiReviewIdRoute = ApiReviewIdRouteImport.update({
   path: '/api/review/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiExecutionSkipCheckRoute = ApiExecutionSkipCheckRouteImport.update({
+  id: '/api/execution/skip-check',
+  path: '/api/execution/skip-check',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiExecutionPermitRoute = ApiExecutionPermitRouteImport.update({
   id: '/api/execution/permit',
   path: '/api/execution/permit',
@@ -224,6 +242,8 @@ const ApiExecutionPermitIdRoute = ApiExecutionPermitIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/check': typeof CheckRoute
+  '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
   '/news': typeof NewsRoute
@@ -254,6 +274,7 @@ export interface FileRoutesByFullPath {
   '/api/execution/execute': typeof ApiExecutionExecuteRoute
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
+  '/api/execution/skip-check': typeof ApiExecutionSkipCheckRoute
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
@@ -261,6 +282,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/check': typeof CheckRoute
+  '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
   '/news': typeof NewsRoute
@@ -291,6 +314,7 @@ export interface FileRoutesByTo {
   '/api/execution/execute': typeof ApiExecutionExecuteRoute
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
+  '/api/execution/skip-check': typeof ApiExecutionSkipCheckRoute
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
@@ -299,6 +323,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/check': typeof CheckRoute
+  '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
   '/news': typeof NewsRoute
@@ -329,6 +355,7 @@ export interface FileRoutesById {
   '/api/execution/execute': typeof ApiExecutionExecuteRoute
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
+  '/api/execution/skip-check': typeof ApiExecutionSkipCheckRoute
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
@@ -338,6 +365,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/check'
+    | '/journal'
     | '/login'
     | '/markets'
     | '/news'
@@ -368,6 +397,7 @@ export interface FileRouteTypes {
     | '/api/execution/execute'
     | '/api/execution/executions'
     | '/api/execution/permit'
+    | '/api/execution/skip-check'
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
@@ -375,6 +405,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/check'
+    | '/journal'
     | '/login'
     | '/markets'
     | '/news'
@@ -405,6 +437,7 @@ export interface FileRouteTypes {
     | '/api/execution/execute'
     | '/api/execution/executions'
     | '/api/execution/permit'
+    | '/api/execution/skip-check'
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
@@ -412,6 +445,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/check'
+    | '/journal'
     | '/login'
     | '/markets'
     | '/news'
@@ -442,6 +477,7 @@ export interface FileRouteTypes {
     | '/api/execution/execute'
     | '/api/execution/executions'
     | '/api/execution/permit'
+    | '/api/execution/skip-check'
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
@@ -450,6 +486,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CheckRoute: typeof CheckRoute
+  JournalRoute: typeof JournalRoute
   LoginRoute: typeof LoginRoute
   MarketsRoute: typeof MarketsRoute
   NewsRoute: typeof NewsRoute
@@ -480,6 +518,7 @@ export interface RootRouteChildren {
   ApiExecutionExecuteRoute: typeof ApiExecutionExecuteRoute
   ApiExecutionExecutionsRoute: typeof ApiExecutionExecutionsRoute
   ApiExecutionPermitRoute: typeof ApiExecutionPermitRouteWithChildren
+  ApiExecutionSkipCheckRoute: typeof ApiExecutionSkipCheckRoute
   ApiReviewIdRoute: typeof ApiReviewIdRoute
   ApiReviewAnalyticsRoute: typeof ApiReviewAnalyticsRoute
 }
@@ -561,6 +600,20 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/journal': {
+      id: '/journal'
+      path: '/journal'
+      fullPath: '/journal'
+      preLoaderRoute: typeof JournalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/check': {
+      id: '/check'
+      path: '/check'
+      fullPath: '/check'
+      preLoaderRoute: typeof CheckRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -675,6 +728,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiReviewIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/execution/skip-check': {
+      id: '/api/execution/skip-check'
+      path: '/api/execution/skip-check'
+      fullPath: '/api/execution/skip-check'
+      preLoaderRoute: typeof ApiExecutionSkipCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/execution/permit': {
       id: '/api/execution/permit'
       path: '/api/execution/permit'
@@ -759,6 +819,8 @@ const ApiExecutionPermitRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CheckRoute: CheckRoute,
+  JournalRoute: JournalRoute,
   LoginRoute: LoginRoute,
   MarketsRoute: MarketsRoute,
   NewsRoute: NewsRoute,
@@ -789,6 +851,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiExecutionExecuteRoute: ApiExecutionExecuteRoute,
   ApiExecutionExecutionsRoute: ApiExecutionExecutionsRoute,
   ApiExecutionPermitRoute: ApiExecutionPermitRouteWithChildren,
+  ApiExecutionSkipCheckRoute: ApiExecutionSkipCheckRoute,
   ApiReviewIdRoute: ApiReviewIdRoute,
   ApiReviewAnalyticsRoute: ApiReviewAnalyticsRoute,
 }

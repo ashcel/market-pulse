@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import { fetchOpportunityScan } from "@/lib/engine/discovery";
@@ -160,6 +160,184 @@ export const useMacro = () =>
     staleTime: 5 * 60_000,
     refetchInterval: 10 * 60_000,
   });
+
+// ── Catalyst Impact Score (Python events plane) ────────────────────────────────
+
+export type ImpactDirection = "bearish" | "neutral" | "bullish";
+export type ImpactLevel = "low" | "medium" | "high";
+
+/**
+ * One in-window, impact-scored event for a token — the flattened shape the
+ * token page's catalyst line consumes. `occursAt` is the future occurrence for
+ * upcoming calendar catalysts and the past publish time for news-derived
+ * events; `isUpcoming` disambiguates the two.
+ */
+export interface CatalystImpact {
+  id: string;
+  symbol: string;
+  kind: string;
+  title: string;
+  direction: ImpactDirection;
+  impact: ImpactLevel;
+  impactScore: number;
+  occursAt: string;
+  isUpcoming: boolean;
+  percentOfSupply: number | null;
+  disclaimer: string;
+}
+
+interface EventsEnvelope<T> {
+  data: T[];
+  meta: unknown;
+  error: null;
+}
+
+interface CatalystRow {
+  id: string;
+  symbol: string;
+  kind: string;
+  title: string;
+  occurs_at: string;
+  percent_of_supply: number | null;
+  impact: ImpactLevel;
+  direction: ImpactDirection;
+  impact_score: number;
+  impact_disclaimer: string;
+}
+
+interface TokenEventRow {
+  id: string;
+  symbol: string;
+  kind: string;
+  title: string;
+  published_at: string;
+  impact: ImpactLevel;
+  direction: ImpactDirection;
+  impact_score: number;
+  impact_disclaimer: string;
+}
+
+async function fetchEventRows<T>(path: string): Promise<T[]> {
+  try {
+    const res = await fetch(path, { credentials: "same-origin" });
+    if (!res.ok) return [];
+    const body = (await res.json()) as EventsEnvelope<T>;
+    return body.data ?? [];
+  } catch {
+    // The Python events plane is served same-origin via Caddy (/api/v1/*) in
+    // production; in dev (Vite alone) it 404s. Either way, absence is silent —
+    // the catalyst line simply doesn't render.
+    return [];
+  }
+}
+
+/**
+ * The single highest-impact, near-term catalyst for one token, from the
+ * deterministic Catalyst Impact Score plane (backend/app/events — served
+ * same-origin at /api/v1/events/*). Merges upcoming calendar catalysts
+ * (7-day window) with recent news-derived events, keeps only medium/high
+ * banded rows (LOW is filtered so a non-event never surfaces), and returns
+ * the top-scoring one — or null, in which case the caller renders nothing.
+ * The score/direction are the engine's own; this hook never re-weights them.
+ */
+export function useCatalystImpact(symbol: string) {
+  const sym = symbol.toUpperCase();
+  return useQuery<CatalystImpact | null>({
+    queryKey: ["catalyst-impact", sym],
+    queryFn: async () => {
+      const [catalysts, news] = await Promise.all([
+        fetchEventRows<CatalystRow>(
+          `/api/v1/events/catalysts?symbol=${encodeURIComponent(sym)}&days=7`,
+        ),
+        fetchEventRows<TokenEventRow>(
+          `/api/v1/events/token-events?symbol=${encodeURIComponent(sym)}`,
+        ),
+      ]);
+      const events: CatalystImpact[] = [
+        ...catalysts.map((c) => ({
+          id: c.id,
+          symbol: c.symbol,
+          kind: c.kind,
+          title: c.title,
+          direction: c.direction,
+          impact: c.impact,
+          impactScore: c.impact_score,
+          occursAt: c.occurs_at,
+          isUpcoming: true,
+          percentOfSupply: c.percent_of_supply,
+          disclaimer: c.impact_disclaimer,
+        })),
+        ...news.map((n) => ({
+          id: n.id,
+          symbol: n.symbol,
+          kind: n.kind,
+          title: n.title,
+          direction: n.direction,
+          impact: n.impact,
+          impactScore: n.impact_score,
+          occursAt: n.published_at,
+          isUpcoming: false,
+          percentOfSupply: null,
+          disclaimer: n.impact_disclaimer,
+        })),
+      ].filter((e) => e.impact !== "low");
+      if (events.length === 0) return null;
+      events.sort((a, b) => b.impactScore - a.impactScore);
+      return events[0];
+    },
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+  });
+}
+
+/**
+ * Ranked, impact-scored upcoming catalysts across a batch of watched
+ * tickers — the home catalyst rail's data source. `backend/app/events` has
+ * no batch-by-symbols route for catalysts (unlike `/token-events`), so this
+ * fans out one request per symbol via `useQueries` — watchlists stay
+ * single-digit in practice — and flattens client-side. LOW-banded rows are
+ * dropped for the same reason `useCatalystImpact` drops them: a non-event
+ * shouldn't occupy a rail slot. Ranking is left to the caller by sorting on
+ * `impactScore` directly — that composite already *is* impact (magnitude +
+ * source confidence) weighted by a 30%-weighted proximity factor, so a
+ * second "impact x proximity" formula here would just drift from the
+ * backend's authoritative one.
+ */
+export function useCatalystRailEvents(symbols: string[], days = 14) {
+  const key = useMemo(() => [...new Set(symbols.map((s) => s.toUpperCase()))].sort(), [symbols]);
+  const results = useQueries({
+    queries: key.map((symbol) => ({
+      queryKey: ["catalyst-rail", symbol, days],
+      queryFn: async (): Promise<CatalystImpact[]> => {
+        const rows = await fetchEventRows<CatalystRow>(
+          `/api/v1/events/catalysts?symbol=${encodeURIComponent(symbol)}&days=${days}`,
+        );
+        return rows
+          .filter((c) => c.impact !== "low")
+          .map((c) => ({
+            id: c.id,
+            symbol: c.symbol,
+            kind: c.kind,
+            title: c.title,
+            direction: c.direction,
+            impact: c.impact,
+            impactScore: c.impact_score,
+            occursAt: c.occurs_at,
+            isUpcoming: true,
+            percentOfSupply: c.percent_of_supply,
+            disclaimer: c.impact_disclaimer,
+          }));
+      },
+      staleTime: 5 * 60_000,
+      refetchInterval: 5 * 60_000,
+    })),
+  });
+
+  return {
+    data: results.flatMap((r) => r.data ?? []),
+    isLoading: results.length > 0 && results.some((r) => r.isLoading),
+  };
+}
 
 /** Mirrors the server's EconomicEventRow (repo.ts) without importing server code. */
 export interface UpcomingEconomicEvent {

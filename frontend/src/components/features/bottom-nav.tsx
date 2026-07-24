@@ -1,14 +1,23 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Layers, CandlestickChart, Settings, Bookmark } from "lucide-react";
+import { LayoutDashboard, Layers, CircleCheck, NotebookText, Settings } from "lucide-react";
 
-const TABS = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
+interface BottomNavTab {
+  to: "/" | "/markets" | "/check" | "/journal" | "/settings";
+  label: string;
+  icon: React.ElementType;
+  primary?: boolean;
+}
+
+// Today · Markets · Check (center, visually primary) · Journal · Settings —
+// IA-REDESIGN-2026-07-23 §3. Check is the FAB of the product.
+const TABS: BottomNavTab[] = [
+  { to: "/", label: "Today", icon: LayoutDashboard },
   { to: "/markets", label: "Markets", icon: Layers },
-  { to: "/trades", label: "Trades", icon: CandlestickChart },
-  { to: "/tracker", label: "Tracker", icon: Bookmark },
+  { to: "/check", label: "Check", icon: CircleCheck, primary: true },
+  { to: "/journal", label: "Journal", icon: NotebookText },
   { to: "/settings", label: "Settings", icon: Settings },
-] as const;
+];
 
 export function BottomNav() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
@@ -23,10 +32,16 @@ export function BottomNav() {
               to={t.to}
               className={cn(
                 "flex min-w-[52px] flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors",
-                active ? "text-info" : "text-muted-foreground hover:text-foreground",
+                t.primary
+                  ? active
+                    ? "text-info"
+                    : "text-info/80 hover:text-info"
+                  : active
+                    ? "text-info"
+                    : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <t.icon className={cn("h-5 w-5", active && "stroke-[2.4]")} />
+              <t.icon className={cn(t.primary ? "h-6 w-6" : "h-5 w-5", active && "stroke-[2.4]")} />
               <span>{t.label}</span>
             </Link>
           );
