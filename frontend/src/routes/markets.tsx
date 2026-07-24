@@ -1,13 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Layers, Activity, BarChart3, History } from "lucide-react";
+import { Layers, Activity, BarChart3, History, Newspaper } from "lucide-react";
 import { MarketsPanel } from "@/components/features/markets-panel";
 import { RankingsPanel } from "@/components/features/rankings-panel";
 import { RegimePanel } from "@/components/features/regime-panel";
 import { TechnicalPanel } from "@/components/features/technical-panel";
 import { RecordPanel } from "@/components/features/record-panel";
+import { NewsPanel } from "@/components/features/news-panel";
 
-const MARKETS_TABS = ["overview", "regime", "assets", "record"] as const;
+const MARKETS_TABS = ["overview", "regime", "assets", "news", "record"] as const;
 type MarketsTab = (typeof MARKETS_TABS)[number];
 
 function isMarketsTab(v: unknown): v is MarketsTab {
@@ -55,6 +56,7 @@ const TAB_META: { value: MarketsTab; label: string; icon: React.ElementType }[] 
   { value: "overview", label: "Overview", icon: Layers },
   { value: "regime", label: "Regime", icon: Activity },
   { value: "assets", label: "Assets", icon: BarChart3 },
+  { value: "news", label: "News", icon: Newspaper },
   { value: "record", label: "Record", icon: History },
 ];
 
@@ -72,7 +74,7 @@ function MarketsPage() {
         }
         className="flex flex-col gap-6"
       >
-        <TabsList className="grid h-auto w-full grid-cols-4 gap-1 rounded-xl border border-border bg-card p-1 sm:w-auto sm:max-w-xl">
+        <TabsList className="grid h-auto w-full grid-cols-5 gap-1 rounded-xl border border-border bg-card p-1 sm:w-auto sm:max-w-2xl">
           {TAB_META.map((t) => (
             <TabsTrigger key={t.value} value={t.value} className="gap-1.5 px-3 py-1.5 text-xs">
               <t.icon className="h-3.5 w-3.5" aria-hidden />
@@ -92,6 +94,9 @@ function MarketsPage() {
           <div className="border-t border-border pt-6">
             <TechnicalPanel asSection />
           </div>
+        </TabsContent>
+        <TabsContent value="news" className="mt-0">
+          <NewsPanel asSection />
         </TabsContent>
         <TabsContent value="record" className="mt-0">
           <RecordPanel />

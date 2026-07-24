@@ -1,14 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowRight, Target } from "lucide-react";
+import { Target, Newspaper, Activity, Gauge } from "lucide-react";
 
 import {
   useCatalystRailEvents,
   useRegime,
+  useSentiment,
+  useVolatility,
+  useNews,
   useSnapshotMeta,
   type ImpactDirection,
   type ImpactLevel,
 } from "@/hooks/queries";
+import { fearGreedLabel } from "@/lib/engine/external-context";
 import { useActionableSetups } from "@/hooks/useActionableSetups";
 import { useOpenTradesPnl } from "@/hooks/useOpenTradesPnl";
 import { useReviewTrades } from "@/hooks/useReview";
@@ -66,14 +70,19 @@ const TOUR_STEPS: TourStep[] = [
     body: "Up to three verdict-live tokens right now, each with its objective and what would flip the call. Empty is a valid answer — it means sit out.",
   },
   {
+    target: "market-context",
+    title: "Market context at a glance",
+    body: "Sentiment, volatility, trend and breadth in one strip — the conditions behind today's call. Tap through to Markets for the full picture.",
+  },
+  {
     target: "catalyst-rail",
     title: "What's coming",
     body: "Scheduled events on the tokens you watch, ranked by how soon they land. Click one to open that token's verdict.",
   },
   {
-    target: "check-cta",
-    title: "Check a trade",
-    body: "Have a specific idea? Check gives you a deterministic answer — supportive, cautioned, or no opinion — plus what would change it.",
+    target: "top-news",
+    title: "News that moves markets",
+    body: "The highest-impact headlines right now, with direction and affected assets. Open a token to check a trade against them.",
   },
 ];
 
@@ -107,18 +116,11 @@ function Dashboard() {
       </header>
 
       <RegimeVerdictHero />
+      <MarketContextStrip />
       <TradesAndBehaviorStrip />
       <LiveSetupsStrip />
       <CatalystRail />
-
-      <Link
-        to="/check"
-        data-tour="check-cta"
-        className="flex items-center justify-center gap-2 rounded-xl border border-info/30 bg-info-soft px-4 py-3 text-sm font-semibold text-info transition-colors hover:bg-info/20"
-      >
-        Check a trade
-        <ArrowRight className="h-4 w-4" />
-      </Link>
+      <TopNews />
 
       <ProductTour steps={TOUR_STEPS} open={tour.open && !!meta.data} onClose={tour.close} />
     </div>
@@ -461,4 +463,165 @@ function CatalystRail() {
       </div>
     </IqCard>
   );
+}
+
+/**
+ * Glance-level market context below the verdict: sentiment (Fear & Greed),
+ * volatility, and the regime's trend + breadth pillars. Depth lives in
+ * Markets — this is the "what are conditions" line the verdict rests on, so
+ * the user never has to leave Today to know news/sentiment/volatility exist.
+ */
+function MarketContextStrip() {
+  const sentiment = useSentiment();
+  const volatility = useVolatility();
+  const regime = useRegime();
+
+  if (!sentiment.data || !volatility.data || !regime.data) {
+    return <SkeletonCard className="h-20 w-full" />;
+  }
+
+  const fg = sentiment.data.fearGreed;
+  const fgTone =
+    fg >= 60 ? "text-bullish" : fg <= 40 ? "text-bearish" : "text-warning";
+  const vol = volatility.data;
+  const volTone =
+    vol.label === "High" ? "text-bearish" : vol.label === "Low" ? "text-info" : "text-warning";
+  const trend = regime.data.pillars.find((p) => p.label === "Trend");
+  const breadth = regime.data.pillars.find((p) => p.label === "Breadth");
+
+  return (
+    <Link
+      to="/markets"
+      search={{ tab: "regime" }}
+      data-tour="market-context"
+      className="group"
+    >
+      <IqCard padded={false} className="px-5 py-3 transition-colors group-hover:border-info/40">
+        <div className="flex items-center justify-between gap-4">
+          <CardEyebrow className="shrink-0">Market Context</CardEyebrow>
+          <div className="flex flex-1 flex-wrap items-center justify-end gap-x-5 gap-y-2 text-sm">
+            <ContextStat
+              icon={Gauge}
+              label="Sentiment"
+              value={`${fg} · ${fearGreedLabel(fg)}`}
+              tone={fgTone}
+            />
+            <ContextStat
+              icon={Activity}
+              label="Volatility"
+              value={`${vol.label} · ${vol.vix}% ATR`}
+              tone={volTone}
+              hint={`${vol.change >= 0 ? "+" : ""}${vol.change}% wk`}
+            />
+            {trend && (
+              <ContextStat label="Trend" value={trend.displayValue ?? `${trend.score}%`} />
+            )}
+            {breadth && <ContextStat label="Breadth" value={`${breadth.score}%`} />}
+          </div>
+        </div>
+      </IqCard>
+    </Link>
+  );
+}
+
+function ContextStat({
+  icon: Icon,
+  label,
+  value,
+  tone,
+  hint,
+}: {
+  icon?: React.ElementType;
+  label: string;
+  value: string;
+  tone?: string;
+  hint?: string;
+}) {
+  return (
+    <span className="flex items-center gap-1.5">
+      {Icon && <Icon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />}
+      <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span className={cn("font-semibold", tone)}>{value}</span>
+      {hint && <span className="text-[11px] text-muted-foreground">({hint})</span>}
+    </span>
+  );
+}
+
+// Impact -> badge tone for the news strip (high = market-moving = alarming).
+const NEWS_IMPACT_TONE: Record<string, "bearish" | "warning" | "info"> = {
+  high: "bearish",
+  medium: "warning",
+  low: "info",
+};
+
+/** Top-3 market-moving headlines on Today; full feed lives at Markets → News. */
+function TopNews() {
+  const { data } = useNews();
+  const top = data
+    ? [...data]
+        .sort((a, b) => impactRank(b.impact) - impactRank(a.impact) || a.minutesAgo - b.minutesAgo)
+        .slice(0, 3)
+    : undefined;
+
+  return (
+    <IqCard data-tour="top-news" padded={false} className="flex flex-col">
+      <div className="flex items-center justify-between px-5 pb-2 pt-4">
+        <CardEyebrow>
+          <Newspaper className="mr-1.5 inline h-3.5 w-3.5" aria-hidden />
+          Market News
+        </CardEyebrow>
+        <Link
+          to="/markets"
+          search={{ tab: "news" }}
+          className="text-xs font-medium text-info hover:underline"
+        >
+          View all →
+        </Link>
+      </div>
+      {top ? (
+        <ul className="flex flex-col divide-y divide-border">
+          {top.map((n) => (
+            <li key={n.id}>
+              <Link
+                to="/markets"
+                search={{ tab: "news" }}
+                className="flex gap-3 px-5 py-3 transition-colors hover:bg-surface/60"
+              >
+                <span
+                  className={cn(
+                    "mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full",
+                    n.direction === "bullish" && "bg-bullish",
+                    n.direction === "bearish" && "bg-bearish",
+                    n.direction === "neutral" && "bg-muted-foreground",
+                  )}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start gap-2">
+                    <p className="flex-1 text-sm font-medium leading-snug">{n.headline}</p>
+                    <StatusBadge tone={NEWS_IMPACT_TONE[n.impact] ?? "info"}>
+                      {n.impact}
+                    </StatusBadge>
+                  </div>
+                  <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <span className="font-medium text-foreground">
+                      {n.assets.slice(0, 4).join(", ") || "Market-wide"}
+                    </span>
+                    <span className="ml-auto shrink-0">{n.minutesAgo}m ago</span>
+                  </div>
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="px-5 pb-4">
+          <SkeletonCard className="h-24 w-full" />
+        </div>
+      )}
+    </IqCard>
+  );
+}
+
+function impactRank(impact: string): number {
+  return impact === "high" ? 3 : impact === "medium" ? 2 : 1;
 }
