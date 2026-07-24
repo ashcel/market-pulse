@@ -23,6 +23,9 @@ export function usePermit() {
           take_profit_price: ticket.target_price !== "" ? Number(ticket.target_price) : null,
           risk_percent: ticket.risk_percent,
           leverage: ticket.leverage,
+          // F1/F3: the margin mode the exchange is set to before entry and the
+          // basis of the labeled liquidation estimate.
+          margin_type: ticket.margin_type,
           correlation_bucket: ticket.correlation_bucket,
         },
       };

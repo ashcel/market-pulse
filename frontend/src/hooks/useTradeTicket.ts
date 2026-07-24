@@ -8,6 +8,10 @@ export interface TradeTicketState {
   target_price: number | "";
   risk_percent: number;
   leverage: number;
+  /** Margin mode — TRADE-FLOW §3 amendment to EDR 0020. Default ISOLATED
+   * (contained blast radius, beginner-correct). Changes HOW risk is carried,
+   * never HOW MUCH. */
+  margin_type: "ISOLATED" | "CROSSED";
   correlation_bucket: string;
 }
 
@@ -19,7 +23,8 @@ export const DEFAULT_TRADE_TICKET_STATE: TradeTicketState = {
   stop_price: "",
   target_price: "",
   risk_percent: 1.0,
-  leverage: 1,
+  leverage: 3,
+  margin_type: "ISOLATED",
   correlation_bucket: "other",
 };
 
