@@ -1,5 +1,5 @@
 import { useRotation, useSectors } from "@/hooks/queries";
-import { PageHeader } from "@/components/features/page-header";
+import { PageHeader, SectionHeader } from "@/components/features/page-header";
 import { RotationFlow } from "@/components/features/rotation-flow";
 import { Heatmap } from "@/components/features/heatmap";
 import { MetricCard } from "@/components/features/metric-card";
@@ -31,19 +31,28 @@ const TOUR_STEPS: TourStep[] = [
   },
 ];
 
-export function RotationPanel() {
+/**
+ * `asSection` renders this as a folded-in section of the Regime tab (no page
+ * eyebrow/title, just a section header) instead of its own tab
+ * (IA-REDESIGN-2026-07-23 §4.5 — Rotation dies as a top-level Markets tab).
+ */
+export function RotationPanel({ asSection = false }: { asSection?: boolean } = {}) {
   const rotation = useRotation();
   const sectors = useSectors();
   const tour = useProductTour(TOUR_SEEN_KEY);
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Rotation"
-        title="Capital Rotation"
-        subtitle="Where money is moving right now."
-        action={<HelpButton onClick={tour.start} />}
-      />
+      {asSection ? (
+        <SectionHeader title="Capital Rotation" action={<HelpButton onClick={tour.start} />} />
+      ) : (
+        <PageHeader
+          eyebrow="Rotation"
+          title="Capital Rotation"
+          subtitle="Where money is moving right now."
+          action={<HelpButton onClick={tour.start} />}
+        />
+      )}
 
       <div data-tour="flow">
         {rotation.data ? <RotationFlow data={rotation.data} /> : <SkeletonCard height={140} />}

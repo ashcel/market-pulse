@@ -1,9 +1,11 @@
-import { useRegime } from "@/hooks/queries";
+import { useRegime, useSentiment } from "@/hooks/queries";
 import { PageHeader } from "@/components/features/page-header";
 import { ConfidenceGauge } from "@/components/features/confidence-gauge";
 import { IqCard, CardEyebrow } from "@/components/features/iq-card";
 import { SkeletonCard } from "@/components/features/skeletons";
 import { StatusBadge } from "@/components/features/status-badge";
+import { RotationPanel } from "@/components/features/rotation-panel";
+import { MacroStrip } from "@/components/features/macro-strip";
 import {
   AreaChart,
   Area,
@@ -20,7 +22,7 @@ import {
   type TourStep,
 } from "@/components/features/product-tour";
 
-const TOUR_SEEN_KEY = "iq-regime-tour-v1";
+const TOUR_SEEN_KEY = "iq-regime-tour-v2";
 
 const TOUR_STEPS: TourStep[] = [
   {
@@ -34,11 +36,65 @@ const TOUR_STEPS: TourStep[] = [
     body: "The regime score over the last 60 sessions. Above the upper dashed line is Risk On territory, below the lower one is Risk Off. A score that keeps crossing the lines means an unstable, choppy market.",
   },
   {
+    target: "sentiment",
+    title: "Fear & Greed",
+    body: "The crowd's mood, 0 (extreme fear) to 100 (extreme greed). It's a contrarian-flavored gauge, not a trade signal on its own — read it alongside the pillars below.",
+  },
+  {
     target: "pillars",
     title: "The five pillars",
     body: "What the regime verdict is built from: trend, breadth, volatility, liquidity, and macro — each scored 0–100. When pillars disagree (say, trend bullish but breadth bearish), treat the overall regime with more caution.",
   },
 ];
+
+/** Fear & Greed gauge — moved here from the home page (IA-REDESIGN-2026-07-23 §4.1): the regime hero already encodes conditions, so the raw sentiment number lives one level down. */
+function FearGreedBar({ value }: { value: number }) {
+  return (
+    <div>
+      <div className="relative h-1.5 rounded-full bg-gradient-to-r from-bearish via-warning to-bullish">
+        <div
+          className="absolute -top-1 h-3.5 w-3.5 -translate-x-1/2 rounded-full border-2 border-background bg-foreground"
+          style={{ left: `${value}%` }}
+        />
+      </div>
+      <div className="mt-1.5 flex justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
+        <span>Fear</span>
+        <span>Greed</span>
+      </div>
+    </div>
+  );
+}
+
+function SentimentCard() {
+  const sentiment = useSentiment();
+  if (!sentiment.data) return <SkeletonCard height={140} />;
+  const s = sentiment.data;
+  return (
+    <IqCard data-tour="sentiment" className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <CardEyebrow>Sentiment</CardEyebrow>
+        <StatusBadge
+          tone={s.label === "Bullish" ? "bullish" : s.label === "Bearish" ? "bearish" : "warning"}
+        >
+          {s.label}
+        </StatusBadge>
+      </div>
+      <div className="flex items-baseline gap-2">
+        <span className="num text-2xl font-semibold tracking-tight">{s.score}</span>
+        <span className="text-xs text-muted-foreground">/ 100</span>
+      </div>
+      {s.source === "proxy" && (
+        <p
+          className="text-[11px] text-muted-foreground"
+          title="The Fear & Greed API was unreachable — this is an internal breadth/momentum estimate, not the real index."
+        >
+          Fear &amp; Greed (est.) — API unreachable, showing an internal breadth/momentum proxy.
+        </p>
+      )}
+      <FearGreedBar value={s.fearGreed} />
+    </IqCard>
+  );
+}
 
 export function RegimePanel() {
   const { data } = useRegime();
@@ -128,6 +184,11 @@ export function RegimePanel() {
         )}
       </div>
 
+      <div className="grid gap-6 sm:grid-cols-2">
+        <SentimentCard />
+        <MacroStrip />
+      </div>
+
       <div data-tour="pillars">
         <CardEyebrow>Regime Pillars</CardEyebrow>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -166,6 +227,10 @@ export function RegimePanel() {
             </IqCard>
           ))}
         </div>
+      </div>
+
+      <div className="border-t border-border pt-6">
+        <RotationPanel asSection />
       </div>
 
       <ProductTour steps={TOUR_STEPS} open={tour.open && !!data} onClose={tour.close} />

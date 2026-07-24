@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components/features/page-header";
+import { PageHeader, SectionHeader } from "@/components/features/page-header";
 import { useSignals, useAssets } from "@/hooks/queries";
 import { SignalCard } from "@/components/features/signal-card";
 import { SkeletonCard } from "@/components/features/skeletons";
@@ -40,7 +40,13 @@ const TOUR_STEPS: TourStep[] = [
   },
 ];
 
-export function TechnicalPanel() {
+/**
+ * `asSection` folds this in below the Rankings table on the Assets tab (no
+ * page eyebrow/title, just a section header + asset picker) instead of its
+ * own tab (IA-REDESIGN-2026-07-23 §4.5 — Rankings + Technical merge into
+ * one Assets tab).
+ */
+export function TechnicalPanel({ asSection = false }: { asSection?: boolean } = {}) {
   const { activeAsset, setActiveAsset } = usePreferencesStore();
   const { data: assets } = useAssets();
   const tour = useProductTour(TOUR_SEEN_KEY);
@@ -52,35 +58,41 @@ export function TechnicalPanel() {
 
   const symbol = tradingViewSymbol(ticker);
 
+  const pickerAndHelp = (
+    <div className="flex items-center gap-2">
+      <div
+        data-tour="picker"
+        className="flex items-center gap-2 rounded-lg border border-border bg-surface px-2 py-1.5"
+      >
+        <span className="text-xs text-muted-foreground">Asset</span>
+        <select
+          value={ticker}
+          onChange={(e) => setActiveAsset(e.target.value)}
+          className="bg-transparent text-sm font-semibold outline-none"
+        >
+          {assets?.map((a) => (
+            <option key={a.id} value={a.ticker} className="bg-popover text-foreground">
+              {a.ticker} · {a.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <HelpButton onClick={tour.start} />
+    </div>
+  );
+
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Technical"
-        title="Technical Analysis"
-        subtitle="Chart + smart-money signals for the selected asset."
-        action={
-          <div className="flex items-center gap-2">
-            <div
-              data-tour="picker"
-              className="flex items-center gap-2 rounded-lg border border-border bg-surface px-2 py-1.5"
-            >
-              <span className="text-xs text-muted-foreground">Asset</span>
-              <select
-                value={ticker}
-                onChange={(e) => setActiveAsset(e.target.value)}
-                className="bg-transparent text-sm font-semibold outline-none"
-              >
-                {assets?.map((a) => (
-                  <option key={a.id} value={a.ticker} className="bg-popover text-foreground">
-                    {a.ticker} · {a.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <HelpButton onClick={tour.start} />
-          </div>
-        }
-      />
+      {asSection ? (
+        <SectionHeader title="Technical" action={pickerAndHelp} />
+      ) : (
+        <PageHeader
+          eyebrow="Technical"
+          title="Technical Analysis"
+          subtitle="Chart + smart-money signals for the selected asset."
+          action={pickerAndHelp}
+        />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
         <div data-tour="chart">
