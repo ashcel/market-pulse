@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from .config import execution_settings
+from .constants import BINANCE_NO_NEED_TO_CHANGE_MARGIN_TYPE
 
 
 class BinanceExecClient:
@@ -62,9 +63,66 @@ class BinanceExecClient:
     async def get_balance(self) -> list[dict]:
         return await self._request("GET", "/fapi/v2/balance")
 
-    async def get_positions(self) -> list[dict]:
+    async def get_positions(
+        self, symbol: str | None = None, include_zero: bool = False
+    ) -> list[dict]:
+        """positionRisk rows. By default only open positions (nonzero
+        `positionAmt`), preserving the original behavior. Pass
+        ``include_zero=True`` to also get the flat row for a symbol — needed
+        by the F1 leverage/margin read-back, which runs *before* any position
+        exists and must still confirm the symbol's `leverage`/`marginType`.
+        """
         positions = await self._request("GET", "/fapi/v2/positionRisk")
+        if symbol is not None:
+            positions = [p for p in positions if str(p.get("symbol")) == symbol]
+        if include_zero:
+            return positions
         return [p for p in positions if float(p.get("positionAmt", 0)) != 0]
+
+    async def set_leverage(self, symbol: str, leverage: int) -> dict:
+        """POST /fapi/v1/leverage — set the initial leverage for a symbol.
+
+        F1: the exchange must be told the judged leverage before entry, or the
+        position opens at whatever leverage the symbol last carried and every
+        permit's margin/liquidation number is fiction.
+        """
+        return await self._request(
+            "POST", "/fapi/v1/leverage", {"symbol": symbol, "leverage": int(leverage)}
+        )
+
+    async def set_margin_type(self, symbol: str, margin_type: str) -> dict:
+        """POST /fapi/v1/marginType — set ISOLATED/CROSSED for a symbol.
+
+        Binance returns error code -4046 ("No need to change margin type.")
+        when the symbol is already in the requested mode — a no-op success,
+        surfaced here as a normal result so callers don't treat it as a
+        failure. Any other error propagates.
+        """
+        try:
+            return await self._request(
+                "POST",
+                "/fapi/v1/marginType",
+                {"symbol": symbol, "marginType": margin_type},
+            )
+        except httpx.HTTPStatusError as exc:
+            code = None
+            try:
+                code = exc.response.json().get("code")
+            except (ValueError, AttributeError):
+                code = None
+            if code == BINANCE_NO_NEED_TO_CHANGE_MARGIN_TYPE:
+                return {"code": 200, "msg": "No need to change margin type.", "noop": True}
+            raise
+
+    async def get_mark_price(self, symbol: str) -> dict:
+        """GET /fapi/v1/premiumIndex — current mark price for a symbol.
+
+        F4: read at consume time to reject a market entry whose price has
+        drifted materially from the proposal entry the permit was judged at.
+        Unsigned public endpoint, but routed through the signed `_request`
+        for one code path; extra signature params are harmless.
+        """
+        return await self._request("GET", "/fapi/v1/premiumIndex", {"symbol": symbol})
 
     async def get_open_orders(self, symbol: str | None = None) -> list[dict]:
         params = {}

@@ -44,6 +44,11 @@ class ExecutionConfig(BaseSettings):
     # then resume instead of submitting a fresh logical execution.
     ORDER_TIMEOUT_SECONDS: float = 10.0
 
+    # D1 — the protective stop-loss leg gets a tighter timeout than the entry
+    # (with one immediate retry before flatten), shrinking the worst-case
+    # unprotected window. Entry keeps ORDER_TIMEOUT_SECONDS.
+    SL_ORDER_TIMEOUT_SECONDS: float = 3.0
+
     # Mainnet stays closed until a separate hardening pass records the
     # production isolation and operational controls.
     MAINNET_HARDENED: bool = False
@@ -66,6 +71,8 @@ class ExecutionConfig(BaseSettings):
             errors.append("invalid_account_state_max_age")
         if self.ORDER_TIMEOUT_SECONDS <= 0:
             errors.append("invalid_order_timeout")
+        if self.SL_ORDER_TIMEOUT_SECONDS <= 0:
+            errors.append("invalid_sl_order_timeout")
         if (
             not self.BINANCE_TESTNET_FUTURES_URL.strip()
             or not self.BINANCE_MAINNET_FUTURES_URL.strip()

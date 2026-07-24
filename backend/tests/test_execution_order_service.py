@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.database import Base
 from app.execution.exceptions import (
     DuplicateIdempotencyKeyError,
+    EntryDriftError,
     ExecutionDisabledError,
     ExecutionNotReadyError,
     PermitAlreadyUsedError,
@@ -37,16 +38,26 @@ class FakeBinanceClient:
         algo_results: list[object] | None = None,
         order_results: dict[str, dict] | None = None,
         algo_order_results: list[dict] | None = None,
+        mark_price: float | None = None,
+        position_risk_rows: list[dict] | None = None,
     ) -> None:
         self.place_results = list(place_results or [])
         self.algo_results = list(algo_results or [])
         self.order_results = order_results or {}
         self.algo_order_results = list(algo_order_results or [])
+        self.mark_price = mark_price
+        self.position_risk_rows = position_risk_rows
         self.place_calls: list[dict[str, object]] = []
         self.algo_calls: list[dict[str, object]] = []
         self.cancel_algo_calls: list[dict[str, object]] = []
         self.get_order_calls: list[str] = []
         self.get_open_algo_orders_calls: list[str | None] = []
+        self.set_margin_calls: list[dict[str, object]] = []
+        self.set_leverage_calls: list[dict[str, object]] = []
+        self.get_positions_calls: list[dict[str, object]] = []
+        self.get_mark_price_calls: list[str] = []
+        self._synced_margin: str | None = None
+        self._synced_leverage: int | None = None
 
     async def place_order(self, symbol, side, order_type, quantity, **kwargs):
         self.place_calls.append(
@@ -123,6 +134,45 @@ class FakeBinanceClient:
             raise RuntimeError("order not found")
         return result
 
+    async def set_margin_type(self, symbol: str, margin_type: str) -> dict:
+        self.set_margin_calls.append({"symbol": symbol, "margin_type": margin_type})
+        self._synced_margin = margin_type
+        return {"code": 200, "msg": "success"}
+
+    async def set_leverage(self, symbol: str, leverage: int) -> dict:
+        self.set_leverage_calls.append({"symbol": symbol, "leverage": leverage})
+        self._synced_leverage = int(leverage)
+        return {"symbol": symbol, "leverage": int(leverage)}
+
+    async def get_positions(
+        self, symbol: str | None = None, include_zero: bool = False
+    ) -> list[dict]:
+        self.get_positions_calls.append({"symbol": symbol, "include_zero": include_zero})
+        # Echo back whatever leverage/margin was last synced so the F1
+        # read-back confirms by default; tests that want a divergence override
+        # `position_risk_rows` explicitly.
+        if self.position_risk_rows is not None:
+            rows = self.position_risk_rows
+        else:
+            margin = self._synced_margin or "ISOLATED"
+            rows = [
+                {
+                    "symbol": symbol or "BTCUSDT",
+                    "leverage": str(self._synced_leverage or 2),
+                    "marginType": "isolated" if margin.upper() == "ISOLATED" else "cross",
+                    "positionAmt": "0",
+                }
+            ]
+        if symbol is not None:
+            rows = [r for r in rows if str(r.get("symbol")) == symbol]
+        return rows
+
+    async def get_mark_price(self, symbol: str) -> dict:
+        self.get_mark_price_calls.append(symbol)
+        if self.mark_price is None:
+            return {}
+        return {"symbol": symbol, "markPrice": str(self.mark_price)}
+
 
 def execution_ready_settings(**overrides: object) -> SimpleNamespace:
     values: dict[str, object] = {
@@ -145,6 +195,36 @@ def patched_execution_client(fake: FakeBinanceClient):
         patch("app.execution.order_service.decrypt", MagicMock(return_value="secret")),
         patch("app.execution.order_service.BinanceExecClient", MagicMock(return_value=fake)),
     )
+
+
+def configure_leverage_sync(client_mock, *, margin: str = "isolated") -> None:
+    """Give a MagicMock exec client the F1 sync surface: set_margin_type,
+    set_leverage, get_positions — the read-back echoes whatever leverage was
+    set so the confirm passes by default."""
+    state: dict[str, int | None] = {"leverage": None}
+
+    async def _set_margin(symbol, margin_type):
+        del symbol, margin_type
+        return {"code": 200, "msg": "success"}
+
+    async def _set_leverage(symbol, leverage):
+        state["leverage"] = int(leverage)
+        return {"symbol": symbol, "leverage": int(leverage)}
+
+    async def _get_positions(symbol=None, include_zero=False):
+        del include_zero
+        return [
+            {
+                "symbol": symbol or "BTCUSDT",
+                "leverage": str(state["leverage"] if state["leverage"] is not None else 1),
+                "marginType": margin,
+                "positionAmt": "0",
+            }
+        ]
+
+    client_mock.set_margin_type = _set_margin
+    client_mock.set_leverage = _set_leverage
+    client_mock.get_positions = _get_positions
 
 
 def permit_values(**overrides: object) -> PermitExecutionValues:
@@ -299,6 +379,7 @@ async def test_sl_failure_flattens_position_after_consumption():
         )
         m_client_inst.place_algo_order = AsyncMock(side_effect=Exception("SL error"))
         m_client_inst.cancel_algo_order = AsyncMock(return_value={"algoStatus": "CANCELED"})
+        configure_leverage_sync(m_client_inst)
 
         res = await place_execution_order(
             MagicMock(),
@@ -334,6 +415,7 @@ async def test_idempotency_key_propagated_after_consumption():
         m_client_inst.place_algo_order = AsyncMock(
             return_value={"algoId": 12345, "algoStatus": "NEW"}
         )
+        configure_leverage_sync(m_client_inst)
 
         await place_execution_order(
             MagicMock(),
@@ -374,6 +456,7 @@ async def test_entry_order_references_permit_after_consumption():
         m_client.return_value.place_algo_order = AsyncMock(
             return_value={"algoId": 12345, "algoStatus": "NEW"}
         )
+        configure_leverage_sync(m_client.return_value)
 
         res = await place_execution_order(
             MagicMock(),
@@ -1011,3 +1094,302 @@ async def test_filled_market_entry_reaches_protected_via_algo_sl_and_tp(session_
     assert fake.algo_calls[0]["close_position"] is True
     assert fake.algo_calls[1]["trigger_price"] == 67000.0
     assert fake.algo_calls[1]["close_position"] is True
+
+
+# ---------------------------------------------------------------------------
+# F1 — leverage/margin sync before entry (order service)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_leverage_and_margin_synced_before_entry(session_factory):
+    await add_permit(session_factory, approved_permit(leverage="2"))
+    fake = FakeBinanceClient(
+        place_results=[{"orderId": "entry", "executedQty": "0.1"}],
+        algo_results=[{"algoId": "sl"}, {"algoId": "tp"}],
+    )
+    result = await execute_with_real_db(session_factory, fake, idempotency_key="lev-sync")
+
+    assert result["status"] == "PROTECTED"
+    # Margin type set, then leverage, then read back — all before any entry.
+    assert fake.set_margin_calls == [{"symbol": "BTCUSDT", "margin_type": "ISOLATED"}]
+    assert fake.set_leverage_calls == [{"symbol": "BTCUSDT", "leverage": 2}]
+    assert fake.get_positions_calls  # read-back happened
+    async with session_factory() as session:
+        record = await session.scalar(select(ExecutionRecord))
+        events = [e["event"] for e in record.event_log]
+        assert events.index("leverage_synced") < events.index("entry_submit_started")
+
+
+@pytest.mark.asyncio
+async def test_leverage_sync_rejection_aborts_before_entry(session_factory):
+    await add_permit(session_factory, approved_permit(leverage="2"))
+    fake = FakeBinanceClient(
+        place_results=[{"orderId": "entry", "executedQty": "0.1"}],
+    )
+
+    async def _reject(symbol, margin_type):
+        del symbol, margin_type
+        raise RuntimeError("open position in the other mode blocks the change")
+
+    fake.set_margin_type = _reject
+    result = await execute_with_real_db(session_factory, fake, idempotency_key="lev-reject")
+
+    assert result["status"] == "LEVERAGE_SYNC_FAILED"
+    # Entry must never have been submitted.
+    assert fake.place_calls == []
+    async with session_factory() as session:
+        record = await session.scalar(select(ExecutionRecord))
+        assert record.status == "LEVERAGE_SYNC_FAILED"
+
+
+@pytest.mark.asyncio
+async def test_leverage_readback_divergence_aborts_before_entry(session_factory):
+    await add_permit(session_factory, approved_permit(leverage="2"))
+    fake = FakeBinanceClient(
+        place_results=[{"orderId": "entry", "executedQty": "0.1"}],
+        # Read-back reports a different leverage than the one we set -> abort.
+        position_risk_rows=[
+            {"symbol": "BTCUSDT", "leverage": "10", "marginType": "isolated", "positionAmt": "0"}
+        ],
+    )
+    result = await execute_with_real_db(session_factory, fake, idempotency_key="lev-diverge")
+
+    assert result["status"] == "LEVERAGE_SYNC_FAILED"
+    assert fake.place_calls == []
+
+
+# ---------------------------------------------------------------------------
+# F4 — entry-drift consume-time guard
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_market_entry_drift_rejects_and_persists(session_factory):
+    await add_permit(session_factory, approved_permit())
+
+    async def provider(symbol):
+        del symbol
+        # entry 65000, stop 64000, distance 1000, bound 0.25*1000 = 250.
+        # mark 65300 -> drift 300 > 250.
+        return 65300.0
+
+    async with session_factory() as session:
+        with pytest.raises(EntryDriftError):
+            await consume_permit_for_execution(
+                session,
+                "user-1",
+                "permit-1",
+                symbol="BTCUSDT",
+                side="BUY",
+                entry_type="MARKET",
+                entry_price=65000.0,
+                stop_price=64000.0,
+                leverage=2.0,
+                risk_percent=1.0,
+                idempotency_key="drift-reject",
+                mark_price_provider=provider,
+            )
+
+    async with session_factory() as session:
+        record = await session.scalar(select(ExecutionRecord))
+        assert record.status == "ENTRY_REJECTED"
+        assert "ENTRY_DRIFT" in (record.last_error or "")
+        permit = await session.get(TradePermit, "permit-1")
+        assert permit.consumed_at is not None  # permit is spent
+
+
+@pytest.mark.asyncio
+async def test_market_entry_within_drift_bound_proceeds(session_factory):
+    await add_permit(session_factory, approved_permit())
+
+    async def provider(symbol):
+        del symbol
+        return 65100.0  # drift 100 < 250 bound
+
+    async with session_factory() as session:
+        values = await consume_permit_for_execution(
+            session,
+            "user-1",
+            "permit-1",
+            symbol="BTCUSDT",
+            side="BUY",
+            entry_type="MARKET",
+            entry_price=65000.0,
+            stop_price=64000.0,
+            leverage=2.0,
+            risk_percent=1.0,
+            idempotency_key="drift-ok",
+            mark_price_provider=provider,
+        )
+    assert isinstance(values, PermitExecutionValues)
+    async with session_factory() as session:
+        record = await session.scalar(select(ExecutionRecord))
+        assert record.status == "PENDING_ENTRY"
+
+
+@pytest.mark.asyncio
+async def test_limit_entry_skips_drift_guard(session_factory):
+    await add_permit(session_factory, approved_permit())
+    called = False
+
+    async def provider(symbol):
+        del symbol
+        nonlocal called
+        called = True
+        return 99999.0  # would be way outside the bound if it were consulted
+
+    async with session_factory() as session:
+        values = await consume_permit_for_execution(
+            session,
+            "user-1",
+            "permit-1",
+            symbol="BTCUSDT",
+            side="BUY",
+            entry_type="LIMIT",
+            entry_price=65000.0,
+            stop_price=64000.0,
+            leverage=2.0,
+            risk_percent=1.0,
+            idempotency_key="drift-limit",
+            mark_price_provider=provider,
+        )
+    assert isinstance(values, PermitExecutionValues)
+    assert called is False  # limit entries never consult the mark price
+
+
+@pytest.mark.asyncio
+async def test_no_provider_skips_drift_guard(session_factory):
+    await add_permit(session_factory, approved_permit())
+    async with session_factory() as session:
+        values = await consume_permit_for_execution(
+            session,
+            "user-1",
+            "permit-1",
+            symbol="BTCUSDT",
+            side="BUY",
+            entry_type="MARKET",
+            entry_price=65000.0,
+            stop_price=64000.0,
+            leverage=2.0,
+            risk_percent=1.0,
+            idempotency_key="no-provider",
+        )
+    assert isinstance(values, PermitExecutionValues)
+
+
+# ---------------------------------------------------------------------------
+# D2 — latency stamps
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_consume_stamps_mark_price_and_snapshot_age(session_factory):
+    await add_permit(session_factory, approved_permit())
+
+    async def provider(symbol):
+        del symbol
+        return 65050.0
+
+    async with session_factory() as session:
+        await consume_permit_for_execution(
+            session,
+            "user-1",
+            "permit-1",
+            symbol="BTCUSDT",
+            side="BUY",
+            entry_type="MARKET",
+            entry_price=65000.0,
+            stop_price=64000.0,
+            leverage=2.0,
+            risk_percent=1.0,
+            idempotency_key="stamp",
+            mark_price_provider=provider,
+        )
+    async with session_factory() as session:
+        record = await session.scalar(select(ExecutionRecord))
+        consumed = record.event_log[0]
+        assert consumed["event"] == "permit_consumed"
+        assert consumed["mark_price_at_consume"] == 65050.0
+        assert consumed["snapshot_age_seconds"] >= 0
+        assert consumed["margin_type"] == "ISOLATED"
+
+
+@pytest.mark.asyncio
+async def test_protected_flow_events_carry_timestamps(session_factory):
+    await add_permit(session_factory, approved_permit())
+    fake = FakeBinanceClient(
+        place_results=[{"orderId": "entry", "executedQty": "0.1"}],
+        algo_results=[{"algoId": "sl"}, {"algoId": "tp"}],
+    )
+    await execute_with_real_db(session_factory, fake, idempotency_key="stamps-flow")
+    async with session_factory() as session:
+        record = await session.scalar(select(ExecutionRecord))
+        by_event = {e["event"]: e for e in record.event_log}
+        # The unprotected window is measurable: entry_confirmed -> stop_loss_confirmed.
+        for event in ("entry_submit_started", "entry_confirmed", "stop_loss_confirmed"):
+            assert "at" in by_event[event]
+
+
+# ---------------------------------------------------------------------------
+# D1 — SL-leg timeout + single retry before flatten
+# ---------------------------------------------------------------------------
+
+
+async def _run_with_sl_timeout(session_factory, fake, *, sl_timeout=0.001):
+    settings_patch, key_patch, decrypt_patch, client_patch = patched_execution_client(fake)
+    settings_patch.new.ORDER_TIMEOUT_SECONDS = 1.0
+    settings_patch.new.SL_ORDER_TIMEOUT_SECONDS = sl_timeout
+    with settings_patch, key_patch, decrypt_patch, client_patch:
+        async with session_factory() as session:
+            return await place_execution_order(
+                session,
+                "user-1",
+                "permit-1",
+                "BTCUSDT",
+                "BUY",
+                "MARKET",
+                65000,
+                64000,
+                67000,
+                1,
+                "sl-timeout-idem",
+                leverage=2,
+                risk_percent=1,
+            )
+
+
+@pytest.mark.asyncio
+async def test_sl_timeout_retries_once_then_flattens(session_factory):
+    await add_permit(session_factory, approved_permit())
+    fake = FakeBinanceClient(
+        place_results=[{"orderId": "entry", "executedQty": "0.1"}, {"orderId": "close"}],
+        algo_results=["timeout", "timeout"],
+    )
+    result = await _run_with_sl_timeout(session_factory, fake)
+
+    assert result["flattened"] is True
+    async with session_factory() as session:
+        record = await session.scalar(select(ExecutionRecord))
+        assert record.status == "FLATTENED"
+        timeouts = [e for e in record.event_log if e["event"] == "stop_loss_timeout"]
+        # Initial attempt + exactly one retry before flatten.
+        assert len(timeouts) == 2
+
+
+@pytest.mark.asyncio
+async def test_sl_single_retry_recovers_before_flatten(session_factory):
+    await add_permit(session_factory, approved_permit())
+    fake = FakeBinanceClient(
+        place_results=[{"orderId": "entry", "executedQty": "0.1"}],
+        algo_results=["timeout", {"algoId": "sl"}, {"algoId": "tp"}],
+    )
+    result = await _run_with_sl_timeout(session_factory, fake)
+
+    assert result["status"] == "PROTECTED"
+    assert result["sl_order_id"] == "sl"
+    assert result["flattened"] is False
+    async with session_factory() as session:
+        record = await session.scalar(select(ExecutionRecord))
+        timeouts = [e for e in record.event_log if e["event"] == "stop_loss_timeout"]
+        assert len(timeouts) == 1

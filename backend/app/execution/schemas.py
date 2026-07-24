@@ -105,6 +105,7 @@ PERMIT_CHECK_GROUPS: dict[PermitCheck, str] = {
     PermitCheck.MAX_LEVERAGE: "constitution",
     PermitCheck.RR_BELOW_MIN: "constitution",
     PermitCheck.STOP_MISSING: "constitution",
+    PermitCheck.LIQUIDATION_INSIDE_STOP: "constitution",
     PermitCheck.SYMBOL_NOT_ALLOWED: "constitution",
     PermitCheck.SESSION_NOT_ALLOWED: "constitution",
     PermitCheck.BINDING_COOLDOWN_ACTIVE: "constitution",
@@ -167,6 +168,20 @@ class DecisionCardSection(BaseModel):
     session: str
 
 
+class LiquidationEstimate(BaseModel):
+    """The F3 liquidation figure, carried with its honesty label so no render
+    site can present it as an exact exchange price. `model` is the sizing
+    module's `liquidation_model`: ``"isolated"`` or
+    ``"isolated_conservative_for_cross"``. `price` is None at leverage 1 (no
+    liquidation). `is_estimate` is always True — flat MMR, no funding/fees/
+    tiered brackets (M0 score-honesty rules)."""
+
+    price: float | None
+    model: str
+    margin_type: str
+    is_estimate: bool = True
+
+
 class PermitCardApproved(BaseModel):
     """The approved shape: Quality / Constitution / Portfolio Risk /
     Daily Budget / Decision."""
@@ -177,6 +192,11 @@ class PermitCardApproved(BaseModel):
     portfolio_risk: PortfolioRiskCardSection
     daily_budget: DailyBudgetCardSection
     decision: DecisionCardSection
+    # Margin mode the exchange will be set to before entry (F1) and the
+    # labeled liquidation estimate (F3). Optional so the pure-decision tests
+    # that build a card without sizing context keep passing.
+    margin_type: str | None = None
+    liquidation: LiquidationEstimate | None = None
 
 
 class PermitCardRejected(BaseModel):
@@ -201,6 +221,9 @@ def build_permit_card(
     decision: PermitDecision,
     quality: TradeQualityScore,
     expires_at: datetime,
+    *,
+    margin_type: str | None = None,
+    liquidation: LiquidationEstimate | None = None,
 ) -> PermitCardApproved | PermitCardRejected:
     """Build the fixed permit-card shape from a `PermitDecision` +
     `TradeQualityScore`. Every field is copied straight from those
@@ -246,4 +269,6 @@ def build_permit_card(
         portfolio_risk=PortfolioRiskCardSection(checks=_check_items(decision, "portfolio_risk")),
         daily_budget=DailyBudgetCardSection(checks=_check_items(decision, "daily_budget")),
         decision=decision_section,
+        margin_type=margin_type,
+        liquidation=liquidation,
     )

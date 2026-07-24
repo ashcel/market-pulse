@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import hashlib
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
@@ -13,8 +14,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .binance_client import BinanceExecClient
 from .config import execution_settings
+from .constants import (
+    DEFAULT_MARGIN_TYPE,
+    ENTRY_DRIFT_MAX_FRACTION_OF_STOP,
+    LEVERAGE_SYNC_FAILED,
+    MARGIN_TYPE_ISOLATED,
+    SL_ORDER_TIMEOUT_SECONDS,
+    SL_TIMEOUT_RETRIES,
+    VALID_MARGIN_TYPES,
+)
 from .exceptions import (
     DuplicateIdempotencyKeyError,
+    EntryDriftError,
     ExecutionDisabledError,
     ExecutionInProgressError,
     ExecutionNotReadyError,
@@ -28,6 +39,10 @@ from .exec_key_crypto import decrypt
 from .exec_key_service import get_exec_key
 from .models import ExecutionRecord, TradePermit
 from .sizing import Side, SymbolFilters, size_position
+
+# F4: an injectable async provider of the current mark price for a symbol,
+# returning None when unavailable. Injectable so tests stay pure (no network).
+MarkPriceProvider = Callable[[str], Awaitable[float | None]]
 
 
 @dataclass(frozen=True)
@@ -43,6 +58,7 @@ class PermitExecutionValues:
     leverage: float
     risk_percent: float
     quantity: float
+    margin_type: str = DEFAULT_MARGIN_TYPE
 
 
 # MARKET entries: Binance's immediate place_order response can report
@@ -53,7 +69,15 @@ ENTRY_FILL_POLL_ATTEMPTS = 5
 ENTRY_FILL_POLL_INTERVAL_SECONDS = 0.4
 
 TERMINAL_EXECUTION_STATUSES = frozenset(
-    {"PROTECTED", "FLATTENED", "ENTRY_REJECTED", "UNPROTECTED_CRITICAL"}
+    {
+        "PROTECTED",
+        "FLATTENED",
+        "ENTRY_REJECTED",
+        "UNPROTECTED_CRITICAL",
+        # F1: leverage/margin could not be synced+confirmed before entry —
+        # terminal, entry never submitted.
+        LEVERAGE_SYNC_FAILED,
+    }
 )
 RESUMABLE_EXECUTION_STATUSES = frozenset(
     {
@@ -167,14 +191,39 @@ async def _mark(
     *,
     error: str | None = None,
     commit: bool = True,
+    **extra: object,
 ) -> None:
     record.status = status
     record.updated_at = _now()
     if error is not None:
         record.last_error = error
-    _append_event(record, event, status=status, error=error)
+    _append_event(record, event, status=status, error=error, **extra)
     if commit:
         await _resolve(db.commit())
+
+
+def _normalize_margin_type(value: object) -> str:
+    text = str(value).upper() if value is not None else ""
+    return text if text in VALID_MARGIN_TYPES else DEFAULT_MARGIN_TYPE
+
+
+def _margin_type_for_record(record: ExecutionRecord) -> str:
+    """Recover the judged margin mode for a record.
+
+    ExecutionRecord has no dedicated margin_type column (avoiding a migration
+    on the live DB); the mode is stamped into the `permit_consumed` /
+    `record_created` event payload at consume time and read back here. Missing
+    (older records / bypassed consume) defaults to ISOLATED — the safe mode.
+    """
+    for event in record.event_log or []:
+        if isinstance(event, dict) and event.get("margin_type"):
+            return _normalize_margin_type(event["margin_type"])
+    return DEFAULT_MARGIN_TYPE
+
+
+def _expected_position_margin(margin_type: str) -> str:
+    # Binance positionRisk reports marginType as lowercase "isolated"/"cross".
+    return "isolated" if margin_type.upper() == MARGIN_TYPE_ISOLATED else "cross"
 
 
 async def _existing_execution_by_idempotency(
@@ -225,6 +274,188 @@ async def _exchange_call(
     return result
 
 
+async def _resolve_mark_price(provider: MarkPriceProvider | None, symbol: str) -> float | None:
+    if provider is None:
+        return None
+    try:
+        return await provider(symbol)
+    except Exception:
+        # A transient premiumIndex failure must not harden into a blocked
+        # execution — the drift guard simply doesn't apply when the price is
+        # unavailable (the 90s TTL still bounds exposure).
+        return None
+
+
+def _entry_drift_exceeds(
+    entry_price: float, stop_price: float, mark_price: float | None
+) -> tuple[bool, str]:
+    if mark_price is None:
+        return False, "mark price unavailable — drift not evaluated"
+    stop_distance = abs(entry_price - stop_price)
+    if stop_distance <= 0:
+        return False, "stop distance zero — drift not evaluated"
+    drift = abs(mark_price - entry_price)
+    bound = ENTRY_DRIFT_MAX_FRACTION_OF_STOP * stop_distance
+    exceeded = drift > bound
+    detail = (
+        f"mark {mark_price} vs entry {entry_price}: drift {drift} "
+        f"{'exceeds' if exceeded else 'within'} bound {bound} "
+        f"({ENTRY_DRIFT_MAX_FRACTION_OF_STOP} x stop distance {stop_distance})"
+    )
+    return exceeded, detail
+
+
+def _default_mark_price_provider(db: AsyncSession, user_id: str) -> MarkPriceProvider:
+    """Build the production mark-price provider (F4). Lazily constructs the
+    exec client and reads premiumIndex; any failure yields None so the drift
+    guard degrades to "not evaluated" rather than blocking."""
+
+    async def _provider(symbol: str) -> float | None:
+        key = await get_exec_key(db, user_id)
+        secret = decrypt(key.encrypted_secret)
+        client = BinanceExecClient(key.api_key, secret, testnet=key.testnet)
+        data = await client.get_mark_price(symbol)
+        raw = data.get("markPrice") if isinstance(data, dict) else None
+        return float(raw) if raw is not None else None
+
+    return _provider
+
+
+async def _sync_leverage_and_margin(
+    db: AsyncSession,
+    client: BinanceExecClient,
+    record: ExecutionRecord,
+) -> bool:
+    """F1 — set the judged margin mode + leverage on the exchange, then read
+    positionRisk back to confirm both took effect, all *before* entry.
+
+    Returns True only when the read-back confirms the exchange is in the
+    requested mode at the requested leverage. On any rejection (e.g. an open
+    position blocks a mode change) or a read-back divergence, marks the record
+    terminal (`LEVERAGE_SYNC_FAILED`) and returns False — the caller aborts
+    and never submits entry against an unconfirmed leverage/mode.
+    """
+    symbol = record.symbol
+    margin_type = _margin_type_for_record(record)
+    target_leverage = (
+        round(record.leverage) if record.leverage and record.leverage > 0 else 1
+    )
+
+    try:
+        await client.set_margin_type(symbol, margin_type)
+        await client.set_leverage(symbol, target_leverage)
+    except Exception as exc:
+        await _mark(
+            db,
+            record,
+            LEVERAGE_SYNC_FAILED,
+            "leverage_sync_rejected",
+            error=str(exc),
+            margin_type=margin_type,
+            target_leverage=target_leverage,
+        )
+        return False
+
+    try:
+        positions = await client.get_positions(symbol=symbol, include_zero=True)
+    except Exception as exc:
+        await _mark(
+            db,
+            record,
+            LEVERAGE_SYNC_FAILED,
+            "leverage_sync_readback_failed",
+            error=str(exc),
+        )
+        return False
+
+    row = next((p for p in positions if str(p.get("symbol")) == symbol), None)
+    expected_margin = _expected_position_margin(margin_type)
+    actual_margin = str(row.get("marginType", "")).lower() if row else ""
+    actual_leverage_raw = row.get("leverage") if row else None
+    try:
+        lev_ok = (
+            actual_leverage_raw is not None
+            and int(float(actual_leverage_raw)) == target_leverage
+        )
+    except (TypeError, ValueError):
+        lev_ok = False
+    margin_ok = actual_margin == expected_margin
+
+    if row is None or not (lev_ok and margin_ok):
+        detail = (
+            f"leverage/margin readback mismatch for {symbol}: "
+            f"leverage={actual_leverage_raw} (want {target_leverage}), "
+            f"marginType={actual_margin!r} (want {expected_margin!r})"
+        )
+        await _mark(
+            db,
+            record,
+            LEVERAGE_SYNC_FAILED,
+            "leverage_sync_unconfirmed",
+            error=detail,
+        )
+        return False
+
+    _append_event(
+        record, "leverage_synced", margin_type=margin_type, leverage=target_leverage
+    )
+    await _resolve(db.commit())
+    return True
+
+
+async def _submit_stop_loss(
+    db: AsyncSession,
+    client: BinanceExecClient,
+    record: ExecutionRecord,
+    sl_side: str,
+) -> dict:
+    """D1 — submit the protective stop with the tighter SL-leg timeout and
+    exactly one immediate retry on timeout before giving up. A non-timeout
+    exchange rejection is not retried (it would just fail again); it raises so
+    the caller's flatten path runs. If both the initial attempt and its retry
+    time out, the final `TimeoutError` propagates and the caller flattens —
+    shrinking the worst-case unprotected window versus a bare reconcile.
+    """
+    timeout = getattr(execution_settings, "SL_ORDER_TIMEOUT_SECONDS", SL_ORDER_TIMEOUT_SECONDS)
+    if not isinstance(timeout, int | float) or timeout <= 0:
+        timeout = SL_ORDER_TIMEOUT_SECONDS
+    attempts = 1 + SL_TIMEOUT_RETRIES
+    last_timeout: TimeoutError | None = None
+
+    for attempt in range(attempts):
+        try:
+            return await asyncio.wait_for(
+                client.place_algo_order(
+                    record.symbol,
+                    sl_side,
+                    "STOP_MARKET",
+                    trigger_price=record.stop_price,
+                    close_position=True,
+                    working_type="CONTRACT_PRICE",
+                ),
+                timeout=timeout,
+            )
+        except TimeoutError as exc:
+            record.retry_count = (record.retry_count or 0) + 1
+            _append_event(
+                record,
+                "stop_loss_timeout",
+                attempt=attempt + 1,
+                timeout_seconds=timeout,
+            )
+            await _resolve(db.commit())
+            last_timeout = exc
+            continue
+        except Exception as exc:
+            record.retry_count = (record.retry_count or 0) + 1
+            record.last_error = str(exc)
+            _append_event(record, "stop_loss_rejected", error=str(exc))
+            await _resolve(db.commit())
+            raise
+
+    raise last_timeout if last_timeout is not None else TimeoutError("stop-loss timed out")
+
+
 def _derive_execution_values(
     permit: TradePermit,
     *,
@@ -243,6 +474,7 @@ def _derive_execution_values(
     leverage = _decimal(proposal["leverage"])
     risk_percent = _decimal(proposal["risk_percent"])
     balance = _decimal(account_state["balance"])
+    margin_type = _normalize_margin_type(proposal.get("margin_type"))
 
     sizing = size_position(
         symbol=symbol,
@@ -253,6 +485,7 @@ def _derive_execution_values(
         risk_fraction=risk_percent / Decimal("100"),
         filters=_default_symbol_filters(symbol),
         leverage=leverage,
+        margin_type=margin_type,
     )
     if not sizing.approved:
         raise PermitMismatchError(permit.id, ["quantity"])
@@ -269,6 +502,7 @@ def _derive_execution_values(
         leverage=float(leverage),
         risk_percent=float(risk_percent),
         quantity=float(sizing.quantity),
+        margin_type=margin_type,
     )
 
 
@@ -314,6 +548,7 @@ async def consume_permit_for_execution(
     leverage: float | None = None,
     risk_percent: float | None = None,
     idempotency_key: str = "manual-consume",
+    mark_price_provider: MarkPriceProvider | None = None,
 ) -> PermitExecutionValues:
     now = _now()
     entry_cid, sl_cid, tp_cid = _client_order_ids(idempotency_key)
@@ -346,6 +581,42 @@ async def consume_permit_for_execution(
         if mismatches:
             raise PermitMismatchError(permit_id, mismatches)
 
+        # F4 — consume-time entry-drift guard (MARKET entries only; a LIMIT
+        # entry's fill price is bounded by its limit). D2 — stamp mark price
+        # and permit snapshot-age so the pre-fill delay is measurable.
+        mark_price: float | None = None
+        drift_exceeded = False
+        drift_detail: str | None = None
+        if values.entry_type == "MARKET" and mark_price_provider is not None:
+            mark_price = await _resolve_mark_price(mark_price_provider, values.symbol)
+            drift_exceeded, drift_detail = _entry_drift_exceeds(
+                values.entry_price, values.stop_price, mark_price
+            )
+
+        snapshot_age_seconds = max((now - permit.evaluated_at).total_seconds(), 0.0)
+        record_status = "ENTRY_REJECTED" if drift_exceeded else "PENDING_ENTRY"
+        consumed_event: dict[str, object] = {
+            "at": now.isoformat(),
+            "event": "permit_consumed",
+            "status": record_status,
+            "margin_type": values.margin_type,
+            "snapshot_age_seconds": snapshot_age_seconds,
+        }
+        if mark_price is not None:
+            consumed_event["mark_price_at_consume"] = mark_price
+        events: list[dict[str, object]] = [consumed_event]
+        if drift_exceeded:
+            events.append(
+                {
+                    "at": now.isoformat(),
+                    "event": "entry_drift_rejected",
+                    "status": "ENTRY_REJECTED",
+                    "reason": "ENTRY_DRIFT",
+                    "detail": drift_detail,
+                    "mark_price_at_consume": mark_price,
+                }
+            )
+
         db.add(
             ExecutionRecord(
                 id=values.execution_id,
@@ -361,17 +632,12 @@ async def consume_permit_for_execution(
                 risk_percent=values.risk_percent,
                 quantity=values.quantity,
                 idempotency_key=idempotency_key,
-                status="PENDING_ENTRY",
+                status=record_status,
+                last_error=(f"ENTRY_DRIFT: {drift_detail}" if drift_exceeded else None),
                 entry_client_order_id=entry_cid,
                 sl_client_order_id=sl_cid,
                 tp_client_order_id=tp_cid if values.target_price is not None else None,
-                event_log=[
-                    {
-                        "at": now.isoformat(),
-                        "event": "permit_consumed",
-                        "status": "PENDING_ENTRY",
-                    }
-                ],
+                event_log=events,
                 created_at=now,
                 updated_at=now,
             )
@@ -384,7 +650,14 @@ async def consume_permit_for_execution(
         if update_result.rowcount != 1:
             raise PermitAlreadyUsedError(permit_id)
         await _resolve(db.commit())
+        if drift_exceeded:
+            # Permit is spent and the record is already committed as rejected;
+            # surface the drift (post-commit, so no rollback) — nothing is
+            # submitted.
+            raise EntryDriftError(permit_id, drift_detail or "entry price drift too large")
         return values
+    except EntryDriftError:
+        raise
     except (
         PermitNotFoundError,
         PermitRejectedError,
@@ -441,6 +714,7 @@ async def place_execution_order(
         leverage=leverage,
         risk_percent=risk_percent,
         idempotency_key=idempotency_key,
+        mark_price_provider=_default_mark_price_provider(db, user_id),
     )
     return await _submit_execution_order(
         db,
@@ -526,6 +800,11 @@ async def _resume_execution(db: AsyncSession, user_id: str, record: ExecutionRec
             return _execution_response(record)
 
     if record.status == "PENDING_ENTRY":
+        # F1 — set + confirm margin mode and leverage on the exchange before
+        # entry. On failure the record is already marked LEVERAGE_SYNC_FAILED
+        # (terminal); abort without submitting entry.
+        if not await _sync_leverage_and_margin(db, client, record):
+            return _execution_response(record)
         await _mark(db, record, "ENTRY_SUBMITTED", "entry_submit_started")
         try:
             entry = await _exchange_call(
@@ -584,24 +863,16 @@ async def _resume_execution(db: AsyncSession, user_id: str, record: ExecutionRec
             # path now returns -4120. closePosition=true closes the whole
             # position on trigger, which is the correct behavior for a single
             # protective stop (no quantity/reduceOnly alongside it).
-            sl = await _exchange_call(
-                db,
-                record,
-                "stop_loss",
-                client.place_algo_order(
-                    symbol,
-                    sl_side,
-                    "STOP_MARKET",
-                    trigger_price=record.stop_price,
-                    close_position=True,
-                    working_type="CONTRACT_PRICE",
-                ),
-            )
+            #
+            # D1: the SL leg has its own tighter timeout + one immediate retry
+            # (see `_submit_stop_loss`). A timeout that survives the retry, or
+            # any exchange rejection, drops into the flatten path below rather
+            # than being left resumable — a stop that can't be placed means the
+            # position must not stay open unprotected.
+            sl = await _submit_stop_loss(db, client, record, sl_side)
             record.sl_order_id = str(sl.get("algoId")) if sl.get("algoId") else None
             record.protected_quantity = record.filled_quantity or quantity
             await _mark(db, record, "PROTECTED", "stop_loss_confirmed")
-        except TimeoutError:
-            return _execution_response(record)
         except Exception as exc:
             await _mark(
                 db,

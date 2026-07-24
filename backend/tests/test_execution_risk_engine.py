@@ -439,6 +439,139 @@ def test_rejected_status_only_when_a_check_failed() -> None:
 
 
 # ---------------------------------------------------------------------------
+# F2 — LIQUIDATION_INSIDE_STOP hard check
+# ---------------------------------------------------------------------------
+
+
+def _liq_check(proposal: TradeProposal) -> risk_engine.PermitCheckResult:
+    return risk_engine._check_liquidation_inside_stop(proposal)
+
+
+def test_liquidation_none_passes_leverage_one() -> None:
+    # Leverage 1 (no liquidation estimate) has nothing to compare — passes.
+    result = _liq_check(base_proposal(leverage=Decimal("1"), liquidation_price=None))
+    assert result.check is PermitCheck.LIQUIDATION_INSIDE_STOP
+    assert result.passed is True
+
+
+def test_liquidation_far_below_stop_passes_long() -> None:
+    # Real sizing-derived liquidation at modest leverage sits far below the
+    # stop — comfortably outside the buffer.
+    sizing = size_position(
+        symbol="BTCUSDT",
+        side=Side.LONG,
+        balance=Decimal("10000"),
+        entry_price=Decimal("65000.0"),
+        stop_price=Decimal("64000.0"),
+        risk_fraction=Decimal("0.01"),
+        filters=BTCUSDT_PERP_FILTERS,
+        leverage=Decimal("5"),
+    )
+    proposal = base_proposal(
+        side=Side.LONG,
+        leverage=Decimal("5"),
+        liquidation_price=sizing.liquidation_price,
+    )
+    assert _liq_check(proposal).passed is True
+
+
+def test_liquidation_inside_stop_fails_at_high_leverage_long() -> None:
+    # At 50x the isolated liquidation (~64025) sits ABOVE the 64000 stop for a
+    # long — the exchange would liquidate before the stop fires.
+    sizing = size_position(
+        symbol="BTCUSDT",
+        side=Side.LONG,
+        balance=Decimal("10000"),
+        entry_price=Decimal("65000.0"),
+        stop_price=Decimal("64000.0"),
+        risk_fraction=Decimal("0.01"),
+        filters=BTCUSDT_PERP_FILTERS,
+        leverage=Decimal("50"),
+    )
+    proposal = base_proposal(
+        side=Side.LONG,
+        leverage=Decimal("50"),
+        liquidation_price=sizing.liquidation_price,
+    )
+    result = _liq_check(proposal)
+    assert result.passed is False
+    # The rejection detail steers with a max leverage that would pass.
+    assert "reduce leverage to <=" in result.detail
+
+
+def test_liquidation_boundary_exactly_at_buffer_passes_long() -> None:
+    # entry 65000, stop 64000, stop distance 1000, buffer 0.20*1000 = 200.
+    # Liquidation exactly 200 below the stop (63800) is on the boundary and
+    # passes (>=).
+    proposal = base_proposal(
+        side=Side.LONG,
+        entry_price=Decimal("65000"),
+        stop_price=Decimal("64000"),
+        leverage=Decimal("40"),
+        liquidation_price=Decimal("63800"),
+    )
+    assert _liq_check(proposal).passed is True
+
+
+def test_liquidation_just_inside_buffer_fails_long() -> None:
+    # One dollar inside the 200 buffer (63801 -> gap 199) fails.
+    proposal = base_proposal(
+        side=Side.LONG,
+        entry_price=Decimal("65000"),
+        stop_price=Decimal("64000"),
+        leverage=Decimal("42"),
+        liquidation_price=Decimal("63801"),
+    )
+    assert _liq_check(proposal).passed is False
+
+
+def test_liquidation_boundary_and_inside_short() -> None:
+    # Short: entry 65000, stop 66000, distance 1000, buffer 200. Liquidation
+    # must be >= 66200 above the stop.
+    at_buffer = base_proposal(
+        side=Side.SHORT,
+        entry_price=Decimal("65000"),
+        stop_price=Decimal("66000"),
+        take_profit_price=Decimal("63000"),
+        leverage=Decimal("40"),
+        liquidation_price=Decimal("66200"),
+    )
+    assert _liq_check(at_buffer).passed is True
+
+    inside = base_proposal(
+        side=Side.SHORT,
+        entry_price=Decimal("65000"),
+        stop_price=Decimal("66000"),
+        take_profit_price=Decimal("63000"),
+        leverage=Decimal("42"),
+        liquidation_price=Decimal("66100"),
+    )
+    assert _liq_check(inside).passed is False
+
+
+def test_liquidation_inside_stop_lands_in_permit_reasons() -> None:
+    # End-to-end: a high-leverage liquidation-inside-stop proposal is REJECTED
+    # by evaluate_permit with the typed reason.
+    proposal = base_proposal(
+        side=Side.LONG,
+        entry_price=Decimal("65000"),
+        stop_price=Decimal("64000"),
+        leverage=Decimal("5"),
+        liquidation_price=Decimal("63900"),  # gap 100 < 200 buffer
+    )
+    constitution = FakeConstitution(max_leverage=25)
+    decision = evaluate_permit(
+        proposal,
+        base_account(),
+        constitution,
+        now=NOW,
+        session=SESSION_OK,
+    )
+    assert PermitCheck.LIQUIDATION_INSIDE_STOP in decision.reasons
+    assert decision.status is PermitStatus.REJECTED
+
+
+# ---------------------------------------------------------------------------
 # Purity guard — no DB/network import, no clock read, inside the module
 # ---------------------------------------------------------------------------
 

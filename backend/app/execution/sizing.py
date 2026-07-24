@@ -26,6 +26,12 @@ from decimal import ROUND_DOWN, Decimal
 from enum import StrEnum
 from typing import Final
 
+from .constants import (
+    DEFAULT_MAINTENANCE_MARGIN_RATE,
+    DEFAULT_MARGIN_TYPE,
+    MARGIN_TYPE_ISOLATED,
+)
+
 # EDR 0020 decision 1 / M9-T1: risk-per-trade band the Trading Constitution
 # is allowed to configure. Enforced here defensively — this module has no
 # way to read the constitution, but a caller passing a fraction outside the
@@ -126,6 +132,22 @@ class SizingResult:
     realized_risk_amount: Decimal
     realized_risk_fraction: Decimal
     reject_reason: SizingRejectReason | None = None
+    # F3 honesty label. "isolated": per-position isolated-margin estimate.
+    # "isolated_conservative_for_cross": a CROSSED position's true liquidation
+    # depends on total account state; this figure is the isolated-equivalent,
+    # which is *conservative* (fires no later than the real cross liquidation)
+    # so the F2 liquidation-vs-stop check can safely run against it. Either
+    # way the number is an ESTIMATE (flat MMR, no funding/fees/tiered
+    # brackets), never an exact exchange figure.
+    liquidation_model: str = "isolated"
+
+
+def _liquidation_model_for(margin_type: str) -> str:
+    return (
+        "isolated"
+        if margin_type.upper() == MARGIN_TYPE_ISOLATED
+        else "isolated_conservative_for_cross"
+    )
 
 
 def size_position(
@@ -138,7 +160,8 @@ def size_position(
     risk_fraction: DecimalLike,
     filters: SymbolFilters,
     leverage: DecimalLike = Decimal("1"),
-    maintenance_margin_rate: DecimalLike = Decimal("0.005"),
+    maintenance_margin_rate: DecimalLike = DEFAULT_MAINTENANCE_MARGIN_RATE,
+    margin_type: str = DEFAULT_MARGIN_TYPE,
 ) -> SizingResult:
     """Derive quantity from balance, stop distance, and configured risk.
 
@@ -149,8 +172,26 @@ def size_position(
     ticket UI would ever legitimately hit. Market-driven "can't size this"
     conditions (stop on the wrong side, sub-tick prices, below exchange
     minimums) come back as a flagged `SizingResult`, never an exception.
+
+    Liquidation estimate (F3): the returned `liquidation_price` is always the
+    simplified **isolated-margin** figure with a **flat** maintenance-margin
+    rate — it deliberately ignores funding, fees, and Binance's tiered
+    maintenance-margin brackets, so it is an ESTIMATE, not the exact exchange
+    liquidation. `margin_type` does not change the arithmetic; it only sets
+    the honesty label on `liquidation_model`:
+
+    - ``"ISOLATED"`` → ``liquidation_model="isolated"`` (the estimate
+      describes this position directly).
+    - ``"CROSSED"``  → ``liquidation_model="isolated_conservative_for_cross"``.
+      A cross position is backed by the whole account balance, so its real
+      liquidation depends on total account state and is generally *farther*
+      than this isolated-equivalent. The isolated figure is therefore
+      conservative (it triggers no later than the true cross liquidation),
+      which is exactly what the F2 liquidation-vs-stop check needs to run
+      against safely. Tiered-bracket modelling is a later pass.
     """
     side = Side(side) if isinstance(side, str) else side
+    liquidation_model = _liquidation_model_for(margin_type)
     balance_d = _to_decimal(balance)
     entry_d = _to_decimal(entry_price)
     stop_d = _to_decimal(stop_price)
@@ -202,6 +243,7 @@ def size_position(
             realized_risk_amount=realized_risk_amount,
             realized_risk_fraction=realized_risk_fraction,
             reject_reason=reason,
+            liquidation_model=liquidation_model,
         )
 
     # Stop distance is derived from entry/stop, never guessed — but it must
@@ -282,6 +324,7 @@ def size_position(
         realized_risk_amount=realized_risk_amount,
         realized_risk_fraction=realized_risk_fraction,
         reject_reason=None,
+        liquidation_model=liquidation_model,
     )
 
 

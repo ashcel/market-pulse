@@ -372,6 +372,76 @@ def test_effective_leverage_and_required_margin_are_consistent():
     assert result.effective_leverage == result.notional / Decimal("100000")
 
 
+# ---------------------------------------------------------------------------
+# F3 — margin_type param + honest liquidation labeling
+# ---------------------------------------------------------------------------
+
+
+def _sized(margin_type: str, leverage: str = "10"):
+    return size_position(
+        symbol=BTCUSDT_PERP_FILTERS.symbol,
+        side=Side.LONG,
+        balance=Decimal("100000"),
+        entry_price=Decimal("65000.0"),
+        stop_price=Decimal("64000.0"),
+        risk_fraction=Decimal("0.01"),
+        filters=BTCUSDT_PERP_FILTERS,
+        leverage=Decimal(leverage),
+        margin_type=margin_type,
+    )
+
+
+def test_default_margin_type_is_isolated_label():
+    result = size_position(
+        symbol=BTCUSDT_PERP_FILTERS.symbol,
+        side=Side.LONG,
+        balance=Decimal("100000"),
+        entry_price=Decimal("65000.0"),
+        stop_price=Decimal("64000.0"),
+        risk_fraction=Decimal("0.01"),
+        filters=BTCUSDT_PERP_FILTERS,
+        leverage=Decimal("10"),
+    )
+    assert result.liquidation_model == "isolated"
+
+
+def test_isolated_and_cross_share_the_same_liquidation_price_but_differ_in_label():
+    iso = _sized("ISOLATED")
+    cross = _sized("CROSSED")
+    # F3: cross keeps the isolated-equivalent (conservative) figure — same
+    # arithmetic, different honesty label.
+    assert iso.liquidation_price == cross.liquidation_price
+    assert iso.liquidation_model == "isolated"
+    assert cross.liquidation_model == "isolated_conservative_for_cross"
+
+
+def test_cross_label_carries_through_rejected_results():
+    # A below-min size (tiny balance) still reports the cross label honestly.
+    result = size_position(
+        symbol=BTCUSDT_PERP_FILTERS.symbol,
+        side=Side.LONG,
+        balance=Decimal("5"),
+        entry_price=Decimal("65000.0"),
+        stop_price=Decimal("64000.0"),
+        risk_fraction=Decimal("0.01"),
+        filters=BTCUSDT_PERP_FILTERS,
+        leverage=Decimal("10"),
+        margin_type="CROSSED",
+    )
+    assert result.approved is False
+    assert result.liquidation_model == "isolated_conservative_for_cross"
+
+
+@pytest.mark.parametrize("margin_type", ["ISOLATED", "CROSSED"])
+def test_margin_type_never_changes_the_liquidation_arithmetic(margin_type):
+    # The estimate is flat-MMR isolated regardless of margin mode this pass;
+    # only the label moves.
+    result = _sized(margin_type)
+    inv_leverage = Decimal(1) / Decimal("10")
+    expected = Decimal("65000.0") * (Decimal(1) - inv_leverage + Decimal("0.005"))
+    assert result.liquidation_price == expected
+
+
 def test_side_accepts_plain_string():
     filters = BTCUSDT_SPOT_FILTERS
     result = size_position(

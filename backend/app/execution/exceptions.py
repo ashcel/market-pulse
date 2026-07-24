@@ -70,6 +70,23 @@ class PermitMismatchError(AppError):
         )
 
 
+class EntryDriftError(AppError):
+    """F4: at consume time the current mark price had drifted from the
+    proposal entry by more than the configured bound (fraction of stop
+    distance), so a market entry would fill far from the price the permit's
+    risk numbers were judged at. The permit is consumed (spent) and the
+    execution record is persisted rejected; nothing is submitted."""
+
+    status_code = 409
+    code = ErrorCode.ENTRY_DRIFT
+
+    def __init__(self, permit_id: str, detail: str) -> None:
+        super().__init__(
+            f"Trade permit '{permit_id}' rejected: entry price drift too large",
+            details={"reason": "ENTRY_DRIFT", "detail": detail},
+        )
+
+
 class ExecutionKeyNotFoundError(NotFoundError):
     pass
 

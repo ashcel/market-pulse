@@ -27,6 +27,7 @@ from app.database import get_db
 
 from .exceptions import (
     DuplicateIdempotencyKeyError,
+    EntryDriftError,
     ExecutionDisabledError,
     ExecutionInProgressError,
     ExecutionNotReadyError,
@@ -168,6 +169,15 @@ async def execute_permit_endpoint(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except PermitExpiredError as exc:
         raise HTTPException(status_code=410, detail=str(exc)) from exc
+    except EntryDriftError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "entry_drift",
+                "message": str(exc),
+                "detail": (exc.details or {}).get("detail"),
+            },
+        ) from exc
     except (PermitAlreadyUsedError, DuplicateIdempotencyKeyError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ExecutionInProgressError as exc:

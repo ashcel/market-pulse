@@ -35,7 +35,12 @@ from .risk_engine import (
     TradeProposal,
     evaluate_permit,
 )
-from .schemas import PermitCardApproved, PermitCardRejected, build_permit_card
+from .schemas import (
+    LiquidationEstimate,
+    PermitCardApproved,
+    PermitCardRejected,
+    build_permit_card,
+)
 from .service import get_current_constitution
 from .sizing import Side, SymbolFilters, size_position
 
@@ -183,6 +188,7 @@ async def request_permit(
             risk_fraction=ticket.risk_percent / Decimal("100"),
             filters=filters,
             leverage=ticket.leverage,
+            margin_type=ticket.margin_type,
         )
     # proposed_notional_percent: notional as % of balance (for correlated-exposure check)
     proposed_notional_percent = (
@@ -191,7 +197,11 @@ async def request_permit(
         else Decimal("0")
     )
 
-    # 4. Trade Proposal
+    # 4. Trade Proposal — carry the sizing module's liquidation estimate so
+    #    the risk engine's LIQUIDATION_INSIDE_STOP check (F2) can gate on it.
+    liquidation_price = (
+        sizing_result.liquidation_price if sizing_result is not None else None
+    )
     proposal = TradeProposal(
         symbol=ticket.symbol.upper(),
         side=side,
@@ -202,6 +212,8 @@ async def request_permit(
         leverage=ticket.leverage,
         correlation_bucket=ticket.correlation_bucket,
         proposed_notional_percent=proposed_notional_percent,
+        liquidation_price=liquidation_price,
+        margin_type=ticket.margin_type,
     )
 
     # 5. Risk engine (pure — no I/O)
@@ -252,11 +264,19 @@ async def request_permit(
         quality=quality,
     )
 
-    # 8. Build permit card
+    # 8. Build permit card — surface the margin mode + labeled liquidation
+    #    estimate (F3) so the ticket can render an honest, mode-aware number.
+    liquidation = LiquidationEstimate(
+        price=float(liquidation_price) if liquidation_price is not None else None,
+        model=sizing_result.liquidation_model if sizing_result is not None else "isolated",
+        margin_type=ticket.margin_type,
+    )
     card = build_permit_card(
         permit_id=permit.id,
         decision=decision,
         quality=quality,
         expires_at=permit.expires_at,
+        margin_type=ticket.margin_type,
+        liquidation=liquidation,
     )
     return card, permit.id

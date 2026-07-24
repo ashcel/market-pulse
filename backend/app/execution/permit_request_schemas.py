@@ -37,6 +37,11 @@ class PermitRequest(BaseModel):
     take_profit_price: Decimal | None = None
     risk_percent: Decimal = Field(ge=0.5, le=3.0)
     leverage: Decimal = Field(ge=1, le=125)
+    # Margin mode is an explicit user choice (TRADE-FLOW §3 amendment to EDR
+    # 0020). Default ISOLATED — the beginner-correct contained-blast-radius
+    # mode; existing callers that omit it keep working. Feeds sizing's
+    # liquidation label (F3) and the pre-entry margin-mode sync (F1).
+    margin_type: str = Field(default="ISOLATED", pattern=r"^(ISOLATED|CROSSED)$")
     correlation_bucket: str = Field(default="other")
 
     # Quality-score inputs (supplied by the client from its live chart data)
