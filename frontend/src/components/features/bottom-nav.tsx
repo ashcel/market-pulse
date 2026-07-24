@@ -1,20 +1,20 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Layers, CircleCheck, NotebookText, Settings } from "lucide-react";
+import { LayoutDashboard, Layers, NotebookText, Settings } from "lucide-react";
 
 interface BottomNavTab {
-  to: "/" | "/markets" | "/check" | "/journal" | "/settings";
+  to: "/" | "/markets" | "/journal" | "/settings";
   label: string;
   icon: React.ElementType;
   primary?: boolean;
 }
 
-// Today · Markets · Check (center, visually primary) · Journal · Settings —
-// IA-REDESIGN-2026-07-23 §3. Check is the FAB of the product.
+// Today · Markets · Journal · Settings (2026-07-24 revision). Checking a trade
+// now happens on the token chart (drag entry/stop/target -> permit), so the
+// standalone Check slot was retired.
 const TABS: BottomNavTab[] = [
   { to: "/", label: "Today", icon: LayoutDashboard },
   { to: "/markets", label: "Markets", icon: Layers },
-  { to: "/check", label: "Check", icon: CircleCheck, primary: true },
   { to: "/journal", label: "Journal", icon: NotebookText },
   { to: "/settings", label: "Settings", icon: Settings },
 ];

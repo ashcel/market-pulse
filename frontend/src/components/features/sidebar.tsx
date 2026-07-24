@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, CircleCheck, NotebookText, Layers, Settings } from "lucide-react";
+import { LayoutDashboard, NotebookText, Layers, Settings } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUiStore } from "@/stores/ui";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -11,14 +11,14 @@ export type NavItem = {
   icon: React.ElementType;
 };
 
-// Five task-named destinations, one per product question (Today = Q1,
-// Check = Q2, Journal = Q3, Markets = evidence, Settings = config) — no
-// group taxonomy (IA-REDESIGN-2026-07-23 §3).
+// Task-named destinations (2026-07-24 revision): Today = Q1 (should I trade),
+// Journal = Q3 (am I trading well), Markets = evidence, Settings = config.
+// Checking a specific trade (Q2) moved onto the token chart, so the standalone
+// Check slot was retired.
 export const NAV: readonly NavItem[] = [
   { to: "/", label: "Today", icon: LayoutDashboard },
-  { to: "/check", label: "Check", icon: CircleCheck },
-  { to: "/journal", label: "Journal", icon: NotebookText },
   { to: "/markets", label: "Markets", icon: Layers },
+  { to: "/journal", label: "Journal", icon: NotebookText },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 

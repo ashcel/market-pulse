@@ -609,6 +609,14 @@ function TokenDetailPage() {
             active={activeAssessment}
             activeIntent={tradingIntent}
             onSelect={setTradingIntent}
+            onCheckTrade={
+              planDraft
+                ? () => {
+                    setPlanEditMode(true);
+                    setTradeOpen(true);
+                  }
+                : undefined
+            }
           />
 
           <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(340px,27rem)]">

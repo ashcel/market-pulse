@@ -29,12 +29,16 @@ export function VerdictHeader({
   active,
   activeIntent,
   onSelect,
+  onCheckTrade,
 }: {
   symbol: string;
   assessments: DisplayIntentAssessment[];
   active: DisplayIntentAssessment | null;
   activeIntent: TradingIntent;
   onSelect: (intent: TradingIntent) => void;
+  /** Enters Plan-on-chart mode (drag entry/stop/target -> permit). Disabled
+   *  when the active objective has no tradeable plan. */
+  onCheckTrade?: () => void;
 }) {
   const byIntent = new Map(assessments.map((a) => [a.intent, a]));
 
@@ -71,13 +75,20 @@ export function VerdictHeader({
               );
             })}
           </div>
-          <a
-            href={`/check?symbol=${encodeURIComponent(symbol)}`}
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-info px-3 text-xs font-semibold text-background transition-colors hover:bg-info/90"
+          <button
+            type="button"
+            onClick={onCheckTrade}
+            disabled={!onCheckTrade || !active || active.direction === "none"}
+            title={
+              active && active.direction !== "none"
+                ? "Drag entry/stop/target on the chart to size and check this trade"
+                : "No tradeable plan for this objective yet"
+            }
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-info px-3 text-xs font-semibold text-background transition-colors hover:bg-info/90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <ClipboardCheck className="h-3.5 w-3.5" />
             Check this trade
-          </a>
+          </button>
         </div>
       </div>
 

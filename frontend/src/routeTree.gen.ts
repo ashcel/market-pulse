@@ -21,7 +21,6 @@ import { Route as NewsRouteImport } from './routes/news'
 import { Route as MarketsRouteImport } from './routes/markets'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as JournalRouteImport } from './routes/journal'
-import { Route as CheckRouteImport } from './routes/check'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TokenSymbolRouteImport } from './routes/token.$symbol'
 import { Route as ApiWatchlistRouteImport } from './routes/api/watchlist'
@@ -106,11 +105,6 @@ const LoginRoute = LoginRouteImport.update({
 const JournalRoute = JournalRouteImport.update({
   id: '/journal',
   path: '/journal',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CheckRoute = CheckRouteImport.update({
-  id: '/check',
-  path: '/check',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -242,7 +236,6 @@ const ApiExecutionPermitIdRoute = ApiExecutionPermitIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/check': typeof CheckRoute
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
@@ -282,7 +275,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/check': typeof CheckRoute
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
@@ -323,7 +315,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/check': typeof CheckRoute
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
@@ -365,7 +356,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/check'
     | '/journal'
     | '/login'
     | '/markets'
@@ -405,7 +395,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/check'
     | '/journal'
     | '/login'
     | '/markets'
@@ -445,7 +434,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/check'
     | '/journal'
     | '/login'
     | '/markets'
@@ -486,7 +474,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  CheckRoute: typeof CheckRoute
   JournalRoute: typeof JournalRoute
   LoginRoute: typeof LoginRoute
   MarketsRoute: typeof MarketsRoute
@@ -607,13 +594,6 @@ declare module '@tanstack/react-router' {
       path: '/journal'
       fullPath: '/journal'
       preLoaderRoute: typeof JournalRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/check': {
-      id: '/check'
-      path: '/check'
-      fullPath: '/check'
-      preLoaderRoute: typeof CheckRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -819,7 +799,6 @@ const ApiExecutionPermitRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  CheckRoute: CheckRoute,
   JournalRoute: JournalRoute,
   LoginRoute: LoginRoute,
   MarketsRoute: MarketsRoute,
