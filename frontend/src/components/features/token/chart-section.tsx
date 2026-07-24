@@ -35,6 +35,7 @@ import { ChartEventPopup, ChartEventStrip } from "@/components/features/chart-ev
 import { ZonesPrimitive, type PriceZone } from "@/components/features/chart-zones";
 import { IqCard } from "@/components/features/iq-card";
 import { TradeActionOverlay } from "@/components/features/trade-action-overlay";
+import { ChartPlanEditor, type PlanDraft } from "@/components/features/token/chart-plan-editor";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { TokenSignalData } from "@/hooks/useTokenSignal";
 import { computeEmaSeries } from "@/lib/engine/analysis";
@@ -131,6 +132,9 @@ export function TokenChart({
   planStrong,
   events,
   onTrade,
+  planEditable = false,
+  planDraft = null,
+  onPlanDraftChange,
 }: TokenSignalData & {
   symbol: string;
   timeframe: TokenTimeframe;
@@ -152,8 +156,15 @@ export function TokenChart({
   /** True when the verdict actually wants the trade (favored/caution) — gates the shaded zones. */
   planStrong: boolean;
   onTrade?: () => void;
+  /** When true, entry/stop/target render as draggable handles (plan-on-chart
+   *  mode) whose prices feed the ticket + permit. Additive overlay — never
+   *  touches the chart's data/pan/zoom pipeline except to pause pan mid-drag. */
+  planEditable?: boolean;
+  planDraft?: PlanDraft | null;
+  onPlanDraftChange?: (p: PlanDraft) => void;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const planContainerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
@@ -464,22 +475,18 @@ export function TokenChart({
       // cycle to validate all pane views against the final time scale before any
       // user interaction can trigger hit-test (which calls recolor-items code).
 
-      const candleData = validCandles.map(
-        (c): CandlestickData<Time> => ({
-          time: c.time as UTCTimestamp,
-          open: c.open,
-          high: c.high,
-          low: c.low,
-          close: c.close,
-        }),
-      );
-      const volumeData = validCandles.map(
-        (c): HistogramData<Time> => ({
-          time: c.time as UTCTimestamp,
-          value: c.volume,
-          color: c.close >= c.open ? "rgba(34,197,94,0.32)" : "rgba(244,63,94,0.32)",
-        }),
-      );
+      const candleData = validCandles.map((c): CandlestickData<Time> => ({
+        time: c.time as UTCTimestamp,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      }));
+      const volumeData = validCandles.map((c): HistogramData<Time> => ({
+        time: c.time as UTCTimestamp,
+        value: c.volume,
+        color: c.close >= c.open ? "rgba(34,197,94,0.32)" : "rgba(244,63,94,0.32)",
+      }));
       const emaFastData = computeEmaSeries(validCandles, EMA_FAST.length) ?? [];
       const emaSlowData = computeEmaSeries(validCandles, EMA_SLOW.length) ?? [];
 
@@ -808,7 +815,7 @@ export function TokenChart({
 
   return (
     <>
-      <div className="relative min-h-0 flex-1">
+      <div ref={planContainerRef} className="relative min-h-0 flex-1">
         {loadingHistory && (
           <div className="absolute left-2 top-2 z-10 flex items-center gap-1.5 rounded-md border border-border bg-card/90 px-2 py-1 text-[10px] font-semibold text-muted-foreground">
             <span className="h-3 w-3 animate-spin rounded-full border border-info border-t-transparent" />
@@ -826,6 +833,16 @@ export function TokenChart({
           planStrong={planStrong}
           onTrade={() => onTrade?.()}
         />
+        {onPlanDraftChange && (
+          <ChartPlanEditor
+            chart={chartRef.current}
+            series={candleSeriesRef.current}
+            containerRef={planContainerRef}
+            enabled={planEditable}
+            draft={planDraft}
+            onChange={onPlanDraftChange}
+          />
+        )}
         {eventPopup && !hiddenIndicators.events && (
           <ChartEventPopup
             events={eventPopup.events}

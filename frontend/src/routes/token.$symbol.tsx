@@ -1,6 +1,6 @@
 import { createFileRoute, notFound, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Maximize2, Minimize2, Star } from "lucide-react";
+import { Maximize2, Minimize2, Star, Crosshair } from "lucide-react";
 import { toast } from "sonner";
 
 import { AssetIcon } from "@/components/features/asset-icon";
@@ -84,6 +84,7 @@ import {
 import { AssistantPanel } from "@/components/features/token/assistant-panel";
 import { VerdictHeader } from "@/components/features/token/verdict-header";
 import { TradeDrawer } from "@/components/features/token/trade-drawer";
+import type { PlanDraft } from "@/components/features/token/chart-plan-editor";
 
 export const Route = createFileRoute("/token/$symbol")({
   head: ({ params }) => ({
@@ -182,6 +183,11 @@ function TokenDetailPage() {
   // stays focused on the decision itself.
   const setAiContext = useAiContext((s) => s.setContext);
   const [tradeOpen, setTradeOpen] = useState(false);
+  // Plan-on-chart: entry/stop/target become draggable handles whose prices
+  // feed the ticket + permit. The draft is seeded from the active objective's
+  // plan and re-seeds whenever that plan changes (new symbol/objective).
+  const [planEditMode, setPlanEditMode] = useState(false);
+  const [planDraft, setPlanDraft] = useState<PlanDraft | null>(null);
   // Fullscreen chart: the whole price-structure card pins to the viewport so
   // the header (lean badge, timeframe pills) and legend come along. Escape
   // closes; body scroll locks while open.
@@ -264,16 +270,36 @@ function TokenDetailPage() {
     !!alignment.data,
   );
   const activeAssessment = assessments.find((a) => a.intent === tradingIntent) ?? null;
+  // Re-seed the draggable plan draft whenever the active objective's plan
+  // changes (new symbol/objective). A "no trade" objective (no plan/direction)
+  // clears it — dragging can never fabricate a plan the verdict didn't make.
+  useEffect(() => {
+    const plan = activeAssessment?.plan;
+    const direction = activeAssessment?.direction;
+    if (!plan || (direction !== "long" && direction !== "short")) {
+      setPlanDraft(null);
+      return;
+    }
+    setPlanDraft({
+      side: direction === "short" ? "SHORT" : "LONG",
+      entry: plan.entry,
+      stop: plan.stop,
+      target: plan.target1 ?? null,
+    });
+  }, [activeAssessment?.plan, activeAssessment?.direction]);
+
   const tradeTicketDefaults = useMemo<Partial<TradeTicketState>>(() => {
     const plan = activeAssessment?.plan;
     const direction = activeAssessment?.direction;
+    // Draft (chart-dragged) overrides the engine plan when present, so the
+    // ticket/permit always describe the levels currently on the chart.
     return {
       symbol: `${symbol}USDT`,
-      side: direction === "short" ? "SHORT" : "LONG",
+      side: planDraft?.side ?? (direction === "short" ? "SHORT" : "LONG"),
       entry_type: "LIMIT",
-      entry_price: plan?.entry ?? "",
-      stop_price: plan?.stop ?? "",
-      target_price: plan?.target1 ?? "",
+      entry_price: planDraft?.entry ?? plan?.entry ?? "",
+      stop_price: planDraft?.stop ?? plan?.stop ?? "",
+      target_price: planDraft?.target ?? plan?.target1 ?? "",
       risk_percent: riskPrefs.maxRiskPerTradePercent,
       leverage: marketType === "perp" ? leverage : 1,
       correlation_bucket: marketType === "perp" ? "crypto_perp" : "crypto_spot",
@@ -281,6 +307,7 @@ function TokenDetailPage() {
   }, [
     activeAssessment?.direction,
     activeAssessment?.plan,
+    planDraft,
     leverage,
     marketType,
     riskPrefs,
@@ -642,6 +669,28 @@ function TokenDetailPage() {
                         {timeframe} lean:{" "}
                         {data.evaluation.lean === "none" ? "neutral" : data.evaluation.lean}
                       </Badge>
+                      {planDraft && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPlanEditMode((v) => {
+                              const next = !v;
+                              if (next) setTradeOpen(true);
+                              return next;
+                            });
+                          }}
+                          aria-pressed={planEditMode}
+                          className={cn(
+                            "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-semibold transition-colors",
+                            planEditMode
+                              ? "border-info bg-info-soft text-info"
+                              : "border-border bg-surface text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          <Crosshair className="h-3.5 w-3.5" />
+                          {planEditMode ? "Editing plan" : "Plan on chart"}
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => setChartFullscreen((v) => !v)}
@@ -675,6 +724,9 @@ function TokenDetailPage() {
                           setupValidity?.valid !== false
                         }
                         onTrade={() => setTradeOpen(true)}
+                        planEditable={planEditMode}
+                        planDraft={planDraft}
+                        onPlanDraftChange={setPlanDraft}
                       />
                     )}
                   </div>
