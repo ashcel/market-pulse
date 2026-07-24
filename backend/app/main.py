@@ -17,6 +17,7 @@ from app.execution.execute_router import router as execute_router
 from app.execution.executions_read_router import router as executions_read_router
 from app.execution.permits_router import router as permits_router
 from app.execution.router import router as execution_router
+from app.execution.skip_check_router import router as skip_check_router
 from app.market.router import router as market_router
 from app.review.router import router as review_router
 from app.trades.router import router as trades_router
@@ -83,6 +84,7 @@ v1_router.include_router(trades_router)
 v1_router.include_router(binance_review_router)
 v1_router.include_router(review_router)
 v1_router.include_router(execution_router)
+v1_router.include_router(skip_check_router)
 v1_router.include_router(permits_router)
 v1_router.include_router(execute_router)
 v1_router.include_router(exec_key_router)
