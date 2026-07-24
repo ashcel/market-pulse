@@ -3,6 +3,7 @@
 - **Status:** Accepted (2026-07-19) — explicit direction commit from the user, intentionally superseding parts of EDR 0017. Items marked **(open)** are scoping decisions still owed before their phase ships.
 - **Scope:** product plane + key custody + a new execution plane. **No engine decision/trigger semantics change and no `ENGINE_VERSION` change** — the 2.0.0 forward-test clock keeps running untouched.
 - **Supersedes:** EDR 0017 decision 1 (the "read-only forever" execution clause) and decision 4 (the reject-all-trading-keys intake gate, for the designated execution key only). EDR 0017 decisions 2 (engine stance), 3 (R-normalization), and 5 (TradFi gating) **remain in force**, as does its AI-complement stance in the amended form below.
+- **Amended by:** EDR 0022 (leverage/margin-mode as user inputs + liquidation/drift-guard checks + ticket redesign).
 
 ## Problem
 
