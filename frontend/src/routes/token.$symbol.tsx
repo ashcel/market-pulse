@@ -1,6 +1,6 @@
 import { createFileRoute, notFound, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Maximize2, Minimize2, Star, Crosshair } from "lucide-react";
+import { Maximize2, Minimize2, Star, Crosshair, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 import { AssetIcon } from "@/components/features/asset-icon";
@@ -188,6 +188,8 @@ function TokenDetailPage() {
   // plan and re-seeds whenever that plan changes (new symbol/objective).
   const [planEditMode, setPlanEditMode] = useState(false);
   const [planDraft, setPlanDraft] = useState<PlanDraft | null>(null);
+  // Freehand drawing mode (trendline/level/box/fib) on the chart.
+  const [drawMode, setDrawMode] = useState(false);
   // Fullscreen chart: the whole price-structure card pins to the viewport so
   // the header (lean badge, timeframe pills) and legend come along. Escape
   // closes; body scroll locks while open.
@@ -701,6 +703,20 @@ function TokenDetailPage() {
                       )}
                       <button
                         type="button"
+                        onClick={() => setDrawMode((v) => !v)}
+                        aria-pressed={drawMode}
+                        className={cn(
+                          "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-semibold transition-colors",
+                          drawMode
+                            ? "border-info bg-info-soft text-info"
+                            : "border-border bg-surface text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Draw
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setChartFullscreen((v) => !v)}
                         aria-label={chartFullscreen ? "Exit fullscreen chart" : "Fullscreen chart"}
                         className="rounded-md border border-border bg-surface p-2 text-muted-foreground transition-colors hover:text-foreground"
@@ -735,6 +751,7 @@ function TokenDetailPage() {
                         planEditable={planEditMode}
                         planDraft={planDraft}
                         onPlanDraftChange={setPlanDraft}
+                        drawEnabled={drawMode}
                       />
                     )}
                   </div>

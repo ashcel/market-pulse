@@ -36,6 +36,7 @@ import { ZonesPrimitive, type PriceZone } from "@/components/features/chart-zone
 import { IqCard } from "@/components/features/iq-card";
 import { TradeActionOverlay } from "@/components/features/trade-action-overlay";
 import { ChartPlanEditor, type PlanDraft } from "@/components/features/token/chart-plan-editor";
+import { ChartDrawings } from "@/components/features/token/chart-drawings";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { TokenSignalData } from "@/hooks/useTokenSignal";
 import { computeEmaSeries } from "@/lib/engine/analysis";
@@ -135,6 +136,7 @@ export function TokenChart({
   planEditable = false,
   planDraft = null,
   onPlanDraftChange,
+  drawEnabled = false,
 }: TokenSignalData & {
   symbol: string;
   timeframe: TokenTimeframe;
@@ -162,6 +164,8 @@ export function TokenChart({
   planEditable?: boolean;
   planDraft?: PlanDraft | null;
   onPlanDraftChange?: (p: PlanDraft) => void;
+  /** Freehand drawing mode (trendline/level/box/fib) — additive SVG overlay. */
+  drawEnabled?: boolean;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const planContainerRef = useRef<HTMLDivElement | null>(null);
@@ -843,6 +847,13 @@ export function TokenChart({
             onChange={onPlanDraftChange}
           />
         )}
+        <ChartDrawings
+          chart={chartRef.current}
+          series={candleSeriesRef.current}
+          containerRef={planContainerRef}
+          symbol={symbol}
+          enabled={drawEnabled}
+        />
         {eventPopup && !hiddenIndicators.events && (
           <ChartEventPopup
             events={eventPopup.events}
