@@ -10,6 +10,7 @@
 import type { AiMessage } from "@/lib/ai/client";
 import { runAiAnalyst } from "@/lib/ai/client";
 import type { ResolvedAiConfig } from "@/lib/ai/providers";
+import { fetchTradeForensics } from "@/hooks/useForensics";
 import type { Candle } from "@/lib/engine/types";
 
 import { preprocessCandles, unavailableCandleContext } from "./candles";
@@ -114,7 +115,10 @@ export async function generateReview(options: GenerateReviewOptions): Promise<Tr
   const severityInput = toSeverityInput(trade, [], previousTrade);
   const { score: severityScore, tier: severityTier } = computeSeverity(severityInput, baseline);
 
-  const candleContext = await fetchTradeCandleContext(trade);
+  const [candleContext, forensics] = await Promise.all([
+    fetchTradeCandleContext(trade),
+    fetchTradeForensics(trade.id),
+  ]);
 
   const system = buildSystemPrompt(mode, severityTier);
   const userPrompt = buildTradeContextPrompt({
@@ -124,6 +128,7 @@ export async function generateReview(options: GenerateReviewOptions): Promise<Tr
     severityTier,
     mode,
     previousTrade,
+    forensics,
   });
 
   const messages: AiMessage[] = [{ role: "user", content: userPrompt }];
@@ -152,5 +157,6 @@ export async function generateReview(options: GenerateReviewOptions): Promise<Tr
     throw new Error(body.error?.message ?? `failed to save review: ${res.status}`);
   }
 
-  return review;
+  const saved = (await res.json()) as { data: { full_review: TradeReview } };
+  return saved.data.full_review;
 }

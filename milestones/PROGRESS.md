@@ -97,6 +97,81 @@ override task order.
 - Needs restart: yes (the live service serves the homepage; a restart picks up the new route bundle)
 - Flags for user: Screenshots cannot be captured headlessly in cron context — please verify visually that homepage no longer implies proven edge. Tour seen-key NOT bumped (v2) — users who dismissed the tour won't see reworded steps unless they reopen via the help button; bump to v3 if desired.
 
+## 2026-07-27 — R4 Review forensics (T1–T8 + T8 remediation)
+
+- Implemented by: claude-code (orchestrator, inline — no subagents this pass)
+- Verdict trail: R4-T8's review found R4 **non-compliant** with
+  `docs/forensics-definitions.md` v1.0.0 (1 critical, 3 high, 6 medium). All ten
+  findings remediated this pass; ACCEPT.
+- Changed:
+  - `backend/app/review/forensics.py` — §3 ordered `excursion_unavailable_reason`,
+    `MIN_WINDOW_CANDLES`, `MetricValue.as_dict()`, §4.4
+    `boundary_inflation_bound_pct` + `boundary_inflated` disclosure,
+    `stop_evidence_of` / `stop_discipline(close_trigger, …)` with
+    `hit|liquidated|absent` + `discipline_breach`, re-entry prerequisite gates,
+    §7.5 `detect_partial_close_groups`, sizing cohort reporting.
+  - `backend/app/review/forensics_service.py` — rewritten around
+    `build_forensics()` (pure payload assembly); `pending_bar_close` writes no
+    row; per-trade sizing metrics from one cohort computation.
+  - `backend/app/review/models.py` / `schemas.py` — `TradeForensics.metrics` is
+    one JSONB column in the §2 `MetricValue` shape; flat nullable float columns
+    are gone. `stop_evidence`, `discipline_breach`, `partial_close_suspected`,
+    `sizing_mode/n/excluded/partial_close_rows` are columns.
+  - `backend/app/review/groundedness.py` — reads the metrics dict and only
+    grounds a claim on an **available** measurement.
+  - `backend/app/binance_review/context_models.py` — `TradeContext` re-modelled
+    as a position **episode** `(user_id, symbol, side, first_seen_at)`; no FK to
+    `binance_trades`; carries observation source/lag, eval provenance +
+    staleness, engine/config/git versions, engine session grid, serialized
+    catalysts with impact as scored at `stamped_at`.
+  - `backend/app/worker/context_stamper.py` — rewritten: polls
+    `BinanceExecClient.get_positions()`, never reads `BinanceTrade`; one row per
+    episode, later ticks only advance `last_seen_at`.
+  - `backend/app/worker/forensics_pass.py`, `worker/binance.py` (`bare_ticker`),
+    `migrations/env.py`, both migrations rewritten to match.
+  - `frontend/src/hooks/useForensics.ts` — `MetricValue` type + `shown()`/`why()`
+    gates. `components/features/review-panel.tsx` — every measurement renders
+    its value or its reason badge; added a counts-only histogram distributions
+    block. `lib/review/prompt.ts` — forensics block listing measured values and
+    UNAVAILABLE reasons, with explicit rules against inventing numbers.
+  - Tests: `backend/tests/test_forensics.py` (moved out of the stray repo-root
+    `tests/`, 7 → 30 cases), `backend/tests/test_groundedness.py`,
+    `frontend/src/lib/review/forensics-render.test.ts`.
+  - Docs: `docs/review/R4-T8-review-findings.md` §Resolution;
+    `milestones/R4-review-forensics.md` task table marked done.
+- Verified: `pytest` 1495 passed / 5 failed, `ruff check app tests` 7 errors,
+  `bunx vitest run` 59 files / 1015 tests green, `bunx tsc --noEmit` clean,
+  `eslint` clean on every touched file, `alembic heads` single linear head
+  `e3f4a5b6c7d8`. **The 5 pytest failures and all 7 ruff errors are
+  pre-existing, in the uncommitted execution/M9 WIP** (`test_execution_exec_key`
+  ×2, `test_execution_permit` ×3; ruff in `app/execution/service.py`,
+  `position_ws_manager.py`, `app/binance_review/service.py`,
+  `tests/test_binance_review_router.py`) — none of those files were touched by
+  R4 and none import forensics.
+- Needs restart: not yet — migrations are unapplied, so the new tables do not
+  exist. Nothing to restart until the owner applies them.
+- Flags for user:
+  - **DB migrations NOT applied.** DB is at `f1a2b3c4d5e6`; head is
+    `e3f4a5b6c7d8` (`d2e3f4a5b6c7` trade_contexts → `e3f4a5b6c7d8`
+    trade_forensics). Owner applies: `cd backend && .venv/bin/alembic upgrade head`.
+    Until then `/api/v1/review/forensics` 500s and both worker passes error out.
+  - **Pre-existing WIP failures listed above are unfixed** — they belong to the
+    execution plane, not R4, and fixing them means touching order/permit
+    security semantics.
+  - `frontend/src/routes/token.$symbol.tsx` and `routes/index.tsx` were left
+    **uncommitted but repaired** so the tree typechecks: an orphaned 24h-stats
+    header block referencing deleted `stats`/`HeaderStat`/`formatCompact` was
+    removed, and null `unrealizedPct`/`livePrice` are now handled. They are part
+    of a different in-flight change and were deliberately not committed.
+  - `frontend/src/routeTree.gen.ts` was **not** committed: the generated file
+    now contains both R4's `/api/review/forensics*` routes and the execution
+    WIP's `/api/positions/stream`, and committing it would reference an
+    untracked module. It regenerates on `bun run dev` / `bun run build`.
+  - `milestones/` still holds a pre-existing staged-rename-then-deleted mess
+    (M0–M9 briefs moved to `milestones/archive/` in the index but absent from
+    disk). Unstaged here rather than swept into this commit; the owner should
+    decide whether to restore or finish the archive move.
+
 ## 2026-07-19 — M9-T1..T5 Execution-plane Phase A (deterministic core)
 - Implemented by: claude-code subagents — sonnet (T1 constitution, T3 sizing, T2 risk engine, T4 quality score, T5 permit) + haiku (T4 confidence-render inventory sweep, read-only). Orchestrated in 3 dependency-ordered waves.
 - Verdict trail: ACCEPT (all five, single attempt each; orchestrator-verified in-tree)

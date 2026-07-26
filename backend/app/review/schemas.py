@@ -40,6 +40,52 @@ class TradeReviewEnvelope(BaseModel):
     error: None = None
 
 
+class MetricValueResponse(BaseModel):
+    """The frozen §2 shape. Value, unit, availability and reason travel together."""
+
+    available: bool
+    value: float | None
+    unit: str
+    reason: str | None
+    flags: list[str] = []
+    forensics_version: str
+
+
+class TradeForensicsResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    user_id: str
+    binance_trade_id: str
+    forensics_version: str
+    kline_interval: str | None
+    kline_candles_in_window: int | None
+    boundary_inflation_bound_pct: float | None
+    metrics: dict[str, MetricValueResponse]
+    stop_evidence: str
+    discipline_breach: bool
+    partial_close_suspected: bool
+    reentry_same_direction: bool | None
+    reentry_after_loss: bool | None
+    sizing_mode: str | None
+    sizing_n: int | None
+    sizing_excluded: int | None
+    sizing_partial_close_rows: int | None
+    created_at: datetime
+
+
+class TradeForensicsEnvelope(BaseModel):
+    data: TradeForensicsResponse
+    meta: None = None
+    error: None = None
+
+
+class TradeForensicsListEnvelope(BaseModel):
+    data: list[TradeForensicsResponse]
+    meta: dict[str, Any]
+    error: None = None
+
+
 class RRMetrics(BaseModel):
     mode: str  # "r_multiple" | "payoff_ratio"
     sample_size: int

@@ -20,6 +20,7 @@ import type {
   AnnotationPosition,
   AnnotationCategory,
 } from "./types";
+import type { MetricKey, TradeForensics } from "@/hooks/useForensics";
 
 export function buildSystemPrompt(mode: ReviewMode, severityTier: SeverityTier): string {
   const base = `You are the AI engine behind Market Pulse's Trade Review — a brutally honest trading coach for crypto traders.
@@ -138,6 +139,55 @@ function formatDuration(ms: number): string {
   return `${mins}m`;
 }
 
+/** Metric key → the label and formatter the memo is allowed to quote. */
+const FORENSIC_LABELS: Partial<Record<MetricKey, string>> = {
+  mae_percent: "MAE (% of entry)",
+  mae_r: "MAE (R)",
+  mfe_percent: "MFE (% of entry)",
+  mfe_r: "MFE (R)",
+  exit_efficiency: "Exit efficiency (% of favorable excursion captured)",
+  slippage_adverse: "Adverse stop slippage (quote)",
+  slippage_adverse_r: "Adverse stop slippage (R)",
+  violation_depth_r: "Traded past the stop (R)",
+  realized_r: "Realized (R)",
+  reentry_latency_seconds: "Re-entry latency (seconds)",
+  sizing_notional: "Position notional (quote)",
+  sizing_size_ratio: "Size vs. your median (×)",
+};
+
+/**
+ * The measurements block. Available rows carry their number; unavailable rows
+ * carry their reason so the model sees the absence explicitly rather than
+ * inferring silence. Anything not listed here is ungrounded and the backend
+ * groundedness check will strip it (backend/app/review/groundedness.py).
+ */
+function buildForensicsBlock(forensics: TradeForensics | null): string {
+  if (!forensics) {
+    return `## FORENSIC MEASUREMENTS
+Not computed for this trade. Do NOT state any excursion, efficiency, R-multiple, slippage, latency, or sizing number.`;
+  }
+  const lines = Object.entries(FORENSIC_LABELS).map(([key, label]) => {
+    const metric = forensics.metrics[key as MetricKey];
+    if (!metric) return `- ${label}: not measured`;
+    return metric.available && metric.value !== null
+      ? `- ${label}: ${metric.value.toFixed(4)}${metric.flags.length ? ` [${metric.flags.join(", ")}]` : ""}`
+      : `- ${label}: UNAVAILABLE (${metric.reason ?? "not measured"}) — do not state a value`;
+  });
+  return `## FORENSIC MEASUREMENTS (deterministic, from exchange rows + klines)
+Measured on ${forensics.kline_interval ?? "unknown"} candles${
+    forensics.boundary_inflation_bound_pct !== null
+      ? `, boundary error bound ±${forensics.boundary_inflation_bound_pct.toFixed(2)}%`
+      : ""
+  }. Stop evidence: ${forensics.stop_evidence}.
+${lines.join("\n")}
+
+RULES FOR THESE NUMBERS:
+- Quote only the values listed above. Never compute, estimate, or infer a
+  number that is marked UNAVAILABLE — say what is missing and why instead.
+- An R-multiple exists only where a stop is evidenced on the exchange row.
+- Never present any of these as a probability, a win rate, or an edge.`;
+}
+
 export function buildTradeContextPrompt(params: {
   trade: ReviewTrade;
   baseline: UserBaseline;
@@ -145,8 +195,9 @@ export function buildTradeContextPrompt(params: {
   severityTier: SeverityTier;
   mode: ReviewMode;
   previousTrade: ReviewTrade | null;
+  forensics: TradeForensics | null;
 }): string {
-  const { trade, baseline, candleContext, severityTier, mode, previousTrade } = params;
+  const { trade, baseline, candleContext, severityTier, mode, previousTrade, forensics } = params;
 
   const pnl = trade.realized_pnl;
   const roi = trade.roi_percent ?? 0;
@@ -202,6 +253,8 @@ export function buildTradeContextPrompt(params: {
 - Close Trigger: ${closeTrigger ? closeTrigger.toUpperCase() : "Unknown"}
 - Liquidated: ${isLiquidated ? "Yes" : "No"}
 ${behavioralAnalysisNote ? `\n## BEHAVIORAL SIGNALS DETECTED\n${behavioralAnalysisNote}\n` : ""}
+
+${buildForensicsBlock(forensics)}
 
 ## CANDLE CONTEXT (preprocessed)
 - Trend: ${candleContext.trend_summary}
@@ -328,6 +381,9 @@ export function parseAndValidateReview(raw: string): TradeReview {
   const data_flags = Array.isArray(parsed.data_flags)
     ? parsed.data_flags.filter((f): f is string => typeof f === "string")
     : [];
+  const unsupported_claims = Array.isArray(parsed.unsupported_claims)
+    ? parsed.unsupported_claims.filter((claim): claim is string => typeof claim === "string")
+    : [];
 
   const scoreOrUndefined = (value: unknown): number | undefined =>
     typeof value === "number" && Number.isFinite(value) ? value : undefined;
@@ -390,6 +446,7 @@ export function parseAndValidateReview(raw: string): TradeReview {
     closing_question,
     coaching_note,
     data_flags,
+    unsupported_claims,
     annotations,
   };
 }

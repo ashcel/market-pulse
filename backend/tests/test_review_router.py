@@ -38,6 +38,7 @@ async def review_client(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[AsyncC
         BinanceReviewKey.metadata.tables["binance_review_keys"],
         BinanceReviewKey.metadata.tables["binance_trades"],
         BinanceReviewKey.metadata.tables["trade_reviews"],
+        BinanceReviewKey.metadata.tables["trade_forensics"],
     ]
     async with engine.begin() as conn:
         await conn.run_sync(BinanceReviewKey.metadata.create_all, tables=tables)
@@ -113,7 +114,7 @@ async def test_post_persists_review_verbatim(review_client: AsyncClient) -> None
     data = resp.json()["data"]
     assert data["binance_trade_id"] == "trade-1"
     assert data["version"] == 1
-    assert data["full_review"] == REVIEW_PAYLOAD["full_review"]
+    assert data["full_review"] == {**REVIEW_PAYLOAD["full_review"], "unsupported_claims": []}
     assert data["grade"] == "B+"
     assert data["model_used"] == "claude-opus-4-8"
 

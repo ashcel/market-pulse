@@ -177,5 +177,6 @@ export interface TradeReview {
   closing_question: string;
   coaching_note: string;
   data_flags: string[];
+  unsupported_claims?: string[];
   annotations?: ChartAnnotationData[];
 }

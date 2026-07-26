@@ -59,6 +59,19 @@ def normalize_ticker(raw: str) -> str:
     return re.sub(r"[^a-zA-Z0-9]", "", raw).upper()
 
 
+def bare_ticker(exchange_symbol: str) -> str:
+    """Inverse of `resolve_exchange_symbol` — `1000PEPEUSDT` back to `PEPE`.
+
+    `eval_log.symbol` holds bare tickers while trade and position rows hold
+    exchange symbols; joining the two planes needs this direction too.
+    """
+    symbol = normalize_ticker(exchange_symbol).removesuffix("USDT")
+    for base, (renamed, _scale) in _FUTURES_BASE_OVERRIDES.items():
+        if symbol == renamed:
+            return base
+    return symbol
+
+
 def resolve_exchange_symbol(raw_ticker: str, market: MarketType) -> tuple[str, float]:
     """Exchange-facing symbol + price scale (divide prices by it)."""
     ticker = normalize_ticker(raw_ticker)
@@ -204,6 +217,53 @@ async def fetch_klines(
             return []
         return _apply_price_scale(_parse_klines(response.json()), price_scale)
     except httpx.HTTPError:
+        return []
+
+
+async def fetch_klines_raw(
+    symbol: str, interval: str, limit: int, end_time: int | None = None
+) -> list[dict[str, float | int]]:
+    """Fetch parsed USDT-M klines without timeframe or symbol translation."""
+    if interval not in {"1m", "5m", "15m", "1h", "4h", "1d"}:
+        return []
+    limit = min(1000, max(1, int(limit)))
+    params: dict[str, str] = {
+        "symbol": symbol,
+        "interval": interval,
+        "limit": str(limit),
+    }
+    if end_time is not None and end_time > 0:
+        params["endTime"] = str(int(end_time))
+
+    try:
+        await _limiter.acquire(kline_weight(limit))
+        response = await http_client().get(
+            "https://fapi.binance.com/fapi/v1/klines", params=params
+        )
+        if response.status_code != 200:
+            return []
+        payload = response.json()
+        if not isinstance(payload, list):
+            return []
+        klines: list[dict[str, float | int]] = []
+        for row in payload:
+            if not isinstance(row, list) or len(row) < 6:
+                continue
+            try:
+                kline = {
+                    "open_time": int(row[0]),
+                    "open": float(row[1]),
+                    "high": float(row[2]),
+                    "low": float(row[3]),
+                    "close": float(row[4]),
+                    "volume": float(row[5]),
+                }
+            except (TypeError, ValueError):
+                continue
+            if all(math.isfinite(float(value)) for value in kline.values()):
+                klines.append(kline)
+        return klines
+    except (httpx.HTTPError, TypeError, ValueError):
         return []
 
 

@@ -8,7 +8,8 @@ from app.binance_review.schemas import BinanceTradeResponse
 
 from .analytics import HourRangeResult, compute_analytics
 from .exceptions import ReviewNotFoundError, ReviewTradeForbiddenError, ReviewTradeNotFoundError
-from .models import TradeReview
+from .groundedness import check_memo
+from .models import TradeForensics, TradeReview
 from .schemas import (
     AnalyticsData,
     HourRange,
@@ -145,6 +146,16 @@ async def save_review(
     prev_max = result.scalar()
     version = (prev_max or 0) + 1
 
+    full_review = dict(payload.full_review)
+    forensics = await db.scalar(
+        select(TradeForensics).where(
+            TradeForensics.binance_trade_id == binance_trade_id,
+            TradeForensics.user_id == user_id,
+        )
+    )
+    memo_text = "\n".join(_review_text(full_review))
+    full_review["unsupported_claims"] = check_memo(memo_text, forensics) if forensics else []
+
     review = TradeReview(
         binance_trade_id=binance_trade_id,
         user_id=user_id,
@@ -153,7 +164,7 @@ async def save_review(
         severity_tier=payload.severity_tier,
         grade=payload.grade,
         one_liner=payload.one_liner,
-        full_review=payload.full_review,
+        full_review=full_review,
         model_used=payload.model_used,
         version=version,
         generated_at=datetime.now(),
@@ -162,6 +173,16 @@ async def save_review(
     await db.commit()
     await db.refresh(review)
     return review
+
+
+def _review_text(value: object) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [text for item in value.values() for text in _review_text(item)]
+    if isinstance(value, list):
+        return [text for item in value for text in _review_text(item)]
+    return []
 
 
 async def get_review(db: AsyncSession, user_id: str, binance_trade_id: str) -> TradeReview:

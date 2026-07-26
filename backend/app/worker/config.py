@@ -16,9 +16,12 @@ from arq.connections import RedisSettings
 from arq.cron import CronJob
 
 from app.config import settings
+from app.database import SessionFactory
 
 from .binance import close_http_client
 from .binance_review_sync_pass import run_binance_review_sync_pass
+from .context_stamper import run_context_stamper_pass
+from .forensics_pass import run_forensics_pass
 from .passes import run_once
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -36,7 +39,15 @@ async def forward_test_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -> s
 
 async def binance_review_sync_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -> str:  # noqa: ARG001
     """Hourly background Binance realized-PnL sync for every active-keyed user."""
-    return await run_binance_review_sync_pass()
+    sync_summary = await run_binance_review_sync_pass()
+    forensics_summary = await run_forensics_pass()
+    return f"{sync_summary}; {forensics_summary}"
+
+
+async def context_stamper_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -> str:  # noqa: ARG001
+    async with SessionFactory() as db:
+        written = await run_context_stamper_pass(db)
+    return f"[context-stamper] stamped={written}"
 
 
 async def shutdown(_ctx: dict[Any, Any]) -> None:
@@ -51,6 +62,12 @@ class WorkerSettings:
             minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55},
             run_at_startup=True,
             timeout=600,
+        ),
+        cron(
+            context_stamper_tick,
+            minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55},
+            run_at_startup=True,
+            timeout=300,
         ),
         cron(
             binance_review_sync_tick,

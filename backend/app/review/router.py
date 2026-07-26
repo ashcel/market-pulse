@@ -1,10 +1,20 @@
 from datetime import datetime
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, status
 
 from app.auth.dependencies import CurrentUserId, DbSession
+from app.pagination import PaginationMeta
 
-from .schemas import AnalyticsResponse, TradeReviewCreate, TradeReviewEnvelope, TradeReviewResponse
+from .forensics_service import get_forensics, list_forensics
+from .schemas import (
+    AnalyticsResponse,
+    TradeForensicsEnvelope,
+    TradeForensicsListEnvelope,
+    TradeForensicsResponse,
+    TradeReviewCreate,
+    TradeReviewEnvelope,
+    TradeReviewResponse,
+)
 from .service import get_analytics, get_review, save_review
 
 router = APIRouter(prefix="/review", tags=["review"])
@@ -24,6 +34,28 @@ async def get_analytics_endpoint(
 ) -> AnalyticsResponse:
     data = await get_analytics(db, user_id, symbol=symbol, start=start, end=end)
     return AnalyticsResponse(data=data)
+
+
+@router.get("/forensics", response_model=TradeForensicsListEnvelope)
+async def list_forensics_endpoint(
+    db: DbSession,
+    user_id: CurrentUserId,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+) -> TradeForensicsListEnvelope:
+    rows, total = await list_forensics(db, user_id, page, per_page)
+    return TradeForensicsListEnvelope(
+        data=[TradeForensicsResponse.model_validate(row) for row in rows],
+        meta=PaginationMeta(page=page, per_page=per_page, total=total).model_dump(),
+    )
+
+
+@router.get("/forensics/{trade_id}", response_model=TradeForensicsEnvelope)
+async def get_forensics_endpoint(
+    trade_id: str, db: DbSession, user_id: CurrentUserId
+) -> TradeForensicsEnvelope:
+    row = await get_forensics(db, user_id, trade_id)
+    return TradeForensicsEnvelope(data=TradeForensicsResponse.model_validate(row))
 
 
 @router.post(

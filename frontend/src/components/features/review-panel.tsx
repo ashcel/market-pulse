@@ -12,6 +12,7 @@ import {
   Target,
   AlertTriangle,
   Zap,
+  ChevronDown,
 } from "lucide-react";
 
 import { AssetIcon } from "@/components/features/asset-icon";
@@ -27,6 +28,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useExecutions, type ExecutionRecord } from "@/hooks/useExecutions";
+import {
+  shown,
+  useForensicsList,
+  useTradeForensics,
+  why,
+  type MetricKey,
+  type MetricValue,
+  type TradeForensics,
+} from "@/hooks/useForensics";
 import {
   useBinanceKeyStatus,
   useGenerateTradeReview,
@@ -79,6 +89,41 @@ function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
 
+/**
+ * Local-timezone abbreviation for display (WIB/WITA/WIT for Indonesian
+ * zones, otherwise the browser's short tz name, falling back to "Local").
+ */
+function localTzLabel(): string {
+  try {
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const idMap: Record<string, string> = {
+      "Asia/Jakarta": "WIB",
+      "Asia/Pontianak": "WIB",
+      "Asia/Makassar": "WITA",
+      "Asia/Jayapura": "WIT",
+    };
+    if (zone in idMap) return idMap[zone];
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZoneName: "short",
+    }).formatToParts(new Date());
+    return parts.find((p) => p.type === "timeZoneName")?.value ?? "Local";
+  } catch {
+    return "Local";
+  }
+}
+
+/** Convert a 0–23 UTC hour to the browser's local hour. */
+function utcHourToLocal(hour: number): number {
+  const d = new Date();
+  d.setUTCHours(hour, 0, 0, 0);
+  return d.getHours();
+}
+
+/** Format a UTC hour range as a local-time window, e.g. "09:00–10:00 WIB". */
+function formatLocalHourRange(startHourUtc: number, endHourUtc: number): string {
+  return `${pad2(utcHourToLocal(startHourUtc))}:00–${pad2(utcHourToLocal(endHourUtc))}:00 ${localTzLabel()}`;
+}
+
 const GRADE_TONE: Record<string, string> = {
   "A+": "border-bullish/30 bg-bullish-soft text-bullish",
   A: "border-bullish/30 bg-bullish-soft text-bullish",
@@ -110,14 +155,14 @@ function habitsSummaryLine(analytics: Analytics | null | undefined): string | nu
 
   if (analytics.time_range && analytics.time_range.sample_size >= 3) {
     parts.push(
-      `Best window observed: ${pad2(analytics.time_range.start_hour_utc)}:00–${pad2(analytics.time_range.end_hour_utc)}:00 UTC ` +
+      `Best window observed: ${formatLocalHourRange(analytics.time_range.start_hour_utc, analytics.time_range.end_hour_utc)} ` +
         `(${formatPercent(analytics.time_range.win_rate, 0)} win rate across ${analytics.time_range.sample_size} trades).`,
     );
   }
 
   if (analytics.worst_time_range && analytics.worst_time_range.sample_size >= 3) {
     parts.push(
-      `Weakest window: ${pad2(analytics.worst_time_range.start_hour_utc)}:00–${pad2(analytics.worst_time_range.end_hour_utc)}:00 UTC ` +
+      `Weakest window: ${formatLocalHourRange(analytics.worst_time_range.start_hour_utc, analytics.worst_time_range.end_hour_utc)} ` +
         `(${formatPercent(analytics.worst_time_range.win_rate, 0)} win rate across ${analytics.worst_time_range.sample_size} trades).`,
     );
   }
@@ -138,7 +183,37 @@ function habitsSummaryLine(analytics: Analytics | null | undefined): string | nu
 
 // ── Habits tab / `/review` thin-wrapper body ──────────────────────────────────
 
+type HabitsSubTab = "testnet" | "live";
+
 export function ReviewPanel() {
+  const [subTab, setSubTab] = useState<HabitsSubTab>("live");
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-1 rounded-md border border-border bg-surface p-1 text-xs">
+        {(["testnet", "live"] as const).map((value) => (
+          <button
+            key={value}
+            onClick={() => setSubTab(value)}
+            className={cn(
+              "rounded-md px-2.5 py-1.5 font-medium capitalize transition-colors",
+              subTab === value
+                ? "bg-info-soft text-info"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {value}
+          </button>
+        ))}
+      </div>
+
+      {subTab === "testnet" ? <TestnetTab /> : <LiveTab />}
+    </div>
+  );
+}
+
+/** Live sub-tab: synced-trade analytics framed as behavior habits. */
+function LiveTab() {
   const [sideFilter, setSideFilter] = useState<SideFilter>("all");
   const { trades, authenticated, isLoading } = useReviewTrades();
   const aiSettings = useAiSettingsStore();
@@ -150,8 +225,6 @@ export function ReviewPanel() {
   return (
     <div className="space-y-5">
       <SyncCard authenticated={authenticated} />
-
-      <LiveExecutionsSection />
 
       {!authenticated ? (
         <NotSignedInCard />
@@ -200,6 +273,7 @@ export function ReviewPanel() {
               ))}
             </div>
           )}
+          <ForensicsSummary />
         </>
       )}
     </div>
@@ -287,7 +361,7 @@ function SyncCard({ authenticated }: { authenticated: boolean }) {
   );
 }
 
-// ── Live executions (Binance testnet) ───────────────────────────────────────
+// ── Testnet sub-tab (Binance testnet executions) ────────────────────────────
 
 const EXECUTION_STATUS_TONE: Record<string, "bullish" | "bearish" | "neutral"> = {
   PROTECTED: "bullish",
@@ -321,18 +395,17 @@ function executionStatusLabel(status: string): string {
     .join(" ");
 }
 
-/** Live executions section — user-confirmed Binance (testnet) order placements. */
-function LiveExecutionsSection() {
+/** Testnet sub-tab — user-confirmed Binance (testnet) order placements. */
+function TestnetTab() {
   const { executions, authenticated, isLoading } = useExecutions();
 
   if (!authenticated) return null;
-  if (!isLoading && executions.length === 0) return null;
 
   return (
     <IqCard padded={false} className="overflow-hidden">
       <div className="flex items-center justify-between gap-2 p-4 pb-2 sm:p-5 sm:pb-2">
         <div>
-          <CardEyebrow>Live Executions · Binance testnet</CardEyebrow>
+          <CardEyebrow>Testnet · Binance executions</CardEyebrow>
           <p className="mt-1 text-[11px] text-muted-foreground">
             Order-placement records from confirmed executions — not PnL-settled trades yet.
           </p>
@@ -343,6 +416,10 @@ function LiveExecutionsSection() {
       {isLoading ? (
         <div className="p-4 pt-2 text-center text-sm text-muted-foreground sm:p-5 sm:pt-2">
           Loading executions…
+        </div>
+      ) : executions.length === 0 ? (
+        <div className="p-4 pt-2 text-center text-sm text-muted-foreground sm:p-5 sm:pt-2">
+          No testnet executions yet
         </div>
       ) : (
         <div className="divide-y divide-border/40">
@@ -469,7 +546,10 @@ function AnalyticsHero() {
         eyebrow="Best hour"
         value={
           analytics.time_range
-            ? `${pad2(analytics.time_range.start_hour_utc)}:00–${pad2(analytics.time_range.end_hour_utc)}:00 UTC`
+            ? formatLocalHourRange(
+                analytics.time_range.start_hour_utc,
+                analytics.time_range.end_hour_utc,
+              )
             : "—"
         }
         secondary={
@@ -485,7 +565,10 @@ function AnalyticsHero() {
         eyebrow="Worst hour"
         value={
           analytics.worst_time_range
-            ? `${pad2(analytics.worst_time_range.start_hour_utc)}:00–${pad2(analytics.worst_time_range.end_hour_utc)}:00 UTC`
+            ? formatLocalHourRange(
+                analytics.worst_time_range.start_hour_utc,
+                analytics.worst_time_range.end_hour_utc,
+              )
             : "—"
         }
         secondary={
@@ -636,6 +719,8 @@ function TradeReviewRow({
   aiConfigured: boolean;
 }) {
   const { data: review, isLoading: reviewLoading } = useTradeReview(trade.id);
+  const [forensicsOpen, setForensicsOpen] = useState(false);
+  const forensics = useTradeForensics(trade.id, forensicsOpen);
   const generate = useGenerateTradeReview();
 
   const handleGenerate = () => {
@@ -684,6 +769,35 @@ function TradeReviewRow({
       </div>
 
       <div className="border-t border-border/40 pt-2">
+        <button
+          type="button"
+          onClick={() => setForensicsOpen((open) => !open)}
+          aria-expanded={forensicsOpen}
+          className="flex w-full items-center justify-between text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <span>Forensics</span>
+          <ChevronDown
+            className={cn("h-3.5 w-3.5 transition-transform", forensicsOpen && "rotate-180")}
+          />
+        </button>
+        {forensicsOpen && (
+          <div className="mt-2">
+            {forensics.isLoading ? (
+              <p className="text-xs text-muted-foreground">Loading forensics…</p>
+            ) : forensics.isError ? (
+              <p className="text-xs text-destructive">Forensics could not be loaded.</p>
+            ) : forensics.data ? (
+              <ForensicsDashboard trade={trade} forensics={forensics.data} />
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                No forensics available for this trade.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-border/40 pt-2">
         {reviewLoading ? (
           <p className="text-xs text-muted-foreground">Checking for an existing review…</p>
         ) : review ? (
@@ -723,6 +837,372 @@ function TradeReviewRow({
   );
 }
 
+/**
+ * An unsupported measurement always renders its reason. Never `0`, `—`, `N/A`,
+ * or an omitted field — that is honesty rule R3 in docs/forensics-definitions.md.
+ */
+function Unavailable({ reason }: { reason: string }) {
+  return (
+    <Badge variant="outline" className="border-warning/30 bg-warning-soft text-[9px] text-warning">
+      {reason.replaceAll("_", " ")}
+    </Badge>
+  );
+}
+
+function formatR(value: number): string {
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}R`;
+}
+
+function formatLatency(seconds: number): string {
+  const totalMinutes = Math.round(seconds / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours === 0 ? `${minutes}m` : `${hours}h ${minutes}m`;
+}
+
+/** Renders the value when the measurement is available, its reason when not. */
+function MetricCell({
+  label,
+  forensics,
+  metricKey,
+  format,
+}: {
+  label: string;
+  forensics: TradeForensics;
+  metricKey: MetricKey;
+  format: (value: number) => string;
+}) {
+  const metric = shown(forensics, metricKey);
+  return (
+    <div>
+      <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      {metric ? (
+        <div className="num font-semibold">{format(metric.value)}</div>
+      ) : (
+        <Unavailable reason={why(forensics, metricKey)} />
+      )}
+    </div>
+  );
+}
+
+function ForensicsDashboard({
+  trade,
+  forensics,
+}: {
+  trade: ReviewTrade;
+  forensics: TradeForensics;
+}) {
+  const maePercent = shown(forensics, "mae_percent");
+  const mfePercent = shown(forensics, "mfe_percent");
+  const maePrice = shown(forensics, "mae_price");
+  const mfePrice = shown(forensics, "mfe_price");
+  const efficiency = shown(forensics, "exit_efficiency");
+  const latency = shown(forensics, "reentry_latency_seconds");
+  const sizeRatio = shown(forensics, "sizing_size_ratio");
+  const inflated = [maePercent, mfePercent].some((m) => m?.flags.includes("boundary_inflated"));
+
+  return (
+    <div className="space-y-2 rounded-md border border-border/60 bg-surface/60 p-2.5">
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1.5fr)_1fr_1fr]">
+        <div className="rounded-md border border-border/50 p-2">
+          <div className="flex items-center justify-between gap-2 text-[10px]">
+            <span className="font-semibold">
+              Excursion from entry {formatMoney(trade.entry_price)}
+            </span>
+            {forensics.kline_interval && (
+              <span className="text-muted-foreground">{forensics.kline_interval} candles</span>
+            )}
+          </div>
+          <div className="mt-2 grid grid-cols-[42px_1fr_auto] items-center gap-1.5 text-[10px]">
+            <span className="text-bearish">MAE</span>
+            <div className="flex h-1.5 justify-end overflow-hidden rounded-full bg-muted">
+              {maePercent && (
+                <div
+                  className="rounded-full bg-bearish"
+                  style={{ width: `${Math.min(Math.abs(maePercent.value), 100)}%` }}
+                />
+              )}
+            </div>
+            <span className="num min-w-[90px] text-right">
+              {maePercent && maePrice ? (
+                `${formatMoney(maePrice.value)} (${formatPercent(maePercent.value)})`
+              ) : (
+                <Unavailable reason={why(forensics, "mae_percent")} />
+              )}
+            </span>
+            <span className="text-bullish">MFE</span>
+            <div className="relative h-1.5 overflow-visible rounded-full bg-muted">
+              {mfePercent && (
+                <div
+                  className="h-full rounded-full bg-bullish"
+                  style={{ width: `${Math.min(Math.abs(mfePercent.value), 100)}%` }}
+                />
+              )}
+              {efficiency && (
+                <span
+                  className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-foreground"
+                  style={{ left: `${Math.max(0, Math.min(efficiency.value, 100))}%` }}
+                  title={`Exit at ${efficiency.value.toFixed(0)}% of favorable excursion`}
+                />
+              )}
+            </div>
+            <span className="num min-w-[90px] text-right">
+              {mfePercent && mfePrice ? (
+                `${formatMoney(mfePrice.value)} (${formatPercent(mfePercent.value)})`
+              ) : (
+                <Unavailable reason={why(forensics, "mfe_percent")} />
+              )}
+            </span>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span>Exit {formatMoney(trade.exit_price)}</span>
+            <span>·</span>
+            {efficiency ? (
+              <span>{efficiency.value.toFixed(0)}% efficiency</span>
+            ) : (
+              <Unavailable reason={why(forensics, "exit_efficiency")} />
+            )}
+            {inflated && forensics.boundary_inflation_bound_pct !== null && (
+              <>
+                <span>·</span>
+                <span title="Both boundary candles are included whole, so the excursion is over-stated by at most this much.">
+                  ±{forensics.boundary_inflation_bound_pct.toFixed(2)}% boundary
+                </span>
+              </>
+            )}
+            {forensics.partial_close_suspected && (
+              <>
+                <span>·</span>
+                <Unavailable reason="partial close suspected" />
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-md border border-border/50 p-2">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Stop discipline
+            </span>
+            <span className="text-[9px] text-muted-foreground">{forensics.stop_evidence}</span>
+          </div>
+          {forensics.discipline_breach && (
+            <p className="mt-1 text-[10px] font-medium text-bearish">
+              Liquidated — no effective stop
+            </p>
+          )}
+          <div className="mt-1.5 grid grid-cols-2 gap-1 text-[10px]">
+            <MetricCell
+              label="Slippage"
+              forensics={forensics}
+              metricKey="slippage_adverse"
+              format={formatMoney}
+            />
+            <MetricCell
+              label="Slippage R"
+              forensics={forensics}
+              metricKey="slippage_adverse_r"
+              format={formatR}
+            />
+            <MetricCell
+              label="Past stop"
+              forensics={forensics}
+              metricKey="violation_depth_r"
+              format={formatR}
+            />
+            <MetricCell
+              label="Realized"
+              forensics={forensics}
+              metricKey="realized_r"
+              format={formatR}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-md border border-border/50 p-2">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Re-entry
+          </div>
+          <div className="mt-1.5 space-y-1 text-[11px]">
+            {latency ? (
+              <>
+                <p className="font-medium">
+                  Re-entered after {formatLatency(latency.value)}
+                  {forensics.reentry_after_loss ? " (after a loss)" : ""}
+                </p>
+                <p className="text-muted-foreground">
+                  {forensics.reentry_same_direction
+                    ? "Same direction as previous trade"
+                    : "Opposite direction to previous trade"}
+                </p>
+              </>
+            ) : (
+              <Unavailable reason={why(forensics, "reentry_latency_seconds")} />
+            )}
+          </div>
+          <div className="mt-1.5 border-t border-border/40 pt-1.5 text-[10px]">
+            {sizeRatio ? (
+              <p className="text-muted-foreground">
+                {sizeRatio.value.toFixed(2)}× your median{" "}
+                {forensics.sizing_mode === "risk_based" ? "risk" : "notional"} (n=
+                {forensics.sizing_n})
+              </p>
+            ) : (
+              <Unavailable reason={why(forensics, "sizing_size_ratio")} />
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ForensicsSummary() {
+  const { data, isLoading, isError } = useForensicsList(1, 100);
+  if (isLoading) return null;
+  if (isError || !data || data.data.length === 0) return null;
+
+  const rows = data.data;
+  const available = (key: MetricKey) =>
+    rows
+      .map((row) => shown(row, key))
+      .filter((m): m is MetricValue & { value: number } => m !== null);
+  const average = (values: number[]) =>
+    values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+
+  // Counts and distributions only — never a win rate, never an expectancy.
+  const stats: [string, MetricKey, "bullish" | "bearish" | undefined][] = [
+    ["Avg MAE", "mae_percent", "bearish"],
+    ["Avg MFE", "mfe_percent", "bullish"],
+    ["Avg exit efficiency", "exit_efficiency", undefined],
+  ];
+
+  return (
+    <IqCard className="space-y-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <CardEyebrow>Forensics summary</CardEyebrow>
+        <span className="text-[10px] text-muted-foreground">
+          {rows.length} of {data.meta.total} trades loaded
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {stats.map(([label, key, tone]) => {
+          const measured = available(key);
+          return (
+            <SummaryStat
+              key={key}
+              label={label}
+              value={measured.length ? formatPercent(average(measured.map((m) => m.value))) : null}
+              coverage={`${measured.length} of ${rows.length} measured`}
+              tone={tone}
+            />
+          );
+        })}
+      </div>
+      <Histogram
+        label="Exit efficiency"
+        values={available("exit_efficiency").map((m) => m.value)}
+        bins={[0, 20, 40, 60, 80, 100]}
+        unmeasured={rows.length - available("exit_efficiency").length}
+      />
+      <Histogram
+        label="MAE (% of entry)"
+        values={available("mae_percent").map((m) => m.value)}
+        bins={[0, 1, 2, 5, 10]}
+        unmeasured={rows.length - available("mae_percent").length}
+      />
+      <p className="text-[10px] text-muted-foreground">
+        Counts of what was measured. Nothing here is a win rate, a probability, or an expectancy.
+      </p>
+    </IqCard>
+  );
+}
+
+/**
+ * Counts per bin — the only aggregate shape the honesty rules allow for a
+ * cohort. `unmeasured` is shown so the coverage hole is never invisible.
+ */
+function Histogram({
+  label,
+  values,
+  bins,
+  unmeasured,
+}: {
+  label: string;
+  values: number[];
+  bins: number[];
+  unmeasured: number;
+}) {
+  const counts = bins.map((lower, index) => {
+    const upper = bins[index + 1];
+    const inBin = values.filter(
+      (value) => value >= lower && (upper === undefined || value < upper),
+    );
+    return { lower, upper, count: inBin.length };
+  });
+  const peak = Math.max(1, ...counts.map((bin) => bin.count));
+
+  return (
+    <div className="rounded-md border border-border/60 bg-surface p-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {label}
+        </span>
+        <span className="text-[10px] text-muted-foreground">
+          n={values.length}
+          {unmeasured > 0 ? ` · ${unmeasured} not measured` : ""}
+        </span>
+      </div>
+      <div className="mt-1.5 flex items-end gap-1">
+        {counts.map((bin) => (
+          <div key={bin.lower} className="flex flex-1 flex-col items-center gap-0.5">
+            <span className="num text-[9px] text-muted-foreground">{bin.count}</span>
+            <div
+              className="w-full rounded-sm bg-info/60"
+              style={{ height: `${Math.max(2, (bin.count / peak) * 28)}px` }}
+            />
+            <span className="text-[9px] text-muted-foreground">
+              {bin.upper === undefined ? `${bin.lower}+` : `${bin.lower}–${bin.upper}`}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SummaryStat({
+  label,
+  value,
+  coverage,
+  tone,
+}: {
+  label: string;
+  value: string | null;
+  coverage: string;
+  tone?: "bullish" | "bearish";
+}) {
+  return (
+    <div className="rounded-md border border-border/60 bg-surface p-2.5">
+      <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div
+        className={cn(
+          "num mt-0.5 text-sm font-semibold",
+          tone === "bullish" && "text-bullish",
+          tone === "bearish" && "text-bearish",
+        )}
+      >
+        {value ?? <Unavailable reason="no measured trades" />}
+      </div>
+      <div className="mt-0.5 text-[10px] text-muted-foreground">{coverage}</div>
+    </div>
+  );
+}
+
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -754,6 +1234,18 @@ function TradeReviewCard({ review }: { review: TradeReview }) {
       </div>
 
       <p className="text-xs italic text-muted-foreground">{review.one_liner}</p>
+
+      {review.unsupported_claims && review.unsupported_claims.length > 0 && (
+        <div className="rounded-md border border-warning/40 bg-warning-soft p-2 text-xs text-warning">
+          <div className="flex items-center gap-1.5 font-semibold">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Unsupported numeric claims detected
+          </div>
+          <p className="mt-1 text-[11px]">
+            AI claims could not be matched to this trade's forensics.
+          </p>
+        </div>
+      )}
 
       {sections.map((s) => (
         <div key={s.type}>
