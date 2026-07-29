@@ -34,6 +34,7 @@ class SkipObjective(StrEnum):
     SCALP = "scalp"
     INTRADAY = "intraday"
     SWING = "swing"
+    POSITION = "position"
 
 
 class SkipDirection(StrEnum):

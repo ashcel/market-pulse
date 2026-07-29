@@ -79,6 +79,7 @@ _WINDOW_HOURS: dict[SkipObjective, int] = {
     SkipObjective.SCALP: 12,
     SkipObjective.INTRADAY: 48,
     SkipObjective.SWING: 168,
+    SkipObjective.POSITION: 720,
 }
 
 
@@ -617,8 +618,11 @@ def _flip_condition(block: SkipBlock, verdict: VerdictContextInput | None) -> st
         case SkipCode.BEHAVIOR_BINDING | SkipCode.BEHAVIOR_ADVISORY:
             return "the flag clears once the cooldown window passes without escalation"
         case SkipCode.VERDICT_NOT_YET:
-            return (verdict.flip_condition if verdict and verdict.flip_condition
-                    else "the engine's trigger for this objective must fire")
+            return (
+                verdict.flip_condition
+                if verdict and verdict.flip_condition
+                else "the engine's trigger for this objective must fire"
+            )
         case SkipCode.VERDICT_WRONG_STRATEGY:
             return "pick an objective that fits current structure, or wait for it to change"
         case SkipCode.REGIME_MISALIGNED:
@@ -763,7 +767,7 @@ async def assemble_skip_check(
         margin_type=request.margin_type,
         correlation_bucket=request.correlation_bucket,
     )
-    account_state: AccountState = await _server_account_state(db, user_id, ticket_for_state, now)
+    account_state, _ = await _server_account_state(db, user_id, ticket_for_state, now)
 
     # Resolve an entry price: caller-supplied wins; else best-effort mark price.
     entry_price = request.entry_price
@@ -835,9 +839,7 @@ async def assemble_skip_check(
 
     quality: TradeQualityScore | None = None
     if price_available:
-        rr = _compute_rr(
-            proposal.entry_price, request.planned_stop, request.take_profit, side
-        )
+        rr = _compute_rr(proposal.entry_price, request.planned_stop, request.take_profit, side)
         quality = score_trade_quality(
             TradeQualityInput(
                 risk_reward_ratio=rr,
@@ -859,9 +861,7 @@ async def assemble_skip_check(
                     )
                 ),
                 max_correlated_exposure_percent=constitution.max_correlated_exposure_percent,
-                stop_distance_percent=_stop_distance_pct(
-                    proposal.entry_price, request.planned_stop
-                )
+                stop_distance_percent=_stop_distance_pct(proposal.entry_price, request.planned_stop)
                 if stop_provided
                 else 0.0,
                 atr_percent=0.0,

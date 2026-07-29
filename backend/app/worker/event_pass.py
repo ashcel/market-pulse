@@ -57,7 +57,16 @@ SOURCES: list[EventSource] = [
 # + directory matching instead). Intersected each pass with the live
 # TRADIFI_PERPETUAL directory so a delisted ticker is never fetched.
 _TRADFI_YAHOO_PRIORITY: list[str] = [
-    "SOXL", "SOXS", "NVDA", "TSLA", "SPY", "QQQ", "MSTR", "COIN", "AMD", "META",
+    "SOXL",
+    "SOXS",
+    "NVDA",
+    "TSLA",
+    "SPY",
+    "QQQ",
+    "MSTR",
+    "COIN",
+    "AMD",
+    "META",
 ]
 _YAHOO_FEED = "https://feeds.finance.yahoo.com/rss/2.0/headline?s={ticker}"
 

@@ -232,10 +232,7 @@ async def load_unlock_scope(db: AsyncSession) -> list[str]:
     opened (tracked_token) and starred (user_watchlist) token. Uppercased and
     de-duplicated; the pass unions these with the fixed universe."""
     result = await db.execute(
-        text(
-            "select ticker from tracked_token"
-            " union select symbol from user_watchlist"
-        )
+        text("select ticker from tracked_token union select symbol from user_watchlist")
     )
     return sorted({str(row[0]).upper() for row in result.all() if row[0]})
 

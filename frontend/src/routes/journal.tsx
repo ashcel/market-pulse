@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/features/page-header";
 import { OpenPositionsPanel, TradeHistoryPanel } from "@/components/features/trades-panel";
 import { ReviewPanel } from "@/components/features/review-panel";
+import { DecisionJournal } from "@/components/features/decision-journal";
 
 const JOURNAL_TABS = ["open", "history", "habits"] as const;
 type JournalTab = (typeof JOURNAL_TABS)[number];
@@ -65,6 +66,7 @@ function JournalPage() {
         title="Journal"
         subtitle="Open positions, trade history, and habits — am I trading well over time?"
       />
+      <DecisionJournal />
 
       <Tabs
         value={active}

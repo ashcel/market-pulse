@@ -21,9 +21,7 @@ class BinanceReviewKey(Base):
 
     __tablename__ = "binance_review_keys"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(String(36), nullable=False, unique=True, index=True)
     api_key: Mapped[str] = mapped_column(String(255), nullable=False)
     encrypted_secret: Mapped[str] = mapped_column(Text, nullable=False)
@@ -51,9 +49,7 @@ class BinanceTrade(Base):
         sa.Index("binance_trades_user_id_closed_at_idx", "user_id", "closed_at"),
     )
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     exchange_trade_id: Mapped[str] = mapped_column(String(100), nullable=False)
     symbol: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
@@ -83,9 +79,7 @@ class BinanceTrade(Base):
 class BinanceReviewSyncLog(Base):
     __tablename__ = "binance_review_sync_logs"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False)  # syncing|success|failed
     started_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(), nullable=False)

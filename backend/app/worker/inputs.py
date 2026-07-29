@@ -50,9 +50,7 @@ async def _fetch_timeframe(
     return timeframe, closed if closed else generate_mock_candles(ticker, timeframe)
 
 
-async def assemble_evaluate_inputs(
-    symbol: str, market: MarketType
-) -> AssembledInputs | None:
+async def assemble_evaluate_inputs(symbol: str, market: MarketType) -> AssembledInputs | None:
     ticker = normalize_ticker(symbol)
     if not ticker:
         return None

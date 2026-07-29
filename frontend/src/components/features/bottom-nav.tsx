@@ -23,7 +23,7 @@ export function BottomNav() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur lg:hidden">
-      <div className="mx-auto flex max-w-md items-center justify-around px-2 pb-[env(safe-area-inset-bottom)] pt-1.5">
+      <div className="mx-auto flex max-w-md items-center justify-around px-2 pb-[env(safe-area-inset-bottom)] pt-1">
         {TABS.map((t) => {
           const active = pathname === t.to;
           return (
@@ -31,7 +31,7 @@ export function BottomNav() {
               key={t.to}
               to={t.to}
               className={cn(
-                "flex min-w-[52px] flex-col items-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors",
+                "relative flex min-h-11 min-w-[64px] flex-col items-center justify-center gap-0.5 rounded-lg px-3 py-1.5 text-[10px] font-medium transition-colors",
                 t.primary
                   ? active
                     ? "text-info"
@@ -42,7 +42,14 @@ export function BottomNav() {
               )}
             >
               <t.icon className={cn(t.primary ? "h-6 w-6" : "h-5 w-5", active && "stroke-[2.4]")} />
-              <span>{t.label}</span>
+              <span className={cn(active && "font-bold")}>{t.label}</span>
+              <span
+                className={cn(
+                  "absolute bottom-0 h-0.5 w-5 rounded-full bg-info transition-opacity",
+                  active ? "opacity-100" : "opacity-0",
+                )}
+                aria-hidden
+              />
             </Link>
           );
         })}

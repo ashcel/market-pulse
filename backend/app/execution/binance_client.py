@@ -60,6 +60,28 @@ class BinanceExecClient:
     async def get_account(self) -> dict:
         return await self._request("GET", "/fapi/v2/account")
 
+    async def _listen_key_request(self, method: str, listen_key: str | None = None) -> dict:
+        params = {"listenKey": listen_key} if listen_key else None
+        async with httpx.AsyncClient() as client:
+            resp = await client.request(
+                method,
+                f"{self.base_url}/fapi/v1/listenKey",
+                params=params,
+                headers={"X-MBX-APIKEY": self.api_key},
+            )
+            resp.raise_for_status()
+            return resp.json()
+
+    async def create_listen_key(self) -> str:
+        result = await self._listen_key_request("POST")
+        return str(result["listenKey"])
+
+    async def keepalive_listen_key(self, listen_key: str) -> None:
+        await self._listen_key_request("PUT", listen_key)
+
+    async def close_listen_key(self, listen_key: str) -> None:
+        await self._listen_key_request("DELETE", listen_key)
+
     async def get_balance(self) -> list[dict]:
         return await self._request("GET", "/fapi/v2/balance")
 

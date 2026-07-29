@@ -18,6 +18,7 @@ from arq.cron import CronJob
 from app.config import settings
 from app.database import SessionFactory
 
+from .alert_pass import run_alert_pass
 from .binance import close_http_client
 from .binance_review_sync_pass import run_binance_review_sync_pass
 from .context_stamper import run_context_stamper_pass
@@ -50,6 +51,12 @@ async def context_stamper_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -
     return f"[context-stamper] stamped={written}"
 
 
+async def alert_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -> str:  # noqa: ARG001
+    async with SessionFactory() as db:
+        written = await run_alert_pass(db)
+    return f"[alerts] written={written}"
+
+
 async def shutdown(_ctx: dict[Any, Any]) -> None:
     await close_http_client()
 
@@ -57,6 +64,12 @@ async def shutdown(_ctx: dict[Any, Any]) -> None:
 class WorkerSettings:
     functions: ClassVar[list[Callable[[dict[Any, Any]], Awaitable[str]]]] = [health_ping]
     cron_jobs: ClassVar[list[CronJob]] = [
+        cron(
+            alert_tick,
+            minute={1, 6, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56},
+            run_at_startup=True,
+            timeout=300,
+        ),
         cron(
             forward_test_tick,
             minute={0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55},

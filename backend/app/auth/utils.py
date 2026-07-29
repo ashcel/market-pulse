@@ -28,9 +28,7 @@ def create_access_token(user_id: str) -> str:
 
 def decode_access_token(token: str) -> dict[str, Any]:
     try:
-        return jwt.decode(
-            token, auth_settings.JWT_SECRET, algorithms=[auth_settings.JWT_ALG]
-        )
+        return jwt.decode(token, auth_settings.JWT_SECRET, algorithms=[auth_settings.JWT_ALG])
     except jwt.ExpiredSignatureError as exc:
         raise InvalidTokenError() from exc
     except jwt.InvalidTokenError as exc:

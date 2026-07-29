@@ -3,6 +3,7 @@ from fastapi import APIRouter, Query, status
 from app.auth.dependencies import CurrentUserId, DbSession
 from app.pagination import PaginationMeta
 
+from .consolidated import list_trades_consolidated_paginated
 from .schemas import (
     BinanceReviewKeyCreate,
     BinanceReviewKeyEnvelope,
@@ -109,7 +110,20 @@ async def get_trades(
     symbol: str | None = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
+    consolidated: bool = Query(
+        False,
+        description="When true, group partial fills by (symbol, side, second) into logical trades",
+    ),
 ) -> BinanceTradeListEnvelope:
+    if consolidated:
+        data, _, meta = await list_trades_consolidated_paginated(
+            db, user_id=user_id, symbol=symbol, page=page, per_page=per_page,
+        )
+        return BinanceTradeListEnvelope(
+            data=data,
+            meta=meta.model_dump(),
+            error=None,
+        )
     trades, total = await list_trades(
         db, user_id=user_id, symbol=symbol, page=page, per_page=per_page
     )
@@ -117,4 +131,5 @@ async def get_trades(
     return BinanceTradeListEnvelope(
         data=[BinanceTradeResponse.model_validate(t) for t in trades],
         meta=meta.model_dump(),
+        error=None,
     )

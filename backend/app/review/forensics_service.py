@@ -39,8 +39,12 @@ from .models import TradeForensics
 
 #: The excursion block — every one of these shares the block-level §3 reason.
 _UNITS = {
-    "mae_price": "quote_currency", "mae_percent": "percent_of_entry", "mae_r": "r_multiple",
-    "mfe_price": "quote_currency", "mfe_percent": "percent_of_entry", "mfe_r": "r_multiple",
+    "mae_price": "quote_currency",
+    "mae_percent": "percent_of_entry",
+    "mae_r": "r_multiple",
+    "mfe_price": "quote_currency",
+    "mfe_percent": "percent_of_entry",
+    "mfe_r": "r_multiple",
     "exit_efficiency": "ratio_percent",
 }
 
@@ -75,7 +79,8 @@ def build_forensics(
     interval, window = plan_window(trade)
     candles = sorted(
         (
-            item for item in klines
+            item
+            for item in klines
             if window["first_open_ms"] <= int(item["open_time"]) <= window["last_open_ms"]
         ),
         key=lambda item: int(item["open_time"]),
@@ -102,22 +107,35 @@ def build_forensics(
         mae = compute_mae(*args)
         mfe = compute_mfe(*args)
         metrics = {
-            "mae_price": mae["price"], "mae_percent": mae["percent"], "mae_r": mae["r"],
-            "mfe_price": mfe["price"], "mfe_percent": mfe["percent"], "mfe_r": mfe["r"],
+            "mae_price": mae["price"],
+            "mae_percent": mae["percent"],
+            "mae_r": mae["r"],
+            "mfe_price": mfe["price"],
+            "mfe_percent": mfe["percent"],
+            "mfe_r": mfe["r"],
             "exit_efficiency": exit_efficiency(
                 trade.side, trade.entry_price, trade.exit_price, low_min, high_max
             ),
         }
         metrics = disclose_boundary_inflation(metrics, bound_pct)
         discipline = stop_discipline(
-            trade.side, trade.entry_price, trade.exit_price, trade.stop_loss,
-            trade.close_trigger, low_min, high_max,
+            trade.side,
+            trade.entry_price,
+            trade.exit_price,
+            trade.stop_loss,
+            trade.close_trigger,
+            low_min,
+            high_max,
         )
     else:
         metrics = _blocked(reason)
         discipline = stop_discipline(
-            trade.side, trade.entry_price, trade.exit_price, trade.stop_loss,
-            trade.close_trigger, depth_unavailable=reason,
+            trade.side,
+            trade.entry_price,
+            trade.exit_price,
+            trade.stop_loss,
+            trade.close_trigger,
+            depth_unavailable=reason,
         )
 
     reentry = reentry_latency(trade, trades, partial_close_ids)
@@ -161,8 +179,10 @@ def _sizing_metrics(trade: BinanceTrade, cohort: dict[str, object]) -> dict[str,
     sizes = cohort.get("sizes")
     median = cohort.get("median")
     if (
-        isinstance(trade_ids, list) and isinstance(sizes, list)
-        and isinstance(median, MetricValue) and median.value
+        isinstance(trade_ids, list)
+        and isinstance(sizes, list)
+        and isinstance(median, MetricValue)
+        and median.value
         and trade.id in trade_ids
     ):
         own = sizes[trade_ids.index(trade.id)]
@@ -175,18 +195,26 @@ def _sizing_metrics(trade: BinanceTrade, cohort: dict[str, object]) -> dict[str,
     return metrics
 
 
-async def compute_forensics_for_user(
-    db: AsyncSession, user_id: str, testnet: bool = False
-) -> int:
-    trades = list((await db.scalars(
-        select(BinanceTrade).where(BinanceTrade.user_id == user_id).order_by(BinanceTrade.opened_at)
-    )).all())
-    existing_ids = set((await db.scalars(
-        select(TradeForensics.binance_trade_id).where(
-            TradeForensics.user_id == user_id,
-            TradeForensics.forensics_version == FORENSICS_DEFINITIONS_VERSION,
-        )
-    )).all())
+async def compute_forensics_for_user(db: AsyncSession, user_id: str, testnet: bool = False) -> int:
+    trades = list(
+        (
+            await db.scalars(
+                select(BinanceTrade)
+                .where(BinanceTrade.user_id == user_id)
+                .order_by(BinanceTrade.opened_at)
+            )
+        ).all()
+    )
+    existing_ids = set(
+        (
+            await db.scalars(
+                select(TradeForensics.binance_trade_id).where(
+                    TradeForensics.user_id == user_id,
+                    TradeForensics.forensics_version == FORENSICS_DEFINITIONS_VERSION,
+                )
+            )
+        ).all()
+    )
     partial_close_ids = frozenset(detect_partial_close_groups(trades))
     cohort = sizing_variance(trades, partial_close_ids)
     now_ms = int(datetime.now(UTC).timestamp() * 1000)
@@ -197,13 +225,19 @@ async def compute_forensics_for_user(
             continue
         interval, window = plan_window(trade)
         klines = await fetch_klines_raw(
-            trade.symbol, interval, min(900, max(1, window["candle_count"])),
+            trade.symbol,
+            interval,
+            min(900, max(1, window["candle_count"])),
             end_time=window["last_open_ms"] + INTERVAL_MS[interval] - 1,
         )
         payload = build_forensics(
-            trade, trades, klines,
-            testnet=testnet, partial_close_ids=partial_close_ids,
-            cohort=cohort, now_ms=now_ms,
+            trade,
+            trades,
+            klines,
+            testnet=testnet,
+            partial_close_ids=partial_close_ids,
+            cohort=cohort,
+            now_ms=now_ms,
         )
         if payload is None:  # pending_bar_close — recompute on a later tick
             continue
@@ -214,9 +248,11 @@ async def compute_forensics_for_user(
 
 
 async def get_forensics(db: AsyncSession, user_id: str, trade_id: str) -> TradeForensics:
-    row = await db.scalar(select(TradeForensics).where(
-        TradeForensics.user_id == user_id, TradeForensics.binance_trade_id == trade_id
-    ))
+    row = await db.scalar(
+        select(TradeForensics).where(
+            TradeForensics.user_id == user_id, TradeForensics.binance_trade_id == trade_id
+        )
+    )
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Forensics not found")
     return row
@@ -227,8 +263,15 @@ async def list_forensics(
 ) -> tuple[list[TradeForensics], int]:
     where = TradeForensics.user_id == user_id
     total = await db.scalar(select(func.count()).select_from(TradeForensics).where(where)) or 0
-    rows = list((await db.scalars(
-        select(TradeForensics).where(where).order_by(TradeForensics.created_at.desc())
-        .offset((page - 1) * per_page).limit(per_page)
-    )).all())
+    rows = list(
+        (
+            await db.scalars(
+                select(TradeForensics)
+                .where(where)
+                .order_by(TradeForensics.created_at.desc())
+                .offset((page - 1) * per_page)
+                .limit(per_page)
+            )
+        ).all()
+    )
     return rows, total

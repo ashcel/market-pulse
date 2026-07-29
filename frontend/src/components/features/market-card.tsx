@@ -9,7 +9,7 @@ export function MarketCard({ asset, className }: { asset: Asset; className?: str
   const tone = asset.change24h >= 0 ? "bullish" : "bearish";
   const actionable = asset.decision === "buy-candidate" || asset.decision === "short-candidate";
   return (
-    <IqCard interactive className={cn("flex flex-col gap-3", className)}>
+    <IqCard interactive className={cn("flex flex-col gap-2 p-3 sm:gap-3 sm:p-5", className)}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <AssetIcon ticker={asset.ticker} className="h-5 w-5" />

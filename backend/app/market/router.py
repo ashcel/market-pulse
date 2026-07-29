@@ -104,9 +104,7 @@ async def get_signal(
     signal_id: str,
     db: DbSession,
 ) -> SignalDetailEnvelope:
-    result = await db.execute(
-        select(Signal).where(Signal.id == signal_id)
-    )
+    result = await db.execute(select(Signal).where(Signal.id == signal_id))
     signal = result.scalar_one_or_none()
     if not signal:
         raise SignalNotFoundError(signal_id)

@@ -257,14 +257,10 @@ class BybitClient:
         both fail.
         """
         try:
-            await self._request(
-                "GET", "/v5/account/wallet-balance", {"accountType": "UNIFIED"}
-            )
+            await self._request("GET", "/v5/account/wallet-balance", {"accountType": "UNIFIED"})
             return True
         except BybitUpstreamError:
-            await self._request(
-                "GET", "/v5/account/wallet-balance", {"accountType": "CONTRACT"}
-            )
+            await self._request("GET", "/v5/account/wallet-balance", {"accountType": "CONTRACT"})
             return True
 
 

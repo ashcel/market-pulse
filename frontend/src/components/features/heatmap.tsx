@@ -20,7 +20,7 @@ export function Heatmap({ sectors, className }: { sectors: Sector[]; className?:
     [],
   );
   return (
-    <IqCard className={cn("flex flex-col gap-4", className)}>
+    <IqCard className={cn("flex flex-col gap-3 p-3 sm:gap-4 sm:p-5", className)}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {groups.map((group) => {
           const items = sectors.filter((s) => s.group === group);
@@ -40,7 +40,7 @@ export function Heatmap({ sectors, className }: { sectors: Sector[]; className?:
                       to="/token/$symbol"
                       params={{ symbol: s.ticker }}
                       className={cn(
-                        "flex min-h-[54px] flex-col items-center justify-center rounded-lg border px-2 py-2 text-center transition-transform hover:scale-[1.02]",
+                        "flex min-h-11 flex-col items-center justify-center rounded-lg border px-1.5 py-1.5 text-center transition-transform hover:scale-[1.02] sm:min-h-[54px] sm:px-2 sm:py-2",
                         toneClass(s.change),
                       )}
                     >
@@ -57,7 +57,7 @@ export function Heatmap({ sectors, className }: { sectors: Sector[]; className?:
           );
         })}
       </div>
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+      <div className="hidden items-center justify-between text-[10px] text-muted-foreground sm:flex">
         <div className="flex items-center gap-2">
           <span>Capital Inflow</span>
           <span className="h-1 w-24 rounded-full bg-gradient-to-r from-bullish/20 to-bullish" />

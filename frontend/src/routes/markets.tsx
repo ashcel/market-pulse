@@ -66,19 +66,23 @@ function MarketsPage() {
   const active: MarketsTab = tab ?? "overview";
 
   return (
-    <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
+    <div className="mx-auto flex max-w-[1400px] flex-col gap-4 sm:gap-6">
       <Tabs
         value={active}
         onValueChange={(v) =>
           navigate({ search: { tab: v === "overview" ? undefined : (v as MarketsTab) } })
         }
-        className="flex flex-col gap-6"
+        className="flex flex-col gap-4 sm:gap-6"
       >
-        <TabsList className="grid h-auto w-full grid-cols-5 gap-1 rounded-xl border border-border bg-card p-1 sm:w-auto sm:max-w-2xl">
+        <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 sm:max-w-2xl">
           {TAB_META.map((t) => (
-            <TabsTrigger key={t.value} value={t.value} className="gap-1.5 px-3 py-1.5 text-xs">
+            <TabsTrigger
+              key={t.value}
+              value={t.value}
+              className="min-h-11 shrink-0 gap-1.5 px-3 py-1.5 text-xs sm:min-h-0"
+            >
               <t.icon className="h-3.5 w-3.5" aria-hidden />
-              <span className="hidden sm:inline">{t.label}</span>
+              <span>{t.label}</span>
             </TabsTrigger>
           ))}
         </TabsList>

@@ -276,7 +276,7 @@ export function GlanceStrip({
   return (
     <IqCard
       padded={false}
-      className="grid shrink-0 grid-cols-2 gap-px sm:grid-cols-3 lg:grid-cols-5 lg:divide-x lg:divide-border"
+      className="grid shrink-0 grid-cols-2 gap-px rounded-none border-0 sm:grid-cols-3 lg:grid-cols-5 lg:divide-x lg:divide-border"
     >
       {chips.map((chip) => (
         <div key={chip.label} className="flex min-w-0 items-center gap-2.5 px-3 py-2">

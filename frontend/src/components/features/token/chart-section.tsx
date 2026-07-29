@@ -117,6 +117,12 @@ export class ChartErrorBoundary extends React.Component<
   }
 }
 
+export function ChartFooter({ children }: { children: ReactNode }) {
+  return (
+    <div className="shrink-0 border-t border-border bg-card/90 backdrop-blur-sm">{children}</div>
+  );
+}
+
 export function TokenChart({
   symbol,
   timeframe,

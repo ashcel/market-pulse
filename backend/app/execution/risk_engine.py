@@ -373,9 +373,7 @@ def _check_liquidation_inside_stop(proposal: TradeProposal) -> PermitCheckResult
             f"{LIQ_STOP_BUFFER} x stop distance {stop_distance})"
         )
     else:
-        max_lev = _max_leverage_that_passes(
-            proposal.entry_price, stop_distance, LIQ_STOP_BUFFER
-        )
+        max_lev = _max_leverage_that_passes(proposal.entry_price, stop_distance, LIQ_STOP_BUFFER)
         max_lev_hint = (
             f"reduce leverage to <= {max_lev.quantize(Decimal('0.01'))}x"
             if max_lev is not None

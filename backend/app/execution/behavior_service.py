@@ -2,11 +2,16 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.binance_review.models import BinanceTrade
 
 from .behavior_detectors import TradeRecord
+
+
+class BehaviorHistoryUnavailableError(RuntimeError):
+    pass
 
 
 async def get_trade_records_for_behavior(
@@ -23,7 +28,10 @@ async def get_trade_records_for_behavior(
         .where(BinanceTrade.closed_at >= lookback_date)
         .order_by(BinanceTrade.opened_at.asc())
     )
-    result = await db.execute(q)
+    try:
+        result = await db.execute(q)
+    except SQLAlchemyError as exc:
+        raise BehaviorHistoryUnavailableError("Trade behavior history unavailable") from exc
     binance_trades = result.scalars().all()
 
     records = []

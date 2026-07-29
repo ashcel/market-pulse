@@ -308,7 +308,9 @@ async def run_sync(db: AsyncSession, user_id: str) -> BinanceReviewSyncLog:
     secret = decrypt(key.encrypted_secret)
     client = BinanceExecClient(key.api_key, secret, testnet=binance_review_settings.TESTNET)
 
-    log = BinanceReviewSyncLog(user_id=user_id, status=SYNC_STATUS_SYNCING, started_at=datetime.now())
+    log = BinanceReviewSyncLog(
+        user_id=user_id, status=SYNC_STATUS_SYNCING, started_at=datetime.now()
+    )
     db.add(log)
     await db.commit()
     await db.refresh(log)

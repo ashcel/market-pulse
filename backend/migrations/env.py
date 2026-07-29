@@ -21,6 +21,8 @@ from app.execution.models import (  # noqa: F401
     TradePermit,
     TradingConstitution,
 )
+from app.execution.alert_models import Alert  # noqa: F401
+from app.execution.decision_snapshot import DecisionSnapshot  # noqa: F401
 from app.forward_test.models import (  # noqa: F401
     AnticipatorySignalRow,
     EngineRun,

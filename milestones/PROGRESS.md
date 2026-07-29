@@ -97,7 +97,16 @@ override task order.
 - Needs restart: yes (the live service serves the homepage; a restart picks up the new route bundle)
 - Flags for user: Screenshots cannot be captured headlessly in cron context — please verify visually that homepage no longer implies proven edge. Tour seen-key NOT bumped (v2) — users who dismissed the tour won't see reworded steps unless they reopen via the help button; bump to v3 if desired.
 
-## 2026-07-27 — R4 Review forensics (T1–T8 + T8 remediation)
+## 2026-07-27 — R5 Alternatives & guardrail surfaces (T1–T3)
+- Implemented by: Bima (direct)
+- Verdict trail: ACCEPT
+- Changed:
+  - **R5-T1 Spike don't-chase reframing:** `components/features/market-opportunities-card.tsx` — spike badges "Spike rejected" → "Don't chase", header "Live spikes" → "⚠ Spikes — don't chase", added cooldown timing per chip (`∼{barsAgo * 15}m ago`). `server/spike-watch.ts` — notification title "{ticker}: Up-spike rejected" → "Don't chase — up-spike fading", body includes "Don't chase this move — post-spike cooldown active."
+  - **R5-T2 Discovery scan → alternatives:** `components/features/market-opportunities-card.tsx` — reduced SHOWN 6→3, renamed component `MarketOpportunitiesCard` → `AlternativesCard`, title "Market Opportunities · Worth Scanning" → "Alternatives", subtitle "Activity scan · not a trade signal" → "Alternatives scan · when your pick isn't actionable", footer simplified. `components/features/markets-panel.tsx` — updated import + usage + section title. New `components/features/alternatives-strip.tsx` — `AlternativesStrip` component shown on homepage when `LiveSetupsStrip` is empty. `routes/index.tsx` — wired `AlternativesStrip` conditionally after `LiveSetupsStrip`.
+  - **R5-T3 CRO narration foundation:** Already scaffolded in `backend/app/execution/ai_cro.py` + `ai_cro_router.py` (CROContext, build_cro_context, build_cro_prompt, CRONarration response model, POST /execution/permits/{permit_id}/cro-narration router). LLM call is a stub (BYOK wiring deferred to R3).
+- Verified: `bunx tsc --noEmit` clean, `bunx vitest run` 915/915 tests pass (same 10 pre-existing execution WIP failures, no new regressions).
+- Needs restart: yes — frontend rebuild to pick up the new homepage alternatives strip and reframed markets alternatives card.
+- Flags for user: Full "shown only from a skip/invalid state" gating needs R2 skip check; AI CRO runtime needs R3 permits/detectors.
 
 - Implemented by: claude-code (orchestrator, inline — no subagents this pass)
 - Verdict trail: R4-T8's review found R4 **non-compliant** with

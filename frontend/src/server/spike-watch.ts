@@ -25,8 +25,9 @@ const lastAlerted = new Map<string, { spikeTime: number; at: number }>();
 function describe(hit: SpikeHit): { title: string; body: string } {
   const dir = hit.spike.direction === "up" ? "Up" : "Down";
   return {
-    title: `${hit.ticker}: ${dir}-spike rejected`,
-    body: `${hit.spike.reason} — a ${hit.spike.rangePct.toFixed(1)}% 15m bar. Discovery signal, not a call — check the chart.`,
+    title: `${hit.ticker}: Don't chase — ${dir.toLowerCase()}-spike fading`,
+    body: `${hit.spike.reason} — a ${hit.spike.rangePct.toFixed(1)}% 15m bar. Don't chase this move — post-spike cooldown active.`,
+
   };
 }
 

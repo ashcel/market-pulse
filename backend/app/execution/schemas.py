@@ -206,6 +206,7 @@ class PermitCardRejected(BaseModel):
     permit_id: str
     decision: DecisionCardSection
     reasons: list[str]
+    dependency_errors: list[str] = Field(default_factory=list)
 
 
 def _check_items(decision: PermitDecision, group: str) -> list[CheckCardItem]:
@@ -224,6 +225,7 @@ def build_permit_card(
     *,
     margin_type: str | None = None,
     liquidation: LiquidationEstimate | None = None,
+    dependency_errors: list[str] | None = None,
 ) -> PermitCardApproved | PermitCardRejected:
     """Build the fixed permit-card shape from a `PermitDecision` +
     `TradeQualityScore`. Every field is copied straight from those
@@ -247,6 +249,7 @@ def build_permit_card(
             permit_id=permit_id,
             decision=decision_section,
             reasons=[c.detail for c in decision.checks if not c.passed],
+            dependency_errors=dependency_errors or [],
         )
 
     return PermitCardApproved(

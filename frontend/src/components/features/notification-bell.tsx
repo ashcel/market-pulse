@@ -9,8 +9,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useNotificationsStore } from "@/stores/notifications";
-import type { NotificationEvent } from "@/lib/engine/notifications";
+import { useAlerts, useMarkAlertRead, useMarkAllAlertsRead } from "@/hooks/useAlerts";
+import type { DecisionAlert } from "@/hooks/useAlerts";
 import { cn } from "@/lib/utils";
 
 function relativeTime(iso: string): string {
@@ -25,17 +25,21 @@ function relativeTime(iso: string): string {
 
 export function NotificationBell() {
   const navigate = useNavigate();
-  const items = useNotificationsStore((s) => s.items);
-  const unreadCount = useNotificationsStore((s) => s.unreadCount);
-  const markAllRead = useNotificationsStore((s) => s.markAllRead);
+  const { data } = useAlerts();
+  const markRead = useMarkAlertRead();
+  const markAllRead = useMarkAllAlertsRead();
+  const items = data?.data ?? [];
+  const unreadCount = items.filter((item) => !item.read).length;
 
-  const goTo = (event: NotificationEvent) => {
-    if (event.ticker) navigate({ to: "/token/$symbol", params: { symbol: event.ticker } });
-    else navigate({ to: "/markets", search: { tab: "regime" } });
+  const goTo = (alert: DecisionAlert) => {
+    if (!alert.read) markRead.mutate(alert.id);
+    if (alert.token_symbol) {
+      navigate({ to: "/token/$symbol", params: { symbol: alert.token_symbol } });
+    } else navigate({ to: "/markets", search: { tab: "regime" } });
   };
 
   return (
-    <DropdownMenu onOpenChange={(open) => open && markAllRead()}>
+    <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           className="relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
@@ -43,12 +47,27 @@ export function NotificationBell() {
         >
           <Bell className="h-4 w-4" />
           {unreadCount > 0 && (
-            <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-info" />
+            <span className="absolute right-0.5 top-0.5 min-w-4 rounded-full bg-info px-1 text-center text-[9px] font-semibold text-white">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
           )}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80">
-        <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+        <DropdownMenuLabel className="flex items-center justify-between">
+          <span>Decision alerts</span>
+          {unreadCount > 0 && (
+            <button
+              className="text-[11px] font-normal text-info hover:underline"
+              onClick={(event) => {
+                event.preventDefault();
+                markAllRead.mutate();
+              }}
+            >
+              Mark all read
+            </button>
+          )}
+        </DropdownMenuLabel>
         <DropdownMenuSeparator />
         {items.length === 0 && (
           <div className="px-2 py-4 text-center text-xs text-muted-foreground">
@@ -65,24 +84,16 @@ export function NotificationBell() {
               <span
                 className={cn(
                   "text-sm font-medium",
-                  event.type === "setup-found" && "text-bullish",
-                  (event.type === "trigger-hit" || event.type === "follow-settled") && "text-info",
-                  (event.type === "worker-health" || event.type === "token-event") &&
-                    "text-warning",
-                  event.type === "spike-alert" && "text-info",
-                  event.type !== "setup-found" &&
-                    event.type !== "trigger-hit" &&
-                    event.type !== "follow-settled" &&
-                    event.type !== "worker-health" &&
-                    event.type !== "token-event" &&
-                    event.type !== "spike-alert" &&
-                    "text-foreground",
+                    event.severity === "info" && "text-info",
+                    event.severity === "warning" && "text-warning",
+                    event.severity === "critical" && "text-bearish",
+                    event.read && "opacity-60",
                 )}
               >
                 {event.title}
               </span>
               <span className="shrink-0 text-[10px] text-muted-foreground">
-                {relativeTime(event.createdAt)}
+                 {relativeTime(event.created_at)}
               </span>
             </div>
             <span className="line-clamp-2 text-xs text-muted-foreground">{event.body}</span>

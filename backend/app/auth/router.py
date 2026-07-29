@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, status
 
 from .dependencies import CurrentUserId, DbSession

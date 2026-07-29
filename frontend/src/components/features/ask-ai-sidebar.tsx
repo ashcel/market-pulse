@@ -56,6 +56,7 @@ import type { SignalEvaluation } from "@/lib/engine/quant";
 import type { ExternalContext } from "@/lib/engine/external-context";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
 import { MarkdownText } from "@/components/features/markdown-text";
+import { useAiDeskStore, type AiDeskPosition } from "@/stores/ai-desk";
 
 // ── Deterministic evidence gate ─────────────────────────────────────────────
 // Zero-cost (no LLM call) check for whether the open page's context actually
@@ -177,7 +178,7 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
 
   // Plain-chat fallback (unparseable free text with no symbol/direction).
   const [chat, setChat] = useState<
-    Array<{ role: "user" | "assistant"; text: string; source?: string }>
+    Array<{ role: "user" | "assistant"; text: string; source?: string; positions?: AiDeskPosition[] }>
   >([]);
   const [chatLoading, setChatLoading] = useState(false);
 
@@ -207,6 +208,26 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
   const context = useAiContext((s) => s.context);
   const reviews = useDeskReviewsStore((s) => s.reviews);
   const addReview = useDeskReviewsStore((s) => s.addReview);
+  const incomingMessage = useAiDeskStore((s) => s.incomingMessage);
+  const clearIncomingMessage = useAiDeskStore((s) => s.clearIncomingMessage);
+
+  useEffect(() => {
+    if (!incomingMessage) return;
+    setChat((items) =>
+      [
+        ...items,
+        {
+          role: "assistant" as const,
+          text: incomingMessage.text,
+          source: incomingMessage.source,
+          positions: incomingMessage.positions,
+        },
+      ].slice(-20),
+    );
+    setMode("chat");
+    setError(null);
+    clearIncomingMessage();
+  }, [incomingMessage, clearIncomingMessage]);
 
   // Economic calendar + market condition — every AI entry point below (plain
   // chat, ungrounded chat, desk review) threads the same two payloads in.
@@ -785,8 +806,40 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
                   {msg.role === "user" ? (
                     msg.text
                   ) : (
-                    <div className="prose prose-sm dark:prose-invert text-xs leading-relaxed max-w-none">
-                      <MarkdownText text={msg.text} />
+                    <div className="flex flex-col gap-3">
+                      {msg.positions && msg.positions.length > 0 && (
+                        <div className="grid gap-2">
+                          {msg.positions.map((position) => (
+                            <div
+                              key={`${position.symbol}:${position.side}`}
+                              className="rounded-lg border border-border/70 bg-background/40 p-2.5"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-semibold">{position.symbol}</span>
+                                <span
+                                  className={cn(
+                                    "rounded-full px-2 py-0.5 text-[9px] font-bold",
+                                    position.side === "LONG"
+                                      ? "bg-bullish/10 text-bullish"
+                                      : "bg-bearish/10 text-bearish",
+                                  )}
+                                >
+                                  {position.side}
+                                </span>
+                              </div>
+                              <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
+                                <span>Entry {position.entryPrice}</span>
+                                <span className={position.unrealizedPnl >= 0 ? "text-bullish" : "text-bearish"}>
+                                  PnL {position.unrealizedPnl >= 0 ? "+" : ""}{position.unrealizedPnl.toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="prose prose-sm dark:prose-invert text-xs leading-relaxed max-w-none">
+                        <MarkdownText text={msg.text} />
+                      </div>
                     </div>
                   )}
                 </div>

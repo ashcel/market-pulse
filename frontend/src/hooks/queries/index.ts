@@ -30,6 +30,49 @@ function useMarketSnapshot<T = MarketSnapshot>(select?: (snapshot: MarketSnapsho
   });
 }
 
+export interface UniverseVerdict {
+  symbol: string;
+  objective: string;
+  state: "go" | "wait" | "no_go";
+  direction: "long" | "short" | null;
+  confidence: number;
+  verdict: string;
+  invalidated_by: string;
+  what_flips_it: string;
+}
+
+export interface UniverseSnapshot {
+  snapshot_timestamp: string;
+  verdicts: UniverseVerdict[];
+  catalysts: Array<{
+    symbol: string;
+    events: unknown[];
+    impact_score: number;
+    modifier: string;
+    freshness: string;
+  }>;
+  account: {
+    status: string;
+    buying_power: number;
+    open_positions: number;
+    freshness: string;
+  };
+  market_state: { regime: string; regime_confidence: number; trend: string };
+  meta: { engine_version: string; snapshot_age_ms: number };
+}
+
+export const useUniverse = () =>
+  useQuery<UniverseSnapshot>({
+    queryKey: ["universe"],
+    queryFn: async () => {
+      const res = await fetch("/api/universe", { credentials: "same-origin" });
+      if (!res.ok) throw new Error(`Universe fetch failed: ${res.status}`);
+      return (await res.json()) as UniverseSnapshot;
+    },
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+  });
+
 export const useSnapshotMeta = () =>
   useMarketSnapshot((s) => ({ source: s.source, updatedAt: s.updatedAt }));
 
@@ -218,17 +261,10 @@ interface TokenEventRow {
 }
 
 async function fetchEventRows<T>(path: string): Promise<T[]> {
-  try {
-    const res = await fetch(path, { credentials: "same-origin" });
-    if (!res.ok) return [];
-    const body = (await res.json()) as EventsEnvelope<T>;
-    return body.data ?? [];
-  } catch {
-    // The Python events plane is served same-origin via Caddy (/api/v1/*) in
-    // production; in dev (Vite alone) it 404s. Either way, absence is silent —
-    // the catalyst line simply doesn't render.
-    return [];
-  }
+  const res = await fetch(path, { credentials: "same-origin" });
+  if (!res.ok) throw new Error(`Catalyst fetch failed: ${res.status}`);
+  const body = (await res.json()) as EventsEnvelope<T>;
+  return body.data ?? [];
 }
 
 /**
@@ -336,6 +372,8 @@ export function useCatalystRailEvents(symbols: string[], days = 14) {
   return {
     data: results.flatMap((r) => r.data ?? []),
     isLoading: results.length > 0 && results.some((r) => r.isLoading),
+    isError: results.some((r) => r.isError),
+    dataUpdatedAt: Math.min(...results.filter((r) => r.dataUpdatedAt > 0).map((r) => r.dataUpdatedAt), 0),
   };
 }
 

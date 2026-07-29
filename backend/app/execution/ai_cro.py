@@ -103,10 +103,7 @@ def build_cro_prompt(context: CROContext) -> str:
 
     lines.append("\nQuality Components:")
     for comp in context.quality_components:
-        lines.append(
-            f"- {comp.get('component')}: "
-            f"{comp.get('points')} pts ({comp.get('detail')})"
-        )
+        lines.append(f"- {comp.get('component')}: {comp.get('points')} pts ({comp.get('detail')})")
 
     lines.append(
         "\nPlease provide a clear explanation of the decision, "

@@ -337,9 +337,7 @@ async def _sync_leverage_and_margin(
     """
     symbol = record.symbol
     margin_type = _margin_type_for_record(record)
-    target_leverage = (
-        round(record.leverage) if record.leverage and record.leverage > 0 else 1
-    )
+    target_leverage = round(record.leverage) if record.leverage and record.leverage > 0 else 1
 
     try:
         await client.set_margin_type(symbol, margin_type)
@@ -374,8 +372,7 @@ async def _sync_leverage_and_margin(
     actual_leverage_raw = row.get("leverage") if row else None
     try:
         lev_ok = (
-            actual_leverage_raw is not None
-            and int(float(actual_leverage_raw)) == target_leverage
+            actual_leverage_raw is not None and int(float(actual_leverage_raw)) == target_leverage
         )
     except (TypeError, ValueError):
         lev_ok = False
@@ -396,9 +393,7 @@ async def _sync_leverage_and_margin(
         )
         return False
 
-    _append_event(
-        record, "leverage_synced", margin_type=margin_type, leverage=target_leverage
-    )
+    _append_event(record, "leverage_synced", margin_type=margin_type, leverage=target_leverage)
     await _resolve(db.commit())
     return True
 
@@ -1021,8 +1016,7 @@ async def _reconcile_execution(
                     order
                     for order in algo_orders
                     if str(order.get("symbol", record.symbol)) == record.symbol
-                    and str(order.get("orderType", order.get("type", ""))).upper()
-                    == "STOP_MARKET"
+                    and str(order.get("orderType", order.get("type", ""))).upper() == "STOP_MARKET"
                 ),
                 None,
             )

@@ -3,9 +3,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .binance_client import BinanceExecClient
+from .exceptions import ExecutionKeyCredentialsInvalidError, ExecutionKeyNotFoundError
 from .exec_key_crypto import decrypt
 from .exec_key_service import get_exec_key
 from .risk_engine import AccountState
@@ -42,6 +44,22 @@ class CachedAccountState:
 
 
 _cache: dict[str, CachedAccountState] = {}
+
+
+class AccountStateError(RuntimeError):
+    """Typed account-snapshot dependency failure."""
+
+
+class ExchangeUnreachableError(AccountStateError):
+    pass
+
+
+class CredentialsInvalidError(AccountStateError):
+    pass
+
+
+class AccountRateLimitedError(AccountStateError):
+    pass
 
 
 async def get_account_state(db: AsyncSession, user_id: str, settings) -> AccountState:
@@ -103,7 +121,12 @@ async def get_account_state(db: AsyncSession, user_id: str, settings) -> Account
 
         _cache[user_id] = CachedAccountState(state=state, fetched_at=datetime.now())
         return state
-    except Exception as exc:
+    except (
+        httpx.HTTPError,
+        ExecutionKeyCredentialsInvalidError,
+        ExecutionKeyNotFoundError,
+        ValueError,
+    ) as exc:
         if user_id in _cache:
             c = _cache[user_id]
             if (
@@ -118,4 +141,13 @@ async def get_account_state(db: AsyncSession, user_id: str, settings) -> Account
                     active_behavior_flags=c.state.active_behavior_flags,
                     is_stale=True,
                 )
-        raise RuntimeError("Fresh Binance account state unavailable") from exc
+        if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429:
+            raise AccountRateLimitedError("Binance account API rate limited") from exc
+        if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in {401, 403}:
+            raise CredentialsInvalidError("Binance credentials rejected") from exc
+        if isinstance(
+            exc,
+            (ExecutionKeyCredentialsInvalidError, ExecutionKeyNotFoundError, ValueError),
+        ):
+            raise CredentialsInvalidError("Binance credentials unavailable or invalid") from exc
+        raise ExchangeUnreachableError("Binance account API unreachable") from exc

@@ -107,9 +107,7 @@ class ShadowSignalRow(Base):
     confidence: Mapped[float] = mapped_column(Double, nullable=False)
     objective_resolved: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    status: Mapped[str] = mapped_column(
-        Text, nullable=False, server_default=text("'active'::text")
-    )
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'active'::text"))
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     close_price: Mapped[float | None] = mapped_column(Double, nullable=True)
     result_r: Mapped[float | None] = mapped_column(Double, nullable=True)

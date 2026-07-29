@@ -6,6 +6,8 @@ import {
   Brain,
   CheckCircle2,
   CircleAlert,
+  ChevronLeft,
+  ChevronRight,
   History,
   Send,
   ShieldAlert,
@@ -47,6 +49,7 @@ import type { SetupValidityResult } from "@/lib/engine/setup-validity";
 import { formatEntryRange, formatMoney, formatUnits } from "@/lib/utils/format";
 import { usePreferencesStore } from "@/stores/preferences";
 import { cn } from "@/lib/utils";
+import { apiFetch } from "@/lib/api/client";
 import { InfoHint, LevelStat, RiskMetric } from "@/components/features/token/shared";
 import {
   HoldNote,
@@ -96,6 +99,8 @@ export function AssistantPanel({
   evidenceOpen,
   onEvidenceOpen,
   onOpenTrade,
+  open,
+  onToggle,
   className,
 }: {
   symbol: string;
@@ -118,6 +123,8 @@ export function AssistantPanel({
   onEvidenceOpen: (open: string[]) => void;
   /** Opens the trade drawer (constitution-gated permit → confirm) + AI analyst, prefilled from this plan. */
   onOpenTrade: () => void;
+  open: boolean;
+  onToggle: () => void;
   className?: string;
 }) {
   const router = useRouter();
@@ -140,6 +147,31 @@ export function AssistantPanel({
   const setLeverage = usePreferencesStore((s) => s.setLeverage);
   const [followDialogOpen, setFollowDialogOpen] = useState(false);
   const [entryPriceInput, setEntryPriceInput] = useState("");
+  const [deskInput, setDeskInput] = useState("");
+  const [deskConversationId, setDeskConversationId] = useState<string | null>(null);
+  const [deskMessages, setDeskMessages] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
+  const [deskLoading, setDeskLoading] = useState(false);
+
+  const askDesk = async () => {
+    const message = deskInput.trim();
+    if (!message || deskLoading) return;
+    setDeskInput("");
+    setDeskMessages((items) => [...items, { role: "user", text: message }]);
+    setDeskLoading(true);
+    try {
+      const result = await apiFetch<{ data: { response: string; conversation_id: string } }>("/ai-desk/chat", {
+        method: "POST",
+        body: JSON.stringify({ message, conversation_id: deskConversationId }),
+      });
+      const data = result.data;
+      setDeskConversationId(data.conversation_id);
+      setDeskMessages((items) => [...items, { role: "assistant", text: data.response }]);
+    } catch {
+      setDeskMessages((items) => [...items, { role: "assistant", text: "AI Desk is unavailable. Try again shortly." }]);
+    } finally {
+      setDeskLoading(false);
+    }
+  };
 
   const openFollowDialog = () => {
     if (!active?.plan) return;
@@ -198,8 +230,15 @@ export function AssistantPanel({
 
   if (!active) {
     return (
-      <IqCard padded={false} className={cn("flex min-h-0 flex-col p-0", className)}>
-        <div className="space-y-3 p-3">
+      <IqCard
+        padded={false}
+        className={cn(
+          "flex min-h-0 flex-col p-0 lg:w-[320px]",
+          !open && "hidden lg:flex lg:w-9",
+          className,
+        )}
+      >
+        <div className={cn("space-y-3 p-3", !open && "lg:hidden")}>
           <div className="h-40 animate-pulse rounded-lg bg-surface" />
           <div className="h-28 animate-pulse rounded-lg bg-surface" />
           <div className="h-28 animate-pulse rounded-lg bg-surface" />
@@ -213,8 +252,47 @@ export function AssistantPanel({
   const setupInvalid = !!setupValidity && !setupValidity.valid;
 
   return (
-    <IqCard padded={false} className={cn("flex min-h-0 flex-col p-0", className)}>
-      <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-3">
+    <IqCard
+      padded={false}
+      className={cn(
+        "fixed inset-x-0 bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-20 flex max-h-[72dvh] min-h-0 flex-col overflow-hidden rounded-b-none p-0 shadow-2xl lg:static lg:z-auto lg:max-h-none lg:w-[320px] lg:rounded-xl lg:shadow-[0_1px_0_0_rgba(255,255,255,0.02)_inset,0_1px_2px_0_rgba(0,0,0,0.35)]",
+        !open && "max-h-12 lg:max-h-none lg:w-9",
+        className,
+      )}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-label={open ? "Collapse Trade Assistant" : "Expand Trade Assistant"}
+        className="flex h-full min-h-0 w-full cursor-pointer flex-col items-center gap-3 py-2 text-muted-foreground transition-colors hover:text-foreground lg:flex lg:[writing-mode:vertical-rl]"
+        hidden={open}
+      >
+        <ChevronLeft className="h-4 w-4 shrink-0 lg:-rotate-90" />
+        <span className="text-[10px] font-semibold uppercase tracking-wider">Trade Assistant</span>
+      </button>
+      <div
+        className={cn(
+          "shrink-0 border-b border-border bg-surface/70 px-3 py-2",
+          !open && "lg:hidden",
+        )}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <CardEyebrow>Trade Assistant</CardEyebrow>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onToggle}
+            aria-label="Collapse Trade Assistant"
+            className="h-11 w-11 lg:h-6 lg:w-6"
+          >
+            <ChevronRight
+              className={cn("h-4 w-4 rotate-90 lg:rotate-0", !open && "-rotate-90 lg:rotate-0")}
+            />
+          </Button>
+        </div>
+      </div>
+      <div className={cn("min-h-0 flex-1 space-y-2.5 overflow-y-auto p-3", !open && "hidden")}>
         {/* ACTION — the execution plan, visible (not collapsed) whenever the
             objective is payable. It is the action tied to the verdict above,
             never evidence, so it never hides behind a tab. */}
@@ -593,18 +671,14 @@ export function AssistantPanel({
           </AccordionItem>
         </Accordion>
 
-        {/* AI analyst — reachable, never primary. Opens the same drawer as the
-            permit path, where the BYOK analyst narrates (never originates) the
-            plan above. */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full gap-1.5 text-xs"
-          onClick={onOpenTrade}
-        >
-          <Brain className="h-3.5 w-3.5" />
-          Open AI analyst &amp; execution
-        </Button>
+        <div className="space-y-2 rounded-lg border border-border bg-surface p-2.5">
+          <div className="flex items-center gap-1.5"><Brain className="h-3.5 w-3.5 text-info" /><CardEyebrow>AI Desk Review</CardEyebrow></div>
+          {deskMessages.length > 0 && <div className="max-h-48 space-y-2 overflow-y-auto text-xs">{deskMessages.map((message, index) => <p key={`${message.role}-${index}`} className={cn("rounded-md px-2 py-1.5 leading-relaxed", message.role === "user" ? "ml-6 bg-primary text-primary-foreground" : "mr-3 bg-background text-muted-foreground")}>{message.text}</p>)}</div>}
+          <div className="flex gap-1.5">
+            <Input value={deskInput} onChange={(event) => setDeskInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void askDesk(); }} placeholder={`Ask about ${symbol} or today's market`} disabled={deskLoading} className="h-8 text-xs" />
+            <Button type="button" size="icon" className="h-8 w-8 shrink-0" disabled={deskLoading || !deskInput.trim()} onClick={() => void askDesk()} aria-label="Ask AI Desk"><Send className="h-3.5 w-3.5" /></Button>
+          </div>
+        </div>
       </div>
 
       <Dialog open={followDialogOpen} onOpenChange={setFollowDialogOpen}>

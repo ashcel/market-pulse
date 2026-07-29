@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Target, Newspaper, Activity, Gauge } from "lucide-react";
+import { Target, Newspaper, Activity, Gauge, ArrowDown, ArrowUp, Loader2 } from "lucide-react";
 
 import {
   useCatalystRailEvents,
@@ -9,12 +9,15 @@ import {
   useVolatility,
   useNews,
   useSnapshotMeta,
+  useUniverse,
   type ImpactDirection,
   type ImpactLevel,
+  type UniverseSnapshot,
 } from "@/hooks/queries";
 import { fearGreedLabel } from "@/lib/engine/external-context";
 import { useActionableSetups } from "@/hooks/useActionableSetups";
-import { useOpenTradesPnl } from "@/hooks/useOpenTradesPnl";
+import { useLivePositions, type LivePosition } from "@/hooks/useLivePositions";
+import type { OpenTradePnl } from "@/hooks/useOpenTradesPnl";
 import { useReviewTrades } from "@/hooks/useReview";
 import { useWatchlistStore } from "@/stores/watchlist";
 
@@ -24,6 +27,7 @@ import { IqCard, CardEyebrow } from "@/components/features/iq-card";
 import { StatusBadge } from "@/components/features/status-badge";
 import { SkeletonCard } from "@/components/features/skeletons";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   HelpButton,
   ProductTour,
@@ -31,6 +35,11 @@ import {
   type TourStep,
 } from "@/components/features/product-tour";
 import { cn } from "@/lib/utils";
+import { AlternativesStrip } from "@/components/features/alternatives-strip";
+import { AiSentimentStrip } from "@/components/features/ai-sentiment-strip";
+import { SkipCheckPanel } from "@/components/features/skip-check-panel";
+import { useTrustState } from "@/hooks/useTrustState";
+import { useAiDeskStore } from "@/stores/ai-desk";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -90,9 +99,11 @@ function Dashboard() {
   const greeting = getGreeting();
   const meta = useSnapshotMeta();
   const tour = useProductTour(TOUR_SEEN_KEY);
+  const universe = useUniverse();
+  const { data: setups } = useActionableSetups(universe.data);
 
   return (
-    <div className="mx-auto flex max-w-[1400px] flex-col gap-5">
+    <div className="mx-auto flex max-w-[1400px] flex-col gap-3 sm:gap-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -117,8 +128,10 @@ function Dashboard() {
 
       <RegimeVerdictHero />
       <MarketContextStrip />
-      <TradesAndBehaviorStrip />
-      <LiveSetupsStrip />
+      <AiSentimentStrip />
+      <LivePositionsStrip />
+      <LiveSetupsStrip universe={universe.data} isLoading={universe.isLoading} />
+      {(!setups || setups.length === 0) && <AlternativesStrip />}
       <CatalystRail />
       <TopNews />
 
@@ -196,24 +209,24 @@ function RegimeVerdictHero() {
       className={cn("border bg-card relative overflow-hidden flex flex-col", toneClass)}
       padded={false}
     >
-      <div className="p-5 sm:p-6 flex flex-col justify-between">
+      <div className="flex flex-col justify-between p-3 sm:p-6">
         <div>
-          <CardEyebrow className="mb-4">Market Outlook</CardEyebrow>
+          <CardEyebrow className="mb-3 sm:mb-4">Market Outlook</CardEyebrow>
           <div className="flex justify-between items-start">
             <div>
               <h2
                 className={cn(
-                  "text-3xl sm:text-4xl font-black tracking-tight uppercase",
+                  "text-2xl font-black uppercase tracking-tight sm:text-4xl",
                   iconClass,
                 )}
               >
                 {r.regime}
               </h2>
-              <p className="mt-3 text-sm font-medium text-foreground">{actionLine}</p>
+              <p className="mt-2 text-sm font-medium text-foreground sm:mt-3">{actionLine}</p>
               <p className="mt-1 text-sm text-muted-foreground">{descSentence}</p>
             </div>
             {r.regime === "Risk On" && (
-              <div className="mr-4 mt-2 opacity-90">
+              <div className="ml-2 hidden opacity-90 sm:mr-4 sm:mt-2 sm:block">
                 <svg
                   width="64"
                   height="64"
@@ -234,7 +247,7 @@ function RegimeVerdictHero() {
             )}
           </div>
         </div>
-        <div className="mt-8 flex flex-wrap gap-3">
+        <div className="mt-4 flex flex-wrap gap-2 sm:mt-8 sm:gap-3">
           {r.pillars.slice(0, 3).map((p) => (
             <Badge
               key={p.label}
@@ -270,9 +283,79 @@ function ordinal(n: number): string {
   }
 }
 
-function TradesAndBehaviorStrip() {
-  const { rows, count, totalUnrealized } = useOpenTradesPnl();
+function positionToTradeRow(position: LivePosition): OpenTradePnl {
+  const quantity = Math.abs(position.positionAmt);
+  const margin = (position.entryPrice * quantity) / Math.max(position.leverage, 1);
+  const unrealizedPct = margin > 0 ? (position.unrealizedPnl / margin) * 100 : 0;
+  const now = new Date().toISOString();
+  return {
+    trade: {
+      id: `binance:${position.symbol}:${position.side}`,
+      user_id: "",
+      symbol: position.symbol,
+      direction: position.side === "LONG" ? "long" : "short",
+      entry_price: position.entryPrice,
+      exit_price: null,
+      quantity,
+      leverage: position.leverage,
+      pnl: null,
+      pnl_percent: null,
+      status: "open",
+      strategy: null,
+      notes: null,
+      opened_at: null,
+      closed_at: null,
+      created_at: now,
+      updated_at: null,
+    },
+    livePrice: position.markPrice,
+    unrealizedPnl: position.unrealizedPnl,
+    unrealizedPct,
+  };
+}
+
+function LivePositionsStrip() {
+  const { positions } = useLivePositions();
   const { trades } = useReviewTrades();
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const setAiDeskOpen = useAiDeskStore((state) => state.setOpen);
+  const addAiDeskMessage = useAiDeskStore((state) => state.addAssistantMessage);
+  const rows = positions.map(positionToTradeRow);
+  const count = rows.length;
+  const totalUnrealized = rows.reduce((sum, row) => sum + (row.unrealizedPnl ?? 0), 0);
+
+  const analyzeTrades = async () => {
+    setAiDeskOpen(true);
+    setAnalysisLoading(true);
+    try {
+      const response = await fetch("/api/ai-desk/analyze-trades", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          positions: positions.map(({ symbol, side, entryPrice, markPrice, unrealizedPnl, leverage }) => ({
+            symbol,
+            side,
+            entryPrice,
+            markPrice,
+            unrealizedPnl,
+            leverage,
+          })),
+        }),
+        credentials: "same-origin",
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error?.message || body?.detail || `HTTP ${response.status}`);
+      }
+      const body = (await response.json()) as { data: { response: string } };
+      addAiDeskMessage(body.data.response, "AI Desk · Active Trades", positions);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Analysis failed";
+      addAiDeskMessage(`Unable to analyze active trades: ${message}`, "system");
+    } finally {
+      setAnalysisLoading(false);
+    }
+  };
 
   let behaviorWarning = null;
   if (trades && trades.length > 0) {
@@ -286,8 +369,8 @@ function TradesAndBehaviorStrip() {
   if (count === 0 && !behaviorWarning) return null;
 
   return (
-    <IqCard data-tour="trades-behavior" padded={false} className="px-5 py-4">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-x-6 gap-y-2">
+    <IqCard data-tour="trades-behavior" padded={false} className="p-3 sm:p-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <CardEyebrow>Your Trades</CardEyebrow>
           {count > 0 && (
@@ -307,16 +390,96 @@ function TradesAndBehaviorStrip() {
           </div>
         )}
       </div>
+
+      {count > 0 && (
+        <>
+          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+            {rows.map((row) => {
+              const pnl = row.unrealizedPnl ?? 0;
+              const positive = pnl > 0;
+              const negative = pnl < 0;
+              const long = row.trade.direction === "long";
+
+              return (
+                <div
+                  key={row.trade.id}
+                  className={cn(
+                    "grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 rounded-lg border border-border/70 border-l-2 bg-surface/30 px-3 py-2.5",
+                    positive && "border-l-bullish",
+                    negative && "border-l-bearish",
+                    !positive && !negative && "border-l-muted-foreground/50",
+                  )}
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    {long ? (
+                      <ArrowUp className="h-4 w-4 shrink-0 text-bullish" aria-label="Long" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4 shrink-0 text-bearish" aria-label="Short" />
+                    )}
+                    <span className="truncate text-sm font-semibold">{row.trade.symbol}</span>
+                    <Badge variant="outline" className="h-5 shrink-0 px-1.5 text-[10px]">
+                      {row.trade.leverage}x
+                    </Badge>
+                  </div>
+                  <div className="text-right text-[11px] leading-tight text-muted-foreground">
+                    <div>Entry {formatPrice(row.trade.entry_price)}</div>
+                    <div>Mark {row.livePrice === null ? "—" : formatPrice(row.livePrice)}</div>
+                  </div>
+                  <div
+                    className={cn(
+                      "min-w-20 text-right num",
+                      positive && "text-bullish",
+                      negative && "text-bearish",
+                      !positive && !negative && "text-muted-foreground",
+                    )}
+                  >
+                    <div className="text-sm font-bold">
+                      {pnl >= 0 ? "+" : ""}
+                      {pnl.toFixed(2)}
+                    </div>
+                    <div className="text-[11px] font-medium">
+                      {row.unrealizedPct === null
+                        ? "no mark price"
+                        : `${row.unrealizedPct >= 0 ? "+" : ""}${row.unrealizedPct.toFixed(2)}%`}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-4 flex flex-col items-stretch gap-3 sm:items-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              disabled={analysisLoading}
+              onClick={analyzeTrades}
+            >
+              {analysisLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
+              {analysisLoading ? "Reviewing trades..." : "Ask AI about your trades"}
+            </Button>
+            <Link
+              to="/journal"
+              search={{ tab: "open" }}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              View all trades →
+            </Link>
+          </div>
+        </>
+      )}
     </IqCard>
   );
 }
 
 /** Verdict-live setups only, hard-capped at 3 (already capped in useActionableSetups). */
-function LiveSetupsStrip() {
-  const { data, isLoading } = useActionableSetups();
+function LiveSetupsStrip({ universe, isLoading }: { universe: UniverseSnapshot | undefined; isLoading: boolean }) {
+  const { data } = useActionableSetups(universe);
+  const trust = useTrustState();
+  const decisionsAvailable = trust.details.market.status === "healthy" && trust.details.account.status !== "unavailable";
 
   return (
-    <IqCard data-tour="live-setups" padded={false} className="p-5 flex flex-col">
+    <IqCard data-tour="live-setups" padded={false} className="flex flex-col p-3 sm:p-5">
       <div className="flex items-center justify-between mb-4">
         <CardEyebrow>Live Setups</CardEyebrow>
         <Link to="/markets" className="text-[10px] text-muted-foreground hover:text-foreground">
@@ -339,50 +502,44 @@ function LiveSetupsStrip() {
       ) : (
         <div className="flex flex-col gap-3">
           {data.slice(0, 3).map((setup) => {
-            const long = setup.assessment.direction === "long";
+            const long = setup.verdict.direction === "long";
             return (
-              <Link
+              <div
                 key={setup.ticker}
-                to="/token/$symbol"
-                params={{ symbol: setup.ticker }}
                 className={cn(
-                  "flex flex-col gap-2 rounded-lg border p-3 transition-colors",
+                  "flex flex-col gap-2 rounded-lg border border-x-transparent p-2.5 transition-colors sm:border-x sm:p-3",
                   long
-                    ? "border-bullish/30 bg-bullish-soft hover:border-bullish/60"
-                    : "border-bearish/30 bg-bearish-soft hover:border-bearish/60",
+                    ? "border-bullish/30 bg-bullish-soft"
+                    : "border-bearish/30 bg-bearish-soft",
                 )}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <AssetIcon ticker={setup.ticker} className="h-5 w-5" />
-                    <span className="text-sm font-semibold">
+                    <Link to="/token/$symbol" params={{ symbol: setup.ticker }} className="text-sm font-semibold hover:text-info">
                       {setup.ticker}{" "}
                       <span className="text-muted-foreground font-normal">
-                        · {setup.assessment.intent}
+                         · {setup.verdict.objective}
                       </span>
-                    </span>
+                    </Link>
                   </div>
                   <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-foreground">
                     <span
                       className={cn("h-2 w-2 rounded-full", long ? "bg-bullish" : "bg-bearish")}
                     />
-                    {setup.assessment.verdict}
+                    {setup.verdict.verdict}
                   </span>
                 </div>
                 <div className="text-xs font-medium text-foreground/80 leading-snug line-clamp-2">
-                  {setup.assessment.triggers[0]}
+                  {setup.verdict.what_flips_it}
                 </div>
-                {setup.assessment.plan && (
-                  <div className="mt-1 flex items-center justify-between text-[11px]">
-                    <span className="text-muted-foreground">
-                      Target: {formatPrice(setup.assessment.plan.target1)}
-                    </span>
-                    <span className="font-semibold text-foreground">
-                      R:R {setup.assessment.plan.rewardRisk1.toFixed(1)}
-                    </span>
-                  </div>
-                )}
-              </Link>
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  Confidence {Math.round(setup.verdict.confidence * 100)}%
+                </div>
+                <div className="mt-1 flex justify-end">
+                  {decisionsAvailable ? <SkipCheckPanel symbol={setup.ticker} objective={setup.verdict.objective} direction={setup.verdict.direction} entryPrice={null} stopLoss={null} takeProfit={null} verdict={{ state: setup.verdict.state === "go" ? "live" : "not_yet", regime: universe?.market_state.regime ?? "unknown", regime_aligned: true, flip_condition: setup.verdict.what_flips_it }} context={{ accountFreshness: universe?.account.freshness ?? trust.details.account.reason, behaviorFlags: [], tradeQualityScore: setup.verdict.confidence, invalidation: setup.verdict.invalidated_by }} /> : <span className="text-[11px] font-medium text-warning">Data stale — decisions unavailable</span>}
+                </div>
+              </div>
             );
           })}
         </div>
@@ -424,7 +581,7 @@ function CatalystRail() {
   const ranked = [...events].sort((a, b) => b.impactScore - a.impactScore).slice(0, 3);
 
   return (
-    <IqCard data-tour="catalyst-rail" padded={false} className="px-5 py-4">
+    <IqCard data-tour="catalyst-rail" padded={false} className="px-3 py-3 sm:px-5 sm:py-4">
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
           <CardEyebrow className="shrink-0">What's Coming</CardEyebrow>
@@ -432,7 +589,7 @@ function CatalystRail() {
             Impact: rule-based salience, not a forecast
           </span>
         </div>
-        <div className="flex flex-col sm:flex-row flex-wrap gap-x-4 gap-y-2">
+        <div className="flex snap-x gap-4 overflow-x-auto pb-1 sm:flex-row sm:flex-wrap sm:overflow-visible sm:pb-0">
           {ranked.map((e) => {
             const hoursUntil = Math.round(
               (new Date(e.occursAt).getTime() - now) / (60 * 60 * 1000),
@@ -444,7 +601,7 @@ function CatalystRail() {
                 key={e.id}
                 to="/token/$symbol"
                 params={{ symbol: e.symbol }}
-                className="flex items-center gap-2 text-sm transition-colors hover:text-info"
+                className="flex min-w-max snap-start items-center gap-2 text-sm transition-colors hover:text-info"
               >
                 <span
                   className={cn("h-2 w-2 shrink-0 rounded-full", DIRECTION_DOT[e.direction])}
@@ -481,8 +638,7 @@ function MarketContextStrip() {
   }
 
   const fg = sentiment.data.fearGreed;
-  const fgTone =
-    fg >= 60 ? "text-bullish" : fg <= 40 ? "text-bearish" : "text-warning";
+  const fgTone = fg >= 60 ? "text-bullish" : fg <= 40 ? "text-bearish" : "text-warning";
   const vol = volatility.data;
   const volTone =
     vol.label === "High" ? "text-bearish" : vol.label === "Low" ? "text-info" : "text-warning";
@@ -490,16 +646,14 @@ function MarketContextStrip() {
   const breadth = regime.data.pillars.find((p) => p.label === "Breadth");
 
   return (
-    <Link
-      to="/markets"
-      search={{ tab: "regime" }}
-      data-tour="market-context"
-      className="group"
-    >
-      <IqCard padded={false} className="px-5 py-3 transition-colors group-hover:border-info/40">
-        <div className="flex items-center justify-between gap-4">
+    <Link to="/markets" search={{ tab: "regime" }} data-tour="market-context" className="group">
+      <IqCard
+        padded={false}
+        className="px-3 py-3 transition-colors group-hover:border-info/40 sm:px-5"
+      >
+        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <CardEyebrow className="shrink-0">Market Context</CardEyebrow>
-          <div className="flex flex-1 flex-wrap items-center justify-end gap-x-5 gap-y-2 text-sm">
+          <div className="flex flex-1 flex-wrap items-center gap-x-4 gap-y-2 text-sm sm:justify-end sm:gap-x-5">
             <ContextStat
               icon={Gauge}
               label="Sentiment"
@@ -513,9 +667,7 @@ function MarketContextStrip() {
               tone={volTone}
               hint={`${vol.change >= 0 ? "+" : ""}${vol.change}% wk`}
             />
-            {trend && (
-              <ContextStat label="Trend" value={trend.displayValue ?? `${trend.score}%`} />
-            )}
+            {trend && <ContextStat label="Trend" value={trend.displayValue ?? `${trend.score}%`} />}
             {breadth && <ContextStat label="Breadth" value={`${breadth.score}%`} />}
           </div>
         </div>
@@ -565,7 +717,7 @@ function TopNews() {
 
   return (
     <IqCard data-tour="top-news" padded={false} className="flex flex-col">
-      <div className="flex items-center justify-between px-5 pb-2 pt-4">
+      <div className="flex items-center justify-between px-3 pb-2 pt-3 sm:px-5 sm:pt-4">
         <CardEyebrow>
           <Newspaper className="mr-1.5 inline h-3.5 w-3.5" aria-hidden />
           Market News
@@ -585,7 +737,7 @@ function TopNews() {
               <Link
                 to="/markets"
                 search={{ tab: "news" }}
-                className="flex gap-3 px-5 py-3 transition-colors hover:bg-surface/60"
+                className="flex gap-2 px-3 py-2.5 transition-colors hover:bg-surface/60 sm:gap-3 sm:px-5 sm:py-3"
               >
                 <span
                   className={cn(
@@ -614,7 +766,7 @@ function TopNews() {
           ))}
         </ul>
       ) : (
-        <div className="px-5 pb-4">
+        <div className="px-3 pb-3 sm:px-5 sm:pb-4">
           <SkeletonCard className="h-24 w-full" />
         </div>
       )}

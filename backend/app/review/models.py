@@ -20,9 +20,7 @@ class TradeReview(Base):
         sa.Index("trade_reviews_binance_trade_id_version_idx", "binance_trade_id", "version"),
     )
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     binance_trade_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     review_mode: Mapped[str] = mapped_column(String(20), default="normal", nullable=False)

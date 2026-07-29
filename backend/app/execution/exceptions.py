@@ -124,9 +124,7 @@ class DuplicateIdempotencyKeyError(AppError):
     code = ErrorCode.DUPLICATE_IDEMPOTENCY_KEY
 
     def __init__(self, idempotency_key: str) -> None:
-        super().__init__(
-            f"Idempotency key '{idempotency_key}' is already bound to another permit"
-        )
+        super().__init__(f"Idempotency key '{idempotency_key}' is already bound to another permit")
 
 
 class ExecutionInProgressError(AppError):

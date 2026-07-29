@@ -134,10 +134,7 @@ def detect_tilt(
     median_risk = statistics.median(risks)
     max_risk = max(risks)
 
-    return bool(
-        max_risk > Decimal(str(threshold_multiplier)) * median_risk
-        and median_risk > 0
-    )
+    return bool(max_risk > Decimal(str(threshold_multiplier)) * median_risk and median_risk > 0)
 
 
 def evaluate_behavior_flags(

@@ -72,18 +72,27 @@ async def read_engine_context(
 ) -> dict[str, Any]:
     """The engine's current read for this symbol, or an explicit absence."""
     absent = {
-        "regime": None, "verdicts_at_open": None, "eval_log_id": None,
-        "eval_evaluated_at": None, "eval_staleness_seconds": None,
-        "engine_version": None, "config_hash": None, "git_sha": None,
+        "regime": None,
+        "verdicts_at_open": None,
+        "eval_log_id": None,
+        "eval_evaluated_at": None,
+        "eval_staleness_seconds": None,
+        "engine_version": None,
+        "config_hash": None,
+        "git_sha": None,
     }
     if ticker not in _UNIVERSE_TICKERS:
         return {**absent, "verdict_source": "not_in_universe"}
-    rows = list((await db.scalars(
-        select(EvalLog)
-        .where(EvalLog.symbol == ticker, EvalLog.market == "perp")
-        .order_by(EvalLog.evaluated_at.desc())
-        .limit(20)
-    )).all())
+    rows = list(
+        (
+            await db.scalars(
+                select(EvalLog)
+                .where(EvalLog.symbol == ticker, EvalLog.market == "perp")
+                .order_by(EvalLog.evaluated_at.desc())
+                .limit(20)
+            )
+        ).all()
+    )
     if not rows:
         return {**absent, "verdict_source": "stale"}
     newest_at = _aware(rows[0].evaluated_at)
@@ -91,8 +100,10 @@ async def read_engine_context(
     staleness = (stamped_at - newest_at).total_seconds()
     if staleness > MAX_EVAL_STALENESS_SECONDS:
         return {
-            **absent, "verdict_source": "stale",
-            "eval_evaluated_at": newest_at, "eval_staleness_seconds": staleness,
+            **absent,
+            "verdict_source": "stale",
+            "eval_evaluated_at": newest_at,
+            "eval_staleness_seconds": staleness,
         }
     same_tick = [row for row in rows if _aware(row.evaluated_at) == newest_at]
     return {

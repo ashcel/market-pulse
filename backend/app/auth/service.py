@@ -9,9 +9,7 @@ from .schemas import UserRegisterRequest
 from .utils import create_access_token, hash_password, verify_password
 
 
-async def register_user(
-    payload: UserRegisterRequest, db: AsyncSession
-) -> tuple[User, str]:
+async def register_user(payload: UserRegisterRequest, db: AsyncSession) -> tuple[User, str]:
     result = await db.execute(select(User).where(User.email == payload.email))
     existing = result.scalar_one_or_none()
     if existing:
@@ -30,9 +28,7 @@ async def register_user(
     return user, token
 
 
-async def authenticate_user(
-    email: str, password: str, db: AsyncSession
-) -> tuple[User, str]:
+async def authenticate_user(email: str, password: str, db: AsyncSession) -> tuple[User, str]:
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
     # Users without a hashed_password are invite-only users who cannot use password auth

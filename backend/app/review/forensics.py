@@ -123,9 +123,9 @@ def detect_partial_close_groups(trades: Sequence[TradeLike]) -> set[str]:
     """§7.5 heuristic — ids of rows that look like fragments of one scale-out."""
     buckets: dict[tuple[str, str, str, datetime], list[TradeLike]] = {}
     for trade in trades:
-        buckets.setdefault(
-            (trade.user_id, trade.symbol, trade.side, trade.opened_at), []
-        ).append(trade)
+        buckets.setdefault((trade.user_id, trade.symbol, trade.side, trade.opened_at), []).append(
+            trade
+        )
     suspected: set[str] = set()
     for members in buckets.values():
         if len(members) < 2:
@@ -197,8 +197,12 @@ def _with_boundary_flag(metric: MetricValue, bound_pct: float) -> MetricValue:
     if abs(metric.value) <= 0 or bound_pct <= BOUNDARY_INFLATION_FLAG_RATIO * abs(metric.value):
         return metric
     return MetricValue(
-        metric.available, metric.value, metric.unit, metric.reason,
-        [*metric.flags, "boundary_inflated"], metric.forensics_version,
+        metric.available,
+        metric.value,
+        metric.unit,
+        metric.reason,
+        [*metric.flags, "boundary_inflated"],
+        metric.forensics_version,
     )
 
 
@@ -207,9 +211,7 @@ def disclose_boundary_inflation(
 ) -> dict[str, MetricValue]:
     """Flag the percent-of-entry representations, which share the bound's unit."""
     return {
-        key: _with_boundary_flag(metric, bound_pct)
-        if metric.unit == "percent_of_entry"
-        else metric
+        key: _with_boundary_flag(metric, bound_pct) if metric.unit == "percent_of_entry" else metric
         for key, metric in metrics.items()
     }
 
@@ -224,7 +226,11 @@ def _risk_metric(value: float, stop_loss: float | None, entry_price: float) -> M
 
 
 def compute_mae(
-    side: str, entry_price: float, quantity: float, low_min: float, high_max: float,
+    side: str,
+    entry_price: float,
+    quantity: float,
+    low_min: float,
+    high_max: float,
     stop_loss: float | None = None,
 ) -> dict[str, MetricValue]:
     long = side.upper() == "LONG"
@@ -238,7 +244,11 @@ def compute_mae(
 
 
 def compute_mfe(
-    side: str, entry_price: float, quantity: float, low_min: float, high_max: float,
+    side: str,
+    entry_price: float,
+    quantity: float,
+    low_min: float,
+    high_max: float,
     stop_loss: float | None = None,
 ) -> dict[str, MetricValue]:
     long = side.upper() == "LONG"
@@ -251,7 +261,11 @@ def compute_mfe(
 
 
 def exit_efficiency(
-    side: str, entry_price: float, exit_price: float, low_min: float, high_max: float,
+    side: str,
+    entry_price: float,
+    exit_price: float,
+    low_min: float,
+    high_max: float,
 ) -> MetricValue:
     long = side.upper() == "LONG"
     mfe_price = max(0.0, high_max - entry_price) if long else max(0.0, entry_price - low_min)
@@ -265,8 +279,10 @@ def exit_efficiency(
 
 
 STOP_DISCIPLINE_UNITS = {
-    "slippage_adverse": "quote_currency", "slippage_adverse_pct": "percent_of_entry",
-    "slippage_adverse_r": "r_multiple", "violation_depth_r": "r_multiple",
+    "slippage_adverse": "quote_currency",
+    "slippage_adverse_pct": "percent_of_entry",
+    "slippage_adverse_r": "r_multiple",
+    "violation_depth_r": "r_multiple",
     "realized_r": "r_multiple",
 }
 
@@ -281,9 +297,13 @@ def stop_evidence_of(stop_loss: float | None, close_trigger: str | None) -> str:
 
 
 def stop_discipline(
-    side: str, entry_price: float, exit_price: float, stop_loss: float | None,
+    side: str,
+    entry_price: float,
+    exit_price: float,
+    stop_loss: float | None,
     close_trigger: str | None = None,
-    low_min: float | None = None, high_max: float | None = None,
+    low_min: float | None = None,
+    high_max: float | None = None,
     depth_unavailable: UnavailableReason | None = None,
 ) -> dict[str, MetricValue | str | bool]:
     """§5.4. Numeric sub-fields exist only in the `hit` branch — R by construction."""
@@ -344,8 +364,11 @@ def reentry_latency(
     if trade.id in partial_close_ids:
         return _reentry_blocked(UnavailableReason.UNDEFINED_FOR_PARTIAL_CLOSE)
     candidates = [
-        item for item in trades
-        if item is not trade and item.user_id == trade.user_id and item.symbol == trade.symbol
+        item
+        for item in trades
+        if item is not trade
+        and item.user_id == trade.user_id
+        and item.symbol == trade.symbol
         and item.opened_at <= trade.opened_at
     ]
     if any(item.closed_at > trade.opened_at for item in candidates):
@@ -406,7 +429,7 @@ def sizing_variance(
     ordered = sorted(sizes)
     midpoint = len(ordered) // 2
     lower = ordered[:midpoint]
-    upper = ordered[midpoint + 1:] if len(ordered) % 2 else ordered[midpoint:]
+    upper = ordered[midpoint + 1 :] if len(ordered) % 2 else ordered[midpoint:]
     sigma = sqrt(sum((size - mean) ** 2 for size in sizes) / len(sizes))
     med = median(ordered)
     return {

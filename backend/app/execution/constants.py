@@ -67,7 +67,7 @@ EXECUTION_ENABLED = False
 # beginner-correct default (contained blast radius); CROSSED is opt-in.
 MARGIN_TYPE_ISOLATED = "ISOLATED"
 MARGIN_TYPE_CROSSED = "CROSSED"
-DEFAULT_MARGIN_TYPE = MARGIN_TYPE_ISOLATED
+DEFAULT_MARGIN_TYPE = MARGIN_TYPE_CROSSED
 VALID_MARGIN_TYPES = frozenset({MARGIN_TYPE_ISOLATED, MARGIN_TYPE_CROSSED})
 
 # Binance returns this error code from POST /fapi/v1/marginType when the

@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { createDecision } from "@/hooks/useDecisions";
 
 /**
  * Skip Check client contract — mirrors
@@ -45,6 +46,13 @@ export interface SkipCheckRequest {
   margin_type?: "ISOLATED" | "CROSSED";
   correlation_bucket?: string;
   verdict?: VerdictContextInput | null;
+  context?: {
+    catalyst?: { modifier: string; impactScore: number; direction: string } | null;
+    accountFreshness?: string;
+    behaviorFlags?: string[];
+    tradeQualityScore?: number | null;
+    invalidation?: string | null;
+  };
 }
 
 export interface EvidenceItem {
@@ -124,6 +132,7 @@ export function useSkipCheck() {
   const [answer, setAnswer] = useState<SkipCheckAnswer | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [decisionId, setDecisionId] = useState<string | null>(null);
 
   const runCheck = useCallback(async (req: SkipCheckRequest) => {
     setLoading(true);
@@ -146,6 +155,19 @@ export function useSkipCheck() {
         throw new Error("Invalid Skip Check response from server");
       }
       setAnswer(envelope.data);
+      const decision = await createDecision({
+        symbol: req.symbol,
+        objective: req.objective,
+        direction: req.direction.toLowerCase() as "long" | "short",
+        verdict_at_time: req.verdict?.state ?? "unknown",
+        catalyst_modifier: req.context?.catalyst ?? null,
+        skip_check_result: envelope.data as unknown as Record<string, unknown>,
+        entry_zone: req.entry_price == null ? null : { entry: req.entry_price },
+        stop_loss: req.planned_stop ?? null,
+        take_profit: req.take_profit ?? null,
+        engine_version: import.meta.env.VITE_ENGINE_VERSION ?? "current",
+      });
+      setDecisionId(decision.id);
       return envelope.data;
     } catch (err: unknown) {
       setError((err as Error).message || "An error occurred");
@@ -158,7 +180,8 @@ export function useSkipCheck() {
   const clear = useCallback(() => {
     setAnswer(null);
     setError(null);
+    setDecisionId(null);
   }, []);
 
-  return { answer, loading, error, runCheck, clear };
+  return { answer, decisionId, loading, error, runCheck, clear };
 }

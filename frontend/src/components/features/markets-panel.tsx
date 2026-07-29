@@ -4,7 +4,7 @@ import { MarketCard } from "@/components/features/market-card";
 import { PageHeader, SectionHeader } from "@/components/features/page-header";
 import { SkeletonCard } from "@/components/features/skeletons";
 import { Heatmap } from "@/components/features/heatmap";
-import { MarketOpportunitiesCard } from "@/components/features/market-opportunities-card";
+import { AlternativesCard } from "@/components/features/market-opportunities-card";
 import { SECTOR_ORDER } from "@/lib/engine/market";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -61,13 +61,16 @@ export function MarketsPanel() {
         action={<HelpButton onClick={tour.start} />}
       />
 
-      <div data-tour="filters" className="flex flex-wrap gap-1.5">
+      <div
+        data-tour="filters"
+        className="flex gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0"
+      >
         {FILTERS.map((f) => (
           <button
             key={f.value}
             onClick={() => setFilter(f.value)}
             className={cn(
-              "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+              "min-h-11 shrink-0 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors sm:min-h-0",
               filter === f.value
                 ? "border-info bg-info-soft text-info"
                 : "border-border bg-surface text-muted-foreground hover:text-foreground",
@@ -80,7 +83,7 @@ export function MarketsPanel() {
 
       <div
         data-tour="grid"
-        className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+        className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
       >
         {filtered
           ? filtered.map((a) => (
@@ -103,10 +106,10 @@ export function MarketsPanel() {
 
       <div data-tour="opportunities" className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <SectionHeader title="Worth Scanning" />
-          <span className="text-xs text-muted-foreground">Activity scan · not a trade signal</span>
+          <SectionHeader title="Alternatives" />
+          <span className="text-xs text-muted-foreground">When your pick isn't actionable</span>
         </div>
-        <MarketOpportunitiesCard />
+        <AlternativesCard />
       </div>
 
       <ProductTour steps={TOUR_STEPS} open={tour.open && !!data} onClose={tour.close} />

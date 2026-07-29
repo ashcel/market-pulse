@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
  * intelligence page where the actual decision assistant lives.
  */
 
-const SHOWN = 6;
+const SHOWN = 3;
 
 function formatTurnover(value: number): string {
   if (value >= 1e9) return `$${(value / 1e9).toFixed(1)}B`;
@@ -51,7 +51,7 @@ function OpportunityRow({
       <Link
         to="/token/$symbol"
         params={{ symbol: o.ticker }}
-        className="group flex items-center gap-3 px-5 py-3 transition-colors hover:bg-surface/60"
+        className="group flex min-h-11 items-center gap-2 px-3 py-2 transition-colors hover:bg-surface/60 sm:gap-3 sm:px-5 sm:py-3"
       >
         <span className="w-4 shrink-0 text-xs text-muted-foreground num">{rank}</span>
         <AssetIcon ticker={o.ticker} className="h-6 w-6 shrink-0" />
@@ -66,7 +66,7 @@ function OpportunityRow({
             {o.tracked && <StatusBadge tone="info">Tracked</StatusBadge>}
             {o.spike && (
               <StatusBadge tone={o.spike.direction === "up" ? "warning" : "info"}>
-                {o.spike.direction === "up" ? "↑" : "↓"} Spike rejected
+                {o.spike.direction === "up" ? "↑" : "↓"} Don't chase
               </StatusBadge>
             )}
             {badgesFor(events).map((e) => (
@@ -104,7 +104,7 @@ function OpportunityRow({
   );
 }
 
-export function MarketOpportunitiesCard() {
+export function AlternativesCard() {
   const { data } = useOpportunityScan();
   const top = useMemo(() => data?.opportunities.slice(0, SHOWN) ?? [], [data]);
   const { data: events } = useTokenEventsForSymbols(top.map((o) => o.ticker));
@@ -117,19 +117,21 @@ export function MarketOpportunitiesCard() {
 
   return (
     <IqCard padded={false} data-tour="opportunities">
-      <div className="flex flex-wrap items-center justify-between gap-2 p-5 pb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 p-3 sm:p-5 sm:pb-3">
         <div className="flex items-center gap-2">
-          <CardEyebrow>Market Opportunities · Worth Scanning</CardEyebrow>
+          <CardEyebrow>Alternatives</CardEyebrow>
           {data?.source === "demo" && <StatusBadge tone="warning">Demo data</StatusBadge>}
         </div>
-        <span className="text-xs text-muted-foreground">Activity scan · not a trade signal</span>
+        <span className="text-xs text-muted-foreground">
+          Alternatives scan · when your pick isn't actionable
+        </span>
       </div>
       {data ? (
         <>
           {data.spikes.length > 0 && (
-            <div className="flex items-center gap-2 overflow-x-auto border-t border-border bg-surface/40 px-5 py-2">
-              <span className="shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">
-                Live spikes
+            <div className="flex items-center gap-2 overflow-x-auto border-t border-border bg-surface/40 px-3 py-2 sm:px-5">
+              <span className="shrink-0 whitespace-nowrap text-[10px] uppercase tracking-wider text-warning">
+                ⚠ Spikes — don't chase
               </span>
               {data.spikes.slice(0, 8).map((h) => (
                 <Link
@@ -150,6 +152,11 @@ export function MarketOpportunitiesCard() {
                   <span className="num text-muted-foreground">
                     {h.spike.volumeMult.toFixed(1)}× vol
                   </span>
+                  {h.spike.barsAgo > 0 && (
+                    <span className="text-[10px] text-warning/70" title="Cooldown active">
+                      ∼{h.spike.barsAgo * 15}m ago
+                    </span>
+                  )}
                 </Link>
               ))}
             </div>
@@ -164,14 +171,13 @@ export function MarketOpportunitiesCard() {
               />
             ))}
           </ul>
-          <div className="border-t border-border px-5 py-2 text-[11px] text-muted-foreground">
-            Liquidity-gated scan of {data.pairsSeen} Binance USDT spot pairs — {data.pairsRanked}{" "}
-            liquid pairs ranked by 24h range, depth, and trade flow. Open a token for the
+          <div className="border-t border-border px-3 py-2 text-[11px] text-muted-foreground sm:px-5">
+            Top {SHOWN} alternatives ranked by liquidity, range, and activity. Open a token for the
             engine&apos;s actual verdict.
           </div>
         </>
       ) : (
-        <div className="p-5 pt-2">
+        <div className="p-3 pt-2 sm:p-5 sm:pt-2">
           <SkeletonCard height={220} />
         </div>
       )}

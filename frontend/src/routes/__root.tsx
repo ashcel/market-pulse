@@ -23,6 +23,7 @@ import { useNotificationStream } from "../hooks/useNotificationStream";
 import { useTriggerAlerts } from "../hooks/useTriggerAlerts";
 import { usePreferencesSync } from "../hooks/usePreferencesSync";
 import { CapSegmentModal } from "../components/features/cap-segment-modal";
+import { useAiDeskStore } from "../stores/ai-desk";
 
 function NotFoundComponent() {
   return (
@@ -140,7 +141,6 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-import { useState } from "react";
 import { AskAiSidebar } from "../components/features/ask-ai-sidebar";
 
 function RootContent() {
@@ -149,7 +149,8 @@ function RootContent() {
   useLiveUniverseSubscription();
   useWatchlistSync();
   usePreferencesSync();
-  const [askAiOpen, setAskAiOpen] = useState(true);
+  const askAiOpen = useAiDeskStore((state) => state.open);
+  const setAskAiOpen = useAiDeskStore((state) => state.setOpen);
 
   return (
     <>

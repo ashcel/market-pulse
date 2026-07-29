@@ -22,5 +22,17 @@ class Config(BaseSettings):
     COINMARKETCAP_API_KEY: str = ""
     COINMARKETCAL_API_KEY: str = ""
 
+    # AI News Intelligence — OpenAI-compatible LLM for sentiment analysis
+    # Uses OpenCode Zen free tier (deepseek-v4-flash-free - no API key needed)
+    LLM_API_KEY: str = ""
+    LLM_BASE_URL: str = "https://opencode.ai/zen/v1"
+    LLM_MODEL: str = "deepseek-v4-flash-free"
+    # How often sentiment pass runs (seconds). Default 60 min.
+    SENTIMENT_PASS_INTERVAL_S: int = 3600
+    # Max headlines per sentiment analysis batch
+    SENTIMENT_MAX_HEADLINES: int = 50
+    # How far back to look for headlines (hours)
+    SENTIMENT_WINDOW_HOURS: int = 48
+
 
 settings = Config()

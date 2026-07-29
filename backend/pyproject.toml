@@ -18,6 +18,11 @@ dependencies = [
     "email-validator>=2.0",
     "smc",
     "cryptography>=42",
+    "websockets>=13",
+    "langchain-core>=1.5.1",
+    "langchain-openai>=1.4.1",
+    "duckduckgo-search>=8.1.1",
+    "langchain-classic>=1.0.8",
 ]
 
 [dependency-groups]

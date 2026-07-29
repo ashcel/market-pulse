@@ -8,6 +8,7 @@ import { IqLogo, NAV } from "./sidebar";
 import { SearchCommand } from "./search-command";
 import { NotificationBell } from "./notification-bell";
 import { cn } from "@/lib/utils";
+import { TrustIndicator } from "./trust-indicator";
 
 export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
   const { theme, toggleTheme, sidebarOpen, setSidebar } = useUiStore();
@@ -56,6 +57,7 @@ export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
       <SearchCommand open={searchOpen} onOpenChange={setSearchOpen} />
 
       <div className="ml-auto flex items-center gap-1">
+        <TrustIndicator />
         <div className="mr-1 hidden items-center rounded-md border border-border bg-surface p-0.5 text-xs sm:flex">
           {(["spot", "perp"] as const).map((m) => (
             <button

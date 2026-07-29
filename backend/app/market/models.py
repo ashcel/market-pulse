@@ -10,9 +10,7 @@ from app.database import Base
 class Token(Base):
     __tablename__ = "tokens"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     symbol: Mapped[str] = mapped_column(String(20), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     current_price: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -27,9 +25,7 @@ class Token(Base):
 class Signal(Base):
     __tablename__ = "signals"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     token_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     direction: Mapped[str] = mapped_column(String(10), nullable=False)  # "long" | "short"
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -42,8 +38,6 @@ class Signal(Base):
     status: Mapped[str] = mapped_column(
         String(20), default="active", nullable=False
     )  # active | triggered | expired | cancelled
-    created_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(), nullable=False)
     triggered_at: Mapped[datetime | None] = mapped_column(nullable=True)
     resolved_at: Mapped[datetime | None] = mapped_column(nullable=True)

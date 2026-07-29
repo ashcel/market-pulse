@@ -103,6 +103,47 @@ export interface TechnicalData {
   score: number;
 }
 
+// ── AI News Intelligence types ──────────────────────────────────────────
+
+export interface AiAssetSentiment {
+  direction: Direction;
+  confidence: number;
+  reason?: string;
+}
+
+export interface AiMarketSentiment {
+  score: number;
+  label: "Bullish" | "Bearish" | "Neutral";
+  description: string;
+  bullishRatio: number;
+  bearishRatio: number;
+  neutralRatio: number;
+}
+
+export interface AiSentimentSnapshot {
+  snapshotAt: string;
+  assetSentiments: Record<string, AiAssetSentiment>;
+  marketSentiment: AiMarketSentiment;
+  keyNarratives: string[];
+  aiBrief: string | null;
+  headlinesAnalyzed: number;
+  windowStart: string | null;
+  windowEnd: string | null;
+  model: string | null;
+}
+
+export interface SentimentHistoryItem {
+  snapshotAt: string;
+  score: number;
+  label: string;
+  headlinesAnalyzed: number;
+}
+
+export interface AiBriefResponse {
+  brief: string | null;
+  snapshotAt: string | null;
+}
+
 export interface VolatilityData {
   label: "Low" | "Medium" | "High";
   vix: number;

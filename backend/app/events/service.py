@@ -139,8 +139,7 @@ async def list_token_events(
 ) -> list[TokenEventResponse]:
     result = await db.execute(
         text(
-            "select * from token_event where symbol = :symbol"
-            " order by published_at desc limit :lim"
+            "select * from token_event where symbol = :symbol order by published_at desc limit :lim"
         ),
         {"symbol": symbol.upper(), "lim": limit},
     )

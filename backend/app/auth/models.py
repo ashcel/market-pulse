@@ -20,9 +20,7 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(String(128), nullable=False)
     # Nullable because invite-only users created by the frontend do not have passwords.
     hashed_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        default=lambda: datetime.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(), nullable=False)
     updated_at: Mapped[datetime | None] = mapped_column(
         default=None, onupdate=lambda: datetime.now(), nullable=True
     )

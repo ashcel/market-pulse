@@ -67,22 +67,22 @@ import { buildChartStructure, type ChartStructure } from "@/lib/ai/analyst-conte
 import { cn } from "@/lib/utils";
 import {
   InfoHint,
-  HeaderStat,
   biasLabel,
   BiasDot,
-  compute24hStats,
-  formatCompact,
   structureReading,
   equilibriumReading,
 } from "@/components/features/token/shared";
 import { GlanceStrip } from "@/components/features/token/verdict-cards";
 import {
   ChartErrorBoundary,
+  ChartFooter,
   TokenChart,
   computeChange24h,
 } from "@/components/features/token/chart-section";
 import { AssistantPanel } from "@/components/features/token/assistant-panel";
 import { VerdictHeader } from "@/components/features/token/verdict-header";
+import { CatalystLine } from "@/components/features/token/catalyst-line";
+import { SkipCheckPanel } from "@/components/features/skip-check-panel";
 import { TradeDrawer } from "@/components/features/token/trade-drawer";
 import type { PlanDraft } from "@/components/features/token/chart-plan-editor";
 
@@ -183,6 +183,9 @@ function TokenDetailPage() {
   // stays focused on the decision itself.
   const setAiContext = useAiContext((s) => s.setContext);
   const [tradeOpen, setTradeOpen] = useState(false);
+  const [decisionId, setDecisionId] = useState<string | null>(null);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
   // Plan-on-chart: entry/stop/target become draggable handles whose prices
   // feed the ticket + permit. The draft is seeded from the active objective's
   // plan and re-seeds whenever that plan changes (new symbol/objective).
@@ -391,7 +394,6 @@ function TokenDetailPage() {
       document.title = "Market Pulse";
     };
   }, [lastClose, symbol]);
-  const stats = useMemo(() => (data ? compute24hStats(data.candles) : null), [data]);
   const spark = useMemo(
     () => data?.candles.slice(-32).map((c, i) => ({ t: i, v: c.close })) ?? [],
     [data],
@@ -492,7 +494,7 @@ function TokenDetailPage() {
       <IqCard
         padded={false}
         data-tour="header"
-        className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5"
+        className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 sm:px-4"
       >
         <div className="flex min-w-0 items-center gap-2.5">
           <AssetIcon ticker={symbol} className="h-8 w-8 text-sm" />
@@ -523,8 +525,8 @@ function TokenDetailPage() {
         {signal.isLoading ? (
           <span className="h-7 w-40 animate-pulse rounded bg-muted" />
         ) : (
-          <div className="flex items-center gap-2.5">
-            <span className="num text-xl font-semibold tracking-tight">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-2.5">
+            <span className="num text-lg font-semibold tracking-tight sm:text-xl">
               {formatMoney(lastClose)}
             </span>
             <Change value={change24h} showIcon />
@@ -557,40 +559,13 @@ function TokenDetailPage() {
           </div>
         )}
 
-        <div className="ml-auto flex items-center gap-4">
-          <div className="grid grid-cols-6 rounded-md border border-border bg-surface p-0.5 text-xs">
-            {TIMEFRAMES.map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => setTimeframe(item)}
-                title={biasLabel(item, biasByTimeframe.get(item))}
-                className={cn(
-                  "flex h-9 flex-col items-center justify-center gap-1 rounded px-2.5 font-semibold transition-colors",
-                  timeframe === item
-                    ? "bg-card text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <BiasDot direction={biasByTimeframe.get(item)} />
-                {item}
-              </button>
-            ))}
-          </div>
-          {stats && (
-            <div className="hidden items-center gap-5 border-l border-border pl-4 xl:flex">
-              <HeaderStat label="24h High" value={formatMoney(stats.high)} />
-              <HeaderStat label="24h Low" value={formatMoney(stats.low)} />
-              <HeaderStat label="24h Volume" value={`${formatCompact(stats.volume)} ${symbol}`} />
-              <HeaderStat label="24h Turnover" value={`$${formatCompact(stats.turnover)}`} />
-            </div>
-          )}
+        <div className="ml-auto flex items-center gap-2">
           <HelpButton onClick={tour.start} />
         </div>
       </IqCard>
 
       {signal.isLoading || !data ? (
-        <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,25rem)_auto]">
+        <div className="grid grid-cols-1 gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,25rem)_auto]">
           <div className="flex min-h-0 min-w-0 flex-col gap-3">
             <IqCard padded={false} className="overflow-hidden lg:min-h-0 lg:flex-1">
               <div className="h-[360px] animate-pulse bg-surface lg:h-full" />
@@ -611,18 +586,81 @@ function TokenDetailPage() {
             active={activeAssessment}
             activeIntent={tradingIntent}
             onSelect={setTradingIntent}
-            onCheckTrade={
-              planDraft
-                ? () => {
-                    setPlanEditMode(true);
-                    setTradeOpen(true);
-                  }
-                : undefined
-            }
           />
 
-          <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(340px,27rem)]">
-            <div className="flex min-h-0 min-w-0 flex-col gap-3">
+          <CatalystLine
+            symbol={symbol}
+            activeIntentLabel={
+              INTENTS.find((d) => d.intent === tradingIntent)?.label ?? tradingIntent
+            }
+            objective={tradingIntent}
+            direction={activeAssessment?.direction ?? "none"}
+          />
+
+          <div className="flex shrink-0 items-center gap-2 px-3 sm:px-4">
+            <SkipCheckPanel
+              symbol={symbol}
+              objective={tradingIntent}
+              direction={
+                activeAssessment?.direction === "long" || activeAssessment?.direction === "short"
+                  ? activeAssessment.direction
+                  : null
+              }
+              entryPrice={
+                planDraft?.entry ??
+                activeAssessment?.plan?.entry ??
+                activeAssessment?.anticipatoryPlan?.entry ??
+                null
+              }
+              stopLoss={
+                planDraft?.stop ??
+                activeAssessment?.plan?.stop ??
+                activeAssessment?.anticipatoryPlan?.stop ??
+                null
+              }
+              takeProfit={
+                planDraft?.target ??
+                activeAssessment?.plan?.target1 ??
+                activeAssessment?.anticipatoryPlan?.objective.price ??
+                null
+              }
+              leverage={marketType === "perp" ? leverage : 1}
+              verdict={{
+                state:
+                  activeAssessment?.verdict === "favored" || activeAssessment?.verdict === "caution"
+                    ? "live"
+                    : activeAssessment?.verdict === "avoid"
+                      ? "wrong_strategy"
+                      : "not_yet",
+                regime: activeAssessment?.context.regime ?? null,
+                regime_aligned: activeAssessment
+                  ? activeAssessment.contextBias === activeAssessment.direction
+                  : null,
+                flip_condition: activeAssessment?.triggers[0] ?? null,
+              }}
+              context={{
+                catalyst: externalContext.data?.upcoming?.[0]
+                  ? { modifier: "context", impactScore: 0, direction: "neutral" }
+                  : null,
+                accountFreshness: "server-validated at check time",
+                behaviorFlags: [],
+                tradeQualityScore: activeAssessment?.confidence ?? null,
+                invalidation:
+                  activeAssessment?.triggers.find((trigger) =>
+                    /invalidates|flips/i.test(trigger),
+                  ) ??
+                  activeAssessment?.triggers[0] ??
+                  null,
+              }}
+              onTrade={(id) => {
+                setDecisionId(id);
+                setTradeOpen(true);
+              }}
+            />
+          </div>
+
+          <div className="flex min-w-0 flex-col gap-3 lg:min-h-0 lg:flex-1 lg:flex-row">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
               <ChartErrorBoundary>
                 <IqCard
                   padded={false}
@@ -634,7 +672,7 @@ function TokenDetailPage() {
                       : "lg:min-h-0 lg:flex-1",
                   )}
                 >
-                  <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b border-border px-3 py-2 sm:px-4">
+                  <div className="flex shrink-0 flex-col items-stretch gap-2 border-b border-border px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-3 sm:gap-y-1.5 sm:px-4">
                     <div className="flex min-w-0 items-baseline gap-3">
                       <div className="flex items-center gap-1.5">
                         <CardEyebrow>{chartFullscreen ? symbol : "Price Structure"}</CardEyebrow>
@@ -649,26 +687,26 @@ function TokenDetailPage() {
                         {equilibriumReading(data.evaluation)}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {chartFullscreen && (
-                        <div className="flex rounded-md border border-border bg-surface p-0.5 text-[11px]">
-                          {TIMEFRAMES.map((item) => (
-                            <button
-                              key={item}
-                              type="button"
-                              onClick={() => setTimeframe(item)}
-                              className={cn(
-                                "rounded px-2 py-1.5 font-semibold transition-colors",
-                                timeframe === item
-                                  ? "bg-card text-foreground shadow-sm"
-                                  : "text-muted-foreground hover:text-foreground",
-                              )}
-                            >
-                              {item}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                    <div className="flex min-w-0 items-center gap-2 overflow-x-auto pb-0.5 sm:overflow-visible sm:pb-0">
+                      <div className="flex shrink-0 rounded-md border border-border bg-surface p-0.5 text-[10px]">
+                        {TIMEFRAMES.map((item) => (
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() => setTimeframe(item)}
+                            title={biasLabel(item, biasByTimeframe.get(item))}
+                            className={cn(
+                              "flex min-h-11 items-center gap-1 rounded px-1.5 py-1 font-semibold transition-colors sm:min-h-0 sm:px-2",
+                              timeframe === item
+                                ? "bg-card text-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground",
+                            )}
+                          >
+                            <BiasDot direction={biasByTimeframe.get(item)} />
+                            {item}
+                          </button>
+                        ))}
+                      </div>
                       <Badge
                         variant="outline"
                         className={cn(
@@ -691,7 +729,7 @@ function TokenDetailPage() {
                           }}
                           aria-pressed={planEditMode}
                           className={cn(
-                            "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-semibold transition-colors",
+                            "flex min-h-11 shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-semibold transition-colors sm:min-h-0",
                             planEditMode
                               ? "border-info bg-info-soft text-info"
                               : "border-border bg-surface text-muted-foreground hover:text-foreground",
@@ -706,7 +744,7 @@ function TokenDetailPage() {
                         onClick={() => setDrawMode((v) => !v)}
                         aria-pressed={drawMode}
                         className={cn(
-                          "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-semibold transition-colors",
+                          "flex min-h-11 shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] font-semibold transition-colors sm:min-h-0",
                           drawMode
                             ? "border-info bg-info-soft text-info"
                             : "border-border bg-surface text-muted-foreground hover:text-foreground",
@@ -719,7 +757,7 @@ function TokenDetailPage() {
                         type="button"
                         onClick={() => setChartFullscreen((v) => !v)}
                         aria-label={chartFullscreen ? "Exit fullscreen chart" : "Fullscreen chart"}
-                        className="rounded-md border border-border bg-surface p-2 text-muted-foreground transition-colors hover:text-foreground"
+                        className="min-h-11 min-w-11 shrink-0 rounded-md border border-border bg-surface p-2 text-muted-foreground transition-colors hover:text-foreground sm:min-h-0 sm:min-w-0"
                       >
                         {chartFullscreen ? (
                           <Minimize2 className="h-3.5 w-3.5" />
@@ -755,15 +793,28 @@ function TokenDetailPage() {
                       />
                     )}
                   </div>
+                  {!chartFullscreen && (
+                    <ChartFooter>
+                      <GlanceStrip
+                        assessment={activeAssessment}
+                        evaluation={data.evaluation}
+                        timeframe={timeframe}
+                        candles={data.candles}
+                      />
+                      <div className="hidden items-center justify-between border-t border-border px-3 py-1 text-[9px] font-medium uppercase tracking-wider text-muted-foreground sm:flex">
+                        <span>
+                          Updated{" "}
+                          {new Date(signal.dataUpdatedAt || Date.now()).toLocaleTimeString()}
+                        </span>
+                        <span>
+                          {data.source === "live" ? "Binance · Live" : "Synthetic · Demo"} ·
+                          Auto-refresh on
+                        </span>
+                      </div>
+                    </ChartFooter>
+                  )}
                 </IqCard>
               </ChartErrorBoundary>
-
-              <GlanceStrip
-                assessment={activeAssessment}
-                evaluation={data.evaluation}
-                timeframe={timeframe}
-                candles={data.candles}
-              />
             </div>
 
             <AssistantPanel
@@ -782,7 +833,9 @@ function TokenDetailPage() {
               evidenceOpen={evidenceOpen}
               onEvidenceOpen={setEvidenceOpen}
               onOpenTrade={() => setTradeOpen(true)}
-              className="lg:h-full lg:min-h-0"
+              open={assistantOpen}
+              onToggle={() => setAssistantOpen((v) => !v)}
+              className="w-full lg:h-full lg:min-h-0 lg:shrink-0"
             />
           </div>
 
@@ -797,38 +850,8 @@ function TokenDetailPage() {
             assessment={activeAssessment}
             chartStructure={chartStructure}
             externalContext={externalContext.data ?? null}
+            decisionId={decisionId}
           />
-
-          <div className="hidden shrink-0 items-center justify-between rounded-lg border border-border bg-card px-4 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground lg:flex">
-            <div className="flex items-center gap-2">
-              <span>
-                Last updated:{" "}
-                <span className="num text-foreground">
-                  {new Date(signal.dataUpdatedAt || Date.now()).toLocaleTimeString()}
-                </span>
-              </span>
-              <span
-                className={cn(
-                  "flex items-center gap-1 font-semibold",
-                  data.source === "live" ? "text-bullish" : "text-warning",
-                )}
-              >
-                <span
-                  className={cn(
-                    "h-1.5 w-1.5 rounded-full",
-                    data.source === "live" ? "bg-bullish" : "bg-warning",
-                  )}
-                />
-                {data.source === "live" ? "Live" : "Demo"}
-              </span>
-            </div>
-            <span>
-              Data source: {data.source === "live" ? "Binance" : "Synthetic (Binance unreachable)"}
-            </span>
-            <span>
-              Auto-refresh: <span className="text-bullish">On</span>
-            </span>
-          </div>
         </TooltipProvider>
       )}
 

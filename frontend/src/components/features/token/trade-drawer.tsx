@@ -30,6 +30,7 @@ export function TradeDrawer({
   assessment,
   chartStructure,
   externalContext,
+  decisionId,
 }: {
   symbol: string;
   ticket: Partial<TradeTicketState>;
@@ -41,6 +42,7 @@ export function TradeDrawer({
   assessment?: DisplayIntentAssessment | null;
   chartStructure?: ChartStructure | null;
   externalContext?: ExternalContext | null;
+  decisionId?: string | null;
 }) {
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -147,7 +149,12 @@ export function TradeDrawer({
           )}
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-3 flex flex-col gap-4">
-          <ExecutionPanel initialTicket={ticket} logContext={logContext} className="w-full" />
+          <ExecutionPanel
+            initialTicket={ticket}
+            logContext={logContext}
+            decisionId={decisionId}
+            className="w-full"
+          />
 
           {evaluation && (
             <div className="rounded-lg border bg-muted/30 p-3 text-sm">

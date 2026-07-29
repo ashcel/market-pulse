@@ -338,7 +338,13 @@ function CloseTradeInline({ trade, onClose }: { trade: Trade; onClose: () => voi
 
 // ── Open Position Card (hero — live PnL) ──────────────────────────────────────
 
-function OpenPositionCard({ row }: { row: OpenTradePnl }) {
+export function OpenPositionCard({
+  row,
+  readOnly = false,
+}: {
+  row: OpenTradePnl;
+  readOnly?: boolean;
+}) {
   const { trade, livePrice, unrealizedPnl, unrealizedPct } = row;
   const deleteTrade = useDeleteTrade();
   const [showClose, setShowClose] = useState(false);
@@ -398,36 +404,68 @@ function OpenPositionCard({ row }: { row: OpenTradePnl }) {
         <Metric label="Quantity" value={String(trade.quantity)} />
       </div>
 
+      <TradeHealth unrealizedPnl={unrealizedPnl} unrealizedPct={unrealizedPct} />
+
       {trade.notes && (
         <p className="text-xs text-muted-foreground italic border-t border-border/50 pt-2">
           {trade.notes}
         </p>
       )}
 
-      <div className="flex items-center gap-2 border-t border-border/40 pt-2">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => setShowClose((v) => !v)}
-          className="text-xs h-7 px-2"
-        >
-          <DollarSign className="h-3 w-3 mr-1" />
-          Close Trade
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-7 w-7 ml-auto text-muted-foreground hover:text-bearish"
-          onClick={() => deleteTrade.mutate(trade.id)}
-          disabled={deleteTrade.isPending}
-          aria-label={`Delete ${trade.symbol} trade`}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
-      </div>
+      {!readOnly && (
+        <div className="flex items-center gap-2 border-t border-border/40 pt-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowClose((v) => !v)}
+            className="text-xs h-7 px-2"
+          >
+            <DollarSign className="h-3 w-3 mr-1" />
+            Close Trade
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 ml-auto text-muted-foreground hover:text-bearish"
+            onClick={() => deleteTrade.mutate(trade.id)}
+            disabled={deleteTrade.isPending}
+            aria-label={`Delete ${trade.symbol} trade`}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
 
-      {showClose && <CloseTradeInline trade={trade} onClose={() => setShowClose(false)} />}
+      {!readOnly && showClose && (
+        <CloseTradeInline trade={trade} onClose={() => setShowClose(false)} />
+      )}
     </IqCard>
+  );
+}
+
+function TradeHealth({
+  unrealizedPnl,
+  unrealizedPct,
+}: {
+  unrealizedPnl: number | null;
+  unrealizedPct: number | null;
+}) {
+  if (unrealizedPnl === null || unrealizedPct === null) {
+    return <p className="text-xs font-medium text-muted-foreground">Awaiting live price…</p>;
+  }
+
+  if (unrealizedPnl > 0 && unrealizedPct > 5) {
+    return <p className="text-xs font-semibold text-bullish">Healthy ✅</p>;
+  }
+
+  if (unrealizedPnl < 0 && Math.abs(unrealizedPct) >= 3) {
+    return <p className="text-xs font-semibold text-bearish">At Risk 🔴</p>;
+  }
+
+  return (
+    <p className="text-xs font-semibold text-warning">
+      {unrealizedPnl < 0 ? "Slipping ⚠️" : "Watching 👀"}
+    </p>
   );
 }
 

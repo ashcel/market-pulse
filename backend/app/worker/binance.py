@@ -130,6 +130,7 @@ def kline_weight(limit: int) -> int:
         return 2
     return 5
 
+
 TICKER_PRICE_WEIGHT = 2
 
 _client: httpx.AsyncClient | None = None
@@ -237,9 +238,7 @@ async def fetch_klines_raw(
 
     try:
         await _limiter.acquire(kline_weight(limit))
-        response = await http_client().get(
-            "https://fapi.binance.com/fapi/v1/klines", params=params
-        )
+        response = await http_client().get("https://fapi.binance.com/fapi/v1/klines", params=params)
         if response.status_code != 200:
             return []
         payload = response.json()

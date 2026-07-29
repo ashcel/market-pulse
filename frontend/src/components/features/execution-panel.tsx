@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import type { PermitCardApproved } from "@/lib/types/execution";
 import type { TradeTicketState } from "@/hooks/useTradeTicket";
 import type { SizingPreview } from "@/hooks/useSkipCheck";
+import { setDecisionAction } from "@/hooks/useDecisions";
 
 /**
  * Plan-derived numbers used to mirror a confirmed trade into the journal
@@ -80,6 +81,7 @@ export function ExecutionPanel({
   className,
   logContext,
   serverSizing,
+  decisionId,
 }: {
   initialTicket?: Partial<TradeTicketState>;
   className?: string;
@@ -87,6 +89,7 @@ export function ExecutionPanel({
   /** Server-derived sizing (qty/notional/margin) from a Skip Check, when the
    * ticket is opened as a Check continuation. */
   serverSizing?: SizingPreview | null;
+  decisionId?: string | null;
 }) {
   const ticket = useTradeTicket(initialTicket);
   const permitReq = usePermit();
@@ -198,6 +201,13 @@ export function ExecutionPanel({
 
       const successData = executeData as { data?: ExecutionResult };
       if (successData?.data) setExecutionResult(successData.data);
+      if (decisionId) {
+        await setDecisionAction(decisionId, "took_trade", {
+          permit_id: permitId,
+          execution_id: successData.data?.execution_id,
+          status: successData.data?.status,
+        });
+      }
 
       if (logContext) {
         try {

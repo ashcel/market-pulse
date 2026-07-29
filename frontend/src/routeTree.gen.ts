@@ -24,6 +24,7 @@ import { Route as JournalRouteImport } from './routes/journal'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TokenSymbolRouteImport } from './routes/token.$symbol'
 import { Route as ApiWatchlistRouteImport } from './routes/api/watchlist'
+import { Route as ApiUniverseRouteImport } from './routes/api/universe'
 import { Route as ApiTradesRouteImport } from './routes/api/trades'
 import { Route as ApiTrackTokenRouteImport } from './routes/api/track-token'
 import { Route as ApiTokenEventsRouteImport } from './routes/api/token-events'
@@ -33,10 +34,14 @@ import { Route as ApiKlinesRouteImport } from './routes/api/klines'
 import { Route as ApiForwardTestRouteImport } from './routes/api/forward-test'
 import { Route as ApiExternalContextRouteImport } from './routes/api/external-context'
 import { Route as ApiEconomicEventsRouteImport } from './routes/api/economic-events'
+import { Route as ApiDecisionsRouteImport } from './routes/api/decisions'
 import { Route as ApiAuthRouteImport } from './routes/api/auth'
+import { Route as ApiAlertsRouteImport } from './routes/api/alerts'
 import { Route as ApiTradesIdRouteImport } from './routes/api/trades.$id'
+import { Route as ApiReviewForensicsRouteImport } from './routes/api/review.forensics'
 import { Route as ApiReviewAnalyticsRouteImport } from './routes/api/review.analytics'
 import { Route as ApiReviewIdRouteImport } from './routes/api/review.$id'
+import { Route as ApiPositionsStreamRouteImport } from './routes/api/positions.stream'
 import { Route as ApiExecutionSkipCheckRouteImport } from './routes/api/execution.skip-check'
 import { Route as ApiExecutionPermitRouteImport } from './routes/api/execution.permit'
 import { Route as ApiExecutionExecutionsRouteImport } from './routes/api/execution.executions'
@@ -45,7 +50,11 @@ import { Route as ApiExecutionConstitutionRouteImport } from './routes/api/execu
 import { Route as ApiBinanceReviewTradesRouteImport } from './routes/api/binance-review.trades'
 import { Route as ApiBinanceReviewSyncRouteImport } from './routes/api/binance-review.sync'
 import { Route as ApiBinanceReviewApiKeyRouteImport } from './routes/api/binance-review.api-key'
+import { Route as ApiAiDeskAnalyzeTradesRouteImport } from './routes/api/ai-desk.analyze-trades'
+import { Route as ApiReviewForensicsTradeIdRouteImport } from './routes/api/review.forensics.$tradeId'
 import { Route as ApiExecutionPermitIdRouteImport } from './routes/api/execution.permit.$id'
+import { Route as ApiDecisionsIdActionRouteImport } from './routes/api/decisions.$id.action'
+import { Route as ApiAlertsIdReadRouteImport } from './routes/api/alerts.$id.read'
 
 const TradesRoute = TradesRouteImport.update({
   id: '/trades',
@@ -122,6 +131,11 @@ const ApiWatchlistRoute = ApiWatchlistRouteImport.update({
   path: '/api/watchlist',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiUniverseRoute = ApiUniverseRouteImport.update({
+  id: '/api/universe',
+  path: '/api/universe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTradesRoute = ApiTradesRouteImport.update({
   id: '/api/trades',
   path: '/api/trades',
@@ -167,15 +181,30 @@ const ApiEconomicEventsRoute = ApiEconomicEventsRouteImport.update({
   path: '/api/economic-events',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDecisionsRoute = ApiDecisionsRouteImport.update({
+  id: '/api/decisions',
+  path: '/api/decisions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthRoute = ApiAuthRouteImport.update({
   id: '/api/auth',
   path: '/api/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAlertsRoute = ApiAlertsRouteImport.update({
+  id: '/api/alerts',
+  path: '/api/alerts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiTradesIdRoute = ApiTradesIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => ApiTradesRoute,
+} as any)
+const ApiReviewForensicsRoute = ApiReviewForensicsRouteImport.update({
+  id: '/api/review/forensics',
+  path: '/api/review/forensics',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiReviewAnalyticsRoute = ApiReviewAnalyticsRouteImport.update({
   id: '/api/review/analytics',
@@ -185,6 +214,11 @@ const ApiReviewAnalyticsRoute = ApiReviewAnalyticsRouteImport.update({
 const ApiReviewIdRoute = ApiReviewIdRouteImport.update({
   id: '/api/review/$id',
   path: '/api/review/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPositionsStreamRoute = ApiPositionsStreamRouteImport.update({
+  id: '/api/positions/stream',
+  path: '/api/positions/stream',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiExecutionSkipCheckRoute = ApiExecutionSkipCheckRouteImport.update({
@@ -228,10 +262,31 @@ const ApiBinanceReviewApiKeyRoute = ApiBinanceReviewApiKeyRouteImport.update({
   path: '/api/binance-review/api-key',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAiDeskAnalyzeTradesRoute = ApiAiDeskAnalyzeTradesRouteImport.update({
+  id: '/api/ai-desk/analyze-trades',
+  path: '/api/ai-desk/analyze-trades',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReviewForensicsTradeIdRoute =
+  ApiReviewForensicsTradeIdRouteImport.update({
+    id: '/$tradeId',
+    path: '/$tradeId',
+    getParentRoute: () => ApiReviewForensicsRoute,
+  } as any)
 const ApiExecutionPermitIdRoute = ApiExecutionPermitIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => ApiExecutionPermitRoute,
+} as any)
+const ApiDecisionsIdActionRoute = ApiDecisionsIdActionRouteImport.update({
+  id: '/$id/action',
+  path: '/$id/action',
+  getParentRoute: () => ApiDecisionsRoute,
+} as any)
+const ApiAlertsIdReadRoute = ApiAlertsIdReadRouteImport.update({
+  id: '/$id/read',
+  path: '/$id/read',
+  getParentRoute: () => ApiAlertsRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -248,7 +303,9 @@ export interface FileRoutesByFullPath {
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
   '/trades': typeof TradesRoute
+  '/api/alerts': typeof ApiAlertsRouteWithChildren
   '/api/auth': typeof ApiAuthRoute
+  '/api/decisions': typeof ApiDecisionsRouteWithChildren
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
@@ -258,8 +315,10 @@ export interface FileRoutesByFullPath {
   '/api/token-events': typeof ApiTokenEventsRoute
   '/api/track-token': typeof ApiTrackTokenRoute
   '/api/trades': typeof ApiTradesRouteWithChildren
+  '/api/universe': typeof ApiUniverseRoute
   '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
+  '/api/ai-desk/analyze-trades': typeof ApiAiDeskAnalyzeTradesRoute
   '/api/binance-review/api-key': typeof ApiBinanceReviewApiKeyRoute
   '/api/binance-review/sync': typeof ApiBinanceReviewSyncRoute
   '/api/binance-review/trades': typeof ApiBinanceReviewTradesRoute
@@ -268,10 +327,15 @@ export interface FileRoutesByFullPath {
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
   '/api/execution/skip-check': typeof ApiExecutionSkipCheckRoute
+  '/api/positions/stream': typeof ApiPositionsStreamRoute
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
+  '/api/review/forensics': typeof ApiReviewForensicsRouteWithChildren
   '/api/trades/$id': typeof ApiTradesIdRoute
+  '/api/alerts/$id/read': typeof ApiAlertsIdReadRoute
+  '/api/decisions/$id/action': typeof ApiDecisionsIdActionRoute
   '/api/execution/permit/$id': typeof ApiExecutionPermitIdRoute
+  '/api/review/forensics/$tradeId': typeof ApiReviewForensicsTradeIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -287,7 +351,9 @@ export interface FileRoutesByTo {
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
   '/trades': typeof TradesRoute
+  '/api/alerts': typeof ApiAlertsRouteWithChildren
   '/api/auth': typeof ApiAuthRoute
+  '/api/decisions': typeof ApiDecisionsRouteWithChildren
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
@@ -297,8 +363,10 @@ export interface FileRoutesByTo {
   '/api/token-events': typeof ApiTokenEventsRoute
   '/api/track-token': typeof ApiTrackTokenRoute
   '/api/trades': typeof ApiTradesRouteWithChildren
+  '/api/universe': typeof ApiUniverseRoute
   '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
+  '/api/ai-desk/analyze-trades': typeof ApiAiDeskAnalyzeTradesRoute
   '/api/binance-review/api-key': typeof ApiBinanceReviewApiKeyRoute
   '/api/binance-review/sync': typeof ApiBinanceReviewSyncRoute
   '/api/binance-review/trades': typeof ApiBinanceReviewTradesRoute
@@ -307,10 +375,15 @@ export interface FileRoutesByTo {
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
   '/api/execution/skip-check': typeof ApiExecutionSkipCheckRoute
+  '/api/positions/stream': typeof ApiPositionsStreamRoute
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
+  '/api/review/forensics': typeof ApiReviewForensicsRouteWithChildren
   '/api/trades/$id': typeof ApiTradesIdRoute
+  '/api/alerts/$id/read': typeof ApiAlertsIdReadRoute
+  '/api/decisions/$id/action': typeof ApiDecisionsIdActionRoute
   '/api/execution/permit/$id': typeof ApiExecutionPermitIdRoute
+  '/api/review/forensics/$tradeId': typeof ApiReviewForensicsTradeIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -327,7 +400,9 @@ export interface FileRoutesById {
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
   '/trades': typeof TradesRoute
+  '/api/alerts': typeof ApiAlertsRouteWithChildren
   '/api/auth': typeof ApiAuthRoute
+  '/api/decisions': typeof ApiDecisionsRouteWithChildren
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
@@ -337,8 +412,10 @@ export interface FileRoutesById {
   '/api/token-events': typeof ApiTokenEventsRoute
   '/api/track-token': typeof ApiTrackTokenRoute
   '/api/trades': typeof ApiTradesRouteWithChildren
+  '/api/universe': typeof ApiUniverseRoute
   '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
+  '/api/ai-desk/analyze-trades': typeof ApiAiDeskAnalyzeTradesRoute
   '/api/binance-review/api-key': typeof ApiBinanceReviewApiKeyRoute
   '/api/binance-review/sync': typeof ApiBinanceReviewSyncRoute
   '/api/binance-review/trades': typeof ApiBinanceReviewTradesRoute
@@ -347,10 +424,15 @@ export interface FileRoutesById {
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
   '/api/execution/skip-check': typeof ApiExecutionSkipCheckRoute
+  '/api/positions/stream': typeof ApiPositionsStreamRoute
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
+  '/api/review/forensics': typeof ApiReviewForensicsRouteWithChildren
   '/api/trades/$id': typeof ApiTradesIdRoute
+  '/api/alerts/$id/read': typeof ApiAlertsIdReadRoute
+  '/api/decisions/$id/action': typeof ApiDecisionsIdActionRoute
   '/api/execution/permit/$id': typeof ApiExecutionPermitIdRoute
+  '/api/review/forensics/$tradeId': typeof ApiReviewForensicsTradeIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -368,7 +450,9 @@ export interface FileRouteTypes {
     | '/technical'
     | '/tracker'
     | '/trades'
+    | '/api/alerts'
     | '/api/auth'
+    | '/api/decisions'
     | '/api/economic-events'
     | '/api/external-context'
     | '/api/forward-test'
@@ -378,8 +462,10 @@ export interface FileRouteTypes {
     | '/api/token-events'
     | '/api/track-token'
     | '/api/trades'
+    | '/api/universe'
     | '/api/watchlist'
     | '/token/$symbol'
+    | '/api/ai-desk/analyze-trades'
     | '/api/binance-review/api-key'
     | '/api/binance-review/sync'
     | '/api/binance-review/trades'
@@ -388,10 +474,15 @@ export interface FileRouteTypes {
     | '/api/execution/executions'
     | '/api/execution/permit'
     | '/api/execution/skip-check'
+    | '/api/positions/stream'
     | '/api/review/$id'
     | '/api/review/analytics'
+    | '/api/review/forensics'
     | '/api/trades/$id'
+    | '/api/alerts/$id/read'
+    | '/api/decisions/$id/action'
     | '/api/execution/permit/$id'
+    | '/api/review/forensics/$tradeId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -407,7 +498,9 @@ export interface FileRouteTypes {
     | '/technical'
     | '/tracker'
     | '/trades'
+    | '/api/alerts'
     | '/api/auth'
+    | '/api/decisions'
     | '/api/economic-events'
     | '/api/external-context'
     | '/api/forward-test'
@@ -417,8 +510,10 @@ export interface FileRouteTypes {
     | '/api/token-events'
     | '/api/track-token'
     | '/api/trades'
+    | '/api/universe'
     | '/api/watchlist'
     | '/token/$symbol'
+    | '/api/ai-desk/analyze-trades'
     | '/api/binance-review/api-key'
     | '/api/binance-review/sync'
     | '/api/binance-review/trades'
@@ -427,10 +522,15 @@ export interface FileRouteTypes {
     | '/api/execution/executions'
     | '/api/execution/permit'
     | '/api/execution/skip-check'
+    | '/api/positions/stream'
     | '/api/review/$id'
     | '/api/review/analytics'
+    | '/api/review/forensics'
     | '/api/trades/$id'
+    | '/api/alerts/$id/read'
+    | '/api/decisions/$id/action'
     | '/api/execution/permit/$id'
+    | '/api/review/forensics/$tradeId'
   id:
     | '__root__'
     | '/'
@@ -446,7 +546,9 @@ export interface FileRouteTypes {
     | '/technical'
     | '/tracker'
     | '/trades'
+    | '/api/alerts'
     | '/api/auth'
+    | '/api/decisions'
     | '/api/economic-events'
     | '/api/external-context'
     | '/api/forward-test'
@@ -456,8 +558,10 @@ export interface FileRouteTypes {
     | '/api/token-events'
     | '/api/track-token'
     | '/api/trades'
+    | '/api/universe'
     | '/api/watchlist'
     | '/token/$symbol'
+    | '/api/ai-desk/analyze-trades'
     | '/api/binance-review/api-key'
     | '/api/binance-review/sync'
     | '/api/binance-review/trades'
@@ -466,10 +570,15 @@ export interface FileRouteTypes {
     | '/api/execution/executions'
     | '/api/execution/permit'
     | '/api/execution/skip-check'
+    | '/api/positions/stream'
     | '/api/review/$id'
     | '/api/review/analytics'
+    | '/api/review/forensics'
     | '/api/trades/$id'
+    | '/api/alerts/$id/read'
+    | '/api/decisions/$id/action'
     | '/api/execution/permit/$id'
+    | '/api/review/forensics/$tradeId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -486,7 +595,9 @@ export interface RootRouteChildren {
   TechnicalRoute: typeof TechnicalRoute
   TrackerRoute: typeof TrackerRoute
   TradesRoute: typeof TradesRoute
+  ApiAlertsRoute: typeof ApiAlertsRouteWithChildren
   ApiAuthRoute: typeof ApiAuthRoute
+  ApiDecisionsRoute: typeof ApiDecisionsRouteWithChildren
   ApiEconomicEventsRoute: typeof ApiEconomicEventsRoute
   ApiExternalContextRoute: typeof ApiExternalContextRoute
   ApiForwardTestRoute: typeof ApiForwardTestRoute
@@ -496,8 +607,10 @@ export interface RootRouteChildren {
   ApiTokenEventsRoute: typeof ApiTokenEventsRoute
   ApiTrackTokenRoute: typeof ApiTrackTokenRoute
   ApiTradesRoute: typeof ApiTradesRouteWithChildren
+  ApiUniverseRoute: typeof ApiUniverseRoute
   ApiWatchlistRoute: typeof ApiWatchlistRoute
   TokenSymbolRoute: typeof TokenSymbolRoute
+  ApiAiDeskAnalyzeTradesRoute: typeof ApiAiDeskAnalyzeTradesRoute
   ApiBinanceReviewApiKeyRoute: typeof ApiBinanceReviewApiKeyRoute
   ApiBinanceReviewSyncRoute: typeof ApiBinanceReviewSyncRoute
   ApiBinanceReviewTradesRoute: typeof ApiBinanceReviewTradesRoute
@@ -506,8 +619,10 @@ export interface RootRouteChildren {
   ApiExecutionExecutionsRoute: typeof ApiExecutionExecutionsRoute
   ApiExecutionPermitRoute: typeof ApiExecutionPermitRouteWithChildren
   ApiExecutionSkipCheckRoute: typeof ApiExecutionSkipCheckRoute
+  ApiPositionsStreamRoute: typeof ApiPositionsStreamRoute
   ApiReviewIdRoute: typeof ApiReviewIdRoute
   ApiReviewAnalyticsRoute: typeof ApiReviewAnalyticsRoute
+  ApiReviewForensicsRoute: typeof ApiReviewForensicsRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -617,6 +732,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiWatchlistRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/universe': {
+      id: '/api/universe'
+      path: '/api/universe'
+      fullPath: '/api/universe'
+      preLoaderRoute: typeof ApiUniverseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/trades': {
       id: '/api/trades'
       path: '/api/trades'
@@ -680,11 +802,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiEconomicEventsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/decisions': {
+      id: '/api/decisions'
+      path: '/api/decisions'
+      fullPath: '/api/decisions'
+      preLoaderRoute: typeof ApiDecisionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth': {
       id: '/api/auth'
       path: '/api/auth'
       fullPath: '/api/auth'
       preLoaderRoute: typeof ApiAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/alerts': {
+      id: '/api/alerts'
+      path: '/api/alerts'
+      fullPath: '/api/alerts'
+      preLoaderRoute: typeof ApiAlertsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/trades/$id': {
@@ -693,6 +829,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/trades/$id'
       preLoaderRoute: typeof ApiTradesIdRouteImport
       parentRoute: typeof ApiTradesRoute
+    }
+    '/api/review/forensics': {
+      id: '/api/review/forensics'
+      path: '/api/review/forensics'
+      fullPath: '/api/review/forensics'
+      preLoaderRoute: typeof ApiReviewForensicsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/review/analytics': {
       id: '/api/review/analytics'
@@ -706,6 +849,13 @@ declare module '@tanstack/react-router' {
       path: '/api/review/$id'
       fullPath: '/api/review/$id'
       preLoaderRoute: typeof ApiReviewIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/positions/stream': {
+      id: '/api/positions/stream'
+      path: '/api/positions/stream'
+      fullPath: '/api/positions/stream'
+      preLoaderRoute: typeof ApiPositionsStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/execution/skip-check': {
@@ -764,6 +914,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiBinanceReviewApiKeyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/ai-desk/analyze-trades': {
+      id: '/api/ai-desk/analyze-trades'
+      path: '/api/ai-desk/analyze-trades'
+      fullPath: '/api/ai-desk/analyze-trades'
+      preLoaderRoute: typeof ApiAiDeskAnalyzeTradesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/review/forensics/$tradeId': {
+      id: '/api/review/forensics/$tradeId'
+      path: '/$tradeId'
+      fullPath: '/api/review/forensics/$tradeId'
+      preLoaderRoute: typeof ApiReviewForensicsTradeIdRouteImport
+      parentRoute: typeof ApiReviewForensicsRoute
+    }
     '/api/execution/permit/$id': {
       id: '/api/execution/permit/$id'
       path: '/$id'
@@ -771,8 +935,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiExecutionPermitIdRouteImport
       parentRoute: typeof ApiExecutionPermitRoute
     }
+    '/api/decisions/$id/action': {
+      id: '/api/decisions/$id/action'
+      path: '/$id/action'
+      fullPath: '/api/decisions/$id/action'
+      preLoaderRoute: typeof ApiDecisionsIdActionRouteImport
+      parentRoute: typeof ApiDecisionsRoute
+    }
+    '/api/alerts/$id/read': {
+      id: '/api/alerts/$id/read'
+      path: '/$id/read'
+      fullPath: '/api/alerts/$id/read'
+      preLoaderRoute: typeof ApiAlertsIdReadRouteImport
+      parentRoute: typeof ApiAlertsRoute
+    }
   }
 }
+
+interface ApiAlertsRouteChildren {
+  ApiAlertsIdReadRoute: typeof ApiAlertsIdReadRoute
+}
+
+const ApiAlertsRouteChildren: ApiAlertsRouteChildren = {
+  ApiAlertsIdReadRoute: ApiAlertsIdReadRoute,
+}
+
+const ApiAlertsRouteWithChildren = ApiAlertsRoute._addFileChildren(
+  ApiAlertsRouteChildren,
+)
+
+interface ApiDecisionsRouteChildren {
+  ApiDecisionsIdActionRoute: typeof ApiDecisionsIdActionRoute
+}
+
+const ApiDecisionsRouteChildren: ApiDecisionsRouteChildren = {
+  ApiDecisionsIdActionRoute: ApiDecisionsIdActionRoute,
+}
+
+const ApiDecisionsRouteWithChildren = ApiDecisionsRoute._addFileChildren(
+  ApiDecisionsRouteChildren,
+)
 
 interface ApiTradesRouteChildren {
   ApiTradesIdRoute: typeof ApiTradesIdRoute
@@ -797,6 +999,17 @@ const ApiExecutionPermitRouteChildren: ApiExecutionPermitRouteChildren = {
 const ApiExecutionPermitRouteWithChildren =
   ApiExecutionPermitRoute._addFileChildren(ApiExecutionPermitRouteChildren)
 
+interface ApiReviewForensicsRouteChildren {
+  ApiReviewForensicsTradeIdRoute: typeof ApiReviewForensicsTradeIdRoute
+}
+
+const ApiReviewForensicsRouteChildren: ApiReviewForensicsRouteChildren = {
+  ApiReviewForensicsTradeIdRoute: ApiReviewForensicsTradeIdRoute,
+}
+
+const ApiReviewForensicsRouteWithChildren =
+  ApiReviewForensicsRoute._addFileChildren(ApiReviewForensicsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   JournalRoute: JournalRoute,
@@ -811,7 +1024,9 @@ const rootRouteChildren: RootRouteChildren = {
   TechnicalRoute: TechnicalRoute,
   TrackerRoute: TrackerRoute,
   TradesRoute: TradesRoute,
+  ApiAlertsRoute: ApiAlertsRouteWithChildren,
   ApiAuthRoute: ApiAuthRoute,
+  ApiDecisionsRoute: ApiDecisionsRouteWithChildren,
   ApiEconomicEventsRoute: ApiEconomicEventsRoute,
   ApiExternalContextRoute: ApiExternalContextRoute,
   ApiForwardTestRoute: ApiForwardTestRoute,
@@ -821,8 +1036,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiTokenEventsRoute: ApiTokenEventsRoute,
   ApiTrackTokenRoute: ApiTrackTokenRoute,
   ApiTradesRoute: ApiTradesRouteWithChildren,
+  ApiUniverseRoute: ApiUniverseRoute,
   ApiWatchlistRoute: ApiWatchlistRoute,
   TokenSymbolRoute: TokenSymbolRoute,
+  ApiAiDeskAnalyzeTradesRoute: ApiAiDeskAnalyzeTradesRoute,
   ApiBinanceReviewApiKeyRoute: ApiBinanceReviewApiKeyRoute,
   ApiBinanceReviewSyncRoute: ApiBinanceReviewSyncRoute,
   ApiBinanceReviewTradesRoute: ApiBinanceReviewTradesRoute,
@@ -831,8 +1048,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiExecutionExecutionsRoute: ApiExecutionExecutionsRoute,
   ApiExecutionPermitRoute: ApiExecutionPermitRouteWithChildren,
   ApiExecutionSkipCheckRoute: ApiExecutionSkipCheckRoute,
+  ApiPositionsStreamRoute: ApiPositionsStreamRoute,
   ApiReviewIdRoute: ApiReviewIdRoute,
   ApiReviewAnalyticsRoute: ApiReviewAnalyticsRoute,
+  ApiReviewForensicsRoute: ApiReviewForensicsRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

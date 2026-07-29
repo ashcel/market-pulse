@@ -56,9 +56,7 @@ async def get_api_key(db: AsyncSession, user_id: str) -> BybitApiKey:
     return key
 
 
-async def save_api_key(
-    db: AsyncSession, user_id: str, payload: BybitApiKeyCreate
-) -> BybitApiKey:
+async def save_api_key(db: AsyncSession, user_id: str, payload: BybitApiKeyCreate) -> BybitApiKey:
     client = BybitClient(payload.api_key, payload.api_secret, testnet=bybit_settings.TESTNET)
     try:
         await client.test_connection()

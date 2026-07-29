@@ -26,9 +26,7 @@ async def list_trades(
     return list(result.scalars().all()), total
 
 
-async def get_trade_by_id(
-    db: AsyncSession, trade_id: str, user_id: str
-) -> Trade:
+async def get_trade_by_id(db: AsyncSession, trade_id: str, user_id: str) -> Trade:
     result = await db.execute(select(Trade).where(Trade.id == trade_id))
     trade = result.scalar_one_or_none()
     if not trade:
@@ -38,9 +36,7 @@ async def get_trade_by_id(
     return trade
 
 
-async def create_trade(
-    db: AsyncSession, user_id: str, payload: TradeCreate
-) -> Trade:
+async def create_trade(db: AsyncSession, user_id: str, payload: TradeCreate) -> Trade:
     trade = Trade(
         user_id=user_id,
         symbol=payload.symbol.upper(),
@@ -70,9 +66,7 @@ async def update_trade(
     return trade
 
 
-async def delete_trade(
-    db: AsyncSession, trade_id: str, user_id: str
-) -> None:
+async def delete_trade(db: AsyncSession, trade_id: str, user_id: str) -> None:
     trade = await get_trade_by_id(db, trade_id, user_id)
     await db.delete(trade)
     await db.commit()

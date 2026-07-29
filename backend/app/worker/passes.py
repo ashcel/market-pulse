@@ -25,6 +25,7 @@ from smc.types import MarketType
 from smc.version import ENGINE_VERSION, current_provenance
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import SessionFactory
 from app.forward_test import repo
 
@@ -33,6 +34,7 @@ from .context_pass import run_context_pass
 from .econ_pass import run_econ_pass
 from .event_pass import run_event_pass
 from .inputs import assemble_evaluate_inputs
+from ..news_intel.sentiment_pass import run_sentiment_pass
 
 logger = logging.getLogger("worker")
 
@@ -47,6 +49,7 @@ _ECON_PASS_S = 2 * 60 * 60
 _last_event_pass_at = 0.0
 _last_context_pass_at = 0.0
 _last_econ_pass_at = 0.0
+_last_sentiment_pass_at = 0.0
 
 
 def _flatten_assessment(assessment: DisplayIntentAssessment) -> dict[str, Any]:
@@ -246,7 +249,7 @@ async def run_once() -> str:
     same loop on a slower cadence (a feed failure is logged inside its pass
     and must never fail the forward-test tick). The one-line summary it
     returns/logs is the heartbeat the legacy health view reports on."""
-    global _last_event_pass_at, _last_context_pass_at, _last_econ_pass_at
+    global _last_event_pass_at, _last_context_pass_at, _last_econ_pass_at, _last_sentiment_pass_at
     prov = current_provenance()
     started = time.monotonic()
     async with SessionFactory() as db:
@@ -298,6 +301,17 @@ async def run_once() -> str:
                     await db.rollback()
                     logger.exception("[econ] pass failed")
 
+            snt = ""
+            sentiment_interval = getattr(settings, "SENTIMENT_PASS_INTERVAL_S", 3600)
+            if time.time() - _last_sentiment_pass_at >= sentiment_interval:
+                _last_sentiment_pass_at = time.time()
+                try:
+                    if await run_sentiment_pass(db, http_client()):
+                        snt = " sentiment=ok"
+                except Exception:
+                    await db.rollback()
+                    logger.exception("[sentiment] pass failed")
+
             open_counts = await repo.count_open_records(db)
 
             note = (
@@ -312,7 +326,7 @@ async def run_once() -> str:
                 f"evaluated={spot.evaluated}spot+{perp.evaluated}perp "
                 f"shadow+={spot.shadow_opened + perp.shadow_opened} "
                 f"anticipatory+={spot.anticipatory_opened + perp.anticipatory_opened} "
-                f"settled={settled}{events}{ctx}{econ} "
+                f"settled={settled}{events}{ctx}{econ}{snt} "
                 f"open(shadow={open_counts['shadow']} "
                 f"anticipatory={open_counts['anticipatory']} "
                 f"tracked={open_counts['tracked']}) "

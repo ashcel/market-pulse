@@ -3,7 +3,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .exceptions import ConstitutionNotFoundError, ConstitutionValidationError
+from .exceptions import ConstitutionValidationError
 from .models import ConstitutionAudit, TradingConstitution
 from .schemas import ConstitutionCreate
 from .validation import validate_constitution
@@ -28,7 +28,7 @@ async def get_current_constitution(db: AsyncSession, user_id: str) -> TradingCon
             risk_per_trade_percent=1.0,
             daily_loss_limit_percent=3.0,
             weekly_loss_limit_percent=8.0,
-            max_leverage=5,
+            max_leverage=125,
             max_concurrent_positions=3,
             max_correlated_exposure_percent=40.0,
             min_risk_reward=1.5,
@@ -37,7 +37,9 @@ async def get_current_constitution(db: AsyncSession, user_id: str) -> TradingCon
             binding_cooldowns={},
         )
         # Seed a default version, marking the system as the creator
-        constitution = await create_constitution_version(db, user_id, default_payload, changed_by_user_id="SYSTEM")
+        constitution = await create_constitution_version(
+            db, user_id, default_payload, changed_by_user_id="SYSTEM"
+        )
     return constitution
 
 

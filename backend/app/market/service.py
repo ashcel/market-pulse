@@ -43,13 +43,7 @@ async def list_signals(
     return list(result.scalars().all()), total
 
 
-async def get_latest_signals(
-    db: AsyncSession, limit: int = 10
-) -> list[Signal]:
-    q = (
-        select(Signal)
-        .order_by(Signal.created_at.desc())
-        .limit(limit)
-    )
+async def get_latest_signals(db: AsyncSession, limit: int = 10) -> list[Signal]:
+    q = select(Signal).order_by(Signal.created_at.desc()).limit(limit)
     result = await db.execute(q)
     return list(result.scalars().all())

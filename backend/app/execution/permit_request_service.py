@@ -11,15 +11,22 @@ vs structure) are caller-supplied rather than fetched here so this service
 stays I/O-free beyond the DB and the Binance account service.
 """
 
+import logging
+from collections import Counter
 from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .account_service import get_account_state
+from .account_service import (
+    AccountRateLimitedError,
+    CredentialsInvalidError,
+    ExchangeUnreachableError,
+    get_account_state,
+)
 from .behavior_detectors import evaluate_behavior_flags
-from .behavior_service import get_trade_records_for_behavior
+from .behavior_service import BehaviorHistoryUnavailableError, get_trade_records_for_behavior
 from .config import execution_settings
 from .models import TradingConstitution
 from .permit_request_schemas import PermitRequest
@@ -43,6 +50,9 @@ from .schemas import (
 )
 from .service import get_current_constitution
 from .sizing import Side, SymbolFilters, size_position
+
+logger = logging.getLogger(__name__)
+permit_dependency_failure_total: Counter[str] = Counter()
 
 
 def _default_symbol_filters() -> SymbolFilters:
@@ -126,19 +136,41 @@ async def _server_account_state(
     user_id: str,
     ticket: PermitRequest,
     now: datetime,
-) -> AccountState:
+) -> tuple[AccountState, list[str]]:
+    errors: list[str] = []
     try:
         account_state = await get_account_state(db, user_id, execution_settings)
-    except Exception:
-        return _unavailable_account_state()
+    except ExchangeUnreachableError as exc:
+        errors.append("exchange_unreachable")
+        logger.warning("Permit dependency failed: exchange_unreachable", exc_info=exc)
+        permit_dependency_failure_total["exchange_unreachable"] += 1
+        return _unavailable_account_state(), errors
+    except CredentialsInvalidError as exc:
+        errors.append("credentials_invalid")
+        logger.warning("Permit dependency failed: credentials_invalid", exc_info=exc)
+        permit_dependency_failure_total["credentials_invalid"] += 1
+        return _unavailable_account_state(), errors
+    except AccountRateLimitedError as exc:
+        errors.append("rate_limited")
+        logger.warning("Permit dependency failed: rate_limited", exc_info=exc)
+        permit_dependency_failure_total["rate_limited"] += 1
+        return _unavailable_account_state(), errors
+
+    if account_state.is_stale:
+        errors.append("snapshot_expired")
+        logger.warning("Permit dependency failed: snapshot_expired")
+        permit_dependency_failure_total["snapshot_expired"] += 1
 
     try:
         trade_records = await get_trade_records_for_behavior(db, user_id)
         behavior_flags = evaluate_behavior_flags(trade_records, ticket.symbol.upper(), now)
-    except Exception:
-        return replace(account_state, is_stale=True)
+    except BehaviorHistoryUnavailableError as exc:
+        errors.append("behavior_history_unavailable")
+        logger.warning("Permit dependency failed: behavior_history_unavailable", exc_info=exc)
+        permit_dependency_failure_total["behavior_history_unavailable"] += 1
+        return replace(account_state, is_stale=True), errors
 
-    return replace(account_state, active_behavior_flags=behavior_flags)
+    return replace(account_state, active_behavior_flags=behavior_flags), errors
 
 
 async def request_permit(
@@ -165,7 +197,7 @@ async def request_permit(
     #    are in the risk engine itself).
     session = _determine_session()
     now = datetime.now(tz=UTC).replace(tzinfo=None)  # naive UTC for compat
-    account_state = await _server_account_state(db, user_id, ticket, now)
+    account_state, dependency_errors = await _server_account_state(db, user_id, ticket, now)
 
     # 3. Sizing — derive proposed_notional_percent for the risk engine
     side = _side(ticket.side)
@@ -199,9 +231,7 @@ async def request_permit(
 
     # 4. Trade Proposal — carry the sizing module's liquidation estimate so
     #    the risk engine's LIQUIDATION_INSIDE_STOP check (F2) can gate on it.
-    liquidation_price = (
-        sizing_result.liquidation_price if sizing_result is not None else None
-    )
+    liquidation_price = sizing_result.liquidation_price if sizing_result is not None else None
     proposal = TradeProposal(
         symbol=ticket.symbol.upper(),
         side=side,
@@ -278,5 +308,6 @@ async def request_permit(
         expires_at=permit.expires_at,
         margin_type=ticket.margin_type,
         liquidation=liquidation,
+        dependency_errors=dependency_errors,
     )
     return card, permit.id
