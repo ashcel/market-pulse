@@ -21,6 +21,7 @@ import { Route as NewsRouteImport } from './routes/news'
 import { Route as MarketsRouteImport } from './routes/markets'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as JournalRouteImport } from './routes/journal'
+import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TokenSymbolRouteImport } from './routes/token.$symbol'
 import { Route as ApiWatchlistRouteImport } from './routes/api/watchlist'
@@ -50,6 +51,7 @@ import { Route as ApiExecutionConstitutionRouteImport } from './routes/api/execu
 import { Route as ApiBinanceReviewTradesRouteImport } from './routes/api/binance-review.trades'
 import { Route as ApiBinanceReviewSyncRouteImport } from './routes/api/binance-review.sync'
 import { Route as ApiBinanceReviewApiKeyRouteImport } from './routes/api/binance-review.api-key'
+import { Route as ApiAuthTelegramRouteImport } from './routes/api/auth.telegram'
 import { Route as ApiAiDeskAnalyzeTradesRouteImport } from './routes/api/ai-desk.analyze-trades'
 import { Route as ApiReviewForensicsTradeIdRouteImport } from './routes/api/review.forensics.$tradeId'
 import { Route as ApiExecutionPermitIdRouteImport } from './routes/api/execution.permit.$id'
@@ -114,6 +116,11 @@ const LoginRoute = LoginRouteImport.update({
 const JournalRoute = JournalRouteImport.update({
   id: '/journal',
   path: '/journal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -262,6 +269,11 @@ const ApiBinanceReviewApiKeyRoute = ApiBinanceReviewApiKeyRouteImport.update({
   path: '/api/binance-review/api-key',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthTelegramRoute = ApiAuthTelegramRouteImport.update({
+  id: '/telegram',
+  path: '/telegram',
+  getParentRoute: () => ApiAuthRoute,
+} as any)
 const ApiAiDeskAnalyzeTradesRoute = ApiAiDeskAnalyzeTradesRouteImport.update({
   id: '/api/ai-desk/analyze-trades',
   path: '/api/ai-desk/analyze-trades',
@@ -291,6 +303,7 @@ const ApiAlertsIdReadRoute = ApiAlertsIdReadRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/app': typeof AppRoute
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
@@ -304,7 +317,7 @@ export interface FileRoutesByFullPath {
   '/tracker': typeof TrackerRoute
   '/trades': typeof TradesRoute
   '/api/alerts': typeof ApiAlertsRouteWithChildren
-  '/api/auth': typeof ApiAuthRoute
+  '/api/auth': typeof ApiAuthRouteWithChildren
   '/api/decisions': typeof ApiDecisionsRouteWithChildren
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/external-context': typeof ApiExternalContextRoute
@@ -319,6 +332,7 @@ export interface FileRoutesByFullPath {
   '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
   '/api/ai-desk/analyze-trades': typeof ApiAiDeskAnalyzeTradesRoute
+  '/api/auth/telegram': typeof ApiAuthTelegramRoute
   '/api/binance-review/api-key': typeof ApiBinanceReviewApiKeyRoute
   '/api/binance-review/sync': typeof ApiBinanceReviewSyncRoute
   '/api/binance-review/trades': typeof ApiBinanceReviewTradesRoute
@@ -339,6 +353,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app': typeof AppRoute
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
@@ -352,7 +367,7 @@ export interface FileRoutesByTo {
   '/tracker': typeof TrackerRoute
   '/trades': typeof TradesRoute
   '/api/alerts': typeof ApiAlertsRouteWithChildren
-  '/api/auth': typeof ApiAuthRoute
+  '/api/auth': typeof ApiAuthRouteWithChildren
   '/api/decisions': typeof ApiDecisionsRouteWithChildren
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/external-context': typeof ApiExternalContextRoute
@@ -367,6 +382,7 @@ export interface FileRoutesByTo {
   '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
   '/api/ai-desk/analyze-trades': typeof ApiAiDeskAnalyzeTradesRoute
+  '/api/auth/telegram': typeof ApiAuthTelegramRoute
   '/api/binance-review/api-key': typeof ApiBinanceReviewApiKeyRoute
   '/api/binance-review/sync': typeof ApiBinanceReviewSyncRoute
   '/api/binance-review/trades': typeof ApiBinanceReviewTradesRoute
@@ -388,6 +404,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/app': typeof AppRoute
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
@@ -401,7 +418,7 @@ export interface FileRoutesById {
   '/tracker': typeof TrackerRoute
   '/trades': typeof TradesRoute
   '/api/alerts': typeof ApiAlertsRouteWithChildren
-  '/api/auth': typeof ApiAuthRoute
+  '/api/auth': typeof ApiAuthRouteWithChildren
   '/api/decisions': typeof ApiDecisionsRouteWithChildren
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/external-context': typeof ApiExternalContextRoute
@@ -416,6 +433,7 @@ export interface FileRoutesById {
   '/api/watchlist': typeof ApiWatchlistRoute
   '/token/$symbol': typeof TokenSymbolRoute
   '/api/ai-desk/analyze-trades': typeof ApiAiDeskAnalyzeTradesRoute
+  '/api/auth/telegram': typeof ApiAuthTelegramRoute
   '/api/binance-review/api-key': typeof ApiBinanceReviewApiKeyRoute
   '/api/binance-review/sync': typeof ApiBinanceReviewSyncRoute
   '/api/binance-review/trades': typeof ApiBinanceReviewTradesRoute
@@ -438,6 +456,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/app'
     | '/journal'
     | '/login'
     | '/markets'
@@ -466,6 +485,7 @@ export interface FileRouteTypes {
     | '/api/watchlist'
     | '/token/$symbol'
     | '/api/ai-desk/analyze-trades'
+    | '/api/auth/telegram'
     | '/api/binance-review/api-key'
     | '/api/binance-review/sync'
     | '/api/binance-review/trades'
@@ -486,6 +506,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/app'
     | '/journal'
     | '/login'
     | '/markets'
@@ -514,6 +535,7 @@ export interface FileRouteTypes {
     | '/api/watchlist'
     | '/token/$symbol'
     | '/api/ai-desk/analyze-trades'
+    | '/api/auth/telegram'
     | '/api/binance-review/api-key'
     | '/api/binance-review/sync'
     | '/api/binance-review/trades'
@@ -534,6 +556,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/app'
     | '/journal'
     | '/login'
     | '/markets'
@@ -562,6 +585,7 @@ export interface FileRouteTypes {
     | '/api/watchlist'
     | '/token/$symbol'
     | '/api/ai-desk/analyze-trades'
+    | '/api/auth/telegram'
     | '/api/binance-review/api-key'
     | '/api/binance-review/sync'
     | '/api/binance-review/trades'
@@ -583,6 +607,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRoute
   JournalRoute: typeof JournalRoute
   LoginRoute: typeof LoginRoute
   MarketsRoute: typeof MarketsRoute
@@ -596,7 +621,7 @@ export interface RootRouteChildren {
   TrackerRoute: typeof TrackerRoute
   TradesRoute: typeof TradesRoute
   ApiAlertsRoute: typeof ApiAlertsRouteWithChildren
-  ApiAuthRoute: typeof ApiAuthRoute
+  ApiAuthRoute: typeof ApiAuthRouteWithChildren
   ApiDecisionsRoute: typeof ApiDecisionsRouteWithChildren
   ApiEconomicEventsRoute: typeof ApiEconomicEventsRoute
   ApiExternalContextRoute: typeof ApiExternalContextRoute
@@ -709,6 +734,13 @@ declare module '@tanstack/react-router' {
       path: '/journal'
       fullPath: '/journal'
       preLoaderRoute: typeof JournalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -914,6 +946,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiBinanceReviewApiKeyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/telegram': {
+      id: '/api/auth/telegram'
+      path: '/telegram'
+      fullPath: '/api/auth/telegram'
+      preLoaderRoute: typeof ApiAuthTelegramRouteImport
+      parentRoute: typeof ApiAuthRoute
+    }
     '/api/ai-desk/analyze-trades': {
       id: '/api/ai-desk/analyze-trades'
       path: '/api/ai-desk/analyze-trades'
@@ -964,6 +1003,17 @@ const ApiAlertsRouteWithChildren = ApiAlertsRoute._addFileChildren(
   ApiAlertsRouteChildren,
 )
 
+interface ApiAuthRouteChildren {
+  ApiAuthTelegramRoute: typeof ApiAuthTelegramRoute
+}
+
+const ApiAuthRouteChildren: ApiAuthRouteChildren = {
+  ApiAuthTelegramRoute: ApiAuthTelegramRoute,
+}
+
+const ApiAuthRouteWithChildren =
+  ApiAuthRoute._addFileChildren(ApiAuthRouteChildren)
+
 interface ApiDecisionsRouteChildren {
   ApiDecisionsIdActionRoute: typeof ApiDecisionsIdActionRoute
 }
@@ -1012,6 +1062,7 @@ const ApiReviewForensicsRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRoute,
   JournalRoute: JournalRoute,
   LoginRoute: LoginRoute,
   MarketsRoute: MarketsRoute,
@@ -1025,7 +1076,7 @@ const rootRouteChildren: RootRouteChildren = {
   TrackerRoute: TrackerRoute,
   TradesRoute: TradesRoute,
   ApiAlertsRoute: ApiAlertsRouteWithChildren,
-  ApiAuthRoute: ApiAuthRoute,
+  ApiAuthRoute: ApiAuthRouteWithChildren,
   ApiDecisionsRoute: ApiDecisionsRouteWithChildren,
   ApiEconomicEventsRoute: ApiEconomicEventsRoute,
   ApiExternalContextRoute: ApiExternalContextRoute,

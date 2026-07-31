@@ -27,8 +27,10 @@ from app.market.batch_router import router as batch_router
 from app.market.router import router as market_router
 from app.news_intel.router import router as news_intel_router
 from app.ai_desk.router import router as ai_desk_router
+from app.quant.router import router as quant_router
 from app.review.router import router as review_router
 from app.trades.router import router as trades_router
+from app.tradeway.router import router as tradeway_router
 
 SHOW_DOCS_IN = {"local", "staging"}
 
@@ -107,5 +109,7 @@ v1_router.include_router(events_router)
 v1_router.include_router(news_intel_router)
 v1_router.include_router(ai_desk_router)
 v1_router.include_router(alert_router)
+v1_router.include_router(quant_router)
+v1_router.include_router(tradeway_router)
 
 app.include_router(v1_router)

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, status
+from pydantic import BaseModel, ConfigDict, Field
 
 from .dependencies import CurrentUserId, DbSession
 from .schemas import (
@@ -13,6 +14,7 @@ from .schemas import (
     UserResponse,
 )
 from .service import authenticate_user, change_password, register_user
+from .telegram import login_with_init_data
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -49,6 +51,49 @@ async def login(
 ) -> TokenEnvelope:
     _, token = await authenticate_user(payload.email, payload.password, db)
     return TokenEnvelope(data=TokenResponse(access_token=token))
+
+
+class TelegramLoginRequest(BaseModel):
+    # Telegram's own field name is `initData`; accept it on the wire while
+    # keeping the Python attribute snake_case.
+    model_config = ConfigDict(populate_by_name=True)
+
+    init_data: str = Field(min_length=1, max_length=8192, alias="initData")
+
+
+class TelegramLoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user_id: str
+    email: str
+    telegram_first_name: str | None = None
+
+
+class TelegramLoginEnvelope(BaseModel):
+    data: TelegramLoginResponse
+    meta: None = None
+    error: None = None
+
+
+@router.post(
+    "/telegram",
+    response_model=TelegramLoginEnvelope,
+    summary="Login from a Telegram Mini App with signed initData",
+)
+async def telegram_login(
+    payload: TelegramLoginRequest,
+    db: DbSession,
+) -> TelegramLoginEnvelope:
+    user, token, tg_user = await login_with_init_data(payload.init_data, db)
+    first_name = tg_user.get("first_name") if tg_user else None
+    return TelegramLoginEnvelope(
+        data=TelegramLoginResponse(
+            access_token=token,
+            user_id=str(user.id),
+            email=user.email,
+            telegram_first_name=str(first_name) if first_name else None,
+        )
+    )
 
 
 @router.post(
