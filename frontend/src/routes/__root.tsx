@@ -120,6 +120,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap",
       },
     ],
+    // Telegram Mini App SDK — injects window.Telegram.WebApp (incl. initData)
+    // when the page is opened inside a Telegram webview. Without it the Mini
+    // App cannot read initData and shows the "open in Telegram" gate even when
+    // it IS opened from Telegram.
+    scripts: [{ src: "https://telegram.org/js/telegram-web-app.js" }],
   }),
   shellComponent: RootShell,
   component: RootComponent,
