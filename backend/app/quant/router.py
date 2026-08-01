@@ -39,7 +39,7 @@ UPSTREAM_TIMEOUT_S = 15.0
 #
 # Default False = byte-identical behaviour to before this sprint. This one
 # constant is the whole rollback (plan §1 rule 3).
-FEED_FROM_DB = False
+FEED_FROM_DB = True
 
 
 async def _fetch(path: str, params: dict[str, Any], init_data: str | None) -> tuple[int, Any]:
