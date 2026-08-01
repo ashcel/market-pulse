@@ -15,8 +15,11 @@ import {
   useProductTour,
   type TourStep,
 } from "@/components/features/product-tour";
+import { redirectIfNavV2 } from "@/lib/nav-redirects";
 
 export const Route = createFileRoute("/news")({
+  // Retired by the 4-tab nav (Sprint 5): Top News lives on Now. No-op while NAV_V2=0.
+  beforeLoad: () => redirectIfNavV2("/news"),
   head: () => ({
     meta: [
       { title: "News Impact — Market Pulse" },

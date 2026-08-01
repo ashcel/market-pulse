@@ -1,9 +1,19 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Layers, Lightbulb, NotebookText, Settings } from "lucide-react";
+import {
+  FlaskConical,
+  LayoutDashboard,
+  Layers,
+  Lightbulb,
+  NotebookText,
+  Settings,
+  Wallet,
+} from "lucide-react";
+
+import { NAV_V2 } from "@/lib/flags";
 
 interface BottomNavTab {
-  to: "/" | "/markets" | "/ideas" | "/journal" | "/settings";
+  to: "/" | "/markets" | "/ideas" | "/journal" | "/settings" | "/book" | "/lab";
   label: string;
   icon: React.ElementType;
   primary?: boolean;
@@ -12,13 +22,26 @@ interface BottomNavTab {
 // Today · Markets · Journal · Settings (2026-07-24 revision). Checking a trade
 // now happens on the token chart (drag entry/stop/target -> permit), so the
 // standalone Check slot was retired.
-const TABS: BottomNavTab[] = [
+const TABS_V1: BottomNavTab[] = [
   { to: "/", label: "Today", icon: LayoutDashboard },
   { to: "/markets", label: "Markets", icon: Layers },
   { to: "/ideas", label: "Ideas", icon: Lightbulb },
   { to: "/journal", label: "Journal", icon: NotebookText },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
+
+// Sprint 5: four slots, one question each — should I trade now (Now), what is
+// worth looking at (Ideas), what is at risk (Book), is any of this working
+// (Lab). Settings moved to the header avatar: it is configuration, not a
+// question a trader asks during a session.
+const TABS_V2: BottomNavTab[] = [
+  { to: "/", label: "Now", icon: LayoutDashboard },
+  { to: "/ideas", label: "Ideas", icon: Lightbulb },
+  { to: "/book", label: "Book", icon: Wallet },
+  { to: "/lab", label: "Lab", icon: FlaskConical },
+];
+
+const TABS = NAV_V2 ? TABS_V2 : TABS_V1;
 
 export function BottomNav() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });

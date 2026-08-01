@@ -150,9 +150,9 @@ async def _latest_regime_by_symbol(db: AsyncSession, symbols: list[str]) -> dict
     )
     latest = aliased(EvalLog)
     rows = await db.execute(
-        select(latest.symbol, latest.regime).join(ranked, latest.id == ranked.c.id).where(
-            ranked.c.rank == 1
-        )
+        select(latest.symbol, latest.regime)
+        .join(ranked, latest.id == ranked.c.id)
+        .where(ranked.c.rank == 1)
     )
     return {symbol: regime for symbol, regime in rows.all()}
 
@@ -193,12 +193,51 @@ def _group_key(event: SignalEvent, day: date) -> str:
     return f"{event.symbol}|{event.side}|{event.horizon}|{day.isoformat()}"
 
 
+def evidence_for(
+    sources: set[str],
+    horizon: str,
+    table: dict[tuple[str, str], tuple[int, float | None, float | None, int]] | None,
+) -> Evidence:
+    """Fold the scorecard rows for a card's sources into one Evidence.
+
+    n-weighted, because a source with 80 settled signals should move the number
+    more than one with 3. Below EVIDENCE_MIN_N the numbers are dropped entirely
+    rather than shown small — a hit-rate off 4 samples reads as earned and is
+    not (R3). Absent scorecard (flag off, cron not yet run) is the same answer.
+    """
+    if not table:
+        return Evidence(status="insufficient", n=0, hit_rate=None, avg_r=None, window_days=30)
+
+    rows = [table[(source, horizon)] for source in sources if (source, horizon) in table]
+    total_n = sum(row[0] for row in rows)
+    if total_n < EVIDENCE_MIN_N:
+        return Evidence(
+            status="insufficient",
+            n=total_n,
+            hit_rate=None,
+            avg_r=None,
+            window_days=rows[0][3] if rows else 30,
+        )
+
+    hit_rate = sum((row[1] or 0.0) * row[0] for row in rows) / total_n
+    avg_r = sum((row[2] or 0.0) * row[0] for row in rows) / total_n
+    return Evidence(
+        status="ok",
+        n=total_n,
+        hit_rate=round(hit_rate, 4),
+        avg_r=round(avg_r, 4),
+        window_days=rows[0][3],
+    )
+
+
 def build_opportunities(
     events: list[SignalEvent],
     *,
     regimes: dict[str, str],
     now: datetime,
     limit: int = 20,
+    evidence_table: dict[tuple[str, str], tuple[int, float | None, float | None, int]]
+    | None = None,
 ) -> list[Opportunity]:
     groups: dict[str, list[SignalEvent]] = defaultdict(list)
     for event in events:
@@ -253,11 +292,10 @@ def build_opportunities(
                     regime_alignment=alignment,
                     now=now,
                 ),
-                # Sprint 5 fills this from source_scorecard. Until then there
-                # is no n, so there is no percentage — see R3.
-                evidence=Evidence(
-                    status="insufficient", n=0, hit_rate=None, avg_r=None, window_days=30
-                ),
+                # Filled from source_scorecard (Sprint 5). With the flag off or
+                # the cron not yet run the table is empty and this stays
+                # 'insufficient' — no n, so no percentage (R3).
+                evidence=evidence_for(distinct_sources, head.horizon, evidence_table),
                 first_detected_at=first_at,
                 last_detected_at=last_at,
                 expires_at=min(expiries) if expiries else None,
@@ -285,7 +323,15 @@ async def list_opportunities(
         db,
         since=now - timedelta(days=lookback_days),
         sources=list(settings.SIGNAL_SOURCES_LIVE) or None,
+        # Shadow rows are recorded but never surfaced: a source proves itself
+        # in `source_scorecard` before it reaches the Ideas feed.
+        status="live",
         horizon=horizon,
     )
     regimes = await _latest_regime_by_symbol(db, sorted({event.symbol for event in events}))
-    return build_opportunities(events, regimes=regimes, now=now, limit=limit)
+    # Imported here, not at module scope: app.scorecard.service imports
+    # EVIDENCE_MIN_N from this module.
+    from app.scorecard.service import evidence_table_for
+
+    table = await evidence_table_for(db) if settings.SCORECARD_ENABLED else None
+    return build_opportunities(events, regimes=regimes, now=now, limit=limit, evidence_table=table)

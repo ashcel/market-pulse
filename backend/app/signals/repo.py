@@ -44,13 +44,22 @@ async def insert_signal(
     expires_at: datetime | None,
     features: dict[str, Any],
     dedup_key: str,
+    status: str = "shadow",
+    context_ref: dict[str, Any] | None = None,
 ) -> bool:
     """Append one signal fact. Returns False when `dedup_key` already exists
-    (the retry/duplicate case) — never an error."""
+    (the retry/duplicate case) — never an error.
+
+    `status` defaults to 'shadow' on purpose: a writer never promotes itself.
+    Callers pass 'live' only after checking the operator's allowlist (see
+    `status_for_source`), and promotion is otherwise a scorecard decision.
+    """
     stmt = (
         _insert_for(db)(SignalEvent)
         .values(
             id=id,
+            status=status,
+            context_ref=context_ref,
             source=source,
             source_version=source_version,
             symbol=symbol,
@@ -71,12 +80,21 @@ async def insert_signal(
     return inserted_id is not None
 
 
+def status_for_source(source: str) -> str:
+    """'live' when the operator's allowlist already trusts this source, else
+    'shadow'. The one place the promotion rule is written down."""
+    from app.config import settings
+
+    return "live" if source in (settings.SIGNAL_SOURCES_LIVE or []) else "shadow"
+
+
 def _list_query(
     *,
     since: datetime,
     symbol: str | None = None,
     sources: list[str] | None = None,
     horizon: str | None = None,
+    status: str | None = None,
     limit: int = 500,
 ) -> Select[tuple[SignalEvent]]:
     query = select(SignalEvent).where(SignalEvent.detected_at >= since)
@@ -86,6 +104,8 @@ def _list_query(
         query = query.where(SignalEvent.source.in_(sources))
     if horizon:
         query = query.where(SignalEvent.horizon == horizon)
+    if status:
+        query = query.where(SignalEvent.status == status)
     return query.order_by(SignalEvent.detected_at.desc()).limit(limit)
 
 
@@ -96,9 +116,17 @@ async def list_signals(
     symbol: str | None = None,
     sources: list[str] | None = None,
     horizon: str | None = None,
+    status: str | None = None,
     limit: int = 500,
 ) -> list[SignalEvent]:
     result = await db.execute(
-        _list_query(since=since, symbol=symbol, sources=sources, horizon=horizon, limit=limit)
+        _list_query(
+            since=since,
+            symbol=symbol,
+            sources=sources,
+            horizon=horizon,
+            status=status,
+            limit=limit,
+        )
     )
     return list(result.scalars())

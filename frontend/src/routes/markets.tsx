@@ -8,6 +8,8 @@ import { TechnicalPanel } from "@/components/features/technical-panel";
 import { RecordPanel } from "@/components/features/record-panel";
 import { NewsPanel } from "@/components/features/news-panel";
 
+import { redirectIfNavV2 } from "@/lib/nav-redirects";
+
 const MARKETS_TABS = ["overview", "regime", "assets", "news", "record"] as const;
 type MarketsTab = (typeof MARKETS_TABS)[number];
 
@@ -32,6 +34,9 @@ function normalizeTab(v: unknown): MarketsTab | undefined {
 }
 
 export const Route = createFileRoute("/markets")({
+  // Retired by the 4-tab nav (Sprint 5): market context moved onto Now and the
+  // one surviving detail surface is /token/$symbol. No-op while NAV_V2=0.
+  beforeLoad: () => redirectIfNavV2("/markets"),
   // `tab` is optional so bare `/markets` links stay valid; absent/invalid ==
   // the default "overview" tab. Kept out of the URL when it's the default.
   validateSearch: (search: Record<string, unknown>): { tab?: MarketsTab } => {

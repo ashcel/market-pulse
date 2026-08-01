@@ -33,6 +33,7 @@ from app.signals.router import router as signals_router
 from app.ai_desk.router import router as ai_desk_router
 from app.quant.router import router as quant_router
 from app.review.router import router as review_router
+from app.scorecard.router import router as scorecard_router
 from app.trades.router import router as trades_router
 from app.tradeway.router import router as tradeway_router
 
@@ -117,6 +118,7 @@ v1_router.include_router(delivery_router)
 v1_router.include_router(signals_ingest_router)
 v1_router.include_router(signals_router)
 v1_router.include_router(opportunities_router)
+v1_router.include_router(scorecard_router)
 v1_router.include_router(quant_router)
 v1_router.include_router(tradeway_router)
 

@@ -1,7 +1,7 @@
 """Read-only signal facts for the Ticket page."""
 
 from datetime import UTC, datetime, timedelta
-from typing import Any, Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, ConfigDict
@@ -43,6 +43,10 @@ async def get_signals(
         symbol=symbol,
         horizon=horizon,
         since=datetime.now(UTC) - timedelta(days=lookback_days),
+        # Live rows only (Sprint 5). A shadow source is recorded but not shown:
+        # a detector that has not earned a track record must not put a badge on
+        # a Ticket the user is about to act on.
+        status="live",
         limit=limit,
     )
     return {

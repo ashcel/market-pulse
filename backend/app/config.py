@@ -57,5 +57,24 @@ class Config(BaseSettings):
     # default merely because the worker is deployed.
     POSITION_RISK_ALERTS: bool = False
 
+    # Sprint 5 evidence plane (docs/IMPLEMENTATION-PLAN.md §3 Sprint 5 task 1).
+    # The nightly 00:00 UTC scorecard pass. Default OFF: the cron is registered
+    # unconditionally but `run_scorecard_pass` is the no-op gate, so flipping
+    # this needs no restart of the worker — the very next midnight computes.
+    SCORECARD_ENABLED: bool = False
+    # Rolling window the nightly pass scores over. R4 (660 MB free): keep this
+    # bounded, the query runs against production Postgres.
+    SCORECARD_WINDOW_DAYS: int = 30
+    # Guard for the nightly query (R4). Postgres syntax, applied as SET LOCAL.
+    SCORECARD_STATEMENT_TIMEOUT: str = "30s"
+
+    # Sprint 5 task 5: the forecast cone is now computed in-app
+    # (`frontend/src/lib/forecast/`), so `/quant/token` has no caller once the
+    # client's PORT_FORECAST is on. Flip this to retire the proxy endpoint
+    # WITHOUT deleting code — it starts answering 410 Gone, which makes any
+    # remaining caller visible in the logs before the route is removed for
+    # good. `/quant/state` and its FEED_FROM_DB behaviour are untouched.
+    PORT_FORECAST: bool = False
+
 
 settings = Config()

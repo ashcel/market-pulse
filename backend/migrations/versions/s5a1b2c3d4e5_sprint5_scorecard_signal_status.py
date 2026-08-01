@@ -1,16 +1,22 @@
 """Sprint 5 — source_scorecard + signal_events status/context_ref
 
 Revision ID: s5a1b2c3d4e5
-Revises: f1a2b3c4d5e6
+Revises: c4d5e6f7a8b9
 Create Date: 2026-08-01
+
+Parent is the real head (`c4d5e6f7a8b9`, decision_skip_reason), not
+`f1a2b3c4d5e6` as first drafted: `signal_events` is created by
+`b3c1f7a2d90e`, which is a *descendant* of f1a2b3c4d5e6, so hanging this
+revision there both forked the tree into two heads and put the ADD COLUMNs
+before the table existed.
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB
 
 revision = "s5a1b2c3d4e5"
-down_revision = "f1a2b3c4d5e6"
+down_revision = "c4d5e6f7a8b9"
 branch_labels = None
 depends_on = None
 
@@ -42,7 +48,11 @@ def upgrade() -> None:
     )
 
     # --- 2. signal_events: additive columns (§2.1 deferred to Sprint 5) ---
-    # status: new sources default 'shadow'; existing quant data stays 'live'
+    #
+    # ADD COLUMN is DDL, not DML: the append-only row trigger on signal_events
+    # does not fire, and (PG 11+) the server_default is stored in the catalog
+    # rather than rewritten row by row. So existing `quant` rows land on 'live'
+    # — the source that already earned it — with no UPDATE anywhere.
     op.add_column(
         "signal_events",
         sa.Column(
@@ -57,10 +67,13 @@ def upgrade() -> None:
         "signal_events",
         sa.Column("context_ref", JSONB, nullable=True),
     )
+    # Read models serve live rows only; shadow rows are recorded, not surfaced.
+    op.create_index("signal_events_status_idx", "signal_events", ["status"])
 
 
 def downgrade() -> None:
+    op.drop_index("signal_events_status_idx", table_name="signal_events")
     op.drop_column("signal_events", "context_ref")
     op.drop_column("signal_events", "status")
-    op.drop_index("source_scorecard_lookup_idx")
+    op.drop_index("source_scorecard_lookup_idx", table_name="source_scorecard")
     op.drop_table("source_scorecard")

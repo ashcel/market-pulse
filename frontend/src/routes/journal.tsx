@@ -6,6 +6,8 @@ import { OpenPositionsPanel, TradeHistoryPanel } from "@/components/features/tra
 import { ReviewPanel } from "@/components/features/review-panel";
 import { DecisionJournal } from "@/components/features/decision-journal";
 
+import { redirectIfNavV2 } from "@/lib/nav-redirects";
+
 const JOURNAL_TABS = ["open", "history", "habits"] as const;
 type JournalTab = (typeof JOURNAL_TABS)[number];
 
@@ -19,6 +21,8 @@ function normalizeTab(v: unknown): JournalTab | undefined {
 }
 
 export const Route = createFileRoute("/journal")({
+  // Retired by the 4-tab nav (Sprint 5): decision history lives in Lab. No-op while NAV_V2=0.
+  beforeLoad: () => redirectIfNavV2("/journal"),
   // `tab` is optional so bare `/journal` links stay valid; absent/invalid ==
   // the default "open" tab. Kept out of the URL when it's the default —
   // same convention as `/markets` (IA-REDESIGN-2026-07-23 §4.3/§4.5).

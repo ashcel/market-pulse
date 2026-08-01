@@ -6,7 +6,10 @@ export interface DecisionSnapshot {
   id: string;
   user_id: string;
   symbol: string;
-  objective: "scalp" | "intraday" | "swing";
+  // Mirrors `Objective` in backend/app/execution/decision_router.py, which has
+  // always accepted "position" — the narrower list here made every caller
+  // passing a TradingIntent a type error.
+  objective: "scalp" | "intraday" | "swing" | "position";
   direction: "long" | "short";
   verdict_at_time: string;
   catalyst_modifier: Record<string, unknown> | null;
@@ -22,10 +25,13 @@ export interface DecisionSnapshot {
   decided_at: string | null;
 }
 
+// `skip_reason` is optional on create: it is captured when the user skips,
+// which is a later PATCH, not part of opening the decision (the backend
+// rejects a skip_reason that arrives without a skip action).
 export type DecisionCreate = Omit<
   DecisionSnapshot,
-  "id" | "user_id" | "user_action" | "actual_outcome" | "created_at" | "decided_at"
->;
+  "id" | "user_id" | "user_action" | "actual_outcome" | "created_at" | "decided_at" | "skip_reason"
+> & { skip_reason?: DecisionSnapshot["skip_reason"] };
 
 const DECISIONS_KEY = ["decisions"] as const;
 

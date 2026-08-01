@@ -92,6 +92,10 @@ async def _db_feed(db: DbSession, days: int) -> tuple[list[dict[str, Any]], dict
         db,
         since=datetime.now(UTC) - timedelta(days=days),
         sources=list(settings.SIGNAL_SOURCES_LIVE) or None,
+        # Sprint 5: the per-row twin of the allowlist. A shadow source writes
+        # into the same table but must not appear in the served feed, or the
+        # 48h reconciliation would compare against rows the proxy never had.
+        status="live",
     )
     rows = [_feed_row(event) for event in events]  # newest first, as upstream
     notified = sum(1 for row in rows if row.get("notified"))
@@ -125,4 +129,18 @@ async def quant_token(
     symbol: Annotated[str, Query(min_length=1, max_length=24)],
     x_telegram_init_data: Annotated[str | None, Header()] = None,
 ) -> JSONResponse:
+    # Sprint 5 task 5: the forecast engine was ported to the app
+    # (`frontend/src/lib/forecast/`), so with PORT_FORECAST on this endpoint has
+    # no legitimate caller left. It answers 410 rather than being deleted
+    # outright so that a straggler shows up as a logged 410 instead of a 404 in
+    # a route table nobody is reading — delete the endpoint (and this whole
+    # module once /quant/state is done too) after a quiet week.
+    if settings.PORT_FORECAST:
+        return JSONResponse(
+            status_code=410,
+            content={
+                "error": "quant token proxy retired",
+                "detail": "the forecast cone is computed in-app; see frontend/src/lib/forecast",
+            },
+        )
     return await _forward("/api/token", {"symbol": symbol.upper()}, x_telegram_init_data)

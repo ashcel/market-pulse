@@ -1,4 +1,13 @@
-import { Search, Sun, Moon, Menu, PanelLeftClose, PanelLeftOpen, Sparkles } from "lucide-react";
+import {
+  Search,
+  Settings,
+  Sun,
+  Moon,
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Sparkles,
+} from "lucide-react";
 import { useUiStore } from "@/stores/ui";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useEffect, useState } from "react";
@@ -9,6 +18,7 @@ import { SearchCommand } from "./search-command";
 import { NotificationBell } from "./notification-bell";
 import { cn } from "@/lib/utils";
 import { TrustIndicator } from "./trust-indicator";
+import { NAV_V2 } from "@/lib/flags";
 
 export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
   const { theme, toggleTheme, sidebarOpen, setSidebar } = useUiStore();
@@ -100,7 +110,21 @@ export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
             <Sparkles className="h-4 w-4" />
           </button>
         )}
-        <div className="ml-1 h-8 w-8 rounded-full bg-gradient-to-br from-info to-primary" />
+        {/* Sprint 5: Settings left the nav (4 slots) and lives here instead —
+            the avatar is the conventional home for account/config, and it
+            keeps the tab bar for questions a trader asks mid-session. */}
+        {NAV_V2 ? (
+          <Link
+            to="/settings"
+            aria-label="Settings"
+            title="Settings"
+            className="ml-1 flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-info to-primary transition-opacity hover:opacity-85"
+          >
+            <Settings className="h-4 w-4 text-background" />
+          </Link>
+        ) : (
+          <div className="ml-1 h-8 w-8 rounded-full bg-gradient-to-br from-info to-primary" />
+        )}
       </div>
     </header>
   );
@@ -109,6 +133,10 @@ export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
 function MobileNav() {
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (r) => r.location.pathname });
+  // Under NAV_V2 Settings is no longer in NAV (it moved to the avatar), and
+  // the avatar is desktop-adjacent — so the drawer keeps an explicit entry
+  // rather than leaving mobile users with no route to it at all.
+  const items = NAV_V2 ? [...NAV, { to: "/settings", label: "Settings", icon: Settings }] : NAV;
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
@@ -123,7 +151,7 @@ function MobileNav() {
         <SheetTitle className="sr-only">Navigation</SheetTitle>
         <IqLogo />
         <nav className="mt-8 flex flex-col gap-0.5">
-          {NAV.map((item) => {
+          {items.map((item) => {
             const active = pathname === item.to;
             return (
               <Link

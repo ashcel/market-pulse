@@ -9,18 +9,22 @@ from `shadow_signal` is the measure of success:
   - result_r ≤ 0 → miss
   - result_r IS NULL → still open or never matched (excluded from counts)
 
-n < EVIDENCE_MIN_N (20) → status='insufficient', hit_rate/avg_r are still
-computed and stored but the UI shows "Belum cukup data" instead of a number.
+n < EVIDENCE_MIN_N (20) → status='insufficient'. The raw hit_rate/avg_r are
+still stored so the per-source fold can weight regime slices honestly, but no
+reader is allowed to render them below the threshold — the API nulls them and
+the UI says "Belum cukup data".
 
-R3 compliance: scorecard is ONLY built from signal_events.detected_at (live
-detection time), NEVER from re-derived historical candle data. Cross-timeframe
-joins use close time, not open time.
+R3 compliance: the scorecard is ONLY built from `signal_events.detected_at`
+(the time the source actually detected, live) and from settlements the
+forward-test worker already wrote. Nothing here re-derives an outcome from
+historical candles, which is what would turn a track record into a backtest
+wearing its clothes.
 """
 
 import logging
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.forward_test.models import ShadowSignalRow
@@ -30,14 +34,27 @@ from app.signals.models import SignalEvent
 
 logger = logging.getLogger("scorecard")
 
-# Map signal_events.side → shadow_signal.direction (they use the same values)
-# Map signal_events.horizon → shadow_signal.timeframe
-_HORIZON_TF = {
-    "scalp": "15m",
-    "intraday": "1H",
-    "swing": "4H",
-    "position": "1D",
+# `signal_events.side` and `shadow_signal.direction` share their vocabulary
+# ('long'|'short'), so no mapping is needed there.
+#
+# Horizon maps to `shadow_signal.intent`, NOT to `timeframe`: the engine's
+# intents are literally scalp/intraday/swing/position (engine/smc/intent.py),
+# while `timeframe` holds the *execution* TF ('15M','1H','4H','1D'). Written as
+# an explicit table rather than assumed identity so that renaming either
+# vocabulary raises a KeyError here instead of silently scoring a scalp signal
+# against a swing settlement.
+_HORIZON_INTENT = {
+    "scalp": "scalp",
+    "intraday": "intraday",
+    "swing": "swing",
+    "position": "position",
 }
+
+# A settlement is credited to a signal only if the shadow record opened within
+# this many seconds of the source's detection. Wider than one bar on purpose
+# (the worker ticks every 5 min and the source's clock is its own), narrow
+# enough that two unrelated setups on the same symbol do not collide.
+_MATCH_WINDOW_S = 7200
 
 
 async def compute_scorecard(
@@ -49,12 +66,26 @@ async def compute_scorecard(
     """Compute source_scorecard rows for every (source, source_version, regime,
     horizon) combination in signal_events over the last `window_days`.
 
-    This uses settled shadow_signal records as ground truth. A signal is matched
-    to a shadow record when the shadow was opened in the same detection window
-    (±1h of the signal's detected_at) for the same symbol, direction, and market.
+    Settled `shadow_signal` records are the ground truth. A signal is matched to
+    a shadow record on (symbol, side→direction, horizon→intent) when the shadow
+    opened within `_MATCH_WINDOW_S` of the signal's `detected_at`. Each
+    settlement is credited at most once per source.
     """
     now = now or datetime.now(UTC)
     cutoff = now - timedelta(days=window_days)
+
+    # Settled shadow records, fetched ONCE and bucketed. Doing this per-combo
+    # re-reads the same rows for every source/version/horizon combination.
+    settled_q = select(ShadowSignalRow).where(
+        ShadowSignalRow.status.in_(("hit_tp", "hit_sl", "expired", "invalidated")),
+        ShadowSignalRow.closed_at >= cutoff,
+        ShadowSignalRow.result_r.is_not(None),
+    )
+    settled = (await db.execute(settled_q)).scalars().all()
+
+    by_key: dict[tuple[str, str, str], list[ShadowSignalRow]] = {}
+    for shadow in settled:
+        by_key.setdefault((shadow.symbol, shadow.direction, shadow.intent), []).append(shadow)
 
     # Get all unique combos from signal_events within the window
     combos_q = (
@@ -76,51 +107,42 @@ async def compute_scorecard(
 
     for source, source_version, horizon in combos:
         # Get all signals for this combo
-        signals_q = (
-            select(SignalEvent)
-            .where(
-                SignalEvent.source == source,
-                SignalEvent.source_version == source_version,
-                SignalEvent.horizon == horizon,
-                SignalEvent.detected_at >= cutoff,
-            )
+        signals_q = select(SignalEvent).where(
+            SignalEvent.source == source,
+            SignalEvent.source_version == source_version,
+            SignalEvent.horizon == horizon,
+            SignalEvent.detected_at >= cutoff,
         )
         signals = (await db.execute(signals_q)).scalars().all()
 
-        # Get all settled shadow records in the window
-        settled_q = (
-            select(ShadowSignalRow)
-            .where(
-                ShadowSignalRow.status.in_(("hit_tp", "hit_sl", "expired", "invalidated")),
-                ShadowSignalRow.closed_at >= cutoff,
-                ShadowSignalRow.result_r.is_not(None),
-            )
-        )
-        settled = (await db.execute(settled_q)).scalars().all()
-
-        # Group settled by regime
+        # Group settled results by the regime they settled in.
         regime_results: dict[str, list[float]] = {}
+        # One settlement may be credited to at most one signal, or two
+        # detectors firing on the same setup would each bank the same win and
+        # inflate n. Scoped per combo: two different sources both deserve
+        # credit for the same trade, the same source twice does not.
+        consumed: set[str] = set()
+        intent = _HORIZON_INTENT.get(horizon)
 
         for sig in signals:
-            # Find matching settlement: same symbol, same direction, opened near detection
-            for shadow in settled:
-                if (
-                    shadow.symbol == sig.symbol
-                    and shadow.direction == sig.side
-                    and shadow.result_r is not None
-                ):
-                    # Check time proximity: shadow opened within ±2h of signal detection
-                    sig_dt = sig.detected_at
-                    shadow_dt = shadow.opened_at
-                    if sig_dt.tzinfo is None:
-                        sig_dt = sig_dt.replace(tzinfo=UTC)
-                    if shadow_dt.tzinfo is None:
-                        shadow_dt = shadow_dt.replace(tzinfo=UTC)
+            if intent is None:
+                break  # unknown horizon: no settlement vocabulary to match on
+            sig_dt = sig.detected_at
+            if sig_dt.tzinfo is None:
+                sig_dt = sig_dt.replace(tzinfo=UTC)
 
-                    if abs((sig_dt - shadow_dt).total_seconds()) <= 7200:
-                        regime = shadow.regime or "unknown"
-                        regime_results.setdefault(regime, []).append(shadow.result_r)
-                        break  # one match per signal
+            for shadow in by_key.get((sig.symbol, sig.side, intent), ()):
+                if shadow.id in consumed or shadow.result_r is None:
+                    continue
+                shadow_dt = shadow.opened_at
+                if shadow_dt.tzinfo is None:
+                    shadow_dt = shadow_dt.replace(tzinfo=UTC)
+
+                if abs((sig_dt - shadow_dt).total_seconds()) <= _MATCH_WINDOW_S:
+                    regime = shadow.regime or "unknown"
+                    regime_results.setdefault(regime, []).append(shadow.result_r)
+                    consumed.add(shadow.id)
+                    break  # one match per signal
 
         # If no regime-matched results found, still emit a row with "unknown" regime
         if not regime_results:
@@ -128,9 +150,7 @@ async def compute_scorecard(
 
         for regime, r_values in regime_results.items():
             n = len(r_values)
-            hit_rate = (
-                sum(1 for r in r_values if r > 0) / n if n > 0 else None
-            )
+            hit_rate = sum(1 for r in r_values if r > 0) / n if n > 0 else None
             avg_r = sum(r_values) / n if n > 0 else None
 
             rows.append(
@@ -162,10 +182,21 @@ async def run_scorecard_pass(db: AsyncSession) -> str:
         return "[scorecard] disabled (SCORECARD_ENABLED=0)"
 
     try:
-        # Set statement timeout for the query (R4: RAM constraints)
-        await db.execute(text("SET LOCAL statement_timeout = '30s'"))
+        # Statement timeout for the nightly query (R4: 660 MB free — a runaway
+        # scan here competes with production Postgres). `set_config(..., true)`
+        # is the parameterisable form of SET LOCAL; plain `SET` takes no bind
+        # parameters. It is transaction-local, so open one explicitly rather
+        # than relying on whatever the caller's session was doing.
+        if db.get_bind().dialect.name == "postgresql":
+            if not db.in_transaction():
+                await db.begin()
+            await db.execute(
+                text("SELECT set_config('statement_timeout', :t, true)").bindparams(
+                    t=settings.SCORECARD_STATEMENT_TIMEOUT
+                )
+            )
 
-        rows = await compute_scorecard(db, window_days=30)
+        rows = await compute_scorecard(db, window_days=settings.SCORECARD_WINDOW_DAYS)
 
         # Delete old scorecard rows and insert new ones (atomic replace)
         await db.execute(delete(SourceScorecard))
@@ -175,7 +206,10 @@ async def run_scorecard_pass(db: AsyncSession) -> str:
 
         total_n = sum(r.n for r in rows)
         sufficient = sum(1 for r in rows if r.n >= EVIDENCE_MIN_N)
-        return f"[scorecard] computed={len(rows)} total_signals_matched={total_n} sufficient={sufficient}"
+        return (
+            f"[scorecard] computed={len(rows)} "
+            f"total_signals_matched={total_n} sufficient={sufficient}"
+        )
     except Exception:
         logger.exception("scorecard pass failed")
         await db.rollback()
@@ -196,6 +230,52 @@ async def get_scorecard_for_source(
     return list((await db.execute(q)).scalars().all())
 
 
+async def evidence_table_for(
+    db: AsyncSession,
+) -> dict[tuple[str, str], tuple[int, float | None, float | None, int]]:
+    """One query, folded to `(source, horizon) -> (n, hit_rate, avg_r, window)`.
+
+    The stored rows are per-regime; the Ideas feed asks a coarser question
+    ("does this source work at all on this horizon"), so regimes are collapsed
+    here by n-weighting. Regime-sliced numbers stay available to Lab through
+    `list_scorecard`, which reads the rows as stored.
+    """
+    rows = list((await db.execute(select(SourceScorecard))).scalars().all())
+
+    acc: dict[tuple[str, str], list[float | int]] = {}
+    for row in rows:
+        key = (row.source, row.horizon)
+        # [n, sum(hit_rate*n), sum(avg_r*n), window_days]
+        bucket = acc.setdefault(key, [0, 0.0, 0.0, row.window_days])
+        bucket[0] += row.n
+        bucket[1] += (row.hit_rate or 0.0) * row.n
+        bucket[2] += (row.avg_r or 0.0) * row.n
+
+    out: dict[tuple[str, str], tuple[int, float | None, float | None, int]] = {}
+    for key, (n, hr_sum, r_sum, window) in acc.items():
+        n = int(n)
+        out[key] = (
+            n,
+            (hr_sum / n) if n else None,
+            (r_sum / n) if n else None,
+            int(window),
+        )
+    return out
+
+
+async def list_scorecard(db: AsyncSession, *, source: str | None = None) -> list[SourceScorecard]:
+    """Every stored row, regime slices intact — what Lab renders."""
+    q = select(SourceScorecard)
+    if source:
+        q = q.where(SourceScorecard.source == source)
+    q = q.order_by(
+        SourceScorecard.source,
+        SourceScorecard.horizon,
+        SourceScorecard.n.desc(),
+    )
+    return list((await db.execute(q)).scalars().all())
+
+
 async def get_evidence_for_opportunity(
     db: AsyncSession,
     *,
@@ -208,12 +288,24 @@ async def get_evidence_for_opportunity(
     """
     rows = await get_scorecard_for_source(db, source=source, horizon=horizon)
     if not rows:
-        return {"status": "insufficient", "n": 0, "hit_rate": None, "avg_r": None, "window_days": 30}
+        return {
+            "status": "insufficient",
+            "n": 0,
+            "hit_rate": None,
+            "avg_r": None,
+            "window_days": 30,
+        }
 
     # Aggregate across regimes for a source+horizon
     total_n = sum(r.n for r in rows)
     if total_n < EVIDENCE_MIN_N:
-        return {"status": "insufficient", "n": total_n, "hit_rate": None, "avg_r": None, "window_days": 30}
+        return {
+            "status": "insufficient",
+            "n": total_n,
+            "hit_rate": None,
+            "avg_r": None,
+            "window_days": 30,
+        }
 
     # Weighted averages
     weighted_hr = sum((r.hit_rate or 0) * r.n for r in rows if r.n > 0) / total_n

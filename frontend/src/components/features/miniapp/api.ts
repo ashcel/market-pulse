@@ -14,19 +14,12 @@
  * has no way to "log in again" inside a Mini App.
  */
 
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp?: {
-        initData?: string;
-        initDataUnsafe?: { user?: { id?: number; first_name?: string; username?: string } };
-        ready?: () => void;
-        expand?: () => void;
-        colorScheme?: string;
-      };
-    };
-  }
-}
+// The `window.Telegram.WebApp` shape is declared once, in
+// `@/lib/telegram/mini-app` — importing the type here rather than re-declaring
+// it keeps the two from drifting (Sprint 5 folded the Mini App into the one
+// route tree, and two partial declarations of the same global is how the
+// adapter and this module would come to disagree about what the SDK offers).
+import "@/lib/telegram/mini-app";
 
 export interface TelegramMiniUser {
   id: number | null;

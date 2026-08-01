@@ -9,6 +9,7 @@ Run: `arq app.worker.config.WorkerSettings` (see deploy/market-pulse-arq.service
 
 import logging
 from collections.abc import Awaitable, Callable
+from datetime import UTC
 from typing import Any, ClassVar
 
 from arq import cron
@@ -18,6 +19,7 @@ from arq.cron import CronJob
 from app.config import settings
 from app.database import SessionFactory
 from app.delivery.service import run_delivery_pass
+from app.scorecard.service import run_scorecard_pass
 
 from .alert_pass import run_alert_pass
 from .binance import close_http_client
@@ -68,11 +70,28 @@ async def delivery_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -> str: 
     return f"[delivery] sent={sent}"
 
 
+async def scorecard_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -> str:  # noqa: ARG001
+    """Sprint 5 evidence pass — nightly at 00:00 UTC (07:00 WIB), the quiet
+    hour (R4). Like delivery, the flag is checked *inside* the pass rather than
+    at registration, so `SCORECARD_ENABLED=1` takes effect on the next midnight
+    without restarting the worker.
+    """
+    async with SessionFactory() as db:
+        return await run_scorecard_pass(db)
+
+
 async def shutdown(_ctx: dict[Any, Any]) -> None:
     await close_http_client()
 
 
 class WorkerSettings:
+    # arq schedules crons in the worker's timezone, which defaults to the
+    # host's — and this box is Asia/Shanghai, so `hour={0}` would have meant
+    # 16:00 UTC. Pinned to UTC because the plan specifies the scorecard pass at
+    # 00:00 UTC. Every pre-existing cron here is either minute-based or spans
+    # all 24 hours, so none of them move.
+    timezone: ClassVar[Any] = UTC
+
     functions: ClassVar[list[Callable[[dict[Any, Any]], Awaitable[str]]]] = [health_ping]
     cron_jobs: ClassVar[list[CronJob]] = [
         cron(
@@ -105,6 +124,15 @@ class WorkerSettings:
             minute=set(range(60)),
             run_at_startup=True,
             timeout=120,
+        ),
+        cron(
+            scorecard_tick,
+            hour={0},
+            minute={0},
+            # Never at startup: a deploy at 14:00 must not trigger the nightly
+            # scan outside its quiet window.
+            run_at_startup=False,
+            timeout=600,
         ),
     ]
     on_shutdown = shutdown

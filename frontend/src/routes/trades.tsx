@@ -3,11 +3,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/features/page-header";
 import { TradesPanel } from "@/components/features/trades-panel";
 
+import { redirectIfNavV2 } from "@/lib/nav-redirects";
+
 // Thin wrapper: body lives in `trades-panel.tsx` and is shared with the
-// Open/History tabs on `/journal` (IA-REDESIGN-2026-07-23 §4.3). This route
-// stays live for existing links/bookmarks — no redirect, since the merge
-// spec keeps `/trades` resolving, just no longer the sole nav destination.
+// Open/History tabs on `/journal` (IA-REDESIGN-2026-07-23 §4.3). It stayed
+// live for existing links/bookmarks until Sprint 5, which sends it to Book
+// under NAV_V2 — still resolving, never a 404.
 export const Route = createFileRoute("/trades")({
+  // Retired by the 4-tab nav (Sprint 5): positions live in Book. No-op while NAV_V2=0.
+  beforeLoad: () => redirectIfNavV2("/trades"),
   head: () => ({
     meta: [
       { title: "Positions & Journal — Market Pulse" },

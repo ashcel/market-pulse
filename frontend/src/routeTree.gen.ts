@@ -20,6 +20,7 @@ import { Route as RankingsRouteImport } from './routes/rankings'
 import { Route as NewsRouteImport } from './routes/news'
 import { Route as MarketsRouteImport } from './routes/markets'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as LabRouteImport } from './routes/lab'
 import { Route as JournalRouteImport } from './routes/journal'
 import { Route as IdeasRouteImport } from './routes/ideas'
 import { Route as BookRouteImport } from './routes/book'
@@ -32,6 +33,7 @@ import { Route as ApiTradesRouteImport } from './routes/api/trades'
 import { Route as ApiTrackTokenRouteImport } from './routes/api/track-token'
 import { Route as ApiTokenEventsRouteImport } from './routes/api/token-events'
 import { Route as ApiSignalsRouteImport } from './routes/api/signals'
+import { Route as ApiScorecardRouteImport } from './routes/api/scorecard'
 import { Route as ApiPreferencesRouteImport } from './routes/api/preferences'
 import { Route as ApiOpportunitiesRouteImport } from './routes/api/opportunities'
 import { Route as ApiNotificationsRouteImport } from './routes/api/notifications'
@@ -118,6 +120,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LabRoute = LabRouteImport.update({
+  id: '/lab',
+  path: '/lab',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const JournalRoute = JournalRouteImport.update({
   id: '/journal',
   path: '/journal',
@@ -176,6 +183,11 @@ const ApiTokenEventsRoute = ApiTokenEventsRouteImport.update({
 const ApiSignalsRoute = ApiSignalsRouteImport.update({
   id: '/api/signals',
   path: '/api/signals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiScorecardRoute = ApiScorecardRouteImport.update({
+  id: '/api/scorecard',
+  path: '/api/scorecard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPreferencesRoute = ApiPreferencesRouteImport.update({
@@ -337,6 +349,7 @@ export interface FileRoutesByFullPath {
   '/book': typeof BookRoute
   '/ideas': typeof IdeasRoute
   '/journal': typeof JournalRoute
+  '/lab': typeof LabRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
   '/news': typeof NewsRoute
@@ -358,6 +371,7 @@ export interface FileRoutesByFullPath {
   '/api/notifications': typeof ApiNotificationsRoute
   '/api/opportunities': typeof ApiOpportunitiesRoute
   '/api/preferences': typeof ApiPreferencesRoute
+  '/api/scorecard': typeof ApiScorecardRoute
   '/api/signals': typeof ApiSignalsRoute
   '/api/token-events': typeof ApiTokenEventsRoute
   '/api/track-token': typeof ApiTrackTokenRoute
@@ -392,6 +406,7 @@ export interface FileRoutesByTo {
   '/book': typeof BookRoute
   '/ideas': typeof IdeasRoute
   '/journal': typeof JournalRoute
+  '/lab': typeof LabRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
   '/news': typeof NewsRoute
@@ -413,6 +428,7 @@ export interface FileRoutesByTo {
   '/api/notifications': typeof ApiNotificationsRoute
   '/api/opportunities': typeof ApiOpportunitiesRoute
   '/api/preferences': typeof ApiPreferencesRoute
+  '/api/scorecard': typeof ApiScorecardRoute
   '/api/signals': typeof ApiSignalsRoute
   '/api/token-events': typeof ApiTokenEventsRoute
   '/api/track-token': typeof ApiTrackTokenRoute
@@ -448,6 +464,7 @@ export interface FileRoutesById {
   '/book': typeof BookRoute
   '/ideas': typeof IdeasRoute
   '/journal': typeof JournalRoute
+  '/lab': typeof LabRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
   '/news': typeof NewsRoute
@@ -469,6 +486,7 @@ export interface FileRoutesById {
   '/api/notifications': typeof ApiNotificationsRoute
   '/api/opportunities': typeof ApiOpportunitiesRoute
   '/api/preferences': typeof ApiPreferencesRoute
+  '/api/scorecard': typeof ApiScorecardRoute
   '/api/signals': typeof ApiSignalsRoute
   '/api/token-events': typeof ApiTokenEventsRoute
   '/api/track-token': typeof ApiTrackTokenRoute
@@ -505,6 +523,7 @@ export interface FileRouteTypes {
     | '/book'
     | '/ideas'
     | '/journal'
+    | '/lab'
     | '/login'
     | '/markets'
     | '/news'
@@ -526,6 +545,7 @@ export interface FileRouteTypes {
     | '/api/notifications'
     | '/api/opportunities'
     | '/api/preferences'
+    | '/api/scorecard'
     | '/api/signals'
     | '/api/token-events'
     | '/api/track-token'
@@ -560,6 +580,7 @@ export interface FileRouteTypes {
     | '/book'
     | '/ideas'
     | '/journal'
+    | '/lab'
     | '/login'
     | '/markets'
     | '/news'
@@ -581,6 +602,7 @@ export interface FileRouteTypes {
     | '/api/notifications'
     | '/api/opportunities'
     | '/api/preferences'
+    | '/api/scorecard'
     | '/api/signals'
     | '/api/token-events'
     | '/api/track-token'
@@ -615,6 +637,7 @@ export interface FileRouteTypes {
     | '/book'
     | '/ideas'
     | '/journal'
+    | '/lab'
     | '/login'
     | '/markets'
     | '/news'
@@ -636,6 +659,7 @@ export interface FileRouteTypes {
     | '/api/notifications'
     | '/api/opportunities'
     | '/api/preferences'
+    | '/api/scorecard'
     | '/api/signals'
     | '/api/token-events'
     | '/api/track-token'
@@ -671,6 +695,7 @@ export interface RootRouteChildren {
   BookRoute: typeof BookRoute
   IdeasRoute: typeof IdeasRoute
   JournalRoute: typeof JournalRoute
+  LabRoute: typeof LabRoute
   LoginRoute: typeof LoginRoute
   MarketsRoute: typeof MarketsRoute
   NewsRoute: typeof NewsRoute
@@ -692,6 +717,7 @@ export interface RootRouteChildren {
   ApiNotificationsRoute: typeof ApiNotificationsRoute
   ApiOpportunitiesRoute: typeof ApiOpportunitiesRoute
   ApiPreferencesRoute: typeof ApiPreferencesRoute
+  ApiScorecardRoute: typeof ApiScorecardRoute
   ApiSignalsRoute: typeof ApiSignalsRoute
   ApiTokenEventsRoute: typeof ApiTokenEventsRoute
   ApiTrackTokenRoute: typeof ApiTrackTokenRoute
@@ -794,6 +820,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/lab': {
+      id: '/lab'
+      path: '/lab'
+      fullPath: '/lab'
+      preLoaderRoute: typeof LabRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/journal': {
       id: '/journal'
       path: '/journal'
@@ -876,6 +909,13 @@ declare module '@tanstack/react-router' {
       path: '/api/signals'
       fullPath: '/api/signals'
       preLoaderRoute: typeof ApiSignalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/scorecard': {
+      id: '/api/scorecard'
+      path: '/api/scorecard'
+      fullPath: '/api/scorecard'
+      preLoaderRoute: typeof ApiScorecardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/preferences': {
@@ -1166,6 +1206,7 @@ const rootRouteChildren: RootRouteChildren = {
   BookRoute: BookRoute,
   IdeasRoute: IdeasRoute,
   JournalRoute: JournalRoute,
+  LabRoute: LabRoute,
   LoginRoute: LoginRoute,
   MarketsRoute: MarketsRoute,
   NewsRoute: NewsRoute,
@@ -1187,6 +1228,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiNotificationsRoute: ApiNotificationsRoute,
   ApiOpportunitiesRoute: ApiOpportunitiesRoute,
   ApiPreferencesRoute: ApiPreferencesRoute,
+  ApiScorecardRoute: ApiScorecardRoute,
   ApiSignalsRoute: ApiSignalsRoute,
   ApiTokenEventsRoute: ApiTokenEventsRoute,
   ApiTrackTokenRoute: ApiTrackTokenRoute,

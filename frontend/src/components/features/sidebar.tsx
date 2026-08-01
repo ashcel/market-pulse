@@ -1,9 +1,19 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, NotebookText, Layers, Settings } from "lucide-react";
+import {
+  FlaskConical,
+  LayoutDashboard,
+  Layers,
+  Lightbulb,
+  NotebookText,
+  Settings,
+  Wallet,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUiStore } from "@/stores/ui";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+import { NAV_V2 } from "@/lib/flags";
 
 export type NavItem = {
   to: string;
@@ -15,12 +25,23 @@ export type NavItem = {
 // Journal = Q3 (am I trading well), Markets = evidence, Settings = config.
 // Checking a specific trade (Q2) moved onto the token chart, so the standalone
 // Check slot was retired.
-export const NAV: readonly NavItem[] = [
+const NAV_V1: readonly NavItem[] = [
   { to: "/", label: "Today", icon: LayoutDashboard },
   { to: "/markets", label: "Markets", icon: Layers },
   { to: "/journal", label: "Journal", icon: NotebookText },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
+
+// Sprint 5 four-tab IA. Same slots as the bottom nav — desktop and mobile must
+// not disagree about what the product is. Settings moved to the header avatar.
+const NAV_V2_ITEMS: readonly NavItem[] = [
+  { to: "/", label: "Now", icon: LayoutDashboard },
+  { to: "/ideas", label: "Ideas", icon: Lightbulb },
+  { to: "/book", label: "Book", icon: Wallet },
+  { to: "/lab", label: "Lab", icon: FlaskConical },
+];
+
+export const NAV: readonly NavItem[] = NAV_V2 ? NAV_V2_ITEMS : NAV_V1;
 
 export function IqLogo({ className }: { className?: string }) {
   return (

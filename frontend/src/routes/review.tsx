@@ -3,10 +3,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { PageHeader } from "@/components/features/page-header";
 import { ReviewPanel } from "@/components/features/review-panel";
 
+import { redirectIfNavV2 } from "@/lib/nav-redirects";
+
 // Thin wrapper: body lives in `review-panel.tsx` and is shared with the
-// Habits tab on `/journal` (IA-REDESIGN-2026-07-23 §4.3). This route stays
-// live for existing links/bookmarks — no redirect.
+// Habits tab on `/journal` (IA-REDESIGN-2026-07-23 §4.3). It stayed live for
+// existing links/bookmarks until Sprint 5, which sends it to Lab under NAV_V2.
 export const Route = createFileRoute("/review")({
+  // Retired by the 4-tab nav (Sprint 5): trade review lives in Lab. No-op while NAV_V2=0.
+  beforeLoad: () => redirectIfNavV2("/review"),
   head: () => ({
     meta: [
       { title: "Trade Review — Market Pulse" },

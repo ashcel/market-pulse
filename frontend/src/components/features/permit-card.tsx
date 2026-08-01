@@ -11,6 +11,7 @@ import type {
   CheckCardItem,
 } from "@/lib/types/execution";
 import type { TradeTicketState } from "@/hooks/useTradeTicket";
+import { useTelegramMainButton } from "@/hooks/useTelegramMiniApp";
 
 /** Slice of the trade ticket the permit card needs to render the hero + summary rows. */
 export type PermitTicketSummary = Pick<
@@ -184,6 +185,20 @@ export function PermitCard({
   estimatedRR,
 }: PermitCardProps) {
   const isApproved = permit.decision.status === "APPROVED";
+
+  // Sprint 5: inside Telegram, offer the confirm on the client's own
+  // MainButton. The in-page button below stays exactly as it is — this is an
+  // extra affordance for the webview, never a replacement, and it disables
+  // (rather than hides) on an expired permit so the action still reads as
+  // existing. No-op on the web. It must never fire for a REJECTED permit: a
+  // hard-limit rejection is not something a native button may route around.
+  useTelegramMainButton({
+    text: isConfirming ? "Mengonfirmasi…" : "Confirm Trade",
+    onClick: onConfirm,
+    visible: isApproved,
+    enabled: isApproved && !isExpired && !isConfirming,
+    loading: Boolean(isConfirming),
+  });
 
   if (!isApproved) {
     const rejected = permit as PermitCardRejected;

@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from app.auth.dependencies import CurrentUserId, DbSession
 
-from .repo import insert_signal
+from .repo import insert_signal, status_for_source
 
 router = APIRouter(prefix="/ingest", tags=["signals"])
 
@@ -38,6 +38,9 @@ class SignalIngest(BaseModel):
     # Writers may supply their own uuid so a retry after a network timeout is
     # byte-identical; dedup_key is the real idempotency key either way.
     id: str | None = Field(default=None, max_length=36)
+    # Optional context snapshot at detection time. There is deliberately no
+    # `status` field: a source cannot declare itself live (Sprint 5).
+    context_ref: dict[str, Any] | None = None
 
 
 @router.post("/signal", summary="Append one signal fact (idempotent)")
@@ -58,5 +61,11 @@ async def ingest_signal(
         expires_at=payload.expires_at,
         features=payload.features,
         dedup_key=payload.dedup_key,
+        status=status_for_source(payload.source),
+        context_ref=payload.context_ref,
     )
-    return {"data": {"inserted": inserted}, "meta": None, "error": None}
+    return {
+        "data": {"inserted": inserted, "status": status_for_source(payload.source)},
+        "meta": None,
+        "error": None,
+    }

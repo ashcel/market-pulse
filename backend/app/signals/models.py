@@ -1,12 +1,17 @@
 """`signal_events` — the append-only record of every signal any source
 detected (docs/IMPLEMENTATION-PLAN.md §2.1).
 
-Deliberately a *subset* of the full Opus contract: no `context_ref` (it is
-derivable from `detected_at`) and no `status` (source eligibility is the
-`SIGNAL_SOURCES_LIVE` allowlist in `app/config.py` until a second source
-writes, Sprint 5). What is NOT deferred is `dedup_key` UNIQUE — that is what
+Shipped in Sprint 2 as a *subset* of the full Opus contract; Sprint 5 added
+the two deferred columns (`status`, `context_ref`) now that a second source is
+allowed to write. What was never deferred is `dedup_key` UNIQUE — that is what
 makes an append-only table safe under retry, and the 48h reconciliation in
 the Sprint 2 exit criteria counts on it.
+
+`status` is the per-row twin of the `SIGNAL_SOURCES_LIVE` allowlist: a new
+source writes `shadow` rows that are recorded but never surfaced, and is
+promoted to `live` only by its `source_scorecard` numbers. The allowlist stays
+the operator-facing kill switch; the column is what lets one source be live
+while another is still proving itself.
 
 A correction to a signal is a NEW event, never an update: the DB trigger
 installed by the migration raises `signal_events is append-only` on any
@@ -36,6 +41,7 @@ class SignalEvent(Base):
         sa.Index("signal_events_symbol_detected_idx", "symbol", sa.text("detected_at DESC")),
         sa.Index("signal_events_detected_idx", sa.text("detected_at DESC")),
         sa.Index("signal_events_source_idx", "source", "source_version"),
+        sa.Index("signal_events_status_idx", "status"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -62,6 +68,16 @@ class SignalEvent(Base):
     )
     # '{source}|{symbol}|{side}|{horizon}|{YYYY-MM-DD}|{kind}'
     dedup_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    # 'shadow' | 'live' (Sprint 5). Recorded either way; only 'live' rows are
+    # eligible to surface. Existing rows were backfilled to 'live' by the
+    # migration's server_default — they are the source that already earned it.
+    status: Mapped[str] = mapped_column(
+        String(8), nullable=False, server_default=sa.text("'live'"), default="live"
+    )
+    # Optional snapshot of the market context at detection time (regime, etc).
+    # Nullable on purpose: it is derivable from `detected_at`, so a source that
+    # does not carry one is not wrong, only slower to join.
+    context_ref: Mapped[dict[str, Any] | None] = mapped_column(FeaturesJSON, nullable=True)
     # Python default as well as the server default: the sqlite used by the
     # unit tests has no now().
     ingested_at: Mapped[datetime] = mapped_column(

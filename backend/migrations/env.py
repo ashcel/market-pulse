@@ -32,6 +32,7 @@ from app.forward_test.models import (  # noqa: F401
 )
 from app.market.models import Signal, Token  # noqa: F401
 from app.review.models import TradeForensics, TradeReview  # noqa: F401
+from app.scorecard.models import SourceScorecard  # noqa: F401
 from app.signals.models import SignalEvent  # noqa: F401
 from app.trades.models import Trade  # noqa: F401
 

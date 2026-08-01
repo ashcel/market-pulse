@@ -7,6 +7,8 @@ import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { IqCard, CardEyebrow } from "@/components/features/iq-card";
+import { ForecastCone } from "@/components/features/forecast-cone";
+import { PORT_FORECAST } from "@/lib/flags";
 import { fetchHealthServer } from "@/lib/engine/system";
 import { cn } from "@/lib/utils";
 import { computeTicketSizingRead, buildLeverageChips } from "@/hooks/useTicketSizing";
@@ -60,6 +62,7 @@ export function TradeTicket({
 
   const entry = state.entry_price === "" ? 0 : Number(state.entry_price);
   const stop = state.stop_price === "" ? 0 : Number(state.stop_price);
+  const target = state.target_price === "" ? 0 : Number(state.target_price);
   const read = computeTicketSizingRead({
     entry,
     stop,
@@ -179,6 +182,19 @@ export function TradeTicket({
           </div>
         </div>
       </div>
+
+      {/* Sprint 5: the projection is computed in-app (`@/lib/forecast`), not
+          proxied from the notifier dashboard. Off by default — PORT_FORECAST=1
+          is what makes /quant/token callerless. */}
+      {PORT_FORECAST && target > 0 && (
+        <ForecastCone
+          symbol={state.symbol}
+          side={state.side}
+          entry={entry}
+          stop={stop}
+          target={target}
+        />
+      )}
 
       {/* ── ZONE 2 · RISK (behind the Adjust disclosure) ────────────────── */}
       <Collapsible open={depthOpen} onOpenChange={onDepthChange}>

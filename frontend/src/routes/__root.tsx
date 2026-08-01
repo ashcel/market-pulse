@@ -22,6 +22,7 @@ import { useWatchlistSync } from "../hooks/useTokenEvents";
 import { useNotificationStream } from "../hooks/useNotificationStream";
 import { useTriggerAlerts } from "../hooks/useTriggerAlerts";
 import { usePreferencesSync } from "../hooks/usePreferencesSync";
+import { useTelegramMiniApp } from "../hooks/useTelegramMiniApp";
 import { CapSegmentModal } from "../components/features/cap-segment-modal";
 import { useAiDeskStore } from "../stores/ai-desk";
 
@@ -154,6 +155,10 @@ function RootContent() {
   useLiveUniverseSubscription();
   useWatchlistSync();
   usePreferencesSync();
+  // Sprint 5: one route tree. Inside a Telegram webview this adapts the shell
+  // (theme, safe area, native BackButton); outside it, it is a no-op and the
+  // web app renders exactly as before. The old parallel `/app` shell retired.
+  const miniApp = useTelegramMiniApp();
   const askAiOpen = useAiDeskStore((state) => state.open);
   const setAskAiOpen = useAiDeskStore((state) => state.setOpen);
 
@@ -162,20 +167,41 @@ function RootContent() {
       <ThemeSync />
       <Toaster position="top-right" />
       <CapSegmentModal />
-      <div className="flex h-screen w-full bg-background overflow-hidden">
-        <Sidebar />
+      <div
+        className="flex h-screen w-full bg-background overflow-hidden"
+        style={
+          miniApp
+            ? {
+                // Telegram's header/handle overlap a naive 100vh page, and its
+                // stable height excludes the keyboard — both come from the SDK.
+                height: "var(--tg-viewport-height, 100vh)",
+                paddingTop: "var(--tg-safe-top, 0px)",
+                paddingLeft: "var(--tg-safe-left, 0px)",
+                paddingRight: "var(--tg-safe-right, 0px)",
+              }
+            : undefined
+        }
+      >
+        {/* The client supplies its own back navigation and header, so the web
+            chrome would be a second, redundant one inside the webview. */}
+        {!miniApp && <Sidebar />}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <TopBar onToggleAskAi={() => setAskAiOpen(!askAiOpen)} />
+          {!miniApp && <TopBar onToggleAskAi={() => setAskAiOpen(!askAiOpen)} />}
           <div className="flex flex-1 overflow-hidden">
-            <main className="flex-1 overflow-y-auto px-4 pb-24 pt-4 sm:px-6 sm:pt-6 lg:pb-8">
+            <main
+              className="flex-1 overflow-y-auto px-4 pb-24 pt-4 sm:px-6 sm:pt-6 lg:pb-8"
+              style={
+                miniApp ? { paddingBottom: "calc(6rem + var(--tg-safe-bottom, 0px))" } : undefined
+              }
+            >
               <Outlet />
             </main>
-            <AskAiSidebar open={askAiOpen} onClose={() => setAskAiOpen(false)} />
+            {!miniApp && <AskAiSidebar open={askAiOpen} onClose={() => setAskAiOpen(false)} />}
           </div>
         </div>
         <BottomNav />
       </div>
-      <FloatingPnlWidget />
+      {!miniApp && <FloatingPnlWidget />}
     </>
   );
 }
