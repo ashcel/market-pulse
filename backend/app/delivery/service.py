@@ -16,7 +16,7 @@ from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.execution.alert_models import Alert, AlertSeverity
+from app.execution.alert_models import Alert, AlertSeverity, AlertType
 
 from .sender import send_telegram
 
@@ -40,6 +40,8 @@ def _in_quiet_hours(now: datetime) -> bool:
 
 
 def _deep_link(alert: Alert) -> str | None:
+    if alert.type == AlertType.POSITION_RISK.value:
+        return "https://iq.heydewi.com/book"
     if not alert.token_symbol:
         return None
     return f"https://iq.heydewi.com/token/{alert.token_symbol}"

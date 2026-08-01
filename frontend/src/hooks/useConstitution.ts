@@ -59,16 +59,17 @@ export class ConstitutionValidationError extends Error {
 interface ConstitutionResult {
   constitution: TradingConstitution | null;
   authenticated: boolean;
+  executionEnabled: boolean | null;
 }
 
 async function fetchConstitution(): Promise<ConstitutionResult> {
   const res = await fetch("/api/execution/constitution", { credentials: "same-origin" });
-  if (res.status === 401) return { constitution: null, authenticated: false };
+  if (res.status === 401) return { constitution: null, authenticated: false, executionEnabled: null };
   // ConstitutionNotFoundError → 404 when no version has been created yet.
-  if (res.status === 404) return { constitution: null, authenticated: true };
+  if (res.status === 404) return { constitution: null, authenticated: true, executionEnabled: null };
   if (!res.ok) throw new Error(`constitution fetch failed: ${res.status}`);
-  const body = (await res.json()) as { data: TradingConstitution };
-  return { constitution: body.data, authenticated: true };
+  const body = (await res.json()) as { data: TradingConstitution; meta?: { execution_enabled?: boolean } };
+  return { constitution: body.data, authenticated: true, executionEnabled: body.meta?.execution_enabled ?? null };
 }
 
 /** The signed-in user's current (highest-version) Trading Constitution, or null if none yet. */
@@ -78,8 +79,8 @@ export function useConstitution() {
     queryFn: fetchConstitution,
     staleTime: 30_000,
   });
-  const data = query.data ?? { constitution: null, authenticated: true };
-  return { ...query, constitution: data.constitution, authenticated: data.authenticated };
+  const data = query.data ?? { constitution: null, authenticated: true, executionEnabled: null };
+  return { ...query, constitution: data.constitution, authenticated: data.authenticated, executionEnabled: data.executionEnabled };
 }
 
 /** Create a new constitution version. Every accepted edit is server-side audited. */

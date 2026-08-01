@@ -50,7 +50,9 @@ class ConstitutionResponse(BaseModel):
 
 class ConstitutionDetailEnvelope(BaseModel):
     data: ConstitutionResponse
-    meta: None = None
+    # The constitution endpoint is the Book's single execution-policy read.
+    # This is operator state, not a user-editable constitution field.
+    meta: dict[str, bool] | None = None
     error: None = None
 
 

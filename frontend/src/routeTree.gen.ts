@@ -22,6 +22,7 @@ import { Route as MarketsRouteImport } from './routes/markets'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as JournalRouteImport } from './routes/journal'
 import { Route as IdeasRouteImport } from './routes/ideas'
+import { Route as BookRouteImport } from './routes/book'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TokenSymbolRouteImport } from './routes/token.$symbol'
@@ -41,6 +42,7 @@ import { Route as ApiEconomicEventsRouteImport } from './routes/api/economic-eve
 import { Route as ApiDecisionsRouteImport } from './routes/api/decisions'
 import { Route as ApiAuthRouteImport } from './routes/api/auth'
 import { Route as ApiAlertsRouteImport } from './routes/api/alerts'
+import { Route as ApiTradewayPositionsRouteImport } from './routes/api/tradeway.positions'
 import { Route as ApiTradesIdRouteImport } from './routes/api/trades.$id'
 import { Route as ApiReviewForensicsRouteImport } from './routes/api/review.forensics'
 import { Route as ApiReviewAnalyticsRouteImport } from './routes/api/review.analytics'
@@ -124,6 +126,11 @@ const JournalRoute = JournalRouteImport.update({
 const IdeasRoute = IdeasRouteImport.update({
   id: '/ideas',
   path: '/ideas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BookRoute = BookRouteImport.update({
+  id: '/book',
+  path: '/book',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
@@ -219,6 +226,11 @@ const ApiAuthRoute = ApiAuthRouteImport.update({
 const ApiAlertsRoute = ApiAlertsRouteImport.update({
   id: '/api/alerts',
   path: '/api/alerts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTradewayPositionsRoute = ApiTradewayPositionsRouteImport.update({
+  id: '/api/tradeway/positions',
+  path: '/api/tradeway/positions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiTradesIdRoute = ApiTradesIdRouteImport.update({
@@ -322,6 +334,7 @@ const ApiAlertsIdReadRoute = ApiAlertsIdReadRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
+  '/book': typeof BookRoute
   '/ideas': typeof IdeasRoute
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
@@ -367,6 +380,7 @@ export interface FileRoutesByFullPath {
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/review/forensics': typeof ApiReviewForensicsRouteWithChildren
   '/api/trades/$id': typeof ApiTradesIdRoute
+  '/api/tradeway/positions': typeof ApiTradewayPositionsRoute
   '/api/alerts/$id/read': typeof ApiAlertsIdReadRoute
   '/api/decisions/$id/action': typeof ApiDecisionsIdActionRoute
   '/api/execution/permit/$id': typeof ApiExecutionPermitIdRoute
@@ -375,6 +389,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
+  '/book': typeof BookRoute
   '/ideas': typeof IdeasRoute
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
@@ -420,6 +435,7 @@ export interface FileRoutesByTo {
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/review/forensics': typeof ApiReviewForensicsRouteWithChildren
   '/api/trades/$id': typeof ApiTradesIdRoute
+  '/api/tradeway/positions': typeof ApiTradewayPositionsRoute
   '/api/alerts/$id/read': typeof ApiAlertsIdReadRoute
   '/api/decisions/$id/action': typeof ApiDecisionsIdActionRoute
   '/api/execution/permit/$id': typeof ApiExecutionPermitIdRoute
@@ -429,6 +445,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRoute
+  '/book': typeof BookRoute
   '/ideas': typeof IdeasRoute
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
@@ -474,6 +491,7 @@ export interface FileRoutesById {
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/review/forensics': typeof ApiReviewForensicsRouteWithChildren
   '/api/trades/$id': typeof ApiTradesIdRoute
+  '/api/tradeway/positions': typeof ApiTradewayPositionsRoute
   '/api/alerts/$id/read': typeof ApiAlertsIdReadRoute
   '/api/decisions/$id/action': typeof ApiDecisionsIdActionRoute
   '/api/execution/permit/$id': typeof ApiExecutionPermitIdRoute
@@ -484,6 +502,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
+    | '/book'
     | '/ideas'
     | '/journal'
     | '/login'
@@ -529,6 +548,7 @@ export interface FileRouteTypes {
     | '/api/review/analytics'
     | '/api/review/forensics'
     | '/api/trades/$id'
+    | '/api/tradeway/positions'
     | '/api/alerts/$id/read'
     | '/api/decisions/$id/action'
     | '/api/execution/permit/$id'
@@ -537,6 +557,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/app'
+    | '/book'
     | '/ideas'
     | '/journal'
     | '/login'
@@ -582,6 +603,7 @@ export interface FileRouteTypes {
     | '/api/review/analytics'
     | '/api/review/forensics'
     | '/api/trades/$id'
+    | '/api/tradeway/positions'
     | '/api/alerts/$id/read'
     | '/api/decisions/$id/action'
     | '/api/execution/permit/$id'
@@ -590,6 +612,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/app'
+    | '/book'
     | '/ideas'
     | '/journal'
     | '/login'
@@ -635,6 +658,7 @@ export interface FileRouteTypes {
     | '/api/review/analytics'
     | '/api/review/forensics'
     | '/api/trades/$id'
+    | '/api/tradeway/positions'
     | '/api/alerts/$id/read'
     | '/api/decisions/$id/action'
     | '/api/execution/permit/$id'
@@ -644,6 +668,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRoute
+  BookRoute: typeof BookRoute
   IdeasRoute: typeof IdeasRoute
   JournalRoute: typeof JournalRoute
   LoginRoute: typeof LoginRoute
@@ -687,6 +712,7 @@ export interface RootRouteChildren {
   ApiReviewIdRoute: typeof ApiReviewIdRoute
   ApiReviewAnalyticsRoute: typeof ApiReviewAnalyticsRoute
   ApiReviewForensicsRoute: typeof ApiReviewForensicsRouteWithChildren
+  ApiTradewayPositionsRoute: typeof ApiTradewayPositionsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -780,6 +806,13 @@ declare module '@tanstack/react-router' {
       path: '/ideas'
       fullPath: '/ideas'
       preLoaderRoute: typeof IdeasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/book': {
+      id: '/book'
+      path: '/book'
+      fullPath: '/book'
+      preLoaderRoute: typeof BookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app': {
@@ -913,6 +946,13 @@ declare module '@tanstack/react-router' {
       path: '/api/alerts'
       fullPath: '/api/alerts'
       preLoaderRoute: typeof ApiAlertsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/tradeway/positions': {
+      id: '/api/tradeway/positions'
+      path: '/api/tradeway/positions'
+      fullPath: '/api/tradeway/positions'
+      preLoaderRoute: typeof ApiTradewayPositionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/trades/$id': {
@@ -1123,6 +1163,7 @@ const ApiReviewForensicsRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRoute,
+  BookRoute: BookRoute,
   IdeasRoute: IdeasRoute,
   JournalRoute: JournalRoute,
   LoginRoute: LoginRoute,
@@ -1166,6 +1207,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiReviewIdRoute: ApiReviewIdRoute,
   ApiReviewAnalyticsRoute: ApiReviewAnalyticsRoute,
   ApiReviewForensicsRoute: ApiReviewForensicsRouteWithChildren,
+  ApiTradewayPositionsRoute: ApiTradewayPositionsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

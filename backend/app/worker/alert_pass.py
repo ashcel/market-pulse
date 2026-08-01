@@ -11,10 +11,12 @@ from app.execution.alert_service import (
     CatalystAlert,
     EntryZoneAlert,
     InvalidationAlert,
+    PositionRiskAlert,
     VerdictChangeAlert,
     create_alerts,
     danger_window,
 )
+from app.config import settings
 
 from .binance import fetch_price
 
@@ -169,9 +171,118 @@ async def _database_candidates(
     return candidates
 
 
+_BULLISH_MARKERS = ("bull", "up", "risk-on", "risk_on")
+_BEARISH_MARKERS = ("bear", "down", "risk-off", "risk_off")
+
+
+def _regime_direction(regime: str | None) -> str | None:
+    """Return a tradable direction only when the regime label is unambiguous."""
+    if not regime:
+        return None
+    label = regime.lower()
+    bullish = any(marker in label for marker in _BULLISH_MARKERS)
+    bearish = any(marker in label for marker in _BEARISH_MARKERS)
+    if bullish == bearish:
+        return None
+    return "LONG" if bullish else "SHORT"
+
+
+async def _open_execution_positions(db: AsyncSession) -> list[dict[str, Any]]:
+    """MP-owned executed positions only; Tradeway positions are never read here."""
+    result = await db.execute(
+        text(
+            "select id, user_id, symbol, side, stop_price from execution_records "
+            "where flattened = false and filled_quantity > 0 "
+            "and status in ('PROTECTED', 'TP_FAILED')"
+        )
+    )
+    return [dict(row) for row in result.mappings()]
+
+
+async def _position_risk_candidates(
+    db: AsyncSession, positions: list[dict[str, Any]], now: datetime
+) -> list[AlertCandidate]:
+    candidates: list[AlertCandidate] = []
+    seen_flips: set[str] = set()
+    seen_prices: dict[str, float | None] = {}
+
+    for position in positions:
+        symbol = str(position["symbol"]).upper()
+        price = seen_prices.get(symbol)
+        if symbol not in seen_prices:
+            price = await fetch_price(symbol, "perp")
+            seen_prices[symbol] = price
+
+        stop = _number(position, "stop_price")
+        if price is not None and stop is not None and stop > 0:
+            distance = abs(price - stop) / abs(stop)
+            if distance <= 0.005:
+                candidates.append(
+                    PositionRiskAlert(
+                        user_id=str(position["user_id"]),
+                        type=AlertType.POSITION_RISK,
+                        token_symbol=symbol,
+                        title=f"Stop {symbol} sudah dekat",
+                        body=f"Harga {price:g} berjarak {distance:.2%} dari stop {stop:g}.",
+                        severity=AlertSeverity.CRITICAL,
+                        dedupe_key=f"stop_near|{position['id']}|{now:%Y-%m-%d}",
+                        source_decision_id=None,
+                    )
+                )
+
+        regimes = (
+            (
+                await db.execute(
+                    text(
+                        "select regime from eval_log where symbol = :symbol "
+                        "order by evaluated_at desc limit 2"
+                    ),
+                    {"symbol": symbol},
+                )
+            )
+            .mappings()
+            .all()
+        )
+        if len(regimes) != 2:
+            continue
+        to_regime, from_regime = str(regimes[0]["regime"]), str(regimes[1]["regime"])
+        to_direction, from_direction = _regime_direction(to_regime), _regime_direction(from_regime)
+        position_side = str(position["side"]).upper()
+        if (
+            to_direction is None
+            or from_direction is None
+            or to_direction == from_direction
+            or position_side != ("SHORT" if to_direction == "LONG" else "LONG")
+        ):
+            continue
+        key = f"regime_flip|{position['user_id']}|{from_regime}->{to_regime}|{now:%Y-%m-%d-%H}"
+        if key in seen_flips:
+            continue
+        seen_flips.add(key)
+        candidates.append(
+            PositionRiskAlert(
+                user_id=str(position["user_id"]),
+                type=AlertType.POSITION_RISK,
+                token_symbol=symbol,
+                title=f"Regime berbalik melawan posisi {symbol}",
+                body=(
+                    f"Regime berubah dari {from_regime} ke {to_regime}, "
+                    f"sementara posisi {position_side} masih terbuka."
+                ),
+                severity=AlertSeverity.CRITICAL,
+                dedupe_key=key,
+                source_decision_id=None,
+            )
+        )
+    return candidates
+
+
 async def run_alert_pass(db: AsyncSession) -> int:
     now = datetime.now(UTC)
     decisions = await _watched_decisions(db)
     market = await _market_candidates(decisions)
     database = await _database_candidates(db, decisions, now)
-    return await create_alerts(db, market + database)
+    position_risk: list[AlertCandidate] = []
+    if settings.POSITION_RISK_ALERTS:
+        position_risk = await _position_risk_candidates(db, await _open_execution_positions(db), now)
+    return await create_alerts(db, market + database + position_risk)

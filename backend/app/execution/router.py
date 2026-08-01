@@ -15,6 +15,7 @@ from .schemas import (
     ConstitutionListEnvelope,
     ConstitutionResponse,
 )
+from .config import execution_settings
 from .service import (
     create_constitution_version,
     get_current_constitution,
@@ -37,7 +38,10 @@ async def get_constitution(
     user_id: CurrentUserId,
 ) -> ConstitutionDetailEnvelope:
     constitution = await get_current_constitution(db, user_id)
-    return ConstitutionDetailEnvelope(data=ConstitutionResponse.model_validate(constitution))
+    return ConstitutionDetailEnvelope(
+        data=ConstitutionResponse.model_validate(constitution),
+        meta={"execution_enabled": execution_settings.ENABLED},
+    )
 
 
 @router.post(

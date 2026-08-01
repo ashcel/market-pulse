@@ -42,6 +42,10 @@ class BehaviorCooldownAlert(AlertCandidate):
     pass
 
 
+class PositionRiskAlert(AlertCandidate):
+    pass
+
+
 async def create_alerts(db: AsyncSession, candidates: list[AlertCandidate]) -> int:
     if not candidates:
         return 0
@@ -49,6 +53,10 @@ async def create_alerts(db: AsyncSession, candidates: list[AlertCandidate]) -> i
     existing = set(
         (await db.execute(select(Alert.dedupe_key).where(Alert.dedupe_key.in_(keys)))).scalars()
     )
+    # A single regime flip can affect more than one open position. The alert's
+    # identity is deliberately per user/flip, so collapse duplicate candidates
+    # before the database unique constraint has to do that work.
+    unique_candidates = {candidate.dedupe_key: candidate for candidate in candidates}
     rows = [
         Alert(
             user_id=item.user_id,
@@ -62,7 +70,7 @@ async def create_alerts(db: AsyncSession, candidates: list[AlertCandidate]) -> i
             source=item.source,
             delivery_state=item.delivery_state,
         )
-        for item in candidates
+        for item in unique_candidates.values()
         if item.dedupe_key not in existing
     ]
     db.add_all(rows)

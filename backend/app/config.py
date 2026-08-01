@@ -52,5 +52,10 @@ class Config(BaseSettings):
     # (Sprint 5) — one knob beats a column nobody can vary yet.
     SIGNAL_SOURCES_LIVE: list[str] = ["quant"]
 
+    # Sprint 4 position-risk pass. Kept off until the operator has observed
+    # the read path in production; this pass must never create alerts by
+    # default merely because the worker is deployed.
+    POSITION_RISK_ALERTS: bool = False
+
 
 settings = Config()
