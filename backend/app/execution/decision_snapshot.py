@@ -33,6 +33,7 @@ class DecisionSnapshot(Base):
     stop_loss: Mapped[float | None] = mapped_column(Float, nullable=True)
     take_profit: Mapped[float | None] = mapped_column(Float, nullable=True)
     user_action: Mapped[str | None] = mapped_column(String(30), nullable=True, index=True)
+    skip_reason: Mapped[str | None] = mapped_column(String(24), nullable=True)
     actual_outcome: Mapped[dict[str, Any] | None] = mapped_column(sa.JSON, nullable=True)
     engine_version: Mapped[str] = mapped_column(String(50), nullable=False)
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(), nullable=False)

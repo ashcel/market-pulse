@@ -29,6 +29,7 @@ from app.market.router import router as market_router
 from app.news_intel.router import router as news_intel_router
 from app.opportunities.router import router as opportunities_router
 from app.signals.ingest_router import router as signals_ingest_router
+from app.signals.router import router as signals_router
 from app.ai_desk.router import router as ai_desk_router
 from app.quant.router import router as quant_router
 from app.review.router import router as review_router
@@ -114,6 +115,7 @@ v1_router.include_router(ai_desk_router)
 v1_router.include_router(alert_router)
 v1_router.include_router(delivery_router)
 v1_router.include_router(signals_ingest_router)
+v1_router.include_router(signals_router)
 v1_router.include_router(opportunities_router)
 v1_router.include_router(quant_router)
 v1_router.include_router(tradeway_router)

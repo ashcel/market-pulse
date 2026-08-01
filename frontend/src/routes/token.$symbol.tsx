@@ -83,6 +83,8 @@ import { AssistantPanel } from "@/components/features/token/assistant-panel";
 import { VerdictHeader } from "@/components/features/token/verdict-header";
 import { CatalystLine } from "@/components/features/token/catalyst-line";
 import { SkipCheckPanel } from "@/components/features/skip-check-panel";
+import { RelatedSignalsCard } from "@/components/features/related-signals-card";
+import { TicketActions } from "@/components/features/ticket-actions";
 import { TradeDrawer } from "@/components/features/token/trade-drawer";
 import type { PlanDraft } from "@/components/features/token/chart-plan-editor";
 
@@ -99,7 +101,9 @@ export const Route = createFileRoute("/token/$symbol")({
   // 404 for pairs Binance doesn't list. "unknown" (directory unreachable)
   // falls through so the demo-candle path still covers offline use.
   loader: async ({ params }) => {
-    const symbol = normalizeTicker(params.symbol);
+    // Alerts carry exchange symbols (BTCUSDT); the Ticket uses base tickers
+    // internally (BTC). Accept both so Sprint 1 deep links never 404.
+    const symbol = normalizeTicker(params.symbol).replace(/USDT$/, "");
     if (UNIVERSE.some((u) => u.ticker === symbol)) return;
     // Check both spot and perp — the user may switch to perp mode in the UI.
     // If the ticker is valid on either market, don't 404.
@@ -115,7 +119,7 @@ export const Route = createFileRoute("/token/$symbol")({
 
 function TokenNotFound() {
   const { symbol } = Route.useParams();
-  const ticker = normalizeTicker(symbol);
+  const ticker = normalizeTicker(symbol).replace(/USDT$/, "");
   return (
     <div className="flex min-h-[60vh] items-center justify-center px-4">
       <div className="max-w-md text-center">
@@ -177,7 +181,7 @@ const TOUR_STEPS: TourStep[] = [
 
 function TokenDetailPage() {
   const { symbol: rawSymbol } = Route.useParams();
-  const symbol = rawSymbol.toUpperCase();
+  const symbol = normalizeTicker(rawSymbol).replace(/USDT$/, "");
   const [timeframe, setTimeframe] = useState<TokenTimeframe>("4H");
   // The AI analyst is now an on-demand drawer, closed by default so the page
   // stays focused on the decision itself.
@@ -598,6 +602,15 @@ function TokenDetailPage() {
           />
 
           <div className="flex shrink-0 items-center gap-2 px-3 sm:px-4">
+            <TicketActions
+              symbol={symbol}
+              objective={tradingIntent}
+              direction={activeAssessment?.direction === "long" || activeAssessment?.direction === "short" ? activeAssessment.direction : null}
+              entry={planDraft?.entry ?? activeAssessment?.plan?.entry ?? null}
+              stop={planDraft?.stop ?? activeAssessment?.plan?.stop ?? null}
+              target={planDraft?.target ?? activeAssessment?.plan?.target1 ?? null}
+              onEntry={() => setTradeOpen(true)}
+            />
             <SkipCheckPanel
               symbol={symbol}
               objective={tradingIntent}
@@ -658,6 +671,8 @@ function TokenDetailPage() {
               }}
             />
           </div>
+
+          <RelatedSignalsCard symbol={`${symbol}USDT`} />
 
           <div className="flex min-w-0 flex-col gap-3 lg:min-h-0 lg:flex-1 lg:flex-row">
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">

@@ -1,9 +1,9 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Layers, NotebookText, Settings } from "lucide-react";
+import { LayoutDashboard, Layers, Lightbulb, NotebookText, Settings } from "lucide-react";
 
 interface BottomNavTab {
-  to: "/" | "/markets" | "/journal" | "/settings";
+  to: "/" | "/markets" | "/ideas" | "/journal" | "/settings";
   label: string;
   icon: React.ElementType;
   primary?: boolean;
@@ -15,6 +15,7 @@ interface BottomNavTab {
 const TABS: BottomNavTab[] = [
   { to: "/", label: "Today", icon: LayoutDashboard },
   { to: "/markets", label: "Markets", icon: Layers },
+  { to: "/ideas", label: "Ideas", icon: Lightbulb },
   { to: "/journal", label: "Journal", icon: NotebookText },
   { to: "/settings", label: "Settings", icon: Settings },
 ];

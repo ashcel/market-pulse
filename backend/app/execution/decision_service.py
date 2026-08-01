@@ -61,9 +61,12 @@ async def record_decision_action(
     decision: DecisionSnapshot,
     user_action: str,
     actual_outcome: dict[str, Any] | None,
+    skip_reason: str | None = None,
 ) -> DecisionSnapshot:
     decision.user_action = user_action
     decision.decided_at = datetime.now()
+    if skip_reason is not None:
+        decision.skip_reason = skip_reason
     if actual_outcome is not None:
         decision.actual_outcome = {**(decision.actual_outcome or {}), **actual_outcome}
     await db.commit()

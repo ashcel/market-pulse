@@ -21,6 +21,7 @@ import { Route as NewsRouteImport } from './routes/news'
 import { Route as MarketsRouteImport } from './routes/markets'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as JournalRouteImport } from './routes/journal'
+import { Route as IdeasRouteImport } from './routes/ideas'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TokenSymbolRouteImport } from './routes/token.$symbol'
@@ -29,7 +30,9 @@ import { Route as ApiUniverseRouteImport } from './routes/api/universe'
 import { Route as ApiTradesRouteImport } from './routes/api/trades'
 import { Route as ApiTrackTokenRouteImport } from './routes/api/track-token'
 import { Route as ApiTokenEventsRouteImport } from './routes/api/token-events'
+import { Route as ApiSignalsRouteImport } from './routes/api/signals'
 import { Route as ApiPreferencesRouteImport } from './routes/api/preferences'
+import { Route as ApiOpportunitiesRouteImport } from './routes/api/opportunities'
 import { Route as ApiNotificationsRouteImport } from './routes/api/notifications'
 import { Route as ApiKlinesRouteImport } from './routes/api/klines'
 import { Route as ApiForwardTestRouteImport } from './routes/api/forward-test'
@@ -118,6 +121,11 @@ const JournalRoute = JournalRouteImport.update({
   path: '/journal',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IdeasRoute = IdeasRouteImport.update({
+  id: '/ideas',
+  path: '/ideas',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
@@ -158,9 +166,19 @@ const ApiTokenEventsRoute = ApiTokenEventsRouteImport.update({
   path: '/api/token-events',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSignalsRoute = ApiSignalsRouteImport.update({
+  id: '/api/signals',
+  path: '/api/signals',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPreferencesRoute = ApiPreferencesRouteImport.update({
   id: '/api/preferences',
   path: '/api/preferences',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOpportunitiesRoute = ApiOpportunitiesRouteImport.update({
+  id: '/api/opportunities',
+  path: '/api/opportunities',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiNotificationsRoute = ApiNotificationsRouteImport.update({
@@ -304,6 +322,7 @@ const ApiAlertsIdReadRoute = ApiAlertsIdReadRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
+  '/ideas': typeof IdeasRoute
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
@@ -324,7 +343,9 @@ export interface FileRoutesByFullPath {
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
+  '/api/opportunities': typeof ApiOpportunitiesRoute
   '/api/preferences': typeof ApiPreferencesRoute
+  '/api/signals': typeof ApiSignalsRoute
   '/api/token-events': typeof ApiTokenEventsRoute
   '/api/track-token': typeof ApiTrackTokenRoute
   '/api/trades': typeof ApiTradesRouteWithChildren
@@ -354,6 +375,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
+  '/ideas': typeof IdeasRoute
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
@@ -374,7 +396,9 @@ export interface FileRoutesByTo {
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
+  '/api/opportunities': typeof ApiOpportunitiesRoute
   '/api/preferences': typeof ApiPreferencesRoute
+  '/api/signals': typeof ApiSignalsRoute
   '/api/token-events': typeof ApiTokenEventsRoute
   '/api/track-token': typeof ApiTrackTokenRoute
   '/api/trades': typeof ApiTradesRouteWithChildren
@@ -405,6 +429,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRoute
+  '/ideas': typeof IdeasRoute
   '/journal': typeof JournalRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
@@ -425,7 +450,9 @@ export interface FileRoutesById {
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
   '/api/notifications': typeof ApiNotificationsRoute
+  '/api/opportunities': typeof ApiOpportunitiesRoute
   '/api/preferences': typeof ApiPreferencesRoute
+  '/api/signals': typeof ApiSignalsRoute
   '/api/token-events': typeof ApiTokenEventsRoute
   '/api/track-token': typeof ApiTrackTokenRoute
   '/api/trades': typeof ApiTradesRouteWithChildren
@@ -457,6 +484,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
+    | '/ideas'
     | '/journal'
     | '/login'
     | '/markets'
@@ -477,7 +505,9 @@ export interface FileRouteTypes {
     | '/api/forward-test'
     | '/api/klines'
     | '/api/notifications'
+    | '/api/opportunities'
     | '/api/preferences'
+    | '/api/signals'
     | '/api/token-events'
     | '/api/track-token'
     | '/api/trades'
@@ -507,6 +537,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/app'
+    | '/ideas'
     | '/journal'
     | '/login'
     | '/markets'
@@ -527,7 +558,9 @@ export interface FileRouteTypes {
     | '/api/forward-test'
     | '/api/klines'
     | '/api/notifications'
+    | '/api/opportunities'
     | '/api/preferences'
+    | '/api/signals'
     | '/api/token-events'
     | '/api/track-token'
     | '/api/trades'
@@ -557,6 +590,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/app'
+    | '/ideas'
     | '/journal'
     | '/login'
     | '/markets'
@@ -577,7 +611,9 @@ export interface FileRouteTypes {
     | '/api/forward-test'
     | '/api/klines'
     | '/api/notifications'
+    | '/api/opportunities'
     | '/api/preferences'
+    | '/api/signals'
     | '/api/token-events'
     | '/api/track-token'
     | '/api/trades'
@@ -608,6 +644,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRoute
+  IdeasRoute: typeof IdeasRoute
   JournalRoute: typeof JournalRoute
   LoginRoute: typeof LoginRoute
   MarketsRoute: typeof MarketsRoute
@@ -628,7 +665,9 @@ export interface RootRouteChildren {
   ApiForwardTestRoute: typeof ApiForwardTestRoute
   ApiKlinesRoute: typeof ApiKlinesRoute
   ApiNotificationsRoute: typeof ApiNotificationsRoute
+  ApiOpportunitiesRoute: typeof ApiOpportunitiesRoute
   ApiPreferencesRoute: typeof ApiPreferencesRoute
+  ApiSignalsRoute: typeof ApiSignalsRoute
   ApiTokenEventsRoute: typeof ApiTokenEventsRoute
   ApiTrackTokenRoute: typeof ApiTrackTokenRoute
   ApiTradesRoute: typeof ApiTradesRouteWithChildren
@@ -736,6 +775,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JournalRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ideas': {
+      id: '/ideas'
+      path: '/ideas'
+      fullPath: '/ideas'
+      preLoaderRoute: typeof IdeasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app': {
       id: '/app'
       path: '/app'
@@ -792,11 +838,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTokenEventsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/signals': {
+      id: '/api/signals'
+      path: '/api/signals'
+      fullPath: '/api/signals'
+      preLoaderRoute: typeof ApiSignalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/preferences': {
       id: '/api/preferences'
       path: '/api/preferences'
       fullPath: '/api/preferences'
       preLoaderRoute: typeof ApiPreferencesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/opportunities': {
+      id: '/api/opportunities'
+      path: '/api/opportunities'
+      fullPath: '/api/opportunities'
+      preLoaderRoute: typeof ApiOpportunitiesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/notifications': {
@@ -1063,6 +1123,7 @@ const ApiReviewForensicsRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRoute,
+  IdeasRoute: IdeasRoute,
   JournalRoute: JournalRoute,
   LoginRoute: LoginRoute,
   MarketsRoute: MarketsRoute,
@@ -1083,7 +1144,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiForwardTestRoute: ApiForwardTestRoute,
   ApiKlinesRoute: ApiKlinesRoute,
   ApiNotificationsRoute: ApiNotificationsRoute,
+  ApiOpportunitiesRoute: ApiOpportunitiesRoute,
   ApiPreferencesRoute: ApiPreferencesRoute,
+  ApiSignalsRoute: ApiSignalsRoute,
   ApiTokenEventsRoute: ApiTokenEventsRoute,
   ApiTrackTokenRoute: ApiTrackTokenRoute,
   ApiTradesRoute: ApiTradesRouteWithChildren,

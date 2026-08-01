@@ -15,6 +15,7 @@ export interface DecisionSnapshot {
   stop_loss: number | null;
   take_profit: number | null;
   user_action: DecisionAction | null;
+  skip_reason: "invalid" | "late" | "no_conviction" | "risk" | null;
   actual_outcome: Record<string, unknown> | null;
   engine_version: string;
   created_at: string;
@@ -48,13 +49,14 @@ export async function setDecisionAction(
   id: string,
   user_action: DecisionAction,
   actual_outcome?: Record<string, unknown>,
+  skip_reason?: "invalid" | "late" | "no_conviction" | "risk",
 ): Promise<DecisionSnapshot> {
   return readData(
     await fetch(`/api/decisions/${id}/action`, {
       method: "PATCH",
       credentials: "same-origin",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ user_action, actual_outcome }),
+      body: JSON.stringify({ user_action, actual_outcome, skip_reason }),
     }),
   );
 }

@@ -15,6 +15,7 @@ router = APIRouter(prefix="/decisions", tags=["decisions"])
 Objective = Literal["scalp", "intraday", "swing", "position"]
 Direction = Literal["long", "short"]
 UserAction = Literal["accepted_skip", "rejected_skip", "took_trade", "ignored"]
+SkipReason = Literal["invalid", "late", "no_conviction", "risk"]
 
 
 class DecisionCreate(BaseModel):
@@ -37,6 +38,7 @@ class DecisionActionPatch(BaseModel):
 
     user_action: UserAction
     actual_outcome: dict[str, Any] | None = None
+    skip_reason: SkipReason | None = None
 
 
 class DecisionResponse(BaseModel):
@@ -54,6 +56,7 @@ class DecisionResponse(BaseModel):
     stop_loss: float | None
     take_profit: float | None
     user_action: str | None
+    skip_reason: str | None
     actual_outcome: dict[str, Any] | None
     engine_version: str
     created_at: datetime
@@ -93,9 +96,11 @@ async def create_decision_endpoint(
 async def patch_decision_action_endpoint(
     decision_id: str, payload: DecisionActionPatch, db: DbSession, user_id: CurrentUserId
 ) -> DecisionEnvelope:
+    if payload.skip_reason is not None and payload.user_action not in {"accepted_skip", "rejected_skip"}:
+        raise HTTPException(status_code=422, detail="skip_reason requires a skip action")
     decision = await _owned(db, user_id, decision_id)
     updated = await record_decision_action(
-        db, decision, payload.user_action, payload.actual_outcome
+        db, decision, payload.user_action, payload.actual_outcome, payload.skip_reason
     )
     return DecisionEnvelope(data=DecisionResponse.model_validate(updated))
 
