@@ -45,5 +45,12 @@ class Config(BaseSettings):
     QUIET_HOURS_START: int = 22
     QUIET_HOURS_END: int = 6
 
+    # Sprint 2 "balik arah" (docs/IMPLEMENTATION-PLAN.md §2.1). Which
+    # `signal_events.source` values are eligible to surface in the read models
+    # (Opportunities, the quant feed). This allowlist stands in for a
+    # per-row shadow/live status until a second source starts writing
+    # (Sprint 5) — one knob beats a column nobody can vary yet.
+    SIGNAL_SOURCES_LIVE: list[str] = ["quant"]
+
 
 settings = Config()
