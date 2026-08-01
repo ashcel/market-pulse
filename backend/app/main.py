@@ -11,6 +11,7 @@ from app.auth.router import router as auth_router
 from app.binance_review.router import router as binance_review_router
 from app.config import settings
 from app.database import engine, get_db
+from app.delivery.router import router as delivery_router
 from app.events.router import router as events_router
 from app.exceptions import register_exception_handlers
 from app.execution.alert_router import router as alert_router
@@ -109,6 +110,7 @@ v1_router.include_router(events_router)
 v1_router.include_router(news_intel_router)
 v1_router.include_router(ai_desk_router)
 v1_router.include_router(alert_router)
+v1_router.include_router(delivery_router)
 v1_router.include_router(quant_router)
 v1_router.include_router(tradeway_router)
 

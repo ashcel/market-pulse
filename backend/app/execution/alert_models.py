@@ -15,6 +15,9 @@ class AlertType(StrEnum):
     INVALIDATION = "invalidation"
     CATALYST = "catalyst"
     BEHAVIOR_COOLDOWN = "behavior_cooldown"
+    DAILY_DIGEST = "daily_digest"
+    POSITION_RISK = "position_risk"
+    OPPORTUNITY = "opportunity"
 
 
 class AlertSeverity(StrEnum):
@@ -23,12 +26,20 @@ class AlertSeverity(StrEnum):
     CRITICAL = "critical"
 
 
+class DeliveryState(StrEnum):
+    PENDING = "pending"
+    SENT = "sent"
+    SUPPRESSED = "suppressed"
+    FAILED = "failed"
+
+
 class Alert(Base):
     __tablename__ = "alerts"
     __table_args__ = (
         sa.UniqueConstraint("dedupe_key", name="alerts_dedupe_key_key"),
         sa.Index("alerts_user_id_created_at_idx", "user_id", "created_at"),
         sa.Index("alerts_user_id_read_idx", "user_id", "read"),
+        sa.Index("alerts_delivery_state_idx", "delivery_state", "created_at"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -48,3 +59,9 @@ class Alert(Base):
     )
     # Stable event identity makes every scheduled pass safe to retry.
     dedupe_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Sprint 1 "satu mulut" delivery (docs/IMPLEMENTATION-PLAN.md §2.2):
+    # pending|sent|suppressed|failed. 'suppressed' is the shadow-run state —
+    # a dual-run source ingests but the platform bot never sends it.
+    delivery_state: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    delivery_attempts: Mapped[int] = mapped_column(sa.SmallInteger, nullable=False, default=0)
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="market_pulse")

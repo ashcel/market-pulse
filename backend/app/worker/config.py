@@ -17,6 +17,7 @@ from arq.cron import CronJob
 
 from app.config import settings
 from app.database import SessionFactory
+from app.delivery.service import run_delivery_pass
 
 from .alert_pass import run_alert_pass
 from .binance import close_http_client
@@ -57,6 +58,16 @@ async def alert_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -> str:  # 
     return f"[alerts] written={written}"
 
 
+async def delivery_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -> str:  # noqa: ARG001
+    """Sprint 1 "satu mulut" delivery pass. Ticks every minute regardless —
+    `run_delivery_pass` itself is the no-op gate on `DELIVERY_ENABLED=False`,
+    so flipping the flag takes effect on the very next minute with no restart.
+    """
+    async with SessionFactory() as db:
+        sent = await run_delivery_pass(db)
+    return f"[delivery] sent={sent}"
+
+
 async def shutdown(_ctx: dict[Any, Any]) -> None:
     await close_http_client()
 
@@ -88,6 +99,12 @@ class WorkerSettings:
             minute={3},
             run_at_startup=False,
             timeout=900,
+        ),
+        cron(
+            delivery_tick,
+            minute=set(range(60)),
+            run_at_startup=True,
+            timeout=120,
         ),
     ]
     on_shutdown = shutdown

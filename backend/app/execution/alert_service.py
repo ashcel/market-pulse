@@ -18,6 +18,8 @@ class AlertCandidate:
     severity: AlertSeverity
     dedupe_key: str
     source_decision_id: str | None = None
+    source: str = "market_pulse"
+    delivery_state: str = "pending"
 
 
 class EntryZoneAlert(AlertCandidate):
@@ -57,6 +59,8 @@ async def create_alerts(db: AsyncSession, candidates: list[AlertCandidate]) -> i
             severity=item.severity.value,
             source_decision_id=item.source_decision_id,
             dedupe_key=item.dedupe_key,
+            source=item.source,
+            delivery_state=item.delivery_state,
         )
         for item in candidates
         if item.dedupe_key not in existing

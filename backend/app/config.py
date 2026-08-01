@@ -34,5 +34,16 @@ class Config(BaseSettings):
     # How far back to look for headlines (hours)
     SENTIMENT_WINDOW_HOURS: int = 48
 
+    # Sprint 1 "satu mulut" delivery (docs/IMPLEMENTATION-PLAN.md §3). One
+    # platform Telegram bot, send-only — never getUpdates/setWebhook, so it
+    # can never steal notifier-bot's tracking.js callbacks (R2). Default OFF:
+    # the running cron tick is a no-op until an operator flips this true.
+    DELIVERY_ENABLED: bool = False
+    PLATFORM_BOT_TOKEN: str = ""
+    PLATFORM_CHAT_ID: str = ""
+    # WIB (Asia/Jakarta) hours during which only severity='info' alerts are held.
+    QUIET_HOURS_START: int = 22
+    QUIET_HOURS_END: int = 6
+
 
 settings = Config()
