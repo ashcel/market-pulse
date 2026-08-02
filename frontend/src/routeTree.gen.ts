@@ -41,6 +41,7 @@ import { Route as ApiKlinesRouteImport } from './routes/api/klines'
 import { Route as ApiForwardTestRouteImport } from './routes/api/forward-test'
 import { Route as ApiExternalContextRouteImport } from './routes/api/external-context'
 import { Route as ApiEconomicEventsRouteImport } from './routes/api/economic-events'
+import { Route as ApiDerivativesRouteImport } from './routes/api/derivatives'
 import { Route as ApiDecisionsRouteImport } from './routes/api/decisions'
 import { Route as ApiAuthRouteImport } from './routes/api/auth'
 import { Route as ApiAlertsRouteImport } from './routes/api/alerts'
@@ -224,6 +225,11 @@ const ApiEconomicEventsRoute = ApiEconomicEventsRouteImport.update({
   path: '/api/economic-events',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDerivativesRoute = ApiDerivativesRouteImport.update({
+  id: '/api/derivatives',
+  path: '/api/derivatives',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDecisionsRoute = ApiDecisionsRouteImport.update({
   id: '/api/decisions',
   path: '/api/decisions',
@@ -358,6 +364,7 @@ export interface FileRoutesByFullPath {
   '/api/alerts': typeof ApiAlertsRouteWithChildren
   '/api/auth': typeof ApiAuthRouteWithChildren
   '/api/decisions': typeof ApiDecisionsRouteWithChildren
+  '/api/derivatives': typeof ApiDerivativesRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
@@ -414,6 +421,7 @@ export interface FileRoutesByTo {
   '/api/alerts': typeof ApiAlertsRouteWithChildren
   '/api/auth': typeof ApiAuthRouteWithChildren
   '/api/decisions': typeof ApiDecisionsRouteWithChildren
+  '/api/derivatives': typeof ApiDerivativesRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
@@ -471,6 +479,7 @@ export interface FileRoutesById {
   '/api/alerts': typeof ApiAlertsRouteWithChildren
   '/api/auth': typeof ApiAuthRouteWithChildren
   '/api/decisions': typeof ApiDecisionsRouteWithChildren
+  '/api/derivatives': typeof ApiDerivativesRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
@@ -529,6 +538,7 @@ export interface FileRouteTypes {
     | '/api/alerts'
     | '/api/auth'
     | '/api/decisions'
+    | '/api/derivatives'
     | '/api/economic-events'
     | '/api/external-context'
     | '/api/forward-test'
@@ -585,6 +595,7 @@ export interface FileRouteTypes {
     | '/api/alerts'
     | '/api/auth'
     | '/api/decisions'
+    | '/api/derivatives'
     | '/api/economic-events'
     | '/api/external-context'
     | '/api/forward-test'
@@ -641,6 +652,7 @@ export interface FileRouteTypes {
     | '/api/alerts'
     | '/api/auth'
     | '/api/decisions'
+    | '/api/derivatives'
     | '/api/economic-events'
     | '/api/external-context'
     | '/api/forward-test'
@@ -698,6 +710,7 @@ export interface RootRouteChildren {
   ApiAlertsRoute: typeof ApiAlertsRouteWithChildren
   ApiAuthRoute: typeof ApiAuthRouteWithChildren
   ApiDecisionsRoute: typeof ApiDecisionsRouteWithChildren
+  ApiDerivativesRoute: typeof ApiDerivativesRoute
   ApiEconomicEventsRoute: typeof ApiEconomicEventsRoute
   ApiExternalContextRoute: typeof ApiExternalContextRoute
   ApiForwardTestRoute: typeof ApiForwardTestRoute
@@ -954,6 +967,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiEconomicEventsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/derivatives': {
+      id: '/api/derivatives'
+      path: '/api/derivatives'
+      fullPath: '/api/derivatives'
+      preLoaderRoute: typeof ApiDerivativesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/decisions': {
       id: '/api/decisions'
       path: '/api/decisions'
@@ -1201,6 +1221,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAlertsRoute: ApiAlertsRouteWithChildren,
   ApiAuthRoute: ApiAuthRouteWithChildren,
   ApiDecisionsRoute: ApiDecisionsRouteWithChildren,
+  ApiDerivativesRoute: ApiDerivativesRoute,
   ApiEconomicEventsRoute: ApiEconomicEventsRoute,
   ApiExternalContextRoute: ApiExternalContextRoute,
   ApiForwardTestRoute: ApiForwardTestRoute,

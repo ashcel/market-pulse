@@ -122,6 +122,16 @@ class _WeightLimiter:
 _limiter = _WeightLimiter(2000)
 
 
+async def acquire_weight(weight: float) -> None:
+    """Public handle on the shared per-IP weight budget.
+
+    Everything on this box that talks to Binance must draw from THIS bucket —
+    a second limiter elsewhere in the codebase would be two processes each
+    politely staying under a limit they are jointly blowing through.
+    """
+    await _limiter.acquire(weight)
+
+
 def kline_weight(limit: int) -> int:
     """Binance's published weight schedule for GET /klines, keyed by limit."""
     if limit <= 100:

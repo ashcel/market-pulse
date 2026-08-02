@@ -7,11 +7,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai_desk.router import router as ai_desk_router
 from app.auth.router import router as auth_router
 from app.binance_review.router import router as binance_review_router
 from app.config import settings
 from app.database import engine, get_db
 from app.delivery.router import router as delivery_router
+from app.derivatives.router import router as derivatives_router
 from app.events.router import router as events_router
 from app.exceptions import register_exception_handlers
 from app.execution.alert_router import router as alert_router
@@ -28,12 +30,11 @@ from app.market.batch_router import router as batch_router
 from app.market.router import router as market_router
 from app.news_intel.router import router as news_intel_router
 from app.opportunities.router import router as opportunities_router
-from app.signals.ingest_router import router as signals_ingest_router
-from app.signals.router import router as signals_router
-from app.ai_desk.router import router as ai_desk_router
 from app.quant.router import router as quant_router
 from app.review.router import router as review_router
 from app.scorecard.router import router as scorecard_router
+from app.signals.ingest_router import router as signals_ingest_router
+from app.signals.router import router as signals_router
 from app.trades.router import router as trades_router
 from app.tradeway.router import router as tradeway_router
 
@@ -120,6 +121,7 @@ v1_router.include_router(signals_router)
 v1_router.include_router(opportunities_router)
 v1_router.include_router(scorecard_router)
 v1_router.include_router(quant_router)
+v1_router.include_router(derivatives_router)
 v1_router.include_router(tradeway_router)
 
 app.include_router(v1_router)

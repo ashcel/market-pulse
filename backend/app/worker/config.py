@@ -19,12 +19,16 @@ from arq.cron import CronJob
 from app.config import settings
 from app.database import SessionFactory
 from app.delivery.service import run_delivery_pass
+from app.execution.models import (
+    TradePermit,  # noqa: F401  # register trade_permits so Alert.source_decision_id FK resolves in worker metadata
+)
 from app.scorecard.service import run_scorecard_pass
 
 from .alert_pass import run_alert_pass
 from .binance import close_http_client
 from .binance_review_sync_pass import run_binance_review_sync_pass
 from .context_stamper import run_context_stamper_pass
+from .derivatives_pass import run_derivatives_pass
 from .forensics_pass import run_forensics_pass
 from .passes import run_once
 
@@ -80,6 +84,18 @@ async def scorecard_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -> str:
         return await run_scorecard_pass(db)
 
 
+async def derivatives_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -> str:  # noqa: ARG001
+    """Derivatives Intelligence collection — one snapshot per universe symbol
+    every 5 minutes. Registered unconditionally; `run_derivatives_pass` is the
+    `DERIVATIVES_ENABLED` gate, so the flag takes effect on the next tick
+    without a restart. Offset to minute 2/7/… so it never contends with the
+    forward-test pass (:00) or the alert pass (:01) for the Binance weight
+    budget they all share.
+    """
+    async with SessionFactory() as db:
+        return await run_derivatives_pass(db)
+
+
 async def shutdown(_ctx: dict[Any, Any]) -> None:
     await close_http_client()
 
@@ -124,6 +140,14 @@ class WorkerSettings:
             minute=set(range(60)),
             run_at_startup=True,
             timeout=120,
+        ),
+        cron(
+            derivatives_tick,
+            minute={2, 7, 12, 17, 22, 27, 32, 37, 42, 47, 52, 57},
+            # Never at startup: a deploy must not fire a universe-wide Binance
+            # sweep the instant the worker comes back up.
+            run_at_startup=False,
+            timeout=280,
         ),
         cron(
             scorecard_tick,

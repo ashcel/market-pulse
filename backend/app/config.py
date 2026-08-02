@@ -76,5 +76,13 @@ class Config(BaseSettings):
     # good. `/quant/state` and its FEED_FROM_DB behaviour are untouched.
     PORT_FORECAST: bool = False
 
+    # Derivatives Intelligence collection (app/derivatives/). The 5-minute
+    # cron is registered unconditionally but `run_derivatives_pass` is the
+    # no-op gate, so `DERIVATIVES_ENABLED=1` starts collection on the very next
+    # tick without a worker restart — and flipping it back is the whole
+    # rollback. Default OFF in code: deploying this module must not silently
+    # start ~350 Binance requests every five minutes.
+    DERIVATIVES_ENABLED: bool = False
+
 
 settings = Config()

@@ -84,6 +84,7 @@ import { VerdictHeader } from "@/components/features/token/verdict-header";
 import { CatalystLine } from "@/components/features/token/catalyst-line";
 import { SkipCheckPanel } from "@/components/features/skip-check-panel";
 import { RelatedSignalsCard } from "@/components/features/related-signals-card";
+import { DerivativesIntelligenceSection } from "@/components/features/token/derivatives-intelligence";
 import { TicketActions } from "@/components/features/ticket-actions";
 import { TradeDrawer } from "@/components/features/token/trade-drawer";
 import type { PlanDraft } from "@/components/features/token/chart-plan-editor";
@@ -673,6 +674,11 @@ function TokenDetailPage() {
           </div>
 
           <RelatedSignalsCard symbol={`${symbol}USDT`} />
+
+          {/* Positioning read. Sits above the chart because "who is crowded
+              and which way is the money moving" frames how the structure below
+              should be read, not the other way round. */}
+          <DerivativesIntelligenceSection symbol={`${symbol}USDT`} />
 
           <div className="flex min-w-0 flex-col gap-3 lg:min-h-0 lg:flex-1 lg:flex-row">
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
