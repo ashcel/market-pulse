@@ -16,8 +16,10 @@ Two gates sit in front of it, deliberately:
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
+import re
+
 import httpx
-from fastapi import APIRouter, Header, Query
+from fastapi import APIRouter, Header, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from app.auth.dependencies import CurrentUserId, DbSession
@@ -123,6 +125,20 @@ async def quant_state(
     return JSONResponse(status_code=200, content=body)
 
 
+_NON_ALNUM_RE = re.compile(r"[^A-Z0-9]")
+
+
+def _normalize_symbol(raw: str) -> str:
+    """Mirrors frontend/src/lib/engine/symbol-map.ts normalizeTicker: the
+    token page strips the USDT suffix for display, so a bare base ticker
+    (BTC) reaches this endpoint and the upstream forecast needs the full
+    Binance futures symbol (BTCUSDT) or it silently returns zero candles."""
+    ticker = _NON_ALNUM_RE.sub("", raw.upper())
+    if not ticker:
+        raise HTTPException(status_code=400, detail="symbol is empty after normalization")
+    return ticker if ticker.endswith("USDT") else f"{ticker}USDT"
+
+
 @router.get("/token", summary="Token candles + forecast + per-token signals")
 async def quant_token(
     _user_id: CurrentUserId,
@@ -143,4 +159,4 @@ async def quant_token(
                 "detail": "the forecast cone is computed in-app; see frontend/src/lib/forecast",
             },
         )
-    return await _forward("/api/token", {"symbol": symbol.upper()}, x_telegram_init_data)
+    return await _forward("/api/token", {"symbol": _normalize_symbol(symbol)}, x_telegram_init_data)
