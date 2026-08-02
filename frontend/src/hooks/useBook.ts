@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 export interface MarketPosition {
@@ -12,12 +11,6 @@ export interface MarketPosition {
   unrealisedPnl?: number | string;
   leverage?: number | string;
   positionValue?: number | string;
-}
-
-export interface TradewayPositionsResult {
-  positions: MarketPosition[];
-  offline: boolean;
-  detail?: string;
 }
 
 function positionsFrom(body: unknown): MarketPosition[] {
@@ -34,18 +27,7 @@ function positionsFrom(body: unknown): MarketPosition[] {
   return [];
 }
 
-async function fetchTradewayPositions(): Promise<TradewayPositionsResult> {
-  const response = await fetch("/api/tradeway/positions", { credentials: "same-origin" });
-  const body: unknown = await response.json().catch(() => null);
-  if (response.status === 503) {
-    const detail = body && typeof body === "object" ? String((body as Record<string, unknown>).detail ?? "") : "";
-    return { positions: [], offline: true, detail };
-  }
-  if (!response.ok) throw new Error(`Tradeway tidak dapat dimuat (${response.status})`);
-  return { positions: positionsFrom(body), offline: false };
-}
-
-/** Live MP execution positions. The stream is intentionally separate from Tradeway. */
+/** Live MP execution positions. */
 export function useMpPositions() {
   const [positions, setPositions] = useState<MarketPosition[]>([]);
   const [state, setState] = useState<"connecting" | "live" | "error">("connecting");
@@ -65,13 +47,4 @@ export function useMpPositions() {
   }, []);
 
   return { positions, state };
-}
-
-export function useTradewayPositions() {
-  return useQuery({
-    queryKey: ["tradeway", "positions"],
-    queryFn: fetchTradewayPositions,
-    staleTime: 15_000,
-    refetchInterval: 15_000,
-  });
 }
