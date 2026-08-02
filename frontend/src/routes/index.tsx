@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Target, Newspaper, Activity, Gauge, ArrowDown, ArrowUp, Loader2 } from "lucide-react";
+import { Target, Newspaper, Activity, Gauge, ArrowDown, ArrowUp, Loader2, Search } from "lucide-react";
 
 import {
   useCatalystRailEvents,
@@ -36,6 +36,7 @@ import {
 } from "@/components/features/product-tour";
 import { cn } from "@/lib/utils";
 import { AlternativesStrip } from "@/components/features/alternatives-strip";
+import { SearchCommand } from "@/components/features/search-command";
 import { AiSentimentStrip } from "@/components/features/ai-sentiment-strip";
 import { SkipCheckPanel } from "@/components/features/skip-check-panel";
 import { useTrustState } from "@/hooks/useTrustState";
@@ -101,6 +102,7 @@ function Dashboard() {
   const tour = useProductTour(TOUR_SEEN_KEY);
   const universe = useUniverse();
   const { data: setups } = useActionableSetups(universe.data);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-3 sm:gap-5">
@@ -123,8 +125,21 @@ function Dashboard() {
               <HelpButton onClick={tour.start} />
             </div>
           )}
+          {/* Primary search entry point on mobile / Telegram Mini App, where
+              the desktop TopBar (and its search box) never renders. */}
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-surface text-muted-foreground transition-colors hover:border-ring hover:text-foreground"
+            aria-label="Cari token"
+            title="Cari token"
+          >
+            <Search className="h-4 w-4" />
+          </button>
         </div>
       </header>
+
+      <SearchCommand open={searchOpen} onOpenChange={setSearchOpen} />
 
       <RegimeVerdictHero />
       <MarketContextStrip />
