@@ -79,12 +79,19 @@ Goal: the tree contains only code with a claim on one of the four jobs.
 (Evaluating the information coefficient).* This is the milestone that makes
 "challenge the data" a computation instead of a slogan.
 
-- **V1-T1** Forward-return table. For every symbol in the universe, at bar
-  horizons **1h, 4h, 12h, 1d, 3d, 7d**, store the realised forward return
-  (`groupby(symbol).close.pct_change(t).shift(-t)`, the book's two-loop
-  pattern). *DoD:* new table + migration; backfilled over available klines;
-  a pure test proves no lookahead (the forward return at time *t* uses only
-  bars strictly after *t*).
+- **V1-T1** ~~Forward-return table at horizons 1h/4h/12h/1d/3d/7d, with a
+  no-lookahead proof.~~ **Done 2026-08-04** (`436c6fe`) — `app/evidence/`,
+  migration `e1f2a3b4c5d6`, hourly worker pass at :34. Backfilled 50 symbols
+  to 135,650 rows; re-run inserted 0 (idempotent); per horizon the newest
+  anchor sits exactly `horizon_bars` behind now.
+
+  Lesson worth keeping: the first version read `Candle.time` as milliseconds
+  when it is **seconds**, and it labels the bar's **open**, not its close.
+  Index arithmetic stayed right so all 11 unit tests passed — the fixture had
+  been written in the same wrong unit. Only running it against production data
+  exposed it, and the wrong column was the exact join key the IC pass needs.
+  Rows now anchor to bar *close*. **For V1-T2: write the score-snapshot
+  fixtures in real epochs and assert a plausible wall-clock year.**
 - **V1-T2** Score snapshot table. Every score the product renders is written
   at the moment it is rendered, with its inputs' timestamps. Sources: quant
   confidence, derivatives regime/crowding/squeeze, catalyst impact, sentiment,
