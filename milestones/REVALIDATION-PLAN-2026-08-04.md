@@ -34,27 +34,44 @@ Nothing in V0–V5 changes engine decision or trigger semantics, so
 
 Goal: the tree contains only code with a claim on one of the four jobs.
 
-- **V0-T1** Land EDR 0024. Get owner sign-off on Decision 4 (execution split).
-  *DoD:* EDR status flips Proposed → Accepted with the owner's call recorded.
-- **V0-T2** Land the uncommitted derivatives work already in the tree (8 files,
-  +381). It is the reference implementation of the "never a raw metric alone"
-  rule. *DoD:* committed; `pytest backend/tests/test_derivatives_summary.py`
-  green; `DERIVATIVES_ENABLED=1` verified live.
-- **V0-T3** Delete `app/bybit/` (1,238 lines) and `worker/bybit_sync_pass.py`.
-  Both inert since the Binance re-source. *DoD:* `grep -rn bybit backend/app`
-  returns only historical docstring mentions; `pytest` green; arq worker
-  restarts clean.
-- **V0-T4** Delete the four redirect-stub routes and fold nav to V2 (Now ·
-  Ideas · Book · Lab). *DoD:* `VITE_NAV_V2=1 bun run build` clean, no dead
-  `to:` targets, `routeTree.gen.ts` regenerated not hand-edited.
+- **V0-T1** ~~Land EDR 0024; owner sign-off on Decision 4.~~ **Done
+  2026-08-04** (`dbad342`) — signed off, status Proposed → Accepted.
+- **V0-T2** ~~Land the uncommitted derivatives work (8 files, +381) — the
+  reference implementation of the "never a raw metric alone" rule.~~ **Done
+  2026-08-04** (`bdc8397`); its 6 tests green, ruff and mypy clean.
+- **V0-T3** ~~Delete `app/bybit/` (1,238 lines) and
+  `worker/bybit_sync_pass.py`.~~ **Done 2026-08-04** (`006c948`). It was
+  live-hazardous, not merely dead: `migrations/env.py` still imported the
+  three models whose tables migration f1a2b3c4d5e6 had already dropped, so an
+  `alembic autogenerate` would have proposed re-creating all three.
+- **V0-T4** ~~Delete the four redirect-stub routes and fold nav to V2.~~
+  **Blocked, moved to V6 — 2026-08-04.** Flipping `NAV_V2` on today strands
+  two surfaces that EDR 0024 calls core:
+  - `/journal` and `/review` redirect to `/lab`, but `lab.tsx` renders only
+    scorecard sources and forensics rows — it does not host `DecisionJournal`
+    or `ReviewPanel`. The decision journal becomes unreachable.
+  - `/trades` redirects to `/book`, but `book.tsx` renders live positions
+    only — it does not host `TradesPanel` or the trade history. Closed-trade
+    history becomes unreachable.
+
+  Deleting the stub routes is separately wrong: they *are* the no-orphan
+  guarantee for bookmarks, Telegram deep links and old alert URLs
+  (`lib/nav-redirects.ts`). They should stay as redirects permanently.
+
+  The real task is **V6-T5a** (new): Lab must host the decision journal and
+  Book must host trade history *before* `NAV_V2` becomes permanent. Nav stays
+  on V1 until then.
 - **V0-T5** Decide `app/quant/` + `app/tradeway/`: finish the forecast port
   (`PORT_FORECAST=1`) or drop the surface. *DoD:* no proxy to the external
   notifier-bot dashboard remains in a code path a user can reach.
-- **V0-T6** [after V0-T1 sign-off] Park the order-placement half of
-  `app/execution/` on `park/execution-orders`; keep constitution, sizing,
-  liq-vs-stop, permit, skip check on `main`. *DoD:* branch pushed; `main`
-  has no exchange-key custody and no order transmission; permit path still
-  renders end to end.
+- **V0-T6** ~~Park the order-placement half of `app/execution/`.~~ **Done
+  2026-08-04** (`c0fd141`, branch `park/execution-orders` pushed). One
+  boundary correction found while doing it: exchange-key custody and
+  `binance_client` are *not* transmission-only — the skip check, account
+  reads, `/book`'s position stream, and Trade Review's sync all depend on
+  them. Reading the exchange is part of DISCIPLINE ("what is at risk"), so
+  keys, the client's GET methods, and the position stream stayed on `main`;
+  only the code that *sends* an order was parked.
 
 ## V1 — The IC harness: does any score predict anything
 
@@ -197,6 +214,14 @@ without the product opening a second server.
 - **V6-T4** Stop and disable `market-pulse.service` (port 3002); Caddy serves
   the static build and proxies only FastAPI. *DoD:* `iq.heydewi.com` fully
   functional with 3002 down.
+- **V6-T5a** [prerequisite, carried from the blocked V0-T4] Give the retired
+  routes' content a home before the nav retires them: `/lab` hosts the
+  decision journal and review panel; `/book` hosts trade history alongside
+  live positions. Then make `NAV_V2` permanent and delete `TABS_V1` and the
+  flag. The redirect table in `lib/nav-redirects.ts` and the stub routes stay
+  — they are the no-orphan guarantee for bookmarks and deep links, not dead
+  code. *DoD:* every path in `NAV_V2_REDIRECTS` lands on a page that actually
+  renders what the old route rendered.
 - **V6-T5** The one screen. `/` answers, top to bottom: what the market is
   doing (READ) → the verdict (VERDICT) → why it might be wrong plus its IC
   record (CHALLENGE) → what a planned trade looks like and what it risks
