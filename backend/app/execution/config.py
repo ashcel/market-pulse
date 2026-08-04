@@ -1,12 +1,15 @@
-"""Execution-plane settings (M9 / EDR 0020).
+"""Pre-trade plane settings (M9 / EDR 0020, rescoped by EDR 0024 decision 4).
 
-Env prefix ``EXECUTION_`` — so the global kill switch is the env var
-``EXECUTION_ENABLED`` (default **off**; off = read-only product). Testnet is
-the default target; no mainnet base URL is used until the isolation decision
-(U24) is recorded and the operator deliberately flips both ``EXECUTION_ENABLED``
-on and ``EXECUTION_TESTNET`` off.
+Env prefix ``EXECUTION_``. Since order transmission was taken out of scope,
+``EXECUTION_ENABLED`` no longer gates an order path — there is none. It now
+gates only whether the plane may reach the exchange **to read** the user's
+account, balance, positions, and mark prices. Off = the permit is judged from
+market data alone.
 
-Execution API keys are stored per-user, encrypted at rest (see the execution
+``EXECUTION_TESTNET`` still selects the venue those reads go to, and mainnet
+still waits on the U24 isolation decision.
+
+Exchange API keys are stored per-user, encrypted at rest (see the execution
 key model + crypto), NOT in env — this file holds only operator-controlled
 switches, the encryption passphrase, and venue base URLs.
 """
@@ -19,8 +22,9 @@ DEFAULT_ENCRYPTION_SECRET = "change-me-in-production"
 class ExecutionConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="EXECUTION_", env_file=".env", extra="ignore")
 
-    # Global kill switch. Default OFF — no order path is live until an operator
-    # sets EXECUTION_ENABLED=true in the service env. Never commit it on.
+    # Exchange-read switch. Default OFF — the plane touches no venue until an
+    # operator sets EXECUTION_ENABLED=true in the service env. Never commit it
+    # on. There is no order path for this to gate (EDR 0024 decision 4).
     ENABLED: bool = False
 
     # Testnet-first. Default TRUE — mainnet stays unreachable until U24 isolation

@@ -52,8 +52,6 @@ import { Route as ApiReviewIdRouteImport } from './routes/api/review.$id'
 import { Route as ApiPositionsStreamRouteImport } from './routes/api/positions.stream'
 import { Route as ApiExecutionSkipCheckRouteImport } from './routes/api/execution.skip-check'
 import { Route as ApiExecutionPermitRouteImport } from './routes/api/execution.permit'
-import { Route as ApiExecutionExecutionsRouteImport } from './routes/api/execution.executions'
-import { Route as ApiExecutionExecuteRouteImport } from './routes/api/execution.execute'
 import { Route as ApiExecutionConstitutionRouteImport } from './routes/api/execution.constitution'
 import { Route as ApiBinanceReviewTradesRouteImport } from './routes/api/binance-review.trades'
 import { Route as ApiBinanceReviewSyncRouteImport } from './routes/api/binance-review.sync'
@@ -280,16 +278,6 @@ const ApiExecutionPermitRoute = ApiExecutionPermitRouteImport.update({
   path: '/api/execution/permit',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiExecutionExecutionsRoute = ApiExecutionExecutionsRouteImport.update({
-  id: '/api/execution/executions',
-  path: '/api/execution/executions',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiExecutionExecuteRoute = ApiExecutionExecuteRouteImport.update({
-  id: '/api/execution/execute',
-  path: '/api/execution/execute',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiExecutionConstitutionRoute =
   ApiExecutionConstitutionRouteImport.update({
     id: '/api/execution/constitution',
@@ -386,8 +374,6 @@ export interface FileRoutesByFullPath {
   '/api/binance-review/sync': typeof ApiBinanceReviewSyncRoute
   '/api/binance-review/trades': typeof ApiBinanceReviewTradesRoute
   '/api/execution/constitution': typeof ApiExecutionConstitutionRoute
-  '/api/execution/execute': typeof ApiExecutionExecuteRoute
-  '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
   '/api/execution/skip-check': typeof ApiExecutionSkipCheckRoute
   '/api/positions/stream': typeof ApiPositionsStreamRoute
@@ -443,8 +429,6 @@ export interface FileRoutesByTo {
   '/api/binance-review/sync': typeof ApiBinanceReviewSyncRoute
   '/api/binance-review/trades': typeof ApiBinanceReviewTradesRoute
   '/api/execution/constitution': typeof ApiExecutionConstitutionRoute
-  '/api/execution/execute': typeof ApiExecutionExecuteRoute
-  '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
   '/api/execution/skip-check': typeof ApiExecutionSkipCheckRoute
   '/api/positions/stream': typeof ApiPositionsStreamRoute
@@ -501,8 +485,6 @@ export interface FileRoutesById {
   '/api/binance-review/sync': typeof ApiBinanceReviewSyncRoute
   '/api/binance-review/trades': typeof ApiBinanceReviewTradesRoute
   '/api/execution/constitution': typeof ApiExecutionConstitutionRoute
-  '/api/execution/execute': typeof ApiExecutionExecuteRoute
-  '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
   '/api/execution/skip-check': typeof ApiExecutionSkipCheckRoute
   '/api/positions/stream': typeof ApiPositionsStreamRoute
@@ -560,8 +542,6 @@ export interface FileRouteTypes {
     | '/api/binance-review/sync'
     | '/api/binance-review/trades'
     | '/api/execution/constitution'
-    | '/api/execution/execute'
-    | '/api/execution/executions'
     | '/api/execution/permit'
     | '/api/execution/skip-check'
     | '/api/positions/stream'
@@ -617,8 +597,6 @@ export interface FileRouteTypes {
     | '/api/binance-review/sync'
     | '/api/binance-review/trades'
     | '/api/execution/constitution'
-    | '/api/execution/execute'
-    | '/api/execution/executions'
     | '/api/execution/permit'
     | '/api/execution/skip-check'
     | '/api/positions/stream'
@@ -674,8 +652,6 @@ export interface FileRouteTypes {
     | '/api/binance-review/sync'
     | '/api/binance-review/trades'
     | '/api/execution/constitution'
-    | '/api/execution/execute'
-    | '/api/execution/executions'
     | '/api/execution/permit'
     | '/api/execution/skip-check'
     | '/api/positions/stream'
@@ -731,8 +707,6 @@ export interface RootRouteChildren {
   ApiBinanceReviewSyncRoute: typeof ApiBinanceReviewSyncRoute
   ApiBinanceReviewTradesRoute: typeof ApiBinanceReviewTradesRoute
   ApiExecutionConstitutionRoute: typeof ApiExecutionConstitutionRoute
-  ApiExecutionExecuteRoute: typeof ApiExecutionExecuteRoute
-  ApiExecutionExecutionsRoute: typeof ApiExecutionExecutionsRoute
   ApiExecutionPermitRoute: typeof ApiExecutionPermitRouteWithChildren
   ApiExecutionSkipCheckRoute: typeof ApiExecutionSkipCheckRoute
   ApiPositionsStreamRoute: typeof ApiPositionsStreamRoute
@@ -1044,20 +1018,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiExecutionPermitRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/execution/executions': {
-      id: '/api/execution/executions'
-      path: '/api/execution/executions'
-      fullPath: '/api/execution/executions'
-      preLoaderRoute: typeof ApiExecutionExecutionsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/execution/execute': {
-      id: '/api/execution/execute'
-      path: '/api/execution/execute'
-      fullPath: '/api/execution/execute'
-      preLoaderRoute: typeof ApiExecutionExecuteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/execution/constitution': {
       id: '/api/execution/constitution'
       path: '/api/execution/constitution'
@@ -1242,8 +1202,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiBinanceReviewSyncRoute: ApiBinanceReviewSyncRoute,
   ApiBinanceReviewTradesRoute: ApiBinanceReviewTradesRoute,
   ApiExecutionConstitutionRoute: ApiExecutionConstitutionRoute,
-  ApiExecutionExecuteRoute: ApiExecutionExecuteRoute,
-  ApiExecutionExecutionsRoute: ApiExecutionExecutionsRoute,
   ApiExecutionPermitRoute: ApiExecutionPermitRouteWithChildren,
   ApiExecutionSkipCheckRoute: ApiExecutionSkipCheckRoute,
   ApiPositionsStreamRoute: ApiPositionsStreamRoute,

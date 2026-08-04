@@ -19,8 +19,6 @@ from app.exceptions import register_exception_handlers
 from app.execution.alert_router import router as alert_router
 from app.execution.decision_router import router as decision_router
 from app.execution.exec_key_router import router as exec_key_router
-from app.execution.execute_router import router as execute_router
-from app.execution.executions_read_router import router as executions_read_router
 from app.execution.permits_router import router as permits_router
 from app.execution.position_router import router as position_router
 from app.execution.router import router as execution_router
@@ -107,10 +105,8 @@ v1_router.include_router(execution_router)
 v1_router.include_router(decision_router)
 v1_router.include_router(skip_check_router)
 v1_router.include_router(permits_router)
-v1_router.include_router(execute_router)
 v1_router.include_router(exec_key_router)
 v1_router.include_router(position_router)
-v1_router.include_router(executions_read_router)
 v1_router.include_router(events_router)
 v1_router.include_router(news_intel_router)
 v1_router.include_router(ai_desk_router)

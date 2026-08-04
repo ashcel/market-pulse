@@ -193,7 +193,7 @@ export function PermitCard({
   // existing. No-op on the web. It must never fire for a REJECTED permit: a
   // hard-limit rejection is not something a native button may route around.
   useTelegramMainButton({
-    text: isConfirming ? "Mengonfirmasi…" : "Confirm Trade",
+    text: isConfirming ? "Mencatat…" : "Take this trade",
     onClick: onConfirm,
     visible: isApproved,
     enabled: isApproved && !isExpired && !isConfirming,
@@ -375,7 +375,7 @@ export function PermitCard({
             disabled={isExpired || isConfirming}
             onClick={onConfirm}
           >
-            {isConfirming ? "Confirming..." : "Confirm Trade"}
+            {isConfirming ? "Mencatat…" : "Take this trade"}
           </Button>
         </div>
       </div>

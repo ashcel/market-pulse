@@ -1,3 +1,17 @@
+"""Signed Binance futures client — **read-only**.
+
+EDR 0024 decision 4 took order transmission out of scope: IQ judges a trade
+and issues a permit, and the user places the order themselves. This client
+therefore reads the exchange (account, balance, positions, mark price, open
+orders, algo orders, fills, order history) and mutates nothing.
+
+Every method here must be a GET. Adding a POST/DELETE that places, cancels, or
+reconfigures an order — or that sets leverage or margin type, which are
+pre-order mutations — puts transmission back in the product. That code is
+parked on `park/execution-orders`; restoring it is an EDR-level decision, not
+a patch.
+"""
+
 import hashlib
 import hmac
 import time
@@ -7,7 +21,6 @@ from typing import Any
 import httpx
 
 from .config import execution_settings
-from .constants import BINANCE_NO_NEED_TO_CHANGE_MARGIN_TYPE
 
 
 class BinanceExecClient:
@@ -101,41 +114,6 @@ class BinanceExecClient:
             return positions
         return [p for p in positions if float(p.get("positionAmt", 0)) != 0]
 
-    async def set_leverage(self, symbol: str, leverage: int) -> dict:
-        """POST /fapi/v1/leverage — set the initial leverage for a symbol.
-
-        F1: the exchange must be told the judged leverage before entry, or the
-        position opens at whatever leverage the symbol last carried and every
-        permit's margin/liquidation number is fiction.
-        """
-        return await self._request(
-            "POST", "/fapi/v1/leverage", {"symbol": symbol, "leverage": int(leverage)}
-        )
-
-    async def set_margin_type(self, symbol: str, margin_type: str) -> dict:
-        """POST /fapi/v1/marginType — set ISOLATED/CROSSED for a symbol.
-
-        Binance returns error code -4046 ("No need to change margin type.")
-        when the symbol is already in the requested mode — a no-op success,
-        surfaced here as a normal result so callers don't treat it as a
-        failure. Any other error propagates.
-        """
-        try:
-            return await self._request(
-                "POST",
-                "/fapi/v1/marginType",
-                {"symbol": symbol, "marginType": margin_type},
-            )
-        except httpx.HTTPStatusError as exc:
-            code = None
-            try:
-                code = exc.response.json().get("code")
-            except (ValueError, AttributeError):
-                code = None
-            if code == BINANCE_NO_NEED_TO_CHANGE_MARGIN_TYPE:
-                return {"code": 200, "msg": "No need to change margin type.", "noop": True}
-            raise
-
     async def get_mark_price(self, symbol: str) -> dict:
         """GET /fapi/v1/premiumIndex — current mark price for a symbol.
 
@@ -164,85 +142,6 @@ class BinanceExecClient:
         if orig_client_order_id:
             params["origClientOrderId"] = orig_client_order_id
         return await self._request("GET", "/fapi/v1/order", params)
-
-    async def place_order(
-        self,
-        symbol: str,
-        side: str,
-        order_type: str,
-        quantity: float,
-        price: float | None = None,
-        stop_price: float | None = None,
-        reduce_only: bool = False,
-        time_in_force: str | None = None,
-        new_client_order_id: str | None = None,
-    ) -> dict:
-        params = {"symbol": symbol, "side": side, "type": order_type, "quantity": quantity}
-        if price is not None:
-            params["price"] = price
-        if stop_price is not None:
-            params["stopPrice"] = stop_price
-        if reduce_only:
-            params["reduceOnly"] = "true"
-        if time_in_force is not None:
-            params["timeInForce"] = time_in_force
-        if new_client_order_id is not None:
-            params["newClientOrderId"] = new_client_order_id
-
-        return await self._request("POST", "/fapi/v1/order", params)
-
-    async def cancel_order(
-        self, symbol: str, order_id: str | None = None, orig_client_order_id: str | None = None
-    ) -> dict:
-        params = {"symbol": symbol}
-        if order_id:
-            params["orderId"] = order_id
-        if orig_client_order_id:
-            params["origClientOrderId"] = orig_client_order_id
-        return await self._request("DELETE", "/fapi/v1/order", params)
-
-    async def place_algo_order(
-        self,
-        symbol: str,
-        side: str,
-        order_type: str,
-        *,
-        trigger_price: float,
-        close_position: bool = False,
-        quantity: float | None = None,
-        working_type: str = "CONTRACT_PRICE",
-        reduce_only: bool = False,
-        new_client_strategy_id: str | None = None,
-    ) -> dict:
-        params = {
-            "algoType": "CONDITIONAL",
-            "symbol": symbol,
-            "side": side,
-            "type": order_type,
-            "triggerPrice": trigger_price,
-            "workingType": working_type,
-        }
-        if close_position:
-            params["closePosition"] = "true"
-        else:
-            if quantity is not None:
-                params["quantity"] = quantity
-            if reduce_only:
-                params["reduceOnly"] = "true"
-        if new_client_strategy_id is not None:
-            params["newClientStrategyId"] = new_client_strategy_id
-
-        return await self._request("POST", "/fapi/v1/algoOrder", params)
-
-    async def cancel_algo_order(
-        self, algo_id: int | str | None = None, client_algo_id: str | None = None
-    ) -> dict:
-        params = {}
-        if algo_id is not None:
-            params["algoId"] = algo_id
-        if client_algo_id is not None:
-            params["clientAlgoId"] = client_algo_id
-        return await self._request("DELETE", "/fapi/v1/algoOrder", params)
 
     async def get_open_algo_orders(self, symbol: str | None = None) -> list[dict]:
         params = {}

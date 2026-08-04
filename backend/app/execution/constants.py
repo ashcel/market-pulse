@@ -57,8 +57,6 @@ TRADE_LOCK_VIOLATION = "TRADE_LOCK_VIOLATION"
 
 STOP_WIDEN_TOLERANCE = 1.1
 
-EXECUTION_ENABLED = False
-
 # ---------------------------------------------------------------------------
 # Execution-plane correctness constants (TRADE-FLOW-2026-07-23 §1/§2).
 # ---------------------------------------------------------------------------

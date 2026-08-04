@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
+import { Loader2, ShieldCheck } from "lucide-react";
 import { TradeTicket } from "./trade-ticket";
 import { PermitCard } from "./permit-card";
 import { useTradeTicket } from "@/hooks/useTradeTicket";
@@ -28,52 +28,18 @@ export interface ExecutionLogContext {
   strategy?: string;
 }
 
-export interface ExecutionResult {
-  execution_id?: string;
-  entry_order_id?: string;
-  sl_order_id?: string;
-  tp_order_id?: string;
-  status?: string;
-  filled_quantity?: number;
-}
-
 const DEPTH_PREF_KEY = "iq-ticket-depth-open";
 
-/** Live status strip: submitted → filled → PROTECTED. */
-function StatusStrip({ result }: { result: ExecutionResult }) {
-  const status = (result.status ?? "").toUpperCase();
-  const filled =
-    Boolean(result.filled_quantity) || status.includes("FILL") || status === "PROTECTED";
-  const protectedNow = Boolean(result.sl_order_id) || status === "PROTECTED";
-  const steps = [
-    { label: "Submitted", done: true },
-    { label: "Filled", done: filled },
-    { label: "Protected", done: protectedNow },
-  ];
-  return (
-    <div className="flex items-center gap-2">
-      {steps.map((s, i) => (
-        <div key={s.label} className="flex items-center gap-2">
-          <div
-            className={cn(
-              "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold",
-              s.done ? "bg-bullish/20 text-bullish" : "bg-muted text-muted-foreground",
-            )}
-          >
-            {s.label === "Protected" && s.done ? (
-              <ShieldCheck className="h-3.5 w-3.5" />
-            ) : s.done ? (
-              <CheckCircle2 className="h-3.5 w-3.5" />
-            ) : (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            )}
-            {s.label}
-          </div>
-          {i < steps.length - 1 && <span className="text-muted-foreground/40">→</span>}
-        </div>
-      ))}
-    </div>
-  );
+/** What the user confirmed they are taking. IQ does not transmit the order
+ * (EDR 0024 decision 4) — this records that an approved permit was acted on,
+ * and mirrors the plan into the journal. */
+export interface TakenPlan {
+  permit_id: string;
+  symbol: string;
+  side: string;
+  entry_price: number;
+  stop_price: number;
+  target_price: number;
 }
 
 export function ExecutionPanel({
@@ -98,7 +64,7 @@ export function ExecutionPanel({
 
   const [isConfirming, setIsConfirming] = useState(false);
   const [executionError, setExecutionError] = useState<string | null>(null);
-  const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
+  const [takenPlan, setTakenPlan] = useState<TakenPlan | null>(null);
   const [depthOpen, setDepthOpen] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(DEPTH_PREF_KEY) === "1";
@@ -119,7 +85,7 @@ export function ExecutionPanel({
     if (!initialTicket) return;
     ticket.replace(initialTicket);
     permitReq.clearPermit();
-    setExecutionResult(null);
+    setTakenPlan(null);
     setExecutionError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(initialTicket)]);
@@ -140,7 +106,7 @@ export function ExecutionPanel({
     : null;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (!validKey || executionResult) return;
+    if (!validKey || takenPlan) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       void permitReq.requestPermit(ticket.state);
@@ -151,6 +117,10 @@ export function ExecutionPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [validKey]);
 
+  // "I'm taking this" — the permit is the product's output, and the user
+  // places the order on the exchange themselves (EDR 0024 decision 4). This
+  // records the decision and mirrors the plan into the journal so the review
+  // plane can measure what was actually done against what was approved.
   const handleConfirm = async () => {
     setIsConfirming(true);
     setExecutionError(null);
@@ -163,59 +133,22 @@ export function ExecutionPanel({
         return;
       }
 
-      const executeRes = await fetch("/api/execution/execute", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ permit_id: permitId }),
-      });
-
-      let executeData: unknown;
-      try {
-        executeData = await executeRes.json();
-      } catch {
-        setExecutionError("Failed to parse execution response");
-        setIsConfirming(false);
-        return;
-      }
-
-      if (!executeRes.ok) {
-        const errorResp = executeData as { error?: { message?: string }; detail?: string };
-        const errorMessage = errorResp?.error?.message || errorResp?.detail;
-        if (executeRes.status === 409 && errorMessage?.includes("execution_disabled")) {
-          setExecutionError(
-            "Live execution is off (testnet kill switch). The permit is approved but no order was placed.",
-          );
-        } else if (executeRes.status === 503) {
-          setExecutionError("Execution service is not ready. Try again in a moment.");
-        } else if (executeRes.status === 404 || executeRes.status === 410) {
-          setExecutionError("Permit expired. Adjust the ticket to re-request.");
-        } else if (executeRes.status === 409) {
-          setExecutionError("Permit already used. Adjust the ticket to re-request.");
-        } else {
-          setExecutionError(errorMessage || "Failed to execute trade.");
-        }
-        setIsConfirming(false);
-        return;
-      }
-
-      const successData = executeData as { data?: ExecutionResult };
-      if (successData?.data) setExecutionResult(successData.data);
       if (decisionId) {
-        await setDecisionAction(decisionId, "took_trade", {
-          permit_id: permitId,
-          execution_id: successData.data?.execution_id,
-          status: successData.data?.status,
-        });
+        await setDecisionAction(decisionId, "took_trade", { permit_id: permitId });
       }
 
       if (logContext) {
-        try {
-          await createTrade.mutateAsync(logContext);
-        } catch (err) {
-          console.error("Failed to log confirmed trade to the journal", err);
-        }
+        await createTrade.mutateAsync(logContext);
       }
+
+      setTakenPlan({
+        permit_id: permitId,
+        symbol: ticket.state.symbol,
+        side: ticket.state.side,
+        entry_price: Number(ticket.state.entry_price),
+        stop_price: Number(ticket.state.stop_price),
+        target_price: Number(ticket.state.target_price),
+      });
     } catch (err) {
       setExecutionError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {
@@ -226,23 +159,26 @@ export function ExecutionPanel({
   const handleReset = () => {
     ticket.reset();
     permitReq.clearPermit();
-    setExecutionResult(null);
+    setTakenPlan(null);
     setExecutionError(null);
   };
 
-  // Submitted state — show the live protection strip.
-  if (executionResult) {
+  // Taken state — the plan is logged; the order is the user's to place.
+  if (takenPlan) {
     return (
       <div className={className ?? "mx-auto w-full max-w-md"}>
         <IqCard className="flex flex-col items-center gap-4 py-10 text-center">
           <ShieldCheck className="h-12 w-12 text-bullish" />
-          <h3 className="text-lg font-bold">Order Submitted</h3>
-          <StatusStrip result={executionResult} />
-          {executionResult.entry_order_id && (
-            <p className="text-xs text-muted-foreground">
-              Entry Order · {executionResult.entry_order_id}
-            </p>
-          )}
+          <h3 className="text-lg font-bold">Plan logged</h3>
+          <p className="max-w-xs text-xs text-muted-foreground">
+            Place it on the exchange yourself — {takenPlan.side} {takenPlan.symbol}, entry{" "}
+            {takenPlan.entry_price}, stop {takenPlan.stop_price}, target {takenPlan.target_price}.
+            IQ judged this trade and recorded it; it does not send orders.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Your stop is the permit&apos;s condition — a filled entry with no stop is the one thing
+            this plan cannot survive.
+          </p>
           <div className="mt-2 flex items-center gap-2">
             {logContext && (
               <Button asChild size="sm">
