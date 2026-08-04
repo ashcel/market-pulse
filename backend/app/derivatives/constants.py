@@ -31,7 +31,14 @@ HISTORY_WINDOWS_S: Final[dict[str, int]] = {
     "24h": 86400,
 }
 
-HISTORY_METRICS: Final[tuple[str, ...]] = ("momentum", "oi", "funding", "buyer_aggression")
+HISTORY_METRICS: Final[tuple[str, ...]] = (
+    "momentum",
+    "oi",
+    "funding",
+    "buyer_aggression",
+    "squeeze_long",
+    "squeeze_short",
+)
 
 
 # A delta is only reported if a stored snapshot exists near the window's start.

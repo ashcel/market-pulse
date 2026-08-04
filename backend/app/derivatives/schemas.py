@@ -32,7 +32,9 @@ MarketRegime = Literal[
     "neutral",
 ]
 
-HistoryMetric = Literal["momentum", "oi", "funding", "buyer_aggression"]
+HistoryMetric = Literal[
+    "momentum", "oi", "funding", "buyer_aggression", "squeeze_long", "squeeze_short"
+]
 HistoryWindow = Literal["5m", "1h", "4h", "24h"]
 
 
@@ -132,3 +134,45 @@ class DerivativesHistory(BaseModel):
     metric: HistoryMetric
     window: HistoryWindow
     points: list[SparkPoint]
+
+
+# --- cross-symbol summary --------------------------------------------------
+#
+# Same rule as everything above: labels arrive finished (`regime_label`,
+# `squeeze_label`), never a bare enum the client would have to re-map.
+
+
+class SummaryMomentumEntry(BaseModel):
+    symbol: str
+    momentum: float
+    regime: MarketRegime
+    regime_label: str
+
+
+class SummarySqueezeEntry(BaseModel):
+    symbol: str
+    squeeze: SqueezeScores
+    dominant_side: Literal["long", "short"]
+    squeeze_label: str
+
+
+class SummaryOiEntry(BaseModel):
+    symbol: str
+    oi_delta_pct: float
+    regime: MarketRegime
+    regime_label: str
+
+
+class RegimeCount(BaseModel):
+    regime: MarketRegime
+    regime_label: str
+    count: int
+
+
+class DerivativesSummary(BaseModel):
+    top_momentum: list[SummaryMomentumEntry]
+    top_squeeze: list[SummarySqueezeEntry]
+    top_oi_gainers: list[SummaryOiEntry]
+    top_oi_losers: list[SummaryOiEntry]
+    regime_distribution: list[RegimeCount]
+    symbols_covered: int

@@ -24,6 +24,7 @@ import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Literal, cast
 
 from .constants import (
     AGGRESSION_STRONG,
@@ -54,6 +55,7 @@ from .schemas import (
     CrowdingBand,
     DerivativesIntelligence,
     DerivativesRaw,
+    DerivativesSummary,
     Derived,
     FundingTrend,
     HistoryMetric,
@@ -61,9 +63,13 @@ from .schemas import (
     Intelligence,
     MarketRegime,
     OiExpansion,
+    RegimeCount,
     Scores,
     SparkPoint,
     SqueezeScores,
+    SummaryMomentumEntry,
+    SummaryOiEntry,
+    SummarySqueezeEntry,
 )
 
 
@@ -719,6 +725,21 @@ def _momentum_at(series: Sequence[SnapshotPoint], index: int) -> float | None:
     )
 
 
+def _squeeze_at(
+    series: Sequence[SnapshotPoint], index: int, side: Literal["long", "short"]
+) -> float | None:
+    """Squeeze score as it would have read at `index`, same up-to-here rule as
+    `_momentum_at` — a sparkline built from future crowding would be a
+    backtest, not a history."""
+    window = series[: index + 1]
+    point = window[-1]
+    crowding = crowding_score(point)
+    oi_reference = _reference_delta(_delta_map(window, lambda p: p.open_interest))
+    price_reference = _delta_map(window, lambda p: p.price)
+    squeeze = squeeze_scores(crowding, oi_reference, _price_acceleration(price_reference))
+    return squeeze.long if side == "long" else squeeze.short
+
+
 def history_series(
     series: Sequence[SnapshotPoint], metric: HistoryMetric, window: HistoryWindow
 ) -> list[SparkPoint]:
@@ -742,9 +763,97 @@ def history_series(
             value = _finite(point.funding_rate)
         elif metric == "buyer_aggression":
             value = buyer_aggression(point)
+        elif metric == "squeeze_long":
+            value = _squeeze_at(series, index, "long")
+        elif metric == "squeeze_short":
+            value = _squeeze_at(series, index, "short")
         else:
             value = _momentum_at(series, index)
         if value is None:
             continue
         points.append(SparkPoint(t=int(_epoch(point.timestamp)), v=round(value, 8)))
     return points
+
+
+# --- cross-symbol summary --------------------------------------------------
+
+
+def build_summary(
+    intelligences: Sequence[DerivativesIntelligence], *, top_n: int = 5
+) -> DerivativesSummary:
+    """One pass over already-derived reads — never recomputes a score, only
+    ranks and counts what `derive()` already produced for each symbol.
+
+    Every list is honestly empty rather than padded: a symbol without a
+    momentum score is dropped from that ranking, and squeeze entries where
+    neither side carries any pressure (`long == short == 0`, the `crowding is
+    None` case) are dropped rather than shown as a fake 0-vs-0 tie.
+    """
+    with_momentum = [i for i in intelligences if i.scores.momentum is not None]
+    momentum_ranked = sorted(
+        with_momentum, key=lambda i: cast(float, i.scores.momentum), reverse=True
+    )[:top_n]
+
+    squeezed = [i for i in intelligences if max(i.scores.squeeze.long, i.scores.squeeze.short) > 0]
+    squeeze_ranked = sorted(
+        squeezed, key=lambda i: max(i.scores.squeeze.long, i.scores.squeeze.short), reverse=True
+    )[:top_n]
+
+    with_oi = [
+        (i, i.derived.oi_delta.get("24h"))
+        for i in intelligences
+        if i.derived.oi_delta.get("24h") is not None
+    ]
+    oi_ranked = sorted(with_oi, key=lambda pair: cast(float, pair[1]), reverse=True)
+    oi_gainers = [pair for pair in oi_ranked if cast(float, pair[1]) > 0][:top_n]
+    oi_losers = [pair for pair in reversed(oi_ranked) if cast(float, pair[1]) < 0][:top_n]
+
+    regime_counts: dict[MarketRegime, int] = {}
+    for i in intelligences:
+        regime_counts[i.regime] = regime_counts.get(i.regime, 0) + 1
+
+    return DerivativesSummary(
+        top_momentum=[
+            SummaryMomentumEntry(
+                symbol=i.raw.symbol,
+                momentum=cast(float, i.scores.momentum),
+                regime=i.regime,
+                regime_label=REGIME_LABELS[i.regime],
+            )
+            for i in momentum_ranked
+        ],
+        top_squeeze=[
+            SummarySqueezeEntry(
+                symbol=i.raw.symbol,
+                squeeze=i.scores.squeeze,
+                dominant_side=(
+                    "long" if i.scores.squeeze.long >= i.scores.squeeze.short else "short"
+                ),
+                squeeze_label=_squeeze_label(i.scores.squeeze),
+            )
+            for i in squeeze_ranked
+        ],
+        top_oi_gainers=[
+            SummaryOiEntry(
+                symbol=i.raw.symbol,
+                oi_delta_pct=cast(float, delta),
+                regime=i.regime,
+                regime_label=REGIME_LABELS[i.regime],
+            )
+            for i, delta in oi_gainers
+        ],
+        top_oi_losers=[
+            SummaryOiEntry(
+                symbol=i.raw.symbol,
+                oi_delta_pct=cast(float, delta),
+                regime=i.regime,
+                regime_label=REGIME_LABELS[i.regime],
+            )
+            for i, delta in oi_losers
+        ],
+        regime_distribution=[
+            RegimeCount(regime=regime, regime_label=REGIME_LABELS[regime], count=count)
+            for regime, count in sorted(regime_counts.items(), key=lambda kv: kv[1], reverse=True)
+        ],
+        symbols_covered=len(intelligences),
+    )

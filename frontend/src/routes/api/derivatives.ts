@@ -25,6 +25,23 @@ export const Route = createFileRoute("/api/derivatives")({
         if (isResponse(auth)) return auth;
 
         const url = new URL(request.url);
+
+        // `?summary=1` asks for the cross-symbol read (Now strip / Ideas
+        // badge / Lab leaderboard) instead of one symbol's card.
+        if (url.searchParams.get("summary")) {
+          const res = await fetch(`${BACKEND_BASE}/api/v1/derivatives/summary`, {
+            headers: {
+              "content-type": "application/json",
+              "x-internal-key": INTERNAL_KEY,
+              "x-internal-user-id": auth.user.id,
+            },
+          });
+          return new Response(await res.text(), {
+            status: res.status,
+            headers: { "content-type": "application/json" },
+          });
+        }
+
         const symbol = url.searchParams.get("symbol") ?? "";
         if (!symbol) {
           return new Response(

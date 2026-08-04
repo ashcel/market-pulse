@@ -27,7 +27,13 @@ export type MarketRegime =
   | "accumulation"
   | "neutral";
 
-export type DerivativesMetric = "momentum" | "oi" | "funding" | "buyer_aggression";
+export type DerivativesMetric =
+  | "momentum"
+  | "oi"
+  | "funding"
+  | "buyer_aggression"
+  | "squeeze_long"
+  | "squeeze_short";
 export type DerivativesWindow = "5m" | "1h" | "4h" | "24h";
 
 export interface SqueezeScores {
@@ -99,6 +105,47 @@ interface DerivativesHistory {
   points: SparkPoint[];
 }
 
+/**
+ * Cross-symbol summary — same rule as everything else in this file: every
+ * field arrives finished (`regime_label`, `squeeze_label`), computed once in
+ * `backend/app/derivatives/service.py::build_summary`.
+ */
+export interface DerivativesSummaryMomentum {
+  symbol: string;
+  momentum: number;
+  regime: MarketRegime;
+  regime_label: string;
+}
+
+export interface DerivativesSummarySqueeze {
+  symbol: string;
+  squeeze: SqueezeScores;
+  dominant_side: "long" | "short";
+  squeeze_label: string;
+}
+
+export interface DerivativesSummaryOi {
+  symbol: string;
+  oi_delta_pct: number;
+  regime: MarketRegime;
+  regime_label: string;
+}
+
+export interface DerivativesSummaryRegimeCount {
+  regime: MarketRegime;
+  regime_label: string;
+  count: number;
+}
+
+export interface DerivativesSummary {
+  top_momentum: DerivativesSummaryMomentum[];
+  top_squeeze: DerivativesSummarySqueeze[];
+  top_oi_gainers: DerivativesSummaryOi[];
+  top_oi_losers: DerivativesSummaryOi[];
+  regime_distribution: DerivativesSummaryRegimeCount[];
+  symbols_covered: number;
+}
+
 async function getData<T>(path: string): Promise<T | null> {
   const res = await fetch(path, { credentials: "same-origin" });
   // 404 = the collector has never seen this symbol. That is an empty state,
@@ -116,6 +163,16 @@ export function useDerivatives(symbol: string) {
     enabled: Boolean(symbol),
     // The collector writes one row every 5 minutes; refetching faster than
     // that just re-reads the same row.
+    staleTime: 60_000,
+    refetchInterval: 300_000,
+  });
+}
+
+export function useDerivativesSummary() {
+  return useQuery({
+    queryKey: ["derivatives", "summary"],
+    queryFn: () => getData<DerivativesSummary>("/api/derivatives?summary=1"),
+    // Same 5-minute collector cadence as the per-symbol read.
     staleTime: 60_000,
     refetchInterval: 300_000,
   });

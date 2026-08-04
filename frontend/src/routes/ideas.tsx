@@ -2,6 +2,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 
 import { CardEyebrow, IqCard } from "@/components/features/iq-card";
 import { Badge } from "@/components/ui/badge";
+import { useDerivatives, type DerivativesIntelligence } from "@/hooks/useDerivatives";
 import { useIdeas, type Opportunity, type OpportunitySource } from "@/hooks/useIdeas";
 import { cn } from "@/lib/utils";
 
@@ -12,11 +13,46 @@ function sourceLabel(source: OpportunitySource): string {
   return `${name} · ${source.kind.replace("-alignment", "-align")}`;
 }
 
+/**
+ * One compact derivatives read per card — squeeze risk beats crowding beats
+ * OI expansion, since a live squeeze is the most actionable of the three.
+ * `null` on missing data (fresh backfill, `data` undefined/404) or when
+ * nothing is notable: no placeholder badge, no "Seimbang" spam.
+ */
+function derivativesBadge(
+  data: DerivativesIntelligence | null | undefined,
+): { text: string; className: string } | null {
+  if (!data) return null;
+  const { derived, scores, intelligence } = data;
+
+  if (scores.squeeze.long >= 60) {
+    return { text: "⚠️ Risiko squeeze long", className: "border-bearish/40 text-bearish" };
+  }
+  if (scores.squeeze.short >= 60) {
+    return { text: "⚠️ Risiko squeeze short", className: "border-bullish/40 text-bullish" };
+  }
+  if (derived.crowding_band === "bullish_crowded") {
+    return { text: "Ramai Long", className: "border-bearish/40 text-bearish" };
+  }
+  if (derived.crowding_band === "bearish_crowded") {
+    return { text: "Ramai Short", className: "border-bullish/40 text-bullish" };
+  }
+  if (derived.oi_expansion === "bullish_expansion") {
+    return { text: `⚡ ${intelligence.expansion_label}`, className: "border-bullish/40 text-bullish" };
+  }
+  if (derived.oi_expansion === "bearish_expansion") {
+    return { text: `⚡ ${intelligence.expansion_label}`, className: "border-bearish/40 text-bearish" };
+  }
+  return null;
+}
+
 function IdeaCard({ idea }: { idea: Opportunity }) {
   const sourceCount = new Set(idea.sources.map((source) => source.source)).size;
   const evidence = idea.evidence.status === "ok" && idea.evidence.hit_rate != null
     ? `hit-rate ${idea.evidence.window_days} hari · ${(idea.evidence.hit_rate * 100).toFixed(0)}%`
     : "Belum cukup data";
+  const derivatives = useDerivatives(idea.symbol);
+  const badge = derivativesBadge(derivatives.data);
 
   return (
     <Link to="/token/$symbol" params={{ symbol: idea.symbol }} className="block">

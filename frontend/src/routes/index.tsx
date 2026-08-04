@@ -16,6 +16,7 @@ import {
 } from "@/hooks/queries";
 import { fearGreedLabel } from "@/lib/engine/external-context";
 import { useActionableSetups } from "@/hooks/useActionableSetups";
+import { useDerivativesSummary } from "@/hooks/useDerivatives";
 import { useLivePositions, type LivePosition } from "@/hooks/useLivePositions";
 import type { OpenTradePnl } from "@/hooks/useOpenTradesPnl";
 import { useReviewTrades } from "@/hooks/useReview";
@@ -143,6 +144,7 @@ function Dashboard() {
 
       <RegimeVerdictHero />
       <MarketContextStrip />
+      <DerivativesPulseStrip />
       <AiSentimentStrip />
       <LivePositionsStrip />
       <LiveSetupsStrip universe={universe.data} isLoading={universe.isLoading} />
@@ -711,6 +713,78 @@ function ContextStat({
       <span className={cn("font-semibold", tone)}>{value}</span>
       {hint && <span className="text-[11px] text-muted-foreground">({hint})</span>}
     </span>
+  );
+}
+
+function baseTicker(symbol: string): string {
+  return symbol.replace(/USDT$/, "");
+}
+
+/**
+ * Derivatives Pulse — cross-symbol positioning read, one screen tall. Dee
+ * trades derivatives exclusively, so this sits on Today rather than being
+ * buried a tab away; every number here is already-interpreted output from
+ * `/api/v1/derivatives/summary` (`backend/app/derivatives/service.py::build_summary`),
+ * nothing recomputed client-side. Renders nothing until there's something to
+ * show — a cold collector or an empty universe is a valid, quiet state.
+ */
+function DerivativesPulseStrip() {
+  const summary = useDerivativesSummary();
+  const data = summary.data;
+  if (!data) return null;
+
+  const topMomentum = data.top_momentum.slice(0, 3);
+  const topSqueeze = data.top_squeeze.slice(0, 3);
+  if (topMomentum.length === 0 && topSqueeze.length === 0) return null;
+
+  return (
+    <IqCard padded={false} className="px-3 py-3 sm:px-5 sm:py-4">
+      <div className="mb-2 flex items-center justify-between">
+        <CardEyebrow>Derivatives Pulse</CardEyebrow>
+        <Link to="/lab" className="text-[10px] text-muted-foreground hover:text-foreground">
+          Lihat Lab →
+        </Link>
+      </div>
+      <div className="flex flex-col gap-1.5 text-sm">
+        {topMomentum.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+            <span aria-hidden>🔥</span>
+            <span className="text-muted-foreground">Momentum tertinggi:</span>
+            {topMomentum.map((entry, index) => (
+              <span key={entry.symbol} className="whitespace-nowrap">
+                <Link
+                  to="/token/$symbol"
+                  params={{ symbol: entry.symbol }}
+                  className="font-semibold hover:text-info"
+                >
+                  {baseTicker(entry.symbol)} {Math.round(entry.momentum)}
+                </Link>
+                {index < topMomentum.length - 1 ? " · " : ""}
+              </span>
+            ))}
+          </div>
+        )}
+        {topSqueeze.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+            <span aria-hidden>⚠️</span>
+            <span className="text-muted-foreground">Squeeze Risk:</span>
+            {topSqueeze.map((entry, index) => (
+              <span key={entry.symbol} className="whitespace-nowrap">
+                <Link
+                  to="/token/$symbol"
+                  params={{ symbol: entry.symbol }}
+                  className="font-semibold hover:text-info"
+                >
+                  {baseTicker(entry.symbol)} {entry.dominant_side === "long" ? "Long" : "Short"}{" "}
+                  {Math.round(Math.max(entry.squeeze.long, entry.squeeze.short))}%
+                </Link>
+                {index < topSqueeze.length - 1 ? " · " : ""}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </IqCard>
   );
 }
 

@@ -16,8 +16,8 @@ from app.exceptions import AppError, NotFoundError
 from . import repo
 from .binance import canonical_symbol
 from .constants import DELTA_WINDOWS_S, HISTORY_WINDOWS_S
-from .schemas import HistoryMetric, HistoryWindow
-from .service import derive, history_series
+from .schemas import DerivativesIntelligence, HistoryMetric, HistoryWindow
+from .service import build_summary, derive, history_series
 
 router = APIRouter(prefix="/derivatives", tags=["derivatives"])
 
@@ -38,6 +38,38 @@ def normalize_symbol(raw: str) -> str:
     if symbol == "USDT":
         raise InvalidSymbolError("symbol is empty after normalization", {"symbol": raw})
     return symbol
+
+
+@router.get(
+    "/summary",
+    summary="Cross-symbol derivatives summary",
+    description=(
+        "Top momentum movers, top squeeze risks, top/bottom OI-delta movers and the regime "
+        "distribution across every symbol with a recent snapshot — one pass over the same "
+        "read model `/{symbol}` uses, so nothing here can disagree with a per-symbol card. "
+        "Registered ahead of `/{symbol}` so the literal path wins the route match."
+    ),
+)
+async def get_derivatives_summary(
+    db: DbSession,
+    _user_id: CurrentUserId,
+) -> dict[str, Any]:
+    symbols = await repo.list_symbols(db)
+    intelligences: list[DerivativesIntelligence] = []
+    for symbol in symbols:
+        series = await repo.load_series(db, symbol, lookback_s=_READ_LOOKBACK_S)
+        if not series:
+            continue
+        intelligence = derive(symbol, series)
+        if intelligence is not None:
+            intelligences.append(intelligence)
+
+    summary = build_summary(intelligences)
+    return {
+        "data": summary.model_dump(mode="json"),
+        "meta": {"symbols_scanned": len(symbols)},
+        "error": None,
+    }
 
 
 @router.get(
