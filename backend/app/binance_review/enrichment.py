@@ -5,7 +5,7 @@ symbol, given one realized-PnL income event.
 No DB access and no network I/O here — `service.py` fetches the trades/orders
 page(s) and calls into this module with plain dicts/floats so the logic stays
 independently unit-testable. Mirrors the shape of the (now-inert)
-`app.bybit.enrichment` module this replaces, but adapted to Binance's
+removed `app.bybit.enrichment` module this replaced, but adapted to Binance's
 `/fapi/v1/*` field names — notably, Binance user-trade fills carry the
 originating `orderId` directly, so matching the order that produced a closing
 fill is an exact lookup here rather than Bybit's nearest-by-time heuristic.

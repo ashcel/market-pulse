@@ -14,7 +14,6 @@ from sqlalchemy.ext.asyncio import create_async_engine
 # Import all models so Alembic can detect them
 from app.auth.models import User  # noqa: F401
 from app.binance_review.context_models import TradeContext  # noqa: F401
-from app.bybit.models import BybitApiKey, BybitSyncLog, BybitTrade  # noqa: F401
 from app.database import Base
 from app.derivatives.models import DerivativesSnapshot  # noqa: F401
 from app.execution.alert_models import Alert  # noqa: F401

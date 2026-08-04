@@ -1,7 +1,7 @@
 """Hourly background Binance Trade-Review sync — one pass over every user
 with a connected, active read-only Binance API key.
 
-Replaces `bybit_sync_pass.py` (now unregistered/inert — see app/bybit/).
+Replaced the Bybit sync pass, removed 2026-08-04 (EDR 0024 V0-T3).
 Each user is synced in its **own** `SessionFactory()` session wrapped in a
 per-user try/except: `run_sync` self-manages its commits and re-raises on
 failure (recording a FAILED sync log first), so one bad key — expired,

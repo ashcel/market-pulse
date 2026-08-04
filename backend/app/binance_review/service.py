@@ -15,7 +15,7 @@ It still **reuses** `app.execution.binance_client.BinanceExecClient` for the
 actual signed HTTP calls, per the task brief — no HMAC client is duplicated,
 only the credential-storage/validation policy differs.
 
-`run_sync` is a two-phase pipeline, mirroring the (now-inert) `app.bybit.service`
+`run_sync` is a two-phase pipeline, mirroring the removed `app.bybit.service`
 module this replaces:
 
   1. Pull `/fapi/v1/income` (incomeType=REALIZED_PNL) for the sync window and

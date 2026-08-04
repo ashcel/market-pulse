@@ -4,7 +4,7 @@ secret at rest.
 The encryption key is derived from `binance_review_settings.ENCRYPTION_SECRET`
 (an arbitrary-length passphrase) via SHA-256, then base64url-encoded — this is
 exactly the 32-byte key shape Fernet requires. Same pattern as the (now-inert)
-`app.bybit.crypto` module this replaces, kept as its own passphrase/module
+removed `app.bybit.crypto` module this replaced, kept as its own passphrase/module
 rather than reusing `app.execution.exec_key_crypto` so the two key classes
 (read-only review vs. order-placement execution) stay independently rotatable.
 """

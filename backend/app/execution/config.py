@@ -28,7 +28,8 @@ class ExecutionConfig(BaseSettings):
     TESTNET: bool = True
 
     # Separate encryption passphrase for the execution key class (kept distinct
-    # from the read-only sync key class). SHA-256 -> Fernet, same shape as bybit.
+    # from the read-only sync key class). SHA-256 -> Fernet, same shape as the
+    # removed bybit key store.
     ENCRYPTION_SECRET: str = DEFAULT_ENCRYPTION_SECRET
 
     # Binance USDⓈ-M futures venues.
