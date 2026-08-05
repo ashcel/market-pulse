@@ -37,7 +37,7 @@ import {
   useSyncBinance,
   useTradeReview,
 } from "@/hooks/useReview";
-import { resolveAiConfig } from "@/lib/ai/providers";
+import { buildCandidates } from "@/lib/ai/chain";
 import type { ReviewTrade, TradeReview } from "@/lib/review/types";
 import { formatMoney } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
@@ -117,7 +117,9 @@ function ReviewPage() {
   const [sideFilter, setSideFilter] = useState<SideFilter>("all");
   const { trades, authenticated, isLoading } = useReviewTrades();
   const aiSettings = useAiSettingsStore();
-  const aiConfigured = resolveAiConfig(aiSettings) !== null;
+  // Usable if ANY endpoint in the fallback chain resolves — not only the
+  // provider currently selected in Settings.
+  const aiConfigured = buildCandidates(aiSettings).length > 0;
 
   const filteredTrades =
     sideFilter === "all" ? trades : trades.filter((t) => t.side === sideFilter);

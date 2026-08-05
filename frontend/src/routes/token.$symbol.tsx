@@ -175,8 +175,8 @@ import { NotSignedInError, useFollowSignal, useTrackedFollows } from "@/hooks/us
 import { useAiSettingsStore } from "@/stores/ai-settings";
 import { useAiContext } from "@/stores/ai-context";
 import type { TradeTicketState } from "@/hooks/useTradeTicket";
-import { resolveAiConfig } from "@/lib/ai/providers";
-import { runAiAnalyst, type AiMessage } from "@/lib/ai/client";
+import { buildCandidates, runAiWithFallback } from "@/lib/ai/chain";
+import { type AiMessage } from "@/lib/ai/client";
 import {
   buildAnalystSystem,
   buildChartStructure,
@@ -3879,16 +3879,16 @@ function TradeDrawer({
   const aiApiKeys = useAiSettingsStore((s) => s.apiKeys);
   const aiModels = useAiSettingsStore((s) => s.models);
   const aiCustomBaseUrl = useAiSettingsStore((s) => s.customBaseUrl);
-  const aiConfig = useMemo(
-    () =>
-      resolveAiConfig({
-        provider: aiProvider,
-        apiKeys: aiApiKeys,
-        models: aiModels,
-        customBaseUrl: aiCustomBaseUrl,
-      }),
+  const aiSettings = useMemo(
+    () => ({
+      provider: aiProvider,
+      apiKeys: aiApiKeys,
+      models: aiModels,
+      customBaseUrl: aiCustomBaseUrl,
+    }),
     [aiProvider, aiApiKeys, aiModels, aiCustomBaseUrl],
   );
+  const aiReady = useMemo(() => buildCandidates(aiSettings).length > 0, [aiSettings]);
 
   useEffect(() => {
     if (!open || !evaluation || analysis || loading) return;
@@ -3902,7 +3902,7 @@ function TradeDrawer({
         thinkingMode: false,
       });
 
-    if (!aiConfig) {
+    if (!aiReady) {
       setAnalysis(fallback());
       return;
     }
@@ -3918,8 +3918,8 @@ function TradeDrawer({
       externalContext || null,
     );
 
-    runAiAnalyst({
-      config: aiConfig,
+    runAiWithFallback({
+      settings: aiSettings,
       system,
       messages: [
         {
@@ -3929,7 +3929,7 @@ function TradeDrawer({
         },
       ],
     })
-      .then((text) => setAnalysis(text))
+      .then((completion) => setAnalysis(completion.text))
       .catch(() => setAnalysis(fallback()))
       .finally(() => setLoading(false));
   }, [
@@ -3937,7 +3937,7 @@ function TradeDrawer({
     evaluation,
     analysis,
     loading,
-    aiConfig,
+    aiSettings,
     symbol,
     timeframe,
     assessment,

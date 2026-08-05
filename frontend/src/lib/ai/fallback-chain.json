@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "_comment": [
+    "Order the AI analyst tries endpoints in. The first entry that is usable AND",
+    "succeeds wins; a failure falls through to the next. Each entry carries its",
+    "own URL, so providers on different hosts and wire formats mix freely.",
+    "",
+    "transport:",
+    "  'byok'   - the provider the user configured in Settings. url/model/key all",
+    "             come from their stored settings, so this entry has no url here.",
+    "  'direct' - browser calls `url` itself. `keyFrom` names which stored BYOK",
+    "             key to send; an entry whose key is missing is skipped, never",
+    "             called without auth.",
+    "  'proxy'  - same-origin server route that holds the credential. Use this for",
+    "             any shared/free-tier key: a key placed in this file would ship to",
+    "             every visitor's browser and be trivially extracted.",
+    "",
+    "kind: 'openai' (Chat Completions) or 'anthropic' (Messages).",
+    "enabled: false keeps an entry documented but out of the chain."
+  ],
+  "chain": [
+    {
+      "id": "user-provider",
+      "label": "Your provider",
+      "transport": "byok",
+      "enabled": true
+    },
+    {
+      "id": "openrouter-free",
+      "label": "OpenRouter free tier",
+      "transport": "direct",
+      "kind": "openai",
+      "url": "https://openrouter.ai/api/v1",
+      "model": "deepseek/deepseek-chat-v3-0324:free",
+      "keyFrom": "openrouter",
+      "enabled": true
+    },
+    {
+      "id": "openai-mini",
+      "label": "OpenAI GPT-4o mini",
+      "transport": "direct",
+      "kind": "openai",
+      "url": "https://api.openai.com/v1",
+      "model": "gpt-4o-mini",
+      "keyFrom": "openai",
+      "enabled": true
+    },
+    {
+      "id": "anthropic-haiku",
+      "label": "Claude Haiku 4.5",
+      "transport": "direct",
+      "kind": "anthropic",
+      "url": "https://api.anthropic.com",
+      "model": "claude-haiku-4-5",
+      "keyFrom": "anthropic",
+      "enabled": true
+    },
+    {
+      "id": "house-free",
+      "label": "Market Pulse free tier",
+      "transport": "proxy",
+      "kind": "openai",
+      "url": "/api/ai/completions",
+      "model": "server-selected",
+      "enabled": false
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { generateReview } from "@/lib/review/generate";
-import { resolveAiConfig } from "@/lib/ai/providers";
+import { buildCandidates } from "@/lib/ai/chain";
 import type { Analytics, ReviewMode, ReviewTrade, TradeReview } from "@/lib/review/types";
 import { useAiSettingsStore } from "@/stores/ai-settings";
 
@@ -216,15 +216,15 @@ export function useGenerateTradeReview() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: GenerateTradeReviewInput): Promise<TradeReview> => {
-      const aiConfig = resolveAiConfig(useAiSettingsStore.getState());
-      if (!aiConfig) {
+      const aiSettings = useAiSettingsStore.getState();
+      if (buildCandidates(aiSettings).length === 0) {
         throw new Error("Configure an AI provider in Settings before generating a review.");
       }
       return generateReview({
         trade: input.trade,
         allTrades: input.allTrades,
         mode: input.mode ?? "normal",
-        aiConfig,
+        aiSettings,
       });
     },
     onSuccess: (review, variables) => {

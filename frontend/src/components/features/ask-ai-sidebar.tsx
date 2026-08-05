@@ -16,8 +16,8 @@ import { cn } from "@/lib/utils";
 import { useAiSettingsStore } from "@/stores/ai-settings";
 import { useAiContext, type PageAiContext } from "@/stores/ai-context";
 import { useDeskReviewsStore, type DeskReviewHistoryEntry } from "@/stores/desk-reviews";
-import { resolveAiConfig } from "@/lib/ai/providers";
-import { runAiAnalyst, runAiAnalystStream, type AiMessage } from "@/lib/ai/client";
+import { buildCandidates, runAiStreamWithFallback, runAiWithFallback } from "@/lib/ai/chain";
+import { type AiMessage } from "@/lib/ai/client";
 import {
   buildAnalystSystem,
   buildGeneralAnalystSystem,
@@ -245,16 +245,22 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
   const aiModels = useAiSettingsStore((s) => s.models);
   const aiCustomBaseUrl = useAiSettingsStore((s) => s.customBaseUrl);
 
-  const aiConfig = useMemo(
-    () =>
-      resolveAiConfig({
-        provider: aiProvider,
-        apiKeys: aiApiKeys,
-        models: aiModels,
-        customBaseUrl: aiCustomBaseUrl,
-      }),
+  // The full settings snapshot, plus whether ANY endpoint in the fallback chain
+  // is currently usable. `aiReady` replaces the old single-provider check: the
+  // panel works as long as one candidate resolves, not only the active provider.
+  const aiSettings = useMemo(
+    () => ({
+      provider: aiProvider,
+      apiKeys: aiApiKeys,
+      models: aiModels,
+      customBaseUrl: aiCustomBaseUrl,
+    }),
     [aiProvider, aiApiKeys, aiModels, aiCustomBaseUrl],
   );
+  const aiReady = useMemo(() => buildCandidates(aiSettings).length > 0, [aiSettings]);
+  // Which endpoint answered last — shown under the memo so a silent failover is
+  // never invisible.
+  const [aiSource, setAiSource] = useState<string | null>(null);
 
   const busy = parsing || chatLoading || reviewStreaming || followupStreaming;
 
@@ -312,7 +318,7 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
     async (ask?: string) => {
       const fallbackMsg =
         "AI configuration is missing. Please configure an AI provider in Settings.";
-      if (!aiConfig) {
+      if (!aiReady) {
         setChat((items) =>
           [
             ...items,
@@ -356,14 +362,18 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
           ...history,
           { role: "user", content: ask ?? MEMO_INSTRUCTION },
         ];
-        const text = await runAiAnalyst({
-          config: aiConfig,
+        const completion = await runAiWithFallback({
+          settings: aiSettings,
           system,
           messages,
           signal: controller.signal,
         });
+        setAiSource(completion.model);
         setChat((items) =>
-          [...items, { role: "assistant" as const, text, source: aiConfig.model }].slice(-20),
+          [
+            ...items,
+            { role: "assistant" as const, text: completion.text, source: completion.model },
+          ].slice(-20),
         );
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
@@ -382,7 +392,7 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
         setChatLoading(false);
       }
     },
-    [aiConfig, chat, context, econCalendar, marketCondition],
+    [aiSettings, aiReady, chat, context, econCalendar, marketCondition],
   );
 
   // Composer submit: fast-parse → (LLM parse fallback) → chips, or plain chat.
@@ -400,19 +410,23 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
         return;
       }
 
-      if (aiConfig) {
+      if (aiReady) {
         setParsing(true);
         const controller = new AbortController();
         abortRef.current = controller;
         try {
-          const raw = await runAiAnalyst({
-            config: aiConfig,
-            system: buildIntentParsePrompt(text),
-            messages: [{ role: "user", content: text }],
-            maxTokens: 300,
-            signal: controller.signal,
-          });
-          const parsed = parseIntentParseResponse(raw, text);
+          const parsed = parseIntentParseResponse(
+            (
+              await runAiWithFallback({
+                settings: aiSettings,
+                system: buildIntentParsePrompt(text),
+                messages: [{ role: "user", content: text }],
+                maxTokens: 300,
+                signal: controller.signal,
+              })
+            ).text,
+            text,
+          );
           setParsing(false);
           if (parsed && parsed.symbol && parsed.direction) {
             setParsedIdea(parsed);
@@ -430,7 +444,7 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
       setMode("chat");
       await runChatAnalysis(text);
     },
-    [aiConfig, runChatAnalysis],
+    [aiSettings, aiReady, runChatAnalysis],
   );
 
   // Chips → "Run desk review": deterministic gate first, LLM only if usable.
@@ -476,7 +490,7 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
       setError(null);
       setMode("review");
 
-      if (!aiConfig) {
+      if (!aiReady) {
         setError("AI configuration is missing. Please configure an AI provider in Settings.");
         return;
       }
@@ -485,14 +499,18 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
       const controller = new AbortController();
       abortRef.current = controller;
       try {
-        const full = await runAiAnalystStream({
-          config: aiConfig,
+        const completion = await runAiStreamWithFallback({
+          settings: aiSettings,
           system,
           messages: [{ role: "user", content: "Review this idea now." }],
           signal: controller.signal,
           onDelta: (frag) => setReviewStreamText((t) => t + frag),
+          // A provider that dies mid-stream leaves half a sentence on screen;
+          // clear it before the next one starts writing.
+          onRestart: () => setReviewStreamText(""),
         });
-        const result = parseDeskReview(full, anchor, pack);
+        setAiSource(completion.model);
+        const result = parseDeskReview(completion.text, anchor, pack);
         setReviewResult(result);
         recordHistory(idea, result.outcome, result.thesis);
       } catch (e) {
@@ -502,7 +520,7 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
         setReviewStreaming(false);
       }
     },
-    [aiConfig, context, recordHistory, econCalendar],
+    [aiSettings, aiReady, context, recordHistory, econCalendar],
   );
 
   // Follow-up question scoped to the rendered review's system prompt.
@@ -512,7 +530,7 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
       setQuestion("");
       setError(null);
 
-      if (!aiConfig) {
+      if (!aiReady) {
         setFollowups((f) => [
           ...f,
           { role: "user", text },
@@ -540,14 +558,16 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
           ...priorFollowups.slice(-8).map((m) => ({ role: m.role, content: m.text })),
           { role: "user", content: text },
         ];
-        const full = await runAiAnalystStream({
-          config: aiConfig,
+        const completion = await runAiStreamWithFallback({
+          settings: aiSettings,
           system: followupSystem,
           messages: history,
           signal: controller.signal,
           onDelta: (frag) => setFollowupStreamText((t) => t + frag),
+          onRestart: () => setFollowupStreamText(""),
         });
-        setFollowups((f) => [...f, { role: "assistant", text: full }]);
+        setAiSource(completion.model);
+        setFollowups((f) => [...f, { role: "assistant", text: completion.text }]);
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
         setError(e instanceof Error ? e.message : "Request failed.");
@@ -560,7 +580,7 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
         setFollowupStreamText("");
       }
     },
-    [aiConfig, reviewIdea, reviewResult, reviewSystem, followups],
+    [aiSettings, aiReady, reviewIdea, reviewResult, reviewSystem, followups],
   );
 
   const handleSend = useCallback(() => {
@@ -834,7 +854,7 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
                 anchor={reviewAnchor}
                 result={reviewResult}
                 pack={reviewPack}
-                model={aiConfig?.model}
+                model={aiSource ?? undefined}
                 showOpenPageLink={
                   reviewResult.outcome === "no-evidence" &&
                   reviewIdea.symbol !== null &&

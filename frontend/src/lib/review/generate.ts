@@ -7,9 +7,9 @@
 // the finished review JSON to /api/review/:id. The AI provider key never
 // touches this app's server — see CLAUDE.md's BYOK invariant.
 
+import { runAiWithFallback } from "@/lib/ai/chain";
 import type { AiMessage } from "@/lib/ai/client";
-import { runAiAnalyst } from "@/lib/ai/client";
-import type { ResolvedAiConfig } from "@/lib/ai/providers";
+import type { AiSettingsSnapshot } from "@/lib/ai/providers";
 import type { Candle } from "@/lib/engine/types";
 
 import { preprocessCandles, unavailableCandleContext } from "./candles";
@@ -96,7 +96,12 @@ export interface GenerateReviewOptions {
   trade: ReviewTrade;
   allTrades: ReviewTrade[];
   mode: ReviewMode;
-  aiConfig: ResolvedAiConfig;
+  /**
+   * The user's stored AI settings. The chain resolves them into an ordered
+   * candidate list (their provider first, then the configured fallbacks), so a
+   * single provider outage no longer costs the whole review.
+   */
+  aiSettings: AiSettingsSnapshot;
   signal?: AbortSignal;
 }
 
@@ -107,7 +112,7 @@ export interface GenerateReviewOptions {
  * persist under /api/review/:id).
  */
 export async function generateReview(options: GenerateReviewOptions): Promise<TradeReview> {
-  const { trade, allTrades, mode, aiConfig, signal } = options;
+  const { trade, allTrades, mode, aiSettings, signal } = options;
 
   const previousTrade = findPreviousTrade(trade, allTrades);
   const baseline = buildUserBaseline(allTrades);
@@ -127,8 +132,14 @@ export async function generateReview(options: GenerateReviewOptions): Promise<Tr
   });
 
   const messages: AiMessage[] = [{ role: "user", content: userPrompt }];
-  const raw = await runAiAnalyst({ config: aiConfig, system, messages, signal, maxTokens: 2000 });
-  const review = parseAndValidateReview(raw);
+  const completion = await runAiWithFallback({
+    settings: aiSettings,
+    system,
+    messages,
+    signal,
+    maxTokens: 2000,
+  });
+  const review = parseAndValidateReview(completion.text);
 
   // The backend stores full_review verbatim plus a few denormalized columns
   // (review_mode/severity/grade/one_liner) for cheap list-view queries — see
@@ -144,7 +155,7 @@ export async function generateReview(options: GenerateReviewOptions): Promise<Tr
       grade: review.grade,
       one_liner: review.one_liner,
       full_review: review,
-      model_used: aiConfig.model,
+      model_used: completion.model,
     }),
   });
   if (!res.ok) {

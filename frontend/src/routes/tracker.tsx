@@ -11,8 +11,7 @@ import { useForwardTestRecord } from "@/hooks/useForwardTestRecord";
 import { useForwardTestRecords } from "@/hooks/useForwardTestRecords";
 import { useLivePrice } from "@/hooks/useLivePrice";
 import { useTrackedFollows, useUnfollowSignal } from "@/hooks/useTrackedFollows";
-import { runAiAnalyst } from "@/lib/ai/client";
-import { resolveAiConfig } from "@/lib/ai/providers";
+import { buildCandidates, runAiWithFallback } from "@/lib/ai/chain";
 import { INTENTS } from "@/lib/engine/intent";
 import {
   evaluateTrackedSignal,
@@ -399,19 +398,19 @@ function EdgeVerdictTile({ metrics }: { metrics: TrackerMetrics }) {
   const aiApiKeys = useAiSettingsStore((s) => s.apiKeys);
   const aiModels = useAiSettingsStore((s) => s.models);
   const aiCustomBaseUrl = useAiSettingsStore((s) => s.customBaseUrl);
-  const aiConfig = useMemo(
-    () =>
-      resolveAiConfig({
-        provider: aiProvider,
-        apiKeys: aiApiKeys,
-        models: aiModels,
-        customBaseUrl: aiCustomBaseUrl,
-      }),
+  const aiSettings = useMemo(
+    () => ({
+      provider: aiProvider,
+      apiKeys: aiApiKeys,
+      models: aiModels,
+      customBaseUrl: aiCustomBaseUrl,
+    }),
     [aiProvider, aiApiKeys, aiModels, aiCustomBaseUrl],
   );
+  const aiReady = useMemo(() => buildCandidates(aiSettings).length > 0, [aiSettings]);
 
   const generateVerdict = async () => {
-    if (!aiConfig || loading) return;
+    if (!aiReady || loading) return;
     setLoading(true);
     setError(null);
     try {
@@ -430,13 +429,13 @@ function EdgeVerdictTile({ metrics }: { metrics: TrackerMetrics }) {
         `Average R on closed trades: ` +
         `${metrics.currentRR !== null ? `${metrics.currentRR >= 0 ? "+" : ""}${metrics.currentRR}R` : "n/a"}. ` +
         `Best trade: ${bestTradeText}.`;
-      const text = await runAiAnalyst({
-        config: aiConfig,
+      const completion = await runAiWithFallback({
+        settings: aiSettings,
         system,
         messages: [{ role: "user", content }],
         maxTokens: 120,
       });
-      setVerdict(text);
+      setVerdict(completion.text);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Verdict generation failed.");
     } finally {
@@ -450,7 +449,7 @@ function EdgeVerdictTile({ metrics }: { metrics: TrackerMetrics }) {
         <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           Current best edge verdict
         </div>
-        {aiConfig && (
+        {aiReady && (
           <button
             onClick={generateVerdict}
             disabled={loading}
@@ -461,7 +460,7 @@ function EdgeVerdictTile({ metrics }: { metrics: TrackerMetrics }) {
         )}
       </div>
 
-      {!aiConfig ? (
+      {!aiReady ? (
         <p className="mt-1 text-[11px] text-muted-foreground">
           Add an AI key in{" "}
           <Link to="/settings" className="font-medium text-info underline-offset-2 hover:underline">
