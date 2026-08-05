@@ -50,6 +50,7 @@ import { Route as ApiBinanceReviewTradesRouteImport } from './routes/api/binance
 import { Route as ApiBinanceReviewSyncRouteImport } from './routes/api/binance-review.sync'
 import { Route as ApiBinanceReviewApiKeyRouteImport } from './routes/api/binance-review.api-key'
 import { Route as ApiExecutionPermitIdRouteImport } from './routes/api/execution.permit.$id'
+import { Route as ApiAiChatCompletionsRouteImport } from './routes/api/ai.chat.completions'
 
 const WatchlistRoute = WatchlistRouteImport.update({
   id: '/watchlist',
@@ -257,6 +258,11 @@ const ApiExecutionPermitIdRoute = ApiExecutionPermitIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiExecutionPermitRoute,
 } as any)
+const ApiAiChatCompletionsRoute = ApiAiChatCompletionsRouteImport.update({
+  id: '/api/ai/chat/completions',
+  path: '/api/ai/chat/completions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -299,6 +305,7 @@ export interface FileRoutesByFullPath {
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
+  '/api/ai/chat/completions': typeof ApiAiChatCompletionsRoute
   '/api/execution/permit/$id': typeof ApiExecutionPermitIdRoute
 }
 export interface FileRoutesByTo {
@@ -342,6 +349,7 @@ export interface FileRoutesByTo {
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
+  '/api/ai/chat/completions': typeof ApiAiChatCompletionsRoute
   '/api/execution/permit/$id': typeof ApiExecutionPermitIdRoute
 }
 export interface FileRoutesById {
@@ -386,6 +394,7 @@ export interface FileRoutesById {
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
+  '/api/ai/chat/completions': typeof ApiAiChatCompletionsRoute
   '/api/execution/permit/$id': typeof ApiExecutionPermitIdRoute
 }
 export interface FileRouteTypes {
@@ -431,6 +440,7 @@ export interface FileRouteTypes {
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
+    | '/api/ai/chat/completions'
     | '/api/execution/permit/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -474,6 +484,7 @@ export interface FileRouteTypes {
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
+    | '/api/ai/chat/completions'
     | '/api/execution/permit/$id'
   id:
     | '__root__'
@@ -517,6 +528,7 @@ export interface FileRouteTypes {
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
+    | '/api/ai/chat/completions'
     | '/api/execution/permit/$id'
   fileRoutesById: FileRoutesById
 }
@@ -560,6 +572,7 @@ export interface RootRouteChildren {
   ApiExecutionPermitRoute: typeof ApiExecutionPermitRouteWithChildren
   ApiReviewIdRoute: typeof ApiReviewIdRoute
   ApiReviewAnalyticsRoute: typeof ApiReviewAnalyticsRoute
+  ApiAiChatCompletionsRoute: typeof ApiAiChatCompletionsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -851,6 +864,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiExecutionPermitIdRouteImport
       parentRoute: typeof ApiExecutionPermitRoute
     }
+    '/api/ai/chat/completions': {
+      id: '/api/ai/chat/completions'
+      path: '/api/ai/chat/completions'
+      fullPath: '/api/ai/chat/completions'
+      preLoaderRoute: typeof ApiAiChatCompletionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -917,6 +937,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiExecutionPermitRoute: ApiExecutionPermitRouteWithChildren,
   ApiReviewIdRoute: ApiReviewIdRoute,
   ApiReviewAnalyticsRoute: ApiReviewAnalyticsRoute,
+  ApiAiChatCompletionsRoute: ApiAiChatCompletionsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

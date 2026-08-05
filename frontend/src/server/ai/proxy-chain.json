@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "_comment": [
+    "Server-side AI fallback chain for the free tier. Same shape as the client's",
+    "fallback-chain.json, with one difference that matters: credentials are named,",
+    "never written. `keyEnv` is the environment variable the key lives in — set it",
+    "in /etc/market-pulse.env (EnvironmentFile of market-pulse.service).",
+    "",
+    "An entry whose keyEnv is unset is skipped, so this file is safe to ship with",
+    "every provider listed: nothing is callable until an operator supplies a key.",
+    "If none are set, the proxy reports 503 and the client falls back to the",
+    "user's own BYOK provider.",
+    "",
+    "Order is the failover order. Put the cheapest/most generous tier first."
+  ],
+  "chain": [
+    {
+      "id": "opencode-zen",
+      "label": "opencode zen (DeepSeek V4 Flash free)",
+      "kind": "openai",
+      "url": "https://opencode.ai/zen/v1",
+      "model": "deepseek-v4-flash-free",
+      "keyEnv": "AI_PROXY_OPENCODE_KEY",
+      "enabled": true
+    },
+    {
+      "id": "tokenrouter",
+      "label": "TokenRouter (Kimi K3 free)",
+      "kind": "openai",
+      "url": "https://api.tokenrouter.com/v1",
+      "model": "moonshotai/kimi-k3-free",
+      "keyEnv": "AI_PROXY_TOKENROUTER_KEY",
+      "enabled": true
+    },
+    {
+      "id": "groq",
+      "label": "Groq",
+      "kind": "openai",
+      "url": "https://api.groq.com/openai/v1",
+      "model": "llama-3.3-70b-versatile",
+      "keyEnv": "AI_PROXY_GROQ_KEY",
+      "enabled": true
+    },
+    {
+      "id": "openrouter-free",
+      "label": "OpenRouter free",
+      "kind": "openai",
+      "url": "https://openrouter.ai/api/v1",
+      "model": "deepseek/deepseek-chat-v3-0324:free",
+      "keyEnv": "AI_PROXY_OPENROUTER_KEY",
+      "enabled": true
+    },
+    {
+      "id": "gemini",
+      "label": "Google Gemini",
+      "kind": "openai",
+      "url": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "model": "gemini-2.0-flash",
+      "keyEnv": "AI_PROXY_GEMINI_KEY",
+      "enabled": true
+    },
+    {
+      "id": "cerebras",
+      "label": "Cerebras",
+      "kind": "openai",
+      "url": "https://api.cerebras.ai/v1",
+      "model": "llama-3.3-70b",
+      "keyEnv": "AI_PROXY_CEREBRAS_KEY",
+      "enabled": true
+    }
+  ]
+}

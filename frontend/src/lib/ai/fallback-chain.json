@@ -13,7 +13,10 @@
     "             called without auth.",
     "  'proxy'  - same-origin server route that holds the credential. Use this for",
     "             any shared/free-tier key: a key placed in this file would ship to",
-    "             every visitor's browser and be trivially extracted.",
+    "             every visitor's browser and be trivially extracted. The route",
+    "             (/api/ai/chat/completions) runs its own vendor fallback chain,",
+    "             declared in server/ai/proxy-chain.json, and answers 503 until an",
+    "             operator sets at least one AI_PROXY_* key.",
     "",
     "kind: 'openai' (Chat Completions) or 'anthropic' (Messages).",
     "enabled: false keeps an entry documented but out of the chain."
@@ -60,9 +63,9 @@
       "label": "Market Pulse free tier",
       "transport": "proxy",
       "kind": "openai",
-      "url": "/api/ai/completions",
+      "url": "/api/ai",
       "model": "server-selected",
-      "enabled": false
+      "enabled": true
     }
   ]
 }
