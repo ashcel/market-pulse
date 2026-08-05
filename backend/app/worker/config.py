@@ -16,9 +16,11 @@ from arq.connections import RedisSettings
 from arq.cron import CronJob
 
 from app.config import settings
+from app.database import SessionFactory
 
 from .binance import close_http_client
 from .binance_review_sync_pass import run_binance_review_sync_pass
+from .forward_return_pass import run_forward_return_pass
 from .passes import run_once
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -37,6 +39,19 @@ async def forward_test_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -> s
 async def binance_review_sync_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -> str:  # noqa: ARG001
     """Hourly background Binance realized-PnL sync for every active-keyed user."""
     return await run_binance_review_sync_pass()
+
+
+async def forward_return_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -> str:  # noqa: ARG001
+    """Evidence-plane ground truth — forward returns off closed 1H bars.
+
+    Hourly, because the measurement is anchored to hourly closes: a faster
+    tick would re-derive identical rows. Offset to :34 so it lands between
+    the forward-test pass (:35) and the review sync (:03) without contending
+    for the shared Binance weight budget. No flag: this plane measures, it
+    never decides.
+    """
+    async with SessionFactory() as db:
+        return await run_forward_return_pass(db)
 
 
 async def shutdown(_ctx: dict[Any, Any]) -> None:
@@ -58,6 +73,13 @@ class WorkerSettings:
             minute={3},
             run_at_startup=False,
             timeout=900,
+        ),
+        cron(
+            forward_return_tick,
+            hour=set(range(24)),
+            minute={34},
+            run_at_startup=False,
+            timeout=600,
         ),
     ]
     on_shutdown = shutdown
