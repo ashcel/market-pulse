@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Ticker24h } from "./discovery";
 import { generateMockCandles } from "./mock-candles";
 import {
+  altsBeatingBtcPct,
   buildDemoRsScan,
   computeRsRows,
   RS_ENRICH_COUNT,
@@ -103,5 +104,44 @@ describe("buildDemoRsScan", () => {
     }
     // Enrichment ran on the demo build (7d RS present).
     expect(a.leaders.every((r) => r.rsBtc7d !== null)).toBe(true);
+  });
+});
+
+describe("altsBeatingBtcPct", () => {
+  const rsRow = (ticker: string, rsBtc24h: number) => ({
+    ticker,
+    name: ticker,
+    price: 1,
+    quoteVolume24h: 1,
+    tracked: false,
+    rsBtc24h,
+    rsPercentile24h: 50,
+    rsBtc7d: null,
+    transition: null,
+  });
+
+  it("counts strictly-positive spreads only", () => {
+    expect(altsBeatingBtcPct([rsRow("A", 2), rsRow("B", 0), rsRow("C", -1), rsRow("D", 0.1)])).toBe(
+      50,
+    );
+  });
+
+  it("is 0 on an empty set rather than NaN", () => {
+    expect(altsBeatingBtcPct([])).toBe(0);
+  });
+
+  it("saturates at both ends", () => {
+    expect(altsBeatingBtcPct([rsRow("A", 1), rsRow("B", 2)])).toBe(100);
+    expect(altsBeatingBtcPct([rsRow("A", -1), rsRow("B", -2)])).toBe(0);
+  });
+});
+
+describe("buildDemoRsScan alt breadth", () => {
+  it("reports a share consistent with the demo leaders and laggards", () => {
+    const scan = buildDemoRsScan();
+    expect(scan.altsBeatingBtcPct).toBeGreaterThanOrEqual(0);
+    expect(scan.altsBeatingBtcPct).toBeLessThanOrEqual(100);
+    // Leaders lead: if the top row is behind BTC, nothing can be beating it.
+    if (scan.leaders[0].rsBtc24h <= 0) expect(scan.altsBeatingBtcPct).toBe(0);
   });
 });

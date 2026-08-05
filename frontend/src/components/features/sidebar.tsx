@@ -6,14 +6,16 @@ import {
   Activity,
   ArrowLeftRight,
   BarChart3,
+  Bell,
   Bookmark,
+  CalendarDays,
   CandlestickChart,
-  ChevronLeft,
   ClipboardList,
+  Compass,
   LineChart,
   Newspaper,
   Settings,
-  Sparkles,
+  Star,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useUiStore } from "@/stores/ui";
@@ -36,6 +38,10 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/", label: "Dashboard", icon: LayoutDashboard },
       { to: "/markets", label: "Markets", icon: Layers },
+      { to: "/discover", label: "Discover", icon: Compass },
+      { to: "/news", label: "News", icon: Newspaper },
+      { to: "/events", label: "Events", icon: CalendarDays },
+      { to: "/watchlist", label: "Watchlist", icon: Star },
     ],
   },
   {
@@ -45,7 +51,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/rotation", label: "Rotation", icon: ArrowLeftRight },
       { to: "/rankings", label: "Rankings", icon: BarChart3 },
       { to: "/technical", label: "Technical", icon: LineChart },
-      { to: "/news", label: "News", icon: Newspaper },
     ],
   },
   {
@@ -54,6 +59,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/tracker", label: "Tracker", icon: Bookmark },
       { to: "/review", label: "Trade Review", icon: ClipboardList },
       { to: "/trades", label: "Trades", icon: CandlestickChart },
+      { to: "/alerts", label: "Alerts", icon: Bell },
     ],
   },
   {

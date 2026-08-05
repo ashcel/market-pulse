@@ -1,6 +1,7 @@
 import { Search, Sun, Moon, Menu, PanelLeftClose, PanelLeftOpen, Sparkles } from "lucide-react";
 import { useUiStore } from "@/stores/ui";
 import { usePreferencesStore } from "@/stores/preferences";
+import { useSnapshotMeta } from "@/hooks/queries";
 import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Link, useRouterState } from "@tanstack/react-router";
@@ -56,6 +57,7 @@ export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
       <SearchCommand open={searchOpen} onOpenChange={setSearchOpen} />
 
       <div className="ml-auto flex items-center gap-1">
+        <ExchangeClock />
         <div className="mr-1 hidden items-center rounded-md border border-border bg-surface p-0.5 text-xs sm:flex">
           {(["spot", "perp"] as const).map((m) => (
             <button
@@ -101,6 +103,48 @@ export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
         <div className="ml-1 h-8 w-8 rounded-full bg-gradient-to-br from-info to-primary" />
       </div>
     </header>
+  );
+}
+
+/**
+ * Data-source + wall-clock indicator. The dot reads the snapshot's own
+ * provenance: green when the last snapshot came from Binance, amber when the
+ * app fell back to the deterministic demo build.
+ */
+function ExchangeClock() {
+  const meta = useSnapshotMeta();
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 20_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const live = meta.data?.source === "live";
+  const offsetMinutes = -now.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? "+" : "-";
+  const abs = Math.abs(offsetMinutes);
+  const offset = `UTC${sign}${Math.floor(abs / 60)}${abs % 60 ? `:${String(abs % 60).padStart(2, "0")}` : ""}`;
+
+  return (
+    <div
+      className="mr-2 hidden items-center gap-2 text-xs md:flex"
+      title={
+        meta.data
+          ? `Snapshot ${live ? "live from Binance" : "using the offline demo build"} · updated ${new Date(meta.data.updatedAt).toLocaleTimeString()}`
+          : "Waiting for the first snapshot"
+      }
+    >
+      <span
+        className={cn(
+          "h-1.5 w-1.5 rounded-full",
+          !meta.data ? "bg-muted-foreground" : live ? "bg-bullish" : "bg-warning",
+        )}
+      />
+      <span className="font-medium text-foreground">{live ? "Binance" : "Demo"}</span>
+      <span className="num text-muted-foreground">
+        {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })} {offset}
+      </span>
+    </div>
   );
 }
 

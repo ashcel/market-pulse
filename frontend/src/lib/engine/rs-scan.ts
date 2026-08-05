@@ -70,6 +70,20 @@ export interface RsScan {
   leaders: RsRow[];
   /** Weakest vs BTC first. */
   laggards: RsRow[];
+  /**
+   * Share (0-100) of ranked pairs outperforming BTC over the last 24h — an
+   * alt-strength breadth read for the dashboard. This is a 24h measure over
+   * Binance's liquid tier, NOT the 90-day Blockchain Center "Altcoin Season
+   * Index"; label it as what it is.
+   */
+  altsBeatingBtcPct: number;
+}
+
+/** Share (0-100) of ranked rows with positive 24h RS vs BTC. */
+export function altsBeatingBtcPct(ranked: RsRow[]): number {
+  if (ranked.length === 0) return 0;
+  const beating = ranked.filter((r) => r.rsBtc24h > 0).length;
+  return Math.round((beating / ranked.length) * 100);
 }
 
 /** Rows enriched with 7d RS + transition flags, per side. */
@@ -113,19 +127,17 @@ export function computeRsRows(
   const pcts = percentiles(spreads);
 
   return gated
-    .map(
-      (row, i): RsRow => ({
-        ticker: row.ticker,
-        name: NAME_BY_TICKER.get(row.ticker) ?? row.ticker,
-        price: row.lastPrice,
-        quoteVolume24h: Math.round(row.quoteVolume24h),
-        tracked: TRACKED_TICKERS.has(row.ticker),
-        rsBtc24h: round(spreads[i]),
-        rsPercentile24h: round(pcts[i], 0),
-        rsBtc7d: null,
-        transition: null,
-      }),
-    )
+    .map((row, i): RsRow => ({
+      ticker: row.ticker,
+      name: NAME_BY_TICKER.get(row.ticker) ?? row.ticker,
+      price: row.lastPrice,
+      quoteVolume24h: Math.round(row.quoteVolume24h),
+      tracked: TRACKED_TICKERS.has(row.ticker),
+      rsBtc24h: round(spreads[i]),
+      rsPercentile24h: round(pcts[i], 0),
+      rsBtc7d: null,
+      transition: null,
+    }))
     .sort(
       (a, b) =>
         b.rsBtc24h - a.rsBtc24h ||
@@ -214,6 +226,7 @@ export function buildDemoRsScan(): RsScan {
     pairsRanked: ranked.length,
     leaders: ranked.slice(0, RS_ENRICH_COUNT),
     laggards: ranked.slice(-RS_ENRICH_COUNT).reverse(),
+    altsBeatingBtcPct: altsBeatingBtcPct(ranked),
   };
 }
 
@@ -242,6 +255,7 @@ async function computeRsScan(): Promise<RsScan> {
     pairsRanked: ranked.length,
     leaders,
     laggards,
+    altsBeatingBtcPct: altsBeatingBtcPct(ranked),
   };
   scanCache = { at: now, data: scan };
   return scan;

@@ -161,6 +161,39 @@ export const useMacro = () =>
     refetchInterval: 10 * 60_000,
   });
 
+/** Mirrors the server's MarketContextRow (repo.ts) without importing server code. */
+export interface MarketContextSnapshot {
+  id: string;
+  totalMcapUsd: number;
+  btcDominance: number;
+  ethDominance: number | null;
+  mcapChange24hPct: number | null;
+  source: string;
+  fetchedAt: string;
+}
+
+export interface MarketContextRead {
+  latest: MarketContextSnapshot | null;
+  prior24h: MarketContextSnapshot | null;
+  series: { t: number; mcapUsd: number; btcDominance: number }[];
+}
+
+// Global breadth (total market cap + BTC dominance) from the worker's context
+// pass. Provider data refreshed every few minutes, so this polls slowly; a
+// null `latest` means nothing has been ingested (unconfigured keys) and every
+// consumer must render that as "unavailable", never as zero.
+export const useMarketContext = () =>
+  useQuery<MarketContextRead>({
+    queryKey: ["market-context"],
+    queryFn: async () => {
+      const res = await fetch("/api/market-context", { credentials: "same-origin" });
+      if (!res.ok) return { latest: null, prior24h: null, series: [] };
+      return (await res.json()) as MarketContextRead;
+    },
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+  });
+
 /** Mirrors the server's EconomicEventRow (repo.ts) without importing server code. */
 export interface UpcomingEconomicEvent {
   id: string;

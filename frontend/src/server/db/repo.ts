@@ -571,6 +571,26 @@ export async function latestMarketContextSnapshot(): Promise<MarketContextRow | 
   return rows.length ? rowToMarketContext(rows[0] as Record<string, unknown>) : null;
 }
 
+/**
+ * Breadth snapshots since `sinceIso`, oldest first — the sparkline series
+ * behind the dashboard's market-cap / dominance tiles. Capped so a stuck
+ * prune can never turn one dashboard load into an unbounded read; callers
+ * thin the series down to the points they actually plot.
+ */
+export async function marketContextSnapshotsSince(
+  sinceIso: string,
+  limit = 1000,
+): Promise<MarketContextRow[]> {
+  const rows = await sql`
+    select * from (
+      select * from market_context_snapshot
+      where fetched_at >= ${sinceIso}
+      order by fetched_at desc limit ${limit}
+    ) recent order by fetched_at asc
+  `;
+  return rows.map((r) => rowToMarketContext(r as Record<string, unknown>));
+}
+
 /** The newest snapshot at or before `iso` — the "~24h ago" row for deltas. */
 export async function marketContextSnapshotNear(isoTs: string): Promise<MarketContextRow | null> {
   const rows = await sql`

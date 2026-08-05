@@ -4,6 +4,7 @@ import {
   buildDemoScan,
   DEFAULT_GATES,
   parseTicker24hAll,
+  sumQuoteVolume,
   scanSpikes,
   scoreOpportunities,
   type MarketOpportunity,
@@ -262,5 +263,28 @@ describe("scanSpikes", () => {
   it("returns nothing when the tier is calm", async () => {
     const hits = await scanSpikes([opp("AAA"), opp("BBB")], () => Promise.resolve(calm()));
     expect(hits).toEqual([]);
+  });
+});
+
+describe("sumQuoteVolume", () => {
+  it("sums 24h turnover across every row", () => {
+    expect(
+      sumQuoteVolume([
+        row({ ticker: "AAA", quoteVolume24h: 1_000_000.4 }),
+        row({ ticker: "BBB", quoteVolume24h: 2_500_000.6 }),
+      ]),
+    ).toBe(3_500_001);
+  });
+
+  it("is 0 on an empty exchange read rather than NaN", () => {
+    expect(sumQuoteVolume([])).toBe(0);
+  });
+});
+
+describe("buildDemoScan volume", () => {
+  it("reports the demo build's own turnover, never a zero placeholder", () => {
+    const scan = buildDemoScan();
+    expect(scan.exchangeQuoteVolume24h).toBeGreaterThan(0);
+    expect(scan.exchangeQuoteVolume24h).toBe(buildDemoScan().exchangeQuoteVolume24h);
   });
 });

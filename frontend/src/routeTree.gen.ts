@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as TradesRouteImport } from './routes/trades'
 import { Route as TrackerRouteImport } from './routes/tracker'
 import { Route as TechnicalRouteImport } from './routes/technical'
@@ -20,6 +21,9 @@ import { Route as RankingsRouteImport } from './routes/rankings'
 import { Route as NewsRouteImport } from './routes/news'
 import { Route as MarketsRouteImport } from './routes/markets'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as EventsRouteImport } from './routes/events'
+import { Route as DiscoverRouteImport } from './routes/discover'
+import { Route as AlertsRouteImport } from './routes/alerts'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TokenSymbolRouteImport } from './routes/token.$symbol'
 import { Route as ApiWatchlistRouteImport } from './routes/api/watchlist'
@@ -28,6 +32,7 @@ import { Route as ApiTrackTokenRouteImport } from './routes/api/track-token'
 import { Route as ApiTokenEventsRouteImport } from './routes/api/token-events'
 import { Route as ApiPreferencesRouteImport } from './routes/api/preferences'
 import { Route as ApiNotificationsRouteImport } from './routes/api/notifications'
+import { Route as ApiMarketContextRouteImport } from './routes/api/market-context'
 import { Route as ApiKlinesRouteImport } from './routes/api/klines'
 import { Route as ApiForwardTestRouteImport } from './routes/api/forward-test'
 import { Route as ApiExternalContextRouteImport } from './routes/api/external-context'
@@ -46,6 +51,11 @@ import { Route as ApiBinanceReviewSyncRouteImport } from './routes/api/binance-r
 import { Route as ApiBinanceReviewApiKeyRouteImport } from './routes/api/binance-review.api-key'
 import { Route as ApiExecutionPermitIdRouteImport } from './routes/api/execution.permit.$id'
 
+const WatchlistRoute = WatchlistRouteImport.update({
+  id: '/watchlist',
+  path: '/watchlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TradesRoute = TradesRouteImport.update({
   id: '/trades',
   path: '/trades',
@@ -101,6 +111,21 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EventsRoute = EventsRouteImport.update({
+  id: '/events',
+  path: '/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiscoverRoute = DiscoverRouteImport.update({
+  id: '/discover',
+  path: '/discover',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AlertsRoute = AlertsRouteImport.update({
+  id: '/alerts',
+  path: '/alerts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -139,6 +164,11 @@ const ApiPreferencesRoute = ApiPreferencesRouteImport.update({
 const ApiNotificationsRoute = ApiNotificationsRouteImport.update({
   id: '/api/notifications',
   path: '/api/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMarketContextRoute = ApiMarketContextRouteImport.update({
+  id: '/api/market-context',
+  path: '/api/market-context',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiKlinesRoute = ApiKlinesRouteImport.update({
@@ -230,6 +260,9 @@ const ApiExecutionPermitIdRoute = ApiExecutionPermitIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/alerts': typeof AlertsRoute
+  '/discover': typeof DiscoverRoute
+  '/events': typeof EventsRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
   '/news': typeof NewsRoute
@@ -241,12 +274,14 @@ export interface FileRoutesByFullPath {
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
   '/trades': typeof TradesRoute
+  '/watchlist': typeof WatchlistRoute
   '/api/auth': typeof ApiAuthRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/evidence': typeof ApiEvidenceRoute
   '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
+  '/api/market-context': typeof ApiMarketContextRoute
   '/api/notifications': typeof ApiNotificationsRoute
   '/api/preferences': typeof ApiPreferencesRoute
   '/api/token-events': typeof ApiTokenEventsRoute
@@ -268,6 +303,9 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/alerts': typeof AlertsRoute
+  '/discover': typeof DiscoverRoute
+  '/events': typeof EventsRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
   '/news': typeof NewsRoute
@@ -279,12 +317,14 @@ export interface FileRoutesByTo {
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
   '/trades': typeof TradesRoute
+  '/watchlist': typeof WatchlistRoute
   '/api/auth': typeof ApiAuthRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/evidence': typeof ApiEvidenceRoute
   '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
+  '/api/market-context': typeof ApiMarketContextRoute
   '/api/notifications': typeof ApiNotificationsRoute
   '/api/preferences': typeof ApiPreferencesRoute
   '/api/token-events': typeof ApiTokenEventsRoute
@@ -307,6 +347,9 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/alerts': typeof AlertsRoute
+  '/discover': typeof DiscoverRoute
+  '/events': typeof EventsRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
   '/news': typeof NewsRoute
@@ -318,12 +361,14 @@ export interface FileRoutesById {
   '/technical': typeof TechnicalRoute
   '/tracker': typeof TrackerRoute
   '/trades': typeof TradesRoute
+  '/watchlist': typeof WatchlistRoute
   '/api/auth': typeof ApiAuthRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
   '/api/evidence': typeof ApiEvidenceRoute
   '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
+  '/api/market-context': typeof ApiMarketContextRoute
   '/api/notifications': typeof ApiNotificationsRoute
   '/api/preferences': typeof ApiPreferencesRoute
   '/api/token-events': typeof ApiTokenEventsRoute
@@ -347,6 +392,9 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/alerts'
+    | '/discover'
+    | '/events'
     | '/login'
     | '/markets'
     | '/news'
@@ -358,12 +406,14 @@ export interface FileRouteTypes {
     | '/technical'
     | '/tracker'
     | '/trades'
+    | '/watchlist'
     | '/api/auth'
     | '/api/economic-events'
     | '/api/evidence'
     | '/api/external-context'
     | '/api/forward-test'
     | '/api/klines'
+    | '/api/market-context'
     | '/api/notifications'
     | '/api/preferences'
     | '/api/token-events'
@@ -385,6 +435,9 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/alerts'
+    | '/discover'
+    | '/events'
     | '/login'
     | '/markets'
     | '/news'
@@ -396,12 +449,14 @@ export interface FileRouteTypes {
     | '/technical'
     | '/tracker'
     | '/trades'
+    | '/watchlist'
     | '/api/auth'
     | '/api/economic-events'
     | '/api/evidence'
     | '/api/external-context'
     | '/api/forward-test'
     | '/api/klines'
+    | '/api/market-context'
     | '/api/notifications'
     | '/api/preferences'
     | '/api/token-events'
@@ -423,6 +478,9 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/alerts'
+    | '/discover'
+    | '/events'
     | '/login'
     | '/markets'
     | '/news'
@@ -434,12 +492,14 @@ export interface FileRouteTypes {
     | '/technical'
     | '/tracker'
     | '/trades'
+    | '/watchlist'
     | '/api/auth'
     | '/api/economic-events'
     | '/api/evidence'
     | '/api/external-context'
     | '/api/forward-test'
     | '/api/klines'
+    | '/api/market-context'
     | '/api/notifications'
     | '/api/preferences'
     | '/api/token-events'
@@ -462,6 +522,9 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AlertsRoute: typeof AlertsRoute
+  DiscoverRoute: typeof DiscoverRoute
+  EventsRoute: typeof EventsRoute
   LoginRoute: typeof LoginRoute
   MarketsRoute: typeof MarketsRoute
   NewsRoute: typeof NewsRoute
@@ -473,12 +536,14 @@ export interface RootRouteChildren {
   TechnicalRoute: typeof TechnicalRoute
   TrackerRoute: typeof TrackerRoute
   TradesRoute: typeof TradesRoute
+  WatchlistRoute: typeof WatchlistRoute
   ApiAuthRoute: typeof ApiAuthRoute
   ApiEconomicEventsRoute: typeof ApiEconomicEventsRoute
   ApiEvidenceRoute: typeof ApiEvidenceRoute
   ApiExternalContextRoute: typeof ApiExternalContextRoute
   ApiForwardTestRoute: typeof ApiForwardTestRoute
   ApiKlinesRoute: typeof ApiKlinesRoute
+  ApiMarketContextRoute: typeof ApiMarketContextRoute
   ApiNotificationsRoute: typeof ApiNotificationsRoute
   ApiPreferencesRoute: typeof ApiPreferencesRoute
   ApiTokenEventsRoute: typeof ApiTokenEventsRoute
@@ -499,6 +564,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/watchlist': {
+      id: '/watchlist'
+      path: '/watchlist'
+      fullPath: '/watchlist'
+      preLoaderRoute: typeof WatchlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/trades': {
       id: '/trades'
       path: '/trades'
@@ -576,6 +648,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/events': {
+      id: '/events'
+      path: '/events'
+      fullPath: '/events'
+      preLoaderRoute: typeof EventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/discover': {
+      id: '/discover'
+      path: '/discover'
+      fullPath: '/discover'
+      preLoaderRoute: typeof DiscoverRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/alerts': {
+      id: '/alerts'
+      path: '/alerts'
+      fullPath: '/alerts'
+      preLoaderRoute: typeof AlertsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -630,6 +723,13 @@ declare module '@tanstack/react-router' {
       path: '/api/notifications'
       fullPath: '/api/notifications'
       preLoaderRoute: typeof ApiNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/market-context': {
+      id: '/api/market-context'
+      path: '/api/market-context'
+      fullPath: '/api/market-context'
+      preLoaderRoute: typeof ApiMarketContextRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/klines': {
@@ -779,6 +879,9 @@ const ApiExecutionPermitRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AlertsRoute: AlertsRoute,
+  DiscoverRoute: DiscoverRoute,
+  EventsRoute: EventsRoute,
   LoginRoute: LoginRoute,
   MarketsRoute: MarketsRoute,
   NewsRoute: NewsRoute,
@@ -790,12 +893,14 @@ const rootRouteChildren: RootRouteChildren = {
   TechnicalRoute: TechnicalRoute,
   TrackerRoute: TrackerRoute,
   TradesRoute: TradesRoute,
+  WatchlistRoute: WatchlistRoute,
   ApiAuthRoute: ApiAuthRoute,
   ApiEconomicEventsRoute: ApiEconomicEventsRoute,
   ApiEvidenceRoute: ApiEvidenceRoute,
   ApiExternalContextRoute: ApiExternalContextRoute,
   ApiForwardTestRoute: ApiForwardTestRoute,
   ApiKlinesRoute: ApiKlinesRoute,
+  ApiMarketContextRoute: ApiMarketContextRoute,
   ApiNotificationsRoute: ApiNotificationsRoute,
   ApiPreferencesRoute: ApiPreferencesRoute,
   ApiTokenEventsRoute: ApiTokenEventsRoute,

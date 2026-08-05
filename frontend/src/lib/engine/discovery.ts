@@ -79,6 +79,12 @@ export interface OpportunityScan {
   pairsSeen: number;
   /** Pairs that passed the liquidity/activity gates and were ranked. */
   pairsRanked: number;
+  /**
+   * Summed 24h USDT turnover across every pair seen — an exchange-wide
+   * activity read for the dashboard's volume tile. Binance USDT only; it is
+   * not global crypto volume and must never be labelled as such.
+   */
+  exchangeQuoteVolume24h: number;
   /** Ranked candidates, best first (preferred = [0]). */
   opportunities: MarketOpportunity[];
   /** Pairs across the whole liquidity tier currently in a spike-and-reject, heaviest volume first. */
@@ -306,6 +312,11 @@ export function scoreOpportunities(
   );
 }
 
+/** Exchange-wide 24h USDT turnover across the rows given. */
+export function sumQuoteVolume(rows: Ticker24h[]): number {
+  return Math.round(rows.reduce((sum, r) => sum + (r.quoteVolume24h || 0), 0));
+}
+
 /**
  * Deterministic offline fallback built from the same mock candles the rest of
  * the app degrades to. Gates are lifted because synthetic volumes aren't in
@@ -338,6 +349,7 @@ export function buildDemoScan(): OpportunityScan {
     updatedAt: new Date().toISOString(),
     pairsSeen: rows.length,
     pairsRanked: rows.length,
+    exchangeQuoteVolume24h: sumQuoteVolume(rows),
     opportunities: opportunities.slice(0, TOP_N),
     // Spike detection needs real short-TF klines; the offline build never
     // fabricates them, so the demo surface simply carries no spikes.
@@ -362,6 +374,8 @@ interface RankedScan {
   source: "live" | "demo";
   updatedAt: string;
   pairsSeen: number;
+  /** Summed 24h USDT turnover across every pair seen. */
+  exchangeQuoteVolume24h: number;
   /** FULL ranked list (not sliced) — spike scanning walks the whole tier. */
   ranked: MarketOpportunity[];
 }
@@ -382,6 +396,7 @@ async function computeRankedScan(): Promise<RankedScan> {
       source: "demo",
       updatedAt: demo.updatedAt,
       pairsSeen: demo.pairsSeen,
+      exchangeQuoteVolume24h: demo.exchangeQuoteVolume24h,
       ranked: demo.opportunities,
     };
   }
@@ -391,6 +406,7 @@ async function computeRankedScan(): Promise<RankedScan> {
     source: "live",
     updatedAt: new Date().toISOString(),
     pairsSeen: rows.length,
+    exchangeQuoteVolume24h: sumQuoteVolume(rows),
     ranked,
   };
   scanCache = { at: now, data };
@@ -494,6 +510,7 @@ async function computeScan(): Promise<OpportunityScan> {
     updatedAt: scan.updatedAt,
     pairsSeen: scan.pairsSeen,
     pairsRanked: scan.ranked.length,
+    exchangeQuoteVolume24h: scan.exchangeQuoteVolume24h,
     opportunities,
     spikes,
   };

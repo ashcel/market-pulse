@@ -140,8 +140,8 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
-import { useState } from "react";
 import { AskAiSidebar } from "../components/features/ask-ai-sidebar";
+import { useUiStore } from "../stores/ui";
 
 function RootContent() {
   useNotificationStream();
@@ -149,7 +149,10 @@ function RootContent() {
   useLiveUniverseSubscription();
   useWatchlistSync();
   usePreferencesSync();
-  const [askAiOpen, setAskAiOpen] = useState(true);
+  // Panel state lives in the UI store so any surface (e.g. the dashboard's
+  // "Ask AI" button) can open the analyst without prop-drilling.
+  const askAiOpen = useUiStore((s) => s.askAiOpen);
+  const setAskAi = useUiStore((s) => s.setAskAi);
 
   return (
     <>
@@ -159,12 +162,12 @@ function RootContent() {
       <div className="flex h-screen w-full bg-background overflow-hidden">
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <TopBar onToggleAskAi={() => setAskAiOpen(!askAiOpen)} />
+          <TopBar onToggleAskAi={() => setAskAi(!askAiOpen)} />
           <div className="flex flex-1 overflow-hidden">
             <main className="flex-1 overflow-y-auto px-4 pb-24 pt-4 sm:px-6 sm:pt-6 lg:pb-8">
               <Outlet />
             </main>
-            <AskAiSidebar open={askAiOpen} onClose={() => setAskAiOpen(false)} />
+            <AskAiSidebar open={askAiOpen} onClose={() => setAskAi(false)} />
           </div>
         </div>
         <BottomNav />
