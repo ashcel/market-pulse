@@ -9,6 +9,7 @@ import { useNotificationsStore } from "@/stores/notifications";
 import type { NotificationEvent } from "@/lib/engine/notifications";
 import { cn } from "@/lib/utils";
 import { humanRelative } from "@/lib/time";
+import { requireSession } from "@/lib/auth/guard";
 
 /**
  * Alert history. The SSE stream (`useNotificationStream`, mounted at the root)
@@ -16,6 +17,7 @@ import { humanRelative } from "@/lib/time";
  * browser-permission control. Nothing is generated here.
  */
 export const Route = createFileRoute("/alerts")({
+  beforeLoad: () => requireSession("/alerts"),
   head: () => ({
     meta: [
       { title: "Alerts — Market Pulse" },

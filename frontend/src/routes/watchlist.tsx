@@ -13,6 +13,7 @@ import { StatusBadge } from "@/components/features/status-badge";
 import { useAssets } from "@/hooks/queries";
 import { useTokenEventsForSymbols } from "@/hooks/useTokenEvents";
 import { useWatchlistStore } from "@/stores/watchlist";
+import { requireSession } from "@/lib/auth/guard";
 
 /**
  * The watchlist page. The list is the local store synced server-side for
@@ -20,6 +21,7 @@ import { useWatchlistStore } from "@/stores/watchlist";
  * also shows what each watched token has coming.
  */
 export const Route = createFileRoute("/watchlist")({
+  beforeLoad: () => requireSession("/watchlist"),
   head: () => ({
     meta: [
       { title: "Watchlist — Market Pulse" },

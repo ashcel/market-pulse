@@ -18,8 +18,10 @@ import {
 import { useOpenTradesPnl, type OpenTradePnl } from "@/hooks/useOpenTradesPnl";
 import { formatMoney } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
+import { requireSession } from "@/lib/auth/guard";
 
 export const Route = createFileRoute("/trades")({
+  beforeLoad: () => requireSession("/trades"),
   head: () => ({
     meta: [
       { title: "Positions & Journal — Market Pulse" },

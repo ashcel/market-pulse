@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { TradeTicket } from "./trade-ticket";
 import { PermitCard } from "./permit-card";
+import { useAuth } from "@/hooks/useAuth";
 import { useTradeTicket } from "@/hooks/useTradeTicket";
 import { usePermit } from "@/hooks/usePermit";
 import { useCreateTrade } from "@/hooks/useTrades";
@@ -47,6 +48,7 @@ export function ExecutionPanel({
   /** When present, a confirmed trade is also logged as a running position via useCreateTrade. */
   logContext?: ExecutionLogContext;
 }) {
+  const { isAuthed, isPending: authPending } = useAuth();
   const [step, setStep] = useState<Step>("TICKET");
   const [isConfirming, setIsConfirming] = useState(false);
   const [executionError, setExecutionError] = useState<string | null>(null);
@@ -67,6 +69,27 @@ export function ExecutionPanel({
     setStep("TICKET");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(initialTicket)]);
+
+  // Every execution API (permit, execute, trades) requires a session and will
+  // 401 an anonymous caller. Say so up front rather than letting the trader
+  // build a ticket that cannot be submitted.
+  if (!authPending && !isAuthed) {
+    return (
+      <IqCard className={className}>
+        <h3 className="text-sm font-semibold">Sign in to place a trade</h3>
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          Position sizing, the risk permit, and order placement are tied to your account and its
+          Trading Constitution limits.
+        </p>
+        <Link
+          to="/login"
+          className="mt-4 inline-flex rounded-md border border-info/30 bg-info/10 px-3 py-1.5 text-xs font-semibold text-info transition-colors hover:bg-info/20"
+        >
+          Sign in
+        </Link>
+      </IqCard>
+    );
+  }
 
   const handleConfirm = async () => {
     setIsConfirming(true);

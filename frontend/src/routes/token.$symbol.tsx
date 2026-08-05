@@ -1,4 +1,4 @@
-import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
+import { createFileRoute, notFound, useNavigate, useRouter } from "@tanstack/react-router";
 import React, {
   useCallback,
   useEffect,
@@ -169,6 +169,7 @@ import type { MarketStructure } from "@/lib/engine/structure";
 import { formatEntryRange, formatMoney, formatUnits } from "@/lib/utils/format";
 import { computeLeverageMetrics, MAX_LEVERAGE, MIN_LEVERAGE } from "@/lib/utils/leverage";
 import { usePreferencesStore, type ChartIndicatorKey } from "@/stores/preferences";
+import { useAuth } from "@/hooks/useAuth";
 import { useWatchlistStore } from "@/stores/watchlist";
 import { NotSignedInError, useFollowSignal, useTrackedFollows } from "@/hooks/useTrackedFollows";
 import { useAiSettingsStore } from "@/stores/ai-settings";
@@ -369,6 +370,8 @@ function TokenDetailPage() {
   // which is the set forward-test alerts treat as followed.
   const isWatched = useWatchlistStore((s) => s.tickers.includes(symbol));
   const toggleWatch = useWatchlistStore((s) => s.toggle);
+  const { isAuthed } = useAuth();
+  const navigate = useNavigate();
 
   // Auto-track on open: tell the server this token was viewed so the unlock
   // pass will fetch its calendar (scope = universe + starred + opened).
@@ -630,6 +633,14 @@ function TokenDetailPage() {
           <button
             type="button"
             onClick={() => {
+              // Watching is what scopes server-side event alerts, so it needs
+              // an account — a local-only star would silently alert nobody.
+              if (!isAuthed) {
+                toast.info("Sign in to watch tokens and get their event alerts.", {
+                  action: { label: "Sign in", onClick: () => navigate({ to: "/login" }) },
+                });
+                return;
+              }
               toggleWatch(symbol);
               toast.success(isWatched ? `Removed ${symbol} from watchlist` : `Watching ${symbol}`);
             }}
@@ -1647,22 +1658,18 @@ function TokenChart({
       // cycle to validate all pane views against the final time scale before any
       // user interaction can trigger hit-test (which calls recolor-items code).
 
-      const candleData = validCandles.map(
-        (c): CandlestickData<Time> => ({
-          time: c.time as UTCTimestamp,
-          open: c.open,
-          high: c.high,
-          low: c.low,
-          close: c.close,
-        }),
-      );
-      const volumeData = validCandles.map(
-        (c): HistogramData<Time> => ({
-          time: c.time as UTCTimestamp,
-          value: c.volume,
-          color: c.close >= c.open ? "rgba(34,197,94,0.32)" : "rgba(244,63,94,0.32)",
-        }),
-      );
+      const candleData = validCandles.map((c): CandlestickData<Time> => ({
+        time: c.time as UTCTimestamp,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      }));
+      const volumeData = validCandles.map((c): HistogramData<Time> => ({
+        time: c.time as UTCTimestamp,
+        value: c.volume,
+        color: c.close >= c.open ? "rgba(34,197,94,0.32)" : "rgba(244,63,94,0.32)",
+      }));
       const emaFastData = computeEmaSeries(validCandles, EMA_FAST.length) ?? [];
       const emaSlowData = computeEmaSeries(validCandles, EMA_SLOW.length) ?? [];
 

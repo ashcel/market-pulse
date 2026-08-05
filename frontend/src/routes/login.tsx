@@ -18,6 +18,18 @@ async function postAuth(body: Record<string, unknown>): Promise<Response> {
   });
 }
 
+/**
+ * Where to land after signing in. The route guard redirects anonymous visitors
+ * here with `?redirect=<path>`; only same-origin absolute paths are honoured so
+ * the parameter can never bounce a user to another site.
+ */
+function postLoginTarget(): string {
+  if (typeof window === "undefined") return "/";
+  const raw = new URLSearchParams(window.location.search).get("redirect");
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/";
+  return raw;
+}
+
 function LoginPage() {
   const [status, setStatus] = useState<"idle" | "working" | "done" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -37,7 +49,7 @@ function LoginPage() {
           if (r.ok) {
             setStatus("done");
             setMessage("Signed in. Redirecting…");
-            setTimeout(() => (window.location.href = "/"), 800);
+            setTimeout(() => (window.location.href = postLoginTarget()), 800);
           } else {
             const j = await r.json().catch(() => ({}));
             setStatus("error");
@@ -71,7 +83,7 @@ function LoginPage() {
       if (r.ok) {
         setStatus("done");
         setMessage("Signed in. Redirecting…");
-        setTimeout(() => (window.location.href = "/"), 600);
+        setTimeout(() => (window.location.href = postLoginTarget()), 600);
       } else {
         const j = await r.json().catch(() => ({}));
         setStatus("error");
@@ -96,7 +108,7 @@ function LoginPage() {
     if (r.ok) {
       setStatus("done");
       setMessage("Welcome aboard. Redirecting…");
-      setTimeout(() => (window.location.href = "/"), 800);
+      setTimeout(() => (window.location.href = postLoginTarget()), 800);
     } else {
       const j = await r.json().catch(() => ({}));
       setStatus("error");

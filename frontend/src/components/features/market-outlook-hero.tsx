@@ -204,6 +204,7 @@ export function MarketOutlookHero() {
               <button
                 type="button"
                 onClick={() => setAskAi(true)}
+                title="AI can make mistakes — verify anything it says before acting on it."
                 className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium transition-colors hover:bg-surface/70"
               >
                 <Sparkles className="h-3.5 w-3.5" />

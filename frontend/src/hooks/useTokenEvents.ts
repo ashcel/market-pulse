@@ -65,14 +65,14 @@ const SYNC_DEBOUNCE_MS = 2_000;
  * step just means signed-out — the local store keeps working alone, and the
  * next signed-in session merges. Mounted once in the root layout.
  */
-export function useWatchlistSync() {
+export function useWatchlistSync(enabled = true) {
   const tickers = useWatchlistStore((s) => s.tickers);
   const bootstrapped = useRef(false);
   const skipNextPush = useRef(false);
 
   // One-time merge on load.
   useEffect(() => {
-    if (bootstrapped.current) return;
+    if (!enabled || bootstrapped.current) return;
     bootstrapped.current = true;
     (async () => {
       try {
@@ -95,11 +95,11 @@ export function useWatchlistSync() {
         // Offline — nothing to sync.
       }
     })();
-  }, []);
+  }, [enabled]);
 
   // Debounced push on every subsequent local change.
   useEffect(() => {
-    if (!bootstrapped.current) return;
+    if (!enabled || !bootstrapped.current) return;
     if (skipNextPush.current) {
       skipNextPush.current = false;
       return;
@@ -113,5 +113,5 @@ export function useWatchlistSync() {
       }).catch(() => {});
     }, SYNC_DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [tickers]);
+  }, [tickers, enabled]);
 }

@@ -18,6 +18,7 @@ import { FloatingPnlWidget } from "../components/features/floating-pnl-widget";
 import { ThemeSync } from "../components/features/theme-sync";
 import { Toaster } from "../components/ui/sonner";
 import { useLiveUniverseSubscription } from "../hooks/useLiveUniverseSubscription";
+import { useAuth } from "../hooks/useAuth";
 import { useWatchlistSync } from "../hooks/useTokenEvents";
 import { useNotificationStream } from "../hooks/useNotificationStream";
 import { useTriggerAlerts } from "../hooks/useTriggerAlerts";
@@ -144,11 +145,15 @@ import { AskAiSidebar } from "../components/features/ask-ai-sidebar";
 import { useUiStore } from "../stores/ui";
 
 function RootContent() {
+  const { isAuthed } = useAuth();
+  // Market-plane subscriptions are public; the user-scoped syncs below only
+  // run for a signed-in visitor so an anonymous session never fires requests
+  // that can only come back 401.
   useNotificationStream();
   useTriggerAlerts();
   useLiveUniverseSubscription();
-  useWatchlistSync();
-  usePreferencesSync();
+  useWatchlistSync(isAuthed);
+  usePreferencesSync(isAuthed);
   // Panel state lives in the UI store so any surface (e.g. the dashboard's
   // "Ask AI" button) can open the analyst without prop-drilling.
   const askAiOpen = useUiStore((s) => s.askAiOpen);
@@ -172,7 +177,7 @@ function RootContent() {
         </div>
         <BottomNav />
       </div>
-      <FloatingPnlWidget />
+      {isAuthed && <FloatingPnlWidget />}
     </>
   );
 }

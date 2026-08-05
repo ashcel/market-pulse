@@ -12,11 +12,11 @@ import { usePreferencesStore } from "@/stores/preferences";
  * modal and Settings. Mounted once in the root layout, alongside
  * useWatchlistSync.
  */
-export function usePreferencesSync() {
+export function usePreferencesSync(enabled = true) {
   const bootstrapped = useRef(false);
 
   useEffect(() => {
-    if (bootstrapped.current) return;
+    if (!enabled || bootstrapped.current) return;
     bootstrapped.current = true;
     (async () => {
       try {
@@ -35,7 +35,7 @@ export function usePreferencesSync() {
         // Offline — nothing to sync.
       }
     })();
-  }, []);
+  }, [enabled]);
 }
 
 /** PUT the user's explicit cap-segment choice to the server. Fire-and-forget:

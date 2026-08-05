@@ -620,6 +620,13 @@ export function AskAiSidebar({ open, onClose }: { open: boolean; onClose: () => 
         </button>
       </div>
 
+      {/* Standing disclaimer: the model narrates the engine's context, it does
+          not verify it, and it can be confidently wrong. */}
+      <p className="border-b border-border/50 bg-warning-soft/40 px-5 py-2 text-[10px] leading-snug text-muted-foreground">
+        AI can make mistakes — it may misread the data or state something false. Treat this as a
+        second opinion, verify against the chart and your own plan, and never trade on it alone.
+      </p>
+
       <div className="p-5 flex-1 overflow-y-auto flex flex-col gap-6">
         {mode === "composer" && (
           <>

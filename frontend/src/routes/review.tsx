@@ -42,8 +42,10 @@ import type { ReviewTrade, TradeReview } from "@/lib/review/types";
 import { formatMoney } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
 import { useAiSettingsStore } from "@/stores/ai-settings";
+import { requireSession } from "@/lib/auth/guard";
 
 export const Route = createFileRoute("/review")({
+  beforeLoad: () => requireSession("/review"),
   head: () => ({
     meta: [
       { title: "Trade Review — Market Pulse" },
@@ -435,7 +437,9 @@ function TrackRecordRow({ horizon: h }: { horizon: HorizonEvidence }) {
         {h.insufficient || h.winRate === null ? "—" : `${(h.winRate * 100).toFixed(0)}%`}
       </TableCell>
       <TableCell className="num text-right text-bullish">
-        {h.best ? `${baseSymbol(h.best.symbol)} ${formatFractionPercent(h.best.forwardReturn)}` : "—"}
+        {h.best
+          ? `${baseSymbol(h.best.symbol)} ${formatFractionPercent(h.best.forwardReturn)}`
+          : "—"}
       </TableCell>
       <TableCell className="num text-right text-bearish">
         {h.worst

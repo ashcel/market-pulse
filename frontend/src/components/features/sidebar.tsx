@@ -18,6 +18,7 @@ import {
   Star,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/hooks/useAuth";
 import { useUiStore } from "@/stores/ui";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -25,6 +26,8 @@ export type NavItem = {
   to: string;
   label: string;
   icon: React.ElementType;
+  /** Personal-plane destination: hidden from anonymous visitors and guarded server-side. */
+  requiresAuth?: boolean;
 };
 
 type NavGroup = {
@@ -41,7 +44,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/discover", label: "Discover", icon: Compass },
       { to: "/news", label: "News", icon: Newspaper },
       { to: "/events", label: "Events", icon: CalendarDays },
-      { to: "/watchlist", label: "Watchlist", icon: Star },
+      { to: "/watchlist", label: "Watchlist", icon: Star, requiresAuth: true },
     ],
   },
   {
@@ -56,20 +59,32 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Trading",
     items: [
-      { to: "/tracker", label: "Tracker", icon: Bookmark },
-      { to: "/review", label: "Trade Review", icon: ClipboardList },
-      { to: "/trades", label: "Trades", icon: CandlestickChart },
-      { to: "/alerts", label: "Alerts", icon: Bell },
+      { to: "/tracker", label: "Tracker", icon: Bookmark, requiresAuth: true },
+      { to: "/review", label: "Trade Review", icon: ClipboardList, requiresAuth: true },
+      { to: "/trades", label: "Trades", icon: CandlestickChart, requiresAuth: true },
+      { to: "/alerts", label: "Alerts", icon: Bell, requiresAuth: true },
     ],
   },
   {
     label: "Account",
-    items: [{ to: "/settings", label: "Settings", icon: Settings }],
+    items: [{ to: "/settings", label: "Settings", icon: Settings, requiresAuth: true }],
   },
 ];
 
 // Flat NAV for backward compat (used by top-bar mobile nav)
 export const NAV = NAV_GROUPS.flatMap((g) => g.items) as readonly NavItem[];
+
+/**
+ * The nav an anonymous visitor sees: the market plane only. Groups that end up
+ * empty drop out entirely rather than rendering a bare heading.
+ */
+export function visibleNavGroups(isAuthed: boolean): NavGroup[] {
+  if (isAuthed) return NAV_GROUPS;
+  return NAV_GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((i) => !i.requiresAuth),
+  })).filter((g) => g.items.length > 0);
+}
 
 export function IqLogo({ className }: { className?: string }) {
   return (
@@ -93,8 +108,8 @@ export function Sidebar() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const collapsed = useUiStore((s) => !s.sidebarOpen);
   const setSidebar = useUiStore((s) => s.setSidebar);
-
-  const toggle = () => setSidebar(collapsed);
+  const { isAuthed, isPending } = useAuth();
+  const groups = visibleNavGroups(isAuthed);
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -119,7 +134,7 @@ export function Sidebar() {
 
         {/* Nav groups */}
         <nav className="flex flex-col gap-3 px-2 mt-1 flex-1 overflow-y-auto overflow-x-hidden">
-          {NAV_GROUPS.map((group) => (
+          {groups.map((group) => (
             <div key={group.label}>
               <AnimatePresence initial={false}>
                 {!collapsed && (
@@ -211,9 +226,9 @@ export function Sidebar() {
           )}
         </AnimatePresence>
 
-        {/* Pro upsell + user — only when expanded */}
+        {/* Account block — only when expanded */}
         <AnimatePresence initial={false}>
-          {!collapsed && (
+          {!collapsed && !isPending && (
             <motion.div
               key="footer"
               initial={{ opacity: 0 }}
@@ -222,30 +237,22 @@ export function Sidebar() {
               transition={{ duration: 0.15 }}
               className="mx-2 mb-4 mt-auto space-y-3 pt-3"
             >
-              <div className="rounded-xl border border-sidebar-border bg-surface p-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold">Market Pulse Pro</span>
-                  <span className="rounded-md bg-info px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-background">
-                    Pro
-                  </span>
+              {isAuthed ? (
+                <AccountBlock />
+              ) : (
+                <div className="rounded-xl border border-sidebar-border bg-surface p-4">
+                  <div className="text-sm font-semibold">Sign in</div>
+                  <p className="mt-1.5 text-[11px] text-muted-foreground">
+                    Track trades, keep a watchlist, and get alerts on the tokens you follow.
+                  </p>
+                  <Link
+                    to="/login"
+                    className="mt-3 block rounded-md border border-info/30 bg-info/10 py-1.5 text-center text-xs font-medium text-info transition-colors hover:bg-info/20"
+                  >
+                    Sign in
+                  </Link>
                 </div>
-                <p className="mt-1.5 text-[11px] text-muted-foreground">
-                  Unlock advanced insights, alerts, and more.
-                </p>
-                <button className="mt-3 w-full rounded-md border border-info/30 bg-info/10 py-1.5 text-xs font-medium text-info transition-colors hover:bg-info/20">
-                  Upgrade Now
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2.5 rounded-lg px-1.5 py-1">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-warning-soft text-warning text-xs font-bold shrink-0">
-                  D
-                </div>
-                <div className="leading-tight min-w-0">
-                  <div className="text-xs font-semibold">HeyDewi</div>
-                  <div className="text-[10px] text-muted-foreground">Pro Plan</div>
-                </div>
-              </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -274,4 +281,40 @@ function MarketClock() {
     return () => clearInterval(id);
   }, []);
   return <>{now}</>;
+}
+
+function AccountBlock() {
+  const { user } = useAuth();
+  const initial = (user?.displayName || user?.email || "?").charAt(0).toUpperCase();
+  return (
+    <>
+      <div className="rounded-xl border border-sidebar-border bg-surface p-4">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold">Market Pulse Pro</span>
+          <span className="rounded-md bg-info px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-background">
+            Pro
+          </span>
+        </div>
+        <p className="mt-1.5 text-[11px] text-muted-foreground">
+          Unlock advanced insights, alerts, and more.
+        </p>
+        <button className="mt-3 w-full rounded-md border border-info/30 bg-info/10 py-1.5 text-xs font-medium text-info transition-colors hover:bg-info/20">
+          Upgrade Now
+        </button>
+      </div>
+
+      <Link
+        to="/settings"
+        className="flex items-center gap-2.5 rounded-lg px-1.5 py-1 hover:bg-sidebar-accent"
+      >
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-warning-soft text-warning text-xs font-bold shrink-0">
+          {initial}
+        </div>
+        <div className="leading-tight min-w-0">
+          <div className="text-xs font-semibold truncate">{user?.displayName ?? "Account"}</div>
+          <div className="text-[10px] text-muted-foreground">Signed in</div>
+        </div>
+      </Link>
+    </>
+  );
 }

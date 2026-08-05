@@ -33,6 +33,7 @@ import {
   useTopAssets,
   useVolatility,
 } from "@/hooks/queries";
+import { useAuth } from "@/hooks/useAuth";
 import { useOpenTradesPnl } from "@/hooks/useOpenTradesPnl";
 import { useReviewTrades } from "@/hooks/useReview";
 import { marketEdge, marketIntentOutlook } from "@/lib/engine/intent";
@@ -415,6 +416,7 @@ function CapitalFlowHeatmap() {
  * there is neither, this renders nothing — the dashboard does not nag.
  */
 function TradesAndBehaviorStrip() {
+  const { isAuthed } = useAuth();
   const { count, totalUnrealized } = useOpenTradesPnl();
   const { trades } = useReviewTrades();
 
@@ -427,7 +429,7 @@ function TradesAndBehaviorStrip() {
     }
   }
 
-  if (count === 0 && !behaviorWarning) return null;
+  if (!isAuthed || (count === 0 && !behaviorWarning)) return null;
 
   return (
     <IqCard padded={false} className="px-5 py-4">

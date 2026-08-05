@@ -31,6 +31,7 @@ import {
 import { useAiSettingsStore } from "@/stores/ai-settings";
 import { formatEntryRange, formatMoney } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
+import { requireSession } from "@/lib/auth/guard";
 
 const PAGE_SIZE = 10;
 
@@ -42,6 +43,7 @@ function humanize(value: string): string {
 }
 
 export const Route = createFileRoute("/tracker")({
+  beforeLoad: () => requireSession("/tracker"),
   head: () => ({
     meta: [
       { title: "Signal Tracker — Market Pulse" },

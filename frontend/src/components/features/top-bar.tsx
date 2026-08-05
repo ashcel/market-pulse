@@ -2,10 +2,11 @@ import { Search, Sun, Moon, Menu, PanelLeftClose, PanelLeftOpen, Sparkles } from
 import { useUiStore } from "@/stores/ui";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSnapshotMeta } from "@/hooks/queries";
+import { useAuth } from "@/hooks/useAuth";
 import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { IqLogo, NAV_GROUPS } from "./sidebar";
+import { IqLogo, visibleNavGroups } from "./sidebar";
 import { SearchCommand } from "./search-command";
 import { NotificationBell } from "./notification-bell";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
   const setMarketType = usePreferencesStore((s) => s.setMarketType);
   const [mounted, setMounted] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const { isAuthed, isPending } = useAuth();
   useEffect(() => setMounted(true), []);
 
   return (
@@ -83,7 +85,7 @@ export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
         >
           <Search className="h-4 w-4" />
         </button>
-        <NotificationBell />
+        {isAuthed && <NotificationBell />}
         <button
           onClick={toggleTheme}
           className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
@@ -100,7 +102,20 @@ export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
             <Sparkles className="h-4 w-4" />
           </button>
         )}
-        <div className="ml-1 h-8 w-8 rounded-full bg-gradient-to-br from-info to-primary" />
+        {isPending ? null : isAuthed ? (
+          <Link
+            to="/settings"
+            aria-label="Account"
+            className="ml-1 h-8 w-8 rounded-full bg-gradient-to-br from-info to-primary"
+          />
+        ) : (
+          <Link
+            to="/login"
+            className="ml-1 rounded-lg border border-info/30 bg-info/10 px-3 py-1.5 text-xs font-semibold text-info transition-colors hover:bg-info/20"
+          >
+            Sign in
+          </Link>
+        )}
       </div>
     </header>
   );
@@ -151,6 +166,8 @@ function ExchangeClock() {
 function MobileNav() {
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (r) => r.location.pathname });
+  const { isAuthed } = useAuth();
+  const groups = visibleNavGroups(isAuthed);
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
@@ -165,7 +182,7 @@ function MobileNav() {
         <SheetTitle className="sr-only">Navigation</SheetTitle>
         <IqLogo />
         <nav className="mt-8 flex flex-col gap-4">
-          {NAV_GROUPS.map((group) => (
+          {groups.map((group) => (
             <div key={group.label}>
               <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
                 {group.label}

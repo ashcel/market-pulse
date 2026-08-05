@@ -1,8 +1,18 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Layers, CandlestickChart, Settings, Bookmark } from "lucide-react";
+import {
+  LayoutDashboard,
+  Layers,
+  CandlestickChart,
+  Settings,
+  Bookmark,
+  CalendarDays,
+  Compass,
+  LogIn,
+} from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
-const TABS = [
+const SIGNED_IN_TABS = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/markets", label: "Markets", icon: Layers },
   { to: "/trades", label: "Trades", icon: CandlestickChart },
@@ -10,8 +20,20 @@ const TABS = [
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
+// Anonymous visitors get the market plane plus a way in — never a tab that
+// would bounce them straight back to /login.
+const ANONYMOUS_TABS = [
+  { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/markets", label: "Markets", icon: Layers },
+  { to: "/discover", label: "Discover", icon: Compass },
+  { to: "/events", label: "Events", icon: CalendarDays },
+  { to: "/login", label: "Sign in", icon: LogIn },
+] as const;
+
 export function BottomNav() {
   const pathname = useRouterState({ select: (r) => r.location.pathname });
+  const { isAuthed } = useAuth();
+  const TABS = isAuthed ? SIGNED_IN_TABS : ANONYMOUS_TABS;
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 backdrop-blur lg:hidden">
       <div className="mx-auto flex max-w-md items-center justify-around px-2 pb-[env(safe-area-inset-bottom)] pt-1.5">

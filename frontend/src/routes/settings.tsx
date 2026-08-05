@@ -32,8 +32,10 @@ import { putCapSegment } from "@/hooks/usePreferencesSync";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { TradingConstitutionCard } from "@/components/features/trading-constitution-card";
+import { requireSession } from "@/lib/auth/guard";
 
 export const Route = createFileRoute("/settings")({
+  beforeLoad: () => requireSession("/settings"),
   head: () => ({
     meta: [
       { title: "Settings — Market Pulse" },

@@ -8,6 +8,7 @@ import { CardEyebrow, IqCard } from "./iq-card";
 import { formatPrice } from "./market-card";
 import { SearchCommand } from "./search-command";
 import { useAssets } from "@/hooks/queries";
+import { useAuth } from "@/hooks/useAuth";
 import { useWatchlistStore } from "@/stores/watchlist";
 
 /**
@@ -17,6 +18,7 @@ import { useWatchlistStore } from "@/stores/watchlist";
  * prompting about.
  */
 export function WatchlistRail({ limit = 6 }: { limit?: number }) {
+  const { isAuthed, isPending } = useAuth();
   const tickers = useWatchlistStore((s) => s.tickers);
   const { data: assets } = useAssets();
   const [searchOpen, setSearchOpen] = useState(false);
@@ -24,6 +26,29 @@ export function WatchlistRail({ limit = 6 }: { limit?: number }) {
   const rows = tickers
     .map((t) => ({ ticker: t, asset: assets?.find((a) => a.ticker === t) }))
     .slice(0, limit);
+
+  // A watchlist only means anything against an account — it is what scopes
+  // event alerts server-side. Anonymous visitors get the pitch, not a local
+  // list that would silently go nowhere.
+  if (isPending) return null;
+  if (!isAuthed) {
+    return (
+      <IqCard padded={false} className="flex flex-col p-5">
+        <CardEyebrow>Watchlist</CardEyebrow>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Sign in to track tokens, get their unlocks and listings on this dashboard, and receive
+          alerts when something happens to them.
+        </p>
+        <Link
+          to="/login"
+          className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-info/30 bg-info/10 py-2 text-xs font-semibold text-info transition-colors hover:bg-info/20"
+        >
+          <Star className="h-3.5 w-3.5" />
+          Sign in to build a watchlist
+        </Link>
+      </IqCard>
+    );
+  }
 
   return (
     <IqCard padded={false} className="flex flex-col p-5">
