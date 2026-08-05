@@ -28,6 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useExecutions, type ExecutionRecord } from "@/hooks/useExecutions";
+import { useForwardReturnEvidence, type HorizonEvidence } from "@/hooks/useForwardReturnEvidence";
 import {
   useBinanceKeyStatus,
   useGenerateTradeReview,
@@ -130,6 +131,8 @@ function ReviewPage() {
       <SyncCard authenticated={authenticated} />
 
       <LiveExecutionsSection />
+
+      <TrackRecordSection authenticated={authenticated} />
 
       {!authenticated ? (
         <NotSignedInCard />
@@ -355,6 +358,91 @@ function ExecutionRow({ execution }: { execution: ExecutionRecord }) {
         {executionStatusLabel(execution.status)}
       </Badge>
     </div>
+  );
+}
+
+// ── Track record — forward returns ──────────────────────────────────────────
+
+/** Fraction (0.0234 = +2.34%) formatted as a signed percent string. */
+function formatFractionPercent(value: number | null | undefined, digits = 2): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+  const pct = value * 100;
+  const sign = pct >= 0 ? "+" : "";
+  return `${sign}${pct.toFixed(digits)}%`;
+}
+
+/** Ground-truth forward-return track record — see `forward_return` table (engine/smc worker). */
+function TrackRecordSection({ authenticated }: { authenticated: boolean }) {
+  const { data } = useForwardReturnEvidence();
+  const horizons = data?.horizons ?? [];
+
+  if (!authenticated || horizons.length === 0) return null;
+
+  return (
+    <IqCard padded={false} className="overflow-hidden">
+      <div className="p-4 pb-2 sm:p-5 sm:pb-2">
+        <CardEyebrow>Track Record — Forward Returns</CardEyebrow>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Ground truth measured from closed 1H bars; recomputed hourly.
+        </p>
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Horizon</TableHead>
+            <TableHead className="text-right">n</TableHead>
+            <TableHead className="text-right">Avg</TableHead>
+            <TableHead className="text-right">Median</TableHead>
+            <TableHead className="text-right">Win%</TableHead>
+            <TableHead className="text-right">Best</TableHead>
+            <TableHead className="text-right">Worst</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {horizons.map((h) => (
+            <TrackRecordRow key={h.horizon} horizon={h} />
+          ))}
+        </TableBody>
+      </Table>
+    </IqCard>
+  );
+}
+
+function TrackRecordRow({ horizon: h }: { horizon: HorizonEvidence }) {
+  return (
+    <TableRow>
+      <TableCell className="font-medium uppercase">
+        {h.horizon}
+        {h.insufficient && (
+          <Badge variant="outline" className="ml-2 border-warning/30 text-warning text-[9px]">
+            insufficient
+          </Badge>
+        )}
+      </TableCell>
+      <TableCell className="num text-right">{h.n}</TableCell>
+      <TableCell
+        className={cn(
+          "num text-right",
+          !h.insufficient && h.avgR !== null && (h.avgR >= 0 ? "text-bullish" : "text-bearish"),
+        )}
+      >
+        {h.insufficient ? "—" : formatFractionPercent(h.avgR)}
+      </TableCell>
+      <TableCell className="num text-right">
+        {h.insufficient ? "—" : formatFractionPercent(h.medianR)}
+      </TableCell>
+      <TableCell className="num text-right">
+        {h.insufficient || h.winRate === null ? "—" : `${(h.winRate * 100).toFixed(0)}%`}
+      </TableCell>
+      <TableCell className="num text-right text-bullish">
+        {h.best ? `${baseSymbol(h.best.symbol)} ${formatFractionPercent(h.best.forwardReturn)}` : "—"}
+      </TableCell>
+      <TableCell className="num text-right text-bearish">
+        {h.worst
+          ? `${baseSymbol(h.worst.symbol)} ${formatFractionPercent(h.worst.forwardReturn)}`
+          : "—"}
+      </TableCell>
+    </TableRow>
   );
 }
 

@@ -31,6 +31,7 @@ import { Route as ApiNotificationsRouteImport } from './routes/api/notifications
 import { Route as ApiKlinesRouteImport } from './routes/api/klines'
 import { Route as ApiForwardTestRouteImport } from './routes/api/forward-test'
 import { Route as ApiExternalContextRouteImport } from './routes/api/external-context'
+import { Route as ApiEvidenceRouteImport } from './routes/api/evidence'
 import { Route as ApiEconomicEventsRouteImport } from './routes/api/economic-events'
 import { Route as ApiAuthRouteImport } from './routes/api/auth'
 import { Route as ApiTradesIdRouteImport } from './routes/api/trades.$id'
@@ -155,6 +156,11 @@ const ApiExternalContextRoute = ApiExternalContextRouteImport.update({
   path: '/api/external-context',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiEvidenceRoute = ApiEvidenceRouteImport.update({
+  id: '/api/evidence',
+  path: '/api/evidence',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiEconomicEventsRoute = ApiEconomicEventsRouteImport.update({
   id: '/api/economic-events',
   path: '/api/economic-events',
@@ -237,6 +243,7 @@ export interface FileRoutesByFullPath {
   '/trades': typeof TradesRoute
   '/api/auth': typeof ApiAuthRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
+  '/api/evidence': typeof ApiEvidenceRoute
   '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
@@ -274,6 +281,7 @@ export interface FileRoutesByTo {
   '/trades': typeof TradesRoute
   '/api/auth': typeof ApiAuthRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
+  '/api/evidence': typeof ApiEvidenceRoute
   '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
@@ -312,6 +320,7 @@ export interface FileRoutesById {
   '/trades': typeof TradesRoute
   '/api/auth': typeof ApiAuthRoute
   '/api/economic-events': typeof ApiEconomicEventsRoute
+  '/api/evidence': typeof ApiEvidenceRoute
   '/api/external-context': typeof ApiExternalContextRoute
   '/api/forward-test': typeof ApiForwardTestRoute
   '/api/klines': typeof ApiKlinesRoute
@@ -351,6 +360,7 @@ export interface FileRouteTypes {
     | '/trades'
     | '/api/auth'
     | '/api/economic-events'
+    | '/api/evidence'
     | '/api/external-context'
     | '/api/forward-test'
     | '/api/klines'
@@ -388,6 +398,7 @@ export interface FileRouteTypes {
     | '/trades'
     | '/api/auth'
     | '/api/economic-events'
+    | '/api/evidence'
     | '/api/external-context'
     | '/api/forward-test'
     | '/api/klines'
@@ -425,6 +436,7 @@ export interface FileRouteTypes {
     | '/trades'
     | '/api/auth'
     | '/api/economic-events'
+    | '/api/evidence'
     | '/api/external-context'
     | '/api/forward-test'
     | '/api/klines'
@@ -463,6 +475,7 @@ export interface RootRouteChildren {
   TradesRoute: typeof TradesRoute
   ApiAuthRoute: typeof ApiAuthRoute
   ApiEconomicEventsRoute: typeof ApiEconomicEventsRoute
+  ApiEvidenceRoute: typeof ApiEvidenceRoute
   ApiExternalContextRoute: typeof ApiExternalContextRoute
   ApiForwardTestRoute: typeof ApiForwardTestRoute
   ApiKlinesRoute: typeof ApiKlinesRoute
@@ -640,6 +653,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiExternalContextRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/evidence': {
+      id: '/api/evidence'
+      path: '/api/evidence'
+      fullPath: '/api/evidence'
+      preLoaderRoute: typeof ApiEvidenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/economic-events': {
       id: '/api/economic-events'
       path: '/api/economic-events'
@@ -772,6 +792,7 @@ const rootRouteChildren: RootRouteChildren = {
   TradesRoute: TradesRoute,
   ApiAuthRoute: ApiAuthRoute,
   ApiEconomicEventsRoute: ApiEconomicEventsRoute,
+  ApiEvidenceRoute: ApiEvidenceRoute,
   ApiExternalContextRoute: ApiExternalContextRoute,
   ApiForwardTestRoute: ApiForwardTestRoute,
   ApiKlinesRoute: ApiKlinesRoute,
