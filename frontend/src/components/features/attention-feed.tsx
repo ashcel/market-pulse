@@ -8,6 +8,8 @@ import { MiniChart } from "./mini-chart";
 import { SkeletonCard } from "./skeletons";
 import { useAssets } from "@/hooks/queries";
 import { useAttention } from "@/hooks/useAttention";
+import { useNow } from "@/hooks/useNow";
+import { humanRelative } from "@/lib/time";
 import { filterAttention, type AttentionItem, type AttentionKind } from "@/lib/engine/attention";
 import { cn } from "@/lib/utils";
 import type { SparkPoint } from "@/lib/types";
@@ -62,21 +64,13 @@ const PRIORITY_STYLE = {
   low: { dot: "bg-muted-foreground", text: "text-muted-foreground" },
 } as const;
 
-function relative(ms: number): string {
-  const abs = Math.abs(ms);
-  const m = Math.round(abs / 60_000);
-  if (m < 1) return "now";
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return m % 60 ? `${h}h ${m % 60}m` : `${h}h`;
-  return `${Math.round(h / 24)}d`;
-}
-
 export function AttentionFeed() {
   const { items, isLoading } = useAttention();
   const { data: assets } = useAssets();
   const [filter, setFilter] = useState<AttentionKind | "all">("all");
   const scroller = useRef<HTMLDivElement>(null);
+  // Minute ticker so every "in 4 hours" / "30 mins ago" stays current.
+  const now = useNow();
 
   const sparkByTicker = useMemo(() => {
     const map = new Map<string, SparkPoint[]>();
@@ -148,6 +142,7 @@ export function AttentionFeed() {
               <AttentionCard
                 key={item.id}
                 item={item}
+                now={now}
                 spark={item.symbol ? sparkByTicker.get(item.symbol) : undefined}
               />
             ))}
@@ -168,10 +163,18 @@ export function AttentionFeed() {
   );
 }
 
-function AttentionCard({ item, spark }: { item: AttentionItem; spark?: SparkPoint[] }) {
+function AttentionCard({
+  item,
+  now,
+  spark,
+}: {
+  item: AttentionItem;
+  now: number;
+  spark?: SparkPoint[];
+}) {
   const style = KIND_STYLE[item.kind];
   const priority = PRIORITY_STYLE[item.priority];
-  const delta = item.at - Date.now();
+  const when = humanRelative(item.at, now);
 
   const body = (
     <div className="flex h-full w-[280px] shrink-0 snap-start flex-col gap-3 rounded-xl border border-border bg-surface/40 p-4 transition-colors hover:border-info/40">
@@ -220,7 +223,7 @@ function AttentionCard({ item, spark }: { item: AttentionItem; spark?: SparkPoin
             )}
           >
             <Clock className="h-3 w-3" />
-            {item.upcoming ? `in ${relative(delta)}` : `${relative(delta)} ago`}
+            {when}
           </div>
         )}
         {spark && spark.length > 1 && (
@@ -255,7 +258,7 @@ function AttentionCard({ item, spark }: { item: AttentionItem; spark?: SparkPoin
       )}
 
       <div className="flex items-center justify-between border-t border-border/60 pt-2 text-[10px] text-muted-foreground">
-        <span>{item.upcoming ? `in ${relative(delta)}` : `${relative(delta)} ago`}</span>
+        <span>{when}</span>
         {item.url && <ExternalLink className="h-3 w-3" />}
       </div>
     </div>

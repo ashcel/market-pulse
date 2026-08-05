@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/features/status-badge";
 import { useNotificationsStore } from "@/stores/notifications";
 import type { NotificationEvent } from "@/lib/engine/notifications";
 import { cn } from "@/lib/utils";
+import { humanRelative } from "@/lib/time";
 
 /**
  * Alert history. The SSE stream (`useNotificationStream`, mounted at the root)
@@ -41,15 +42,6 @@ function toneFor(type: string): "bullish" | "info" | "warning" | "neutral" {
   if (type === "trigger-hit" || type === "follow-settled" || type === "spike-alert") return "info";
   if (type === "worker-health" || type === "token-event") return "warning";
   return "neutral";
-}
-
-function relativeTime(iso: string): string {
-  const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
 }
 
 function AlertsPage() {
@@ -135,7 +127,7 @@ function AlertRow({ event }: { event: NotificationEvent }) {
         <StatusBadge tone={toneFor(event.type)}>{TYPE_LABEL[event.type] ?? event.type}</StatusBadge>
         {event.ticker && <span className="text-sm font-semibold">{event.ticker}</span>}
         <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
-          {relativeTime(event.createdAt)}
+          {humanRelative(event.createdAt)}
         </span>
       </div>
       <p className="text-sm font-medium">{event.title}</p>

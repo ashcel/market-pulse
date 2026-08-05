@@ -5,6 +5,7 @@ import { CardEyebrow } from "@/components/features/iq-card";
 import { useTokenEvents, type TokenEvent } from "@/hooks/useTokenEvents";
 import { cn } from "@/lib/utils";
 import type { TokenEventKind, TokenEventSeverity } from "@/lib/engine/token-events";
+import { humanRelative } from "@/lib/time";
 
 /**
  * Recent token events (Phase 2.5) — unlocks, security incidents, regulatory
@@ -26,14 +27,6 @@ export const SEVERITY_TONE: Record<TokenEventSeverity, string> = {
   warning: "border-warning/30 bg-warning-soft text-warning",
   info: "border-info/30 bg-info-soft text-info",
 };
-
-function relativeTime(iso: string): string {
-  const mins = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.round(mins / 60);
-  if (hours < 48) return `${hours}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
-}
 
 function EventRow({ event }: { event: TokenEvent }) {
   const inner = (
@@ -60,7 +53,7 @@ function EventRow({ event }: { event: TokenEvent }) {
             {KIND_LABEL[event.kind] ?? event.kind}
           </Badge>
           <span className="text-[10px] text-muted-foreground">
-            {relativeTime(event.publishedAt)} · {event.source}
+            {humanRelative(event.publishedAt)} · {event.source}
           </span>
           {event.url && (
             <ExternalLink className="ml-auto h-3 w-3 shrink-0 text-muted-foreground/70" />

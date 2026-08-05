@@ -7,8 +7,10 @@ import { PageHeader } from "@/components/features/page-header";
 import { SkeletonCard } from "@/components/features/skeletons";
 import { StatusBadge } from "@/components/features/status-badge";
 import { useEconomicEvents } from "@/hooks/queries";
+import { useNow } from "@/hooks/useNow";
 import { useTokenEventsForSymbols } from "@/hooks/useTokenEvents";
 import { useWatchlistStore } from "@/stores/watchlist";
+import { humanRelative, localTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 /**
@@ -49,9 +51,9 @@ function EventsPage() {
   const calendar = useEconomicEvents(WINDOW_DAYS, "low");
   const watched = useWatchlistStore((s) => s.tickers);
   const tokenEvents = useTokenEventsForSymbols(watched);
+  const now = useNow();
 
   const rows = useMemo<Row[]>(() => {
-    const now = Date.now();
     const out: Row[] = [];
     for (const e of calendar.data ?? []) {
       const at = new Date(e.occursAt).getTime();
@@ -88,7 +90,7 @@ function EventsPage() {
       });
     }
     return out.sort((a, b) => a.at - b.at);
-  }, [calendar.data, tokenEvents.data]);
+  }, [calendar.data, tokenEvents.data, now]);
 
   const shown = rows.filter((r) => filter === "all" || r.kind === filter);
 
@@ -108,7 +110,7 @@ function EventsPage() {
       <PageHeader
         eyebrow="Overview"
         title="Events"
-        subtitle={`Everything scheduled in the next ${WINDOW_DAYS} days — macro prints plus dated events for the tokens you watch.`}
+        subtitle={`Everything scheduled in the next ${WINDOW_DAYS} days, in your local time — macro prints plus dated events for the tokens you watch.`}
       />
 
       <div className="flex flex-wrap gap-1.5">
@@ -189,11 +191,11 @@ function EventsPage() {
                           {r.detail}
                         </p>
                       </div>
-                      <div className="num shrink-0 text-xs text-muted-foreground">
-                        {new Date(r.at).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                      <div className="shrink-0 text-right">
+                        <div className="num text-xs text-foreground">{localTime(r.at)}</div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {humanRelative(r.at, now)}
+                        </div>
                       </div>
                     </div>
                   );

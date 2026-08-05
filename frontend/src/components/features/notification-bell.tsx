@@ -12,16 +12,7 @@ import {
 import { useNotificationsStore } from "@/stores/notifications";
 import type { NotificationEvent } from "@/lib/engine/notifications";
 import { cn } from "@/lib/utils";
-
-function relativeTime(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const minutes = Math.round(diffMs / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
-}
+import { humanRelative } from "@/lib/time";
 
 export function NotificationBell() {
   const navigate = useNavigate();
@@ -82,7 +73,7 @@ export function NotificationBell() {
                 {event.title}
               </span>
               <span className="shrink-0 text-[10px] text-muted-foreground">
-                {relativeTime(event.createdAt)}
+                {humanRelative(event.createdAt)}
               </span>
             </div>
             <span className="line-clamp-2 text-xs text-muted-foreground">{event.body}</span>

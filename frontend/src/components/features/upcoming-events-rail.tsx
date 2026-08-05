@@ -6,8 +6,10 @@ import { CardEyebrow, IqCard } from "./iq-card";
 import { StatusBadge } from "./status-badge";
 import { SkeletonCard } from "./skeletons";
 import { useEconomicEvents } from "@/hooks/queries";
+import { useNow } from "@/hooks/useNow";
 import { useTokenEventsForSymbols } from "@/hooks/useTokenEvents";
 import { useWatchlistStore } from "@/stores/watchlist";
+import { humanRelative, localDateTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 /**
@@ -22,7 +24,6 @@ interface RailEvent {
   category: string;
   impact: "high" | "medium" | "low" | "holiday";
   at: number;
-  allDay: boolean;
   symbol: string | null;
   icon: "macro" | "unlock" | "token";
 }
@@ -33,29 +34,14 @@ const ICONS = {
   token: Coins,
 } as const;
 
-function dayLabel(at: number): string {
-  return new Date(at).toLocaleDateString(undefined, { month: "short", day: "2-digit" });
-}
-
-function timeLabel(at: number, allDay: boolean): string {
-  if (allDay) return "All day";
-  return (
-    new Date(at).toLocaleTimeString(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "UTC",
-      hour12: false,
-    }) + " UTC"
-  );
-}
-
 export function UpcomingEventsRail({ days = 7 }: { days?: number }) {
   const calendar = useEconomicEvents(days, "medium");
   const watched = useWatchlistStore((s) => s.tickers);
   const tokenEvents = useTokenEventsForSymbols(watched);
+  // Ticks every minute so the countdowns below stay honest.
+  const now = useNow();
 
   const events = useMemo<RailEvent[]>(() => {
-    const now = Date.now();
     const horizon = now + days * 24 * 60 * 60 * 1000;
     const out: RailEvent[] = [];
 
@@ -68,7 +54,6 @@ export function UpcomingEventsRail({ days = 7 }: { days?: number }) {
         category: `${e.country} · Macro event`,
         impact: e.impact,
         at,
-        allDay: false,
         symbol: null,
         icon: "macro",
       });
@@ -83,14 +68,13 @@ export function UpcomingEventsRail({ days = 7 }: { days?: number }) {
         category: e.kind === "unlock" ? "Token unlock" : `${e.kind} event`,
         impact: e.severity === "critical" ? "high" : e.severity === "warning" ? "medium" : "low",
         at,
-        allDay: false,
         symbol: e.symbol,
         icon: e.kind === "unlock" ? "unlock" : "token",
       });
     }
 
     return out.sort((a, b) => a.at - b.at).slice(0, 6);
-  }, [calendar.data, tokenEvents.data, days]);
+  }, [calendar.data, tokenEvents.data, days, now]);
 
   const loading = calendar.isLoading && tokenEvents.isLoading;
 
@@ -143,11 +127,16 @@ export function UpcomingEventsRail({ days = 7 }: { days?: number }) {
                   </p>
                 </div>
                 <div className="shrink-0 text-right">
-                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {dayLabel(e.at)}
+                  <div
+                    className={cn(
+                      "text-[11px] font-semibold",
+                      e.at - now < 60 * 60 * 1000 ? "text-warning" : "text-foreground",
+                    )}
+                  >
+                    {humanRelative(e.at, now)}
                   </div>
-                  <div className="num text-[11px] text-muted-foreground">
-                    {timeLabel(e.at, e.allDay)}
+                  <div className="num text-[10px] text-muted-foreground">
+                    {localDateTime(e.at, now)}
                   </div>
                 </div>
               </div>
@@ -176,7 +165,7 @@ export function UpcomingEventsRail({ days = 7 }: { days?: number }) {
       {!loading && events.length > 0 && (
         <p className="mt-2 flex items-center gap-1.5 border-t border-border pt-2 text-[10px] text-muted-foreground">
           <CalendarClock className="h-3 w-3" />
-          Macro calendar + dated events for watched tokens
+          Macro calendar + dated events for watched tokens · your local time
         </p>
       )}
     </IqCard>
