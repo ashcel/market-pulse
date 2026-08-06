@@ -129,9 +129,9 @@ function ReviewPage() {
   return (
     <div className="space-y-5 pb-20 lg:pb-6">
       <PageHeader
-        eyebrow={t("review.eyebrow")}
-        title={t("review.title")}
-        subtitle={t("review.subtitle")}
+        eyebrow={t("routes.review.eyebrow")}
+        title={t("routes.review.title")}
+        subtitle={t("routes.review.subtitle")}
       />
 
       <SyncCard authenticated={authenticated} />
@@ -159,20 +159,20 @@ function ReviewPage() {
                     : "border-border bg-surface text-muted-foreground hover:text-foreground",
                 )}
               >
-                {t(`review.${f.labelKey}`)}
+                {t(`routes.review.${f.labelKey}`)}
               </button>
             ))}
           </div>
 
           {isLoading ? (
             <IqCard className="text-center text-sm text-muted-foreground py-6">
-              {t("review.loadingTrades")}
+              {t("routes.review.loadingTrades")}
             </IqCard>
           ) : filteredTrades.length === 0 ? (
             <IqCard className="text-center text-sm text-muted-foreground py-6">
               {trades.length === 0
-                ? t("review.noTradesSynced")
-                : t("review.noSideTrades", { side: sideFilter.toLowerCase() })}
+                ? t("routes.review.noTradesSynced")
+                : t("routes.review.noSideTrades", { side: sideFilter.toLowerCase() })}
             </IqCard>
           ) : (
             <div className="space-y-2.5">
@@ -196,12 +196,12 @@ function NotSignedInCard() {
   const { t } = useTranslation();
   return (
     <IqCard className="space-y-2 text-center text-sm text-muted-foreground">
-      <p>{t("review.signInPrompt1")}</p>
+      <p>{t("routes.review.signInPrompt1")}</p>
       <p>
         <Link to="/login" className="font-medium text-info underline-offset-2 hover:underline">
           {t("common.signIn")}
         </Link>{" "}
-        {t("review.signInPrompt2")}
+        {t("routes.review.signInPrompt2")}
       </p>
     </IqCard>
   );
@@ -219,7 +219,7 @@ function SyncCard({ authenticated }: { authenticated: boolean }) {
   return (
     <IqCard className="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <CardEyebrow>{t("review.binanceSync")}</CardEyebrow>
+        <CardEyebrow>{t("routes.review.binanceSync")}</CardEyebrow>
         <div className="mt-1 flex items-center gap-2">
           <span
             className={cn(
@@ -228,16 +228,16 @@ function SyncCard({ authenticated }: { authenticated: boolean }) {
             )}
           >
             {isLoading
-              ? t("review.checking")
+              ? t("routes.review.checking")
               : connected
-                ? t("review.connected")
-                : t("review.notConnected")}
+                ? t("routes.review.connected")
+                : t("routes.review.notConnected")}
           </span>
           {connected && (
             <span className="text-xs text-muted-foreground">
               {lastSyncedAt
-                ? t("review.lastSynced", { date: new Date(lastSyncedAt).toLocaleString() })
-                : t("review.neverSynced")}
+                ? t("routes.review.lastSynced", { date: new Date(lastSyncedAt).toLocaleString() })
+                : t("routes.review.neverSynced")}
             </span>
           )}
         </div>
@@ -254,11 +254,11 @@ function SyncCard({ authenticated }: { authenticated: boolean }) {
           disabled={sync.isPending}
         >
           <RefreshCw className={cn("h-3.5 w-3.5", sync.isPending && "animate-spin")} />
-          {sync.isPending ? t("review.syncing") : t("review.syncNow")}
+          {sync.isPending ? t("routes.review.syncing") : t("routes.review.syncNow")}
         </Button>
       ) : (
         <Button size="sm" variant="outline" className="text-xs" asChild>
-          <Link to="/settings">{t("review.connectBinanceInSettings")}</Link>
+          <Link to="/settings">{t("routes.review.connectBinanceInSettings")}</Link>
         </Button>
       )}
     </IqCard>
@@ -311,15 +311,15 @@ function LiveExecutionsSection() {
     <IqCard padded={false} className="overflow-hidden">
       <div className="flex items-center justify-between gap-2 p-4 pb-2 sm:p-5 sm:pb-2">
         <div>
-          <CardEyebrow>{t("review.liveExecutions")}</CardEyebrow>
-          <p className="mt-1 text-[11px] text-muted-foreground">{t("review.liveExecutionsNote")}</p>
+          <CardEyebrow>{t("routes.review.liveExecutions")}</CardEyebrow>
+          <p className="mt-1 text-[11px] text-muted-foreground">{t("routes.review.liveExecutionsNote")}</p>
         </div>
         <Zap className="h-4 w-4 shrink-0 text-muted-foreground" />
       </div>
 
       {isLoading ? (
         <div className="p-4 pt-2 text-center text-sm text-muted-foreground sm:p-5 sm:pt-2">
-          {t("review.loadingExecutions")}
+          {t("routes.review.loadingExecutions")}
         </div>
       ) : (
         <div className="divide-y divide-border/40">
@@ -352,7 +352,7 @@ function ExecutionRow({ execution }: { execution: ExecutionRecord }) {
       <div className="text-right text-xs">
         <div className="num font-semibold">{formatMoney(execution.entry_price)}</div>
         <div className="text-[10px] text-muted-foreground">
-          {t("review.filledOf", { filled: execution.filled_quantity, total: execution.quantity })}
+          {t("routes.review.filledOf", { filled: execution.filled_quantity, total: execution.quantity })}
         </div>
       </div>
 
@@ -394,19 +394,19 @@ function TrackRecordSection({ authenticated }: { authenticated: boolean }) {
   return (
     <IqCard padded={false} className="overflow-hidden">
       <div className="p-4 pb-2 sm:p-5 sm:pb-2">
-        <CardEyebrow>{t("review.trackRecord")}</CardEyebrow>
-        <p className="mt-1 text-[11px] text-muted-foreground">{t("review.trackRecordNote")}</p>
+        <CardEyebrow>{t("routes.review.trackRecord")}</CardEyebrow>
+        <p className="mt-1 text-[11px] text-muted-foreground">{t("routes.review.trackRecordNote")}</p>
       </div>
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>{t("review.colHorizon")}</TableHead>
-            <TableHead className="text-right">{t("review.colN")}</TableHead>
-            <TableHead className="text-right">{t("review.colAvg")}</TableHead>
-            <TableHead className="text-right">{t("review.colMedian")}</TableHead>
-            <TableHead className="text-right">{t("review.colWinPct")}</TableHead>
-            <TableHead className="text-right">{t("review.colBest")}</TableHead>
-            <TableHead className="text-right">{t("review.colWorst")}</TableHead>
+            <TableHead>{t("routes.review.colHorizon")}</TableHead>
+            <TableHead className="text-right">{t("routes.review.colN")}</TableHead>
+            <TableHead className="text-right">{t("routes.review.colAvg")}</TableHead>
+            <TableHead className="text-right">{t("routes.review.colMedian")}</TableHead>
+            <TableHead className="text-right">{t("routes.review.colWinPct")}</TableHead>
+            <TableHead className="text-right">{t("routes.review.colBest")}</TableHead>
+            <TableHead className="text-right">{t("routes.review.colWorst")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -427,7 +427,7 @@ function TrackRecordRow({ horizon: h }: { horizon: HorizonEvidence }) {
         {h.horizon}
         {h.insufficient && (
           <Badge variant="outline" className="ml-2 border-warning/30 text-warning text-[9px]">
-            {t("review.insufficient")}
+            {t("routes.review.insufficient")}
           </Badge>
         )}
       </TableCell>
@@ -469,14 +469,14 @@ function AnalyticsHero() {
   if (isLoading) {
     return (
       <IqCard className="text-center text-sm text-muted-foreground py-6">
-        {t("review.loadingAnalytics")}
+        {t("routes.review.loadingAnalytics")}
       </IqCard>
     );
   }
   if (!analytics || analytics.total_trades === 0) {
     return (
       <IqCard className="text-center text-sm text-muted-foreground py-6">
-        {t("review.syncToSeeAnalytics")}
+        {t("routes.review.syncToSeeAnalytics")}
       </IqCard>
     );
   }
@@ -496,16 +496,16 @@ function AnalyticsHero() {
     .sort((a, b) => b.win_rate - a.win_rate)[0];
 
   const sessionLabel: Record<string, string> = {
-    asia: t("review.sessionAsia"),
-    london: t("review.sessionLondon"),
-    new_york: t("review.sessionNewYork"),
+    asia: t("routes.review.sessionAsia"),
+    london: t("routes.review.sessionLondon"),
+    new_york: t("routes.review.sessionNewYork"),
   };
 
   return (
     <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
       <HeroTile
         icon={Target}
-        eyebrow={t("review.rr")}
+        eyebrow={t("routes.review.rr")}
         value={rrValue}
         secondary={analytics.rr.label}
         tone={
@@ -518,25 +518,25 @@ function AnalyticsHero() {
       />
       <HeroTile
         icon={Trophy}
-        eyebrow={t("review.bestTrade")}
+        eyebrow={t("routes.review.bestTrade")}
         value={analytics.best_trade ? baseSymbol(analytics.best_trade.symbol) : "—"}
         secondary={
-          analytics.best_trade ? formatPnl(analytics.best_trade.realized_pnl) : t("review.noData")
+          analytics.best_trade ? formatPnl(analytics.best_trade.realized_pnl) : t("routes.review.noData")
         }
         tone="bullish"
       />
       <HeroTile
         icon={Skull}
-        eyebrow={t("review.worstTrade")}
+        eyebrow={t("routes.review.worstTrade")}
         value={analytics.worst_trade ? baseSymbol(analytics.worst_trade.symbol) : "—"}
         secondary={
-          analytics.worst_trade ? formatPnl(analytics.worst_trade.realized_pnl) : t("review.noData")
+          analytics.worst_trade ? formatPnl(analytics.worst_trade.realized_pnl) : t("routes.review.noData")
         }
         tone="bearish"
       />
       <HeroTile
         icon={Clock}
-        eyebrow={t("review.bestHour")}
+        eyebrow={t("routes.review.bestHour")}
         value={
           analytics.time_range
             ? `${pad2(analytics.time_range.start_hour_utc)}:00–${pad2(analytics.time_range.end_hour_utc)}:00 UTC`
@@ -544,18 +544,18 @@ function AnalyticsHero() {
         }
         secondary={
           analytics.time_range
-            ? t("review.winRateN", {
+            ? t("routes.review.winRateN", {
                 pct: formatPercent(analytics.time_range.win_rate, 0),
                 n: analytics.time_range.sample_size,
               })
             : bestSession
-              ? t("review.sessionStrongest", { session: sessionLabel[bestSession.key] })
-              : t("review.notEnoughData")
+              ? t("routes.review.sessionStrongest", { session: sessionLabel[bestSession.key] })
+              : t("routes.review.notEnoughData")
         }
       />
       <HeroTile
         icon={AlarmClock}
-        eyebrow={t("review.worstHour")}
+        eyebrow={t("routes.review.worstHour")}
         value={
           analytics.worst_time_range
             ? `${pad2(analytics.worst_time_range.start_hour_utc)}:00–${pad2(analytics.worst_time_range.end_hour_utc)}:00 UTC`
@@ -563,26 +563,26 @@ function AnalyticsHero() {
         }
         secondary={
           analytics.worst_time_range
-            ? t("review.winRateN", {
+            ? t("routes.review.winRateN", {
                 pct: formatPercent(analytics.worst_time_range.win_rate, 0),
                 n: analytics.worst_time_range.sample_size,
               })
-            : t("review.notEnoughData")
+            : t("routes.review.notEnoughData")
         }
         tone="bearish"
       />
       <HeroTile
         icon={Sparkles}
-        eyebrow={t("review.styleVerdict")}
+        eyebrow={t("routes.review.styleVerdict")}
         value={
           analytics.style.recommended
             ? analytics.style.recommended.charAt(0).toUpperCase() +
               analytics.style.recommended.slice(1)
-            : t("review.inconclusive")
+            : t("routes.review.inconclusive")
         }
         secondary={
           analytics.style.recommended
-            ? `${analytics.style.confidence === "ok" ? t("review.confident") : t("review.lowConfidence")} · ${analytics.style.data_quality}`
+            ? `${analytics.style.confidence === "ok" ? t("routes.review.confident") : t("routes.review.lowConfidence")} · ${analytics.style.data_quality}`
             : analytics.style.data_quality
         }
         badge={analytics.style.confidence}
@@ -659,15 +659,15 @@ function StyleBucketTable() {
   return (
     <IqCard padded={false} className="overflow-hidden">
       <div className="p-4 pb-0 sm:p-5 sm:pb-0">
-        <CardEyebrow>{t("review.styleBreakdown")}</CardEyebrow>
+        <CardEyebrow>{t("routes.review.styleBreakdown")}</CardEyebrow>
       </div>
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>{t("review.colStyle")}</TableHead>
-            <TableHead className="text-right">{t("review.colTrades")}</TableHead>
-            <TableHead className="text-right">{t("review.colWinRate")}</TableHead>
-            <TableHead className="text-right">{t("review.colExpectancy")}</TableHead>
+            <TableHead>{t("routes.review.colStyle")}</TableHead>
+            <TableHead className="text-right">{t("routes.review.colTrades")}</TableHead>
+            <TableHead className="text-right">{t("routes.review.colWinRate")}</TableHead>
+            <TableHead className="text-right">{t("routes.review.colExpectancy")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -680,7 +680,7 @@ function StyleBucketTable() {
                 {row.label}
                 {analytics.style.recommended === row.key && (
                   <Badge variant="outline" className="ml-2 border-info/30 text-info text-[10px]">
-                    {t("review.recommended")}
+                    {t("routes.review.recommended")}
                   </Badge>
                 )}
               </TableCell>
@@ -740,10 +740,10 @@ function TradeReviewRow({
             )}
           </div>
           <div className="mt-0.5 text-[11px] text-muted-foreground">
-            {t("review.closed", {
+            {t("routes.review.closed", {
               date: trade.closed_at
                 ? new Date(trade.closed_at).toLocaleString()
-                : t("review.recently"),
+                : t("routes.review.recently"),
             })}
           </div>
         </div>
@@ -759,15 +759,15 @@ function TradeReviewRow({
       </div>
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
-        <Metric label={t("review.entry")} value={formatMoney(trade.entry_price)} />
-        <Metric label={t("review.exit")} value={formatMoney(trade.exit_price)} />
-        <Metric label={t("review.qty")} value={String(trade.quantity)} />
-        <Metric label={t("review.closeTrigger")} value={trade.close_trigger ?? "—"} />
+        <Metric label={t("routes.review.entry")} value={formatMoney(trade.entry_price)} />
+        <Metric label={t("routes.review.exit")} value={formatMoney(trade.exit_price)} />
+        <Metric label={t("routes.review.qty")} value={String(trade.quantity)} />
+        <Metric label={t("routes.review.closeTrigger")} value={trade.close_trigger ?? "—"} />
       </div>
 
       <div className="border-t border-border/40 pt-2">
         {reviewLoading ? (
-          <p className="text-xs text-muted-foreground">{t("review.checkingExistingReview")}</p>
+          <p className="text-xs text-muted-foreground">{t("routes.review.checkingExistingReview")}</p>
         ) : review ? (
           <TradeReviewCard review={review} />
         ) : null}
@@ -782,18 +782,18 @@ function TradeReviewRow({
           >
             <Sparkles className="h-3 w-3" />
             {generate.isPending
-              ? t("review.generating")
+              ? t("routes.review.generating")
               : review
-                ? t("review.regenerateAiReview")
-                : t("review.generateAiReview")}
+                ? t("routes.review.regenerateAiReview")
+                : t("routes.review.generateAiReview")}
           </Button>
           {!aiConfigured && (
             <span className="text-[11px] text-muted-foreground">
-              {t("review.configureAiProviderPrefix")}{" "}
+              {t("routes.review.configureAiProviderPrefix")}{" "}
               <Link to="/settings" className="text-info underline-offset-2 hover:underline">
                 {t("common.settings")}
               </Link>{" "}
-              {t("review.configureAiProviderSuffix")}
+              {t("routes.review.configureAiProviderSuffix")}
             </span>
           )}
         </div>
@@ -849,21 +849,21 @@ function TradeReviewCard({ review }: { review: TradeReview }) {
 
       <div>
         <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {t("review.suggestion")}
+          {t("routes.review.suggestion")}
         </div>
         <p className="mt-0.5 text-xs leading-relaxed">{review.suggestion}</p>
       </div>
 
       <div>
         <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {t("review.closingQuestion")}
+          {t("routes.review.closingQuestion")}
         </div>
         <p className="mt-0.5 text-xs italic leading-relaxed">{review.closing_question}</p>
       </div>
 
       <div>
         <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {t("review.coachingNote")}
+          {t("routes.review.coachingNote")}
         </div>
         <p className="mt-0.5 text-xs leading-relaxed">{review.coaching_note}</p>
       </div>
@@ -885,7 +885,7 @@ function TradeReviewCard({ review }: { review: TradeReview }) {
       {review.annotations && review.annotations.length > 0 && (
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {t("review.chartAnnotations")}
+            {t("routes.review.chartAnnotations")}
           </div>
           <ul className="mt-1 space-y-1">
             {review.annotations.map((a) => (

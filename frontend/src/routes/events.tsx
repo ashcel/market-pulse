@@ -65,8 +65,8 @@ function EventsPage() {
         title: e.title,
         detail: [
           e.country,
-          e.forecast ? t("events.forecast", { value: e.forecast }) : null,
-          e.previous ? t("events.previous", { value: e.previous }) : null,
+          e.forecast ? t("routes.events.forecast", { value: e.forecast }) : null,
+          e.previous ? t("routes.events.previous", { value: e.previous }) : null,
         ]
           .filter(Boolean)
           .join(" · "),
@@ -110,9 +110,9 @@ function EventsPage() {
   return (
     <div className="mx-auto flex max-w-[1100px] flex-col gap-6">
       <PageHeader
-        eyebrow={t("events.eyebrow")}
-        title={t("events.title")}
-        subtitle={t("events.subtitle", { days: WINDOW_DAYS })}
+        eyebrow={t("routes.events.eyebrow")}
+        title={t("routes.events.title")}
+        subtitle={t("routes.events.subtitle", { days: WINDOW_DAYS })}
       />
 
       <div className="flex flex-wrap gap-1.5">
@@ -133,7 +133,7 @@ function EventsPage() {
                 : "border-border bg-surface text-muted-foreground hover:text-foreground",
             )}
           >
-            {t(`events.${f.labelKey}`)}
+            {t(`routes.events.${f.labelKey}`)}
           </button>
         ))}
       </div>
@@ -145,8 +145,8 @@ function EventsPage() {
         </div>
       ) : byDay.length === 0 ? (
         <IqCard>
-          <p className="text-sm font-medium">{t("events.emptyTitle")}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{t("events.emptyBody")}</p>
+          <p className="text-sm font-medium">{t("routes.events.emptyTitle")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("routes.events.emptyBody")}</p>
         </IqCard>
       ) : (
         byDay.map(([day, items]) => (
@@ -183,7 +183,7 @@ function EventsPage() {
                             {r.title}
                           </p>
                           {r.impact === "high" && (
-                            <StatusBadge tone="bearish">{t("events.highImpact")}</StatusBadge>
+                            <StatusBadge tone="bearish">{t("routes.events.highImpact")}</StatusBadge>
                           )}
                         </div>
                         <p className="mt-0.5 truncate text-[11px] capitalize text-muted-foreground">

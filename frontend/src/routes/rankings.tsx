@@ -53,8 +53,8 @@ function useTourSteps(): TourStep[] {
   const { t } = useTranslation();
   return (["controls", "table"] as const).map((target) => ({
     target,
-    title: t(`rankings.tour.${target}.title`),
-    body: t(`rankings.tour.${target}.body`),
+    title: t(`routes.rankings.tour.${target}.title`),
+    body: t(`routes.rankings.tour.${target}.body`),
   }));
 }
 
@@ -64,9 +64,9 @@ function RankingsPage() {
   const tour = useProductTour(TOUR_SEEN_KEY);
   const tourSteps = useTourSteps();
   const filters = [
-    { label: t("rankings.filterAll"), value: "all" },
+    { label: t("routes.rankings.filterAll"), value: "all" },
     ...SECTOR_FILTERS,
-    { label: t("rankings.filterFavorites"), value: "favorites" },
+    { label: t("routes.rankings.filterFavorites"), value: "favorites" },
   ];
   const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState("");
@@ -100,9 +100,9 @@ function RankingsPage() {
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
       <PageHeader
-        eyebrow={t("rankings.eyebrow")}
-        title={t("rankings.title")}
-        subtitle={t("rankings.subtitle")}
+        eyebrow={t("routes.rankings.eyebrow")}
+        title={t("routes.rankings.title")}
+        subtitle={t("routes.rankings.subtitle")}
         action={<HelpButton onClick={tour.start} />}
       />
 
@@ -112,7 +112,7 @@ function RankingsPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder={t("rankings.searchPlaceholder")}
+            placeholder={t("routes.rankings.searchPlaceholder")}
             className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
           />
         </div>
@@ -142,20 +142,20 @@ function RankingsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground">
-                  <Th className="pl-5">{t("rankings.colRank")}</Th>
-                  <Th>{t("rankings.colAsset")}</Th>
-                  <Th>{t("rankings.colSector")}</Th>
+                  <Th className="pl-5">{t("routes.rankings.colRank")}</Th>
+                  <Th>{t("routes.rankings.colAsset")}</Th>
+                  <Th>{t("routes.rankings.colSector")}</Th>
                   <Th
                     align="right"
                     sortable
                     active={sortKey === "score"}
                     dir={sortDir}
                     onClick={() => cycleSort("score")}
-                    title={t("rankings.colScoreTooltip")}
+                    title={t("routes.rankings.colScoreTooltip")}
                   >
-                    {t("rankings.colScore")}
+                    {t("routes.rankings.colScore")}
                   </Th>
-                  <Th>{t("rankings.colSetup")}</Th>
+                  <Th>{t("routes.rankings.colSetup")}</Th>
                   <Th
                     align="right"
                     sortable
@@ -163,7 +163,7 @@ function RankingsPage() {
                     dir={sortDir}
                     onClick={() => cycleSort("change")}
                   >
-                    {t("rankings.colChange")}
+                    {t("routes.rankings.colChange")}
                   </Th>
                   <Th
                     align="right"
@@ -172,7 +172,7 @@ function RankingsPage() {
                     dir={sortDir}
                     onClick={() => cycleSort("rs")}
                   >
-                    {t("rankings.colRs")}
+                    {t("routes.rankings.colRs")}
                   </Th>
                   <Th
                     align="right"
@@ -181,7 +181,7 @@ function RankingsPage() {
                     dir={sortDir}
                     onClick={() => cycleSort("momentum")}
                   >
-                    {t("rankings.colMomentum")}
+                    {t("routes.rankings.colMomentum")}
                   </Th>
                   <Th
                     align="right"
@@ -190,7 +190,7 @@ function RankingsPage() {
                     dir={sortDir}
                     onClick={() => cycleSort("strength")}
                   >
-                    {t("rankings.colStrength")}
+                    {t("routes.rankings.colStrength")}
                   </Th>
                   <Th
                     align="right"
@@ -199,7 +199,7 @@ function RankingsPage() {
                     dir={sortDir}
                     onClick={() => cycleSort("volume")}
                   >
-                    {t("rankings.colVolume")}
+                    {t("routes.rankings.colVolume")}
                   </Th>
                   <Th
                     align="right"
@@ -207,9 +207,9 @@ function RankingsPage() {
                     active={sortKey === "technical"}
                     dir={sortDir}
                     onClick={() => cycleSort("technical")}
-                    title={t("rankings.colTechnicalTooltip")}
+                    title={t("routes.rankings.colTechnicalTooltip")}
                   >
-                    {t("rankings.colTechnical")}
+                    {t("routes.rankings.colTechnical")}
                   </Th>
                   <Th
                     align="right"
@@ -217,12 +217,12 @@ function RankingsPage() {
                     active={sortKey === "confidence"}
                     dir={sortDir}
                     onClick={() => cycleSort("confidence")}
-                    title={t("rankings.colSignalTooltip")}
+                    title={t("routes.rankings.colSignalTooltip")}
                   >
-                    {t("rankings.colSignal")}
+                    {t("routes.rankings.colSignal")}
                   </Th>
                   <Th align="right" className="pr-5">
-                    {t("rankings.colTrend")}
+                    {t("routes.rankings.colTrend")}
                   </Th>
                   <Th></Th>
                 </tr>
@@ -318,7 +318,7 @@ function RankingsPage() {
                         <button
                           onClick={() => watchlist.toggle(a.ticker)}
                           className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-surface hover:text-warning"
-                          aria-label={t("rankings.toggleFavorite")}
+                          aria-label={t("routes.rankings.toggleFavorite")}
                         >
                           <Star className={cn("h-4 w-4", fav && "fill-warning text-warning")} />
                         </button>
@@ -331,7 +331,7 @@ function RankingsPage() {
           </div>
           {rows.length === 0 && (
             <div className="p-10 text-center text-sm text-muted-foreground">
-              {t("rankings.noMatches")}
+              {t("routes.rankings.noMatches")}
             </div>
           )}
         </IqCard>

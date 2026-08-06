@@ -43,8 +43,8 @@ function useTourSteps(): TourStep[] {
   const { t } = useTranslation();
   return (["current", "timeline", "pillars"] as const).map((target) => ({
     target,
-    title: t(`regime.tour.${target}.title`),
-    body: t(`regime.tour.${target}.body`),
+    title: t(`routes.regime.tour.${target}.title`),
+    body: t(`routes.regime.tour.${target}.body`),
   }));
 }
 
@@ -65,18 +65,18 @@ function RegimePage() {
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-6">
       <PageHeader
-        eyebrow={t("regime.eyebrow")}
-        title={t("regime.title")}
-        subtitle={t("regime.subtitle")}
+        eyebrow={t("routes.regime.eyebrow")}
+        title={t("routes.regime.title")}
+        subtitle={t("routes.regime.subtitle")}
         action={<HelpButton onClick={tour.start} />}
       />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
         {data ? (
           <IqCard data-tour="current" className="flex flex-col items-center gap-4 text-center">
-            <CardEyebrow>{t("regime.currentRegime")}</CardEyebrow>
-            <ConfidenceGauge value={data.confidence} size={200} label={t("regime.confidence")} />
-            <p className="text-xs text-muted-foreground">{t("regime.confidenceNote")}</p>
+            <CardEyebrow>{t("routes.regime.currentRegime")}</CardEyebrow>
+            <ConfidenceGauge value={data.confidence} size={200} label={t("routes.regime.confidence")} />
+            <p className="text-xs text-muted-foreground">{t("routes.regime.confidenceNote")}</p>
             <div
               className={
                 tone === "bullish"
@@ -89,7 +89,7 @@ function RegimePage() {
               {t(`outlook.${REGIME_LABEL_KEY[data.regime] ?? "neutral"}`)}
             </div>
             <StatusBadge tone={tone}>
-              {t("regime.trendStrength", { value: data.trendStrength })}
+              {t("routes.regime.trendStrength", { value: data.trendStrength })}
             </StatusBadge>
           </IqCard>
         ) : (
@@ -99,8 +99,8 @@ function RegimePage() {
         {data ? (
           <IqCard data-tour="timeline" className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <CardEyebrow>{t("regime.regimeTimeline")}</CardEyebrow>
-              <span className="text-xs text-muted-foreground">{t("regime.last60Sessions")}</span>
+              <CardEyebrow>{t("routes.regime.regimeTimeline")}</CardEyebrow>
+              <span className="text-xs text-muted-foreground">{t("routes.regime.last60Sessions")}</span>
             </div>
             <div className="h-[280px] w-full">
               <ResponsiveContainer>
@@ -146,7 +146,7 @@ function RegimePage() {
       </div>
 
       <div data-tour="pillars">
-        <CardEyebrow>{t("regime.regimePillars")}</CardEyebrow>
+        <CardEyebrow>{t("routes.regime.regimePillars")}</CardEyebrow>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {data?.pillars.map((p) => (
             <IqCard key={p.label} interactive className="flex flex-col gap-3">

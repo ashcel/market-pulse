@@ -58,14 +58,14 @@ function AlertsPage() {
   const types = useMemo(() => [...new Set(items.map((i) => i.type))], [items]);
   const shown = items.filter((i) => filter === "all" || i.type === filter);
   const typeLabel = (type: string) =>
-    TYPE_LABEL_KEY[type] ? t(`alerts.${TYPE_LABEL_KEY[type]}`) : type;
+    TYPE_LABEL_KEY[type] ? t(`routes.alerts.${TYPE_LABEL_KEY[type]}`) : type;
 
   return (
     <div className="mx-auto flex max-w-[900px] flex-col gap-6">
       <PageHeader
         eyebrow={t("nav.groups.trading")}
-        title={t("alerts.title")}
-        subtitle={t("alerts.subtitle")}
+        title={t("routes.alerts.title")}
+        subtitle={t("routes.alerts.subtitle")}
         action={
           permission !== "granted" && permission !== "unsupported" ? (
             <button
@@ -74,7 +74,7 @@ function AlertsPage() {
               className="flex items-center gap-1.5 rounded-lg border border-info/30 bg-info/10 px-3 py-2 text-xs font-semibold text-info transition-colors hover:bg-info/20"
             >
               <Bell className="h-3.5 w-3.5" />
-              {t("alerts.enableBrowserAlerts")}
+              {t("routes.alerts.enableBrowserAlerts")}
             </button>
           ) : null
         }
@@ -93,7 +93,7 @@ function AlertsPage() {
                   : "border-border bg-surface text-muted-foreground hover:text-foreground",
               )}
             >
-              {ty === "all" ? t("alerts.all") : typeLabel(ty)}
+              {ty === "all" ? t("routes.alerts.all") : typeLabel(ty)}
             </button>
           ))}
         </div>
@@ -102,13 +102,13 @@ function AlertsPage() {
       {shown.length === 0 ? (
         <IqCard className="flex flex-col items-center py-12 text-center">
           <BellOff className="mb-3 h-8 w-8 text-muted-foreground/50" />
-          <p className="text-sm font-medium">{t("alerts.emptyTitle")}</p>
+          <p className="text-sm font-medium">{t("routes.alerts.emptyTitle")}</p>
           <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-            {t("alerts.emptyBodyPrefix")}{" "}
+            {t("routes.alerts.emptyBodyPrefix")}{" "}
             <Link to="/watchlist" className="text-info hover:underline">
-              {t("alerts.watchlist")}
+              {t("routes.alerts.watchlist")}
             </Link>{" "}
-            {t("alerts.emptyBodySuffix")}
+            {t("routes.alerts.emptyBodySuffix")}
           </p>
         </IqCard>
       ) : (
@@ -132,7 +132,7 @@ function AlertRow({ event }: { event: NotificationEvent }) {
     <div className="flex flex-col gap-1 px-5 py-3 transition-colors hover:bg-surface/50">
       <div className="flex items-center gap-2">
         <StatusBadge tone={toneFor(event.type)}>
-          {TYPE_LABEL_KEY[event.type] ? t(`alerts.${TYPE_LABEL_KEY[event.type]}`) : event.type}
+          {TYPE_LABEL_KEY[event.type] ? t(`routes.alerts.${TYPE_LABEL_KEY[event.type]}`) : event.type}
         </StatusBadge>
         {event.ticker && <span className="text-sm font-semibold">{event.ticker}</span>}
         <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">

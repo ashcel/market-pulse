@@ -129,10 +129,10 @@ function Pager({
         disabled={page <= 1}
         onClick={() => onPageChange(page - 1)}
       >
-        {t("tracker.pagerPrev")}
+        {t("routes.tracker.pagerPrev")}
       </Button>
       <span className="text-xs text-muted-foreground">
-        {t("tracker.pagerPage", { page, total: totalPages })}
+        {t("routes.tracker.pagerPage", { page, total: totalPages })}
       </span>
       <Button
         variant="outline"
@@ -141,7 +141,7 @@ function Pager({
         disabled={page >= totalPages}
         onClick={() => onPageChange(page + 1)}
       >
-        {t("tracker.pagerNext")}
+        {t("routes.tracker.pagerNext")}
       </Button>
     </div>
   );
@@ -182,9 +182,9 @@ function TrackerPage() {
   return (
     <div className="space-y-5 pb-20 lg:pb-6">
       <PageHeader
-        eyebrow={t("tracker.eyebrow")}
-        title={t("tracker.title")}
-        subtitle={t("tracker.subtitle")}
+        eyebrow={t("routes.tracker.eyebrow")}
+        title={t("routes.tracker.title")}
+        subtitle={t("routes.tracker.subtitle")}
       />
 
       <TrackerMetricsCard records={records} summary={summarizeShadowRecord(records)} />
@@ -203,23 +203,23 @@ function TrackerPage() {
                 : "border-border bg-surface text-muted-foreground hover:text-foreground",
             )}
           >
-            {t(`tracker.${f.labelKey}`)}
+            {t(`routes.tracker.${f.labelKey}`)}
           </button>
         ))}
       </div>
 
       <div className="flex items-center gap-1.5 pt-1">
-        <CardEyebrow>{t("tracker.autoTrackedEyebrow")}</CardEyebrow>
+        <CardEyebrow>{t("routes.tracker.autoTrackedEyebrow")}</CardEyebrow>
       </div>
-      <p className="-mt-3 text-xs text-muted-foreground">{t("tracker.autoTrackedNote")}</p>
+      <p className="-mt-3 text-xs text-muted-foreground">{t("routes.tracker.autoTrackedNote")}</p>
 
       {records.length === 0 ? (
         <IqCard className="text-center text-sm text-muted-foreground">
-          {t("tracker.noFavoredVerdicts")}
+          {t("routes.tracker.noFavoredVerdicts")}
         </IqCard>
       ) : autoFiltered.length === 0 ? (
         <IqCard className="text-center text-sm text-muted-foreground">
-          {t("tracker.noSignalsMatchFilter")}
+          {t("routes.tracker.noSignalsMatchFilter")}
         </IqCard>
       ) : (
         <div className="space-y-2.5">
@@ -235,42 +235,42 @@ function TrackerPage() {
       )}
 
       <div className="flex items-center gap-1.5 pt-1">
-        <CardEyebrow>{t("tracker.followedEyebrow")}</CardEyebrow>
+        <CardEyebrow>{t("routes.tracker.followedEyebrow")}</CardEyebrow>
       </div>
 
       <IqCard className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <StatTile label={t("tracker.statFollowed")} value={String(summary.total)} />
-        <StatTile label={t("tracker.statOpen")} value={String(summary.open)} />
+        <StatTile label={t("routes.tracker.statFollowed")} value={String(summary.total)} />
+        <StatTile label={t("routes.tracker.statOpen")} value={String(summary.open)} />
         <StatTile
-          label={t("tracker.statWinRate")}
+          label={t("routes.tracker.statWinRate")}
           value={summary.closed ? `${summary.winRate}%` : "—"}
           tone={summary.closed ? (summary.winRate >= 50 ? "bullish" : "bearish") : undefined}
         />
         <StatTile
-          label={t("tracker.statAvgRClosed")}
+          label={t("routes.tracker.statAvgRClosed")}
           value={summary.closed ? `${summary.averageR >= 0 ? "+" : ""}${summary.averageR}R` : "—"}
           tone={summary.closed ? (summary.averageR >= 0 ? "bullish" : "bearish") : undefined}
         />
       </IqCard>
       {summary.lowSample && (
         <p className="-mt-2 text-xs text-muted-foreground">
-          {t("tracker.lowSampleNote", { count: summary.closed })}
+          {t("routes.tracker.lowSampleNote", { count: summary.closed })}
         </p>
       )}
 
       {!authenticated && signals.length === 0 ? (
         <IqCard className="space-y-2 text-center text-sm text-muted-foreground">
-          <p>{t("tracker.followsServerNote")}</p>
+          <p>{t("routes.tracker.followsServerNote")}</p>
           <p>
             <Link to="/login" className="font-medium text-info underline-offset-2 hover:underline">
               {t("common.signIn")}
             </Link>{" "}
-            {t("tracker.signInToFollowSuffix")}
+            {t("routes.tracker.signInToFollowSuffix")}
           </p>
         </IqCard>
       ) : filtered.length === 0 ? (
         <IqCard className="text-center text-sm text-muted-foreground">
-          {signals.length === 0 ? t("tracker.noFollowsYet") : t("tracker.noSignalsMatchFilter")}
+          {signals.length === 0 ? t("routes.tracker.noFollowsYet") : t("routes.tracker.noSignalsMatchFilter")}
         </IqCard>
       ) : (
         <div className="space-y-2.5">
@@ -341,13 +341,13 @@ function TrackerMetricsCard({
 
   return (
     <IqCard className="space-y-3">
-      <CardEyebrow>{t("tracker.autoTrackMetricsEyebrow")}</CardEyebrow>
+      <CardEyebrow>{t("routes.tracker.autoTrackMetricsEyebrow")}</CardEyebrow>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        <StatTile label={t("tracker.statOpenedTrades")} value={String(metrics.opened)} />
-        <StatTile label={t("tracker.statClosedTrades")} value={String(metrics.closed)} />
-        <StatTile label={t("tracker.statTotalTrades")} value={String(metrics.total)} />
+        <StatTile label={t("routes.tracker.statOpenedTrades")} value={String(metrics.opened)} />
+        <StatTile label={t("routes.tracker.statClosedTrades")} value={String(metrics.closed)} />
+        <StatTile label={t("routes.tracker.statTotalTrades")} value={String(metrics.total)} />
         <StatTile
-          label={t("tracker.statCurrentRR")}
+          label={t("routes.tracker.statCurrentRR")}
           value={
             metrics.currentRR !== null
               ? `${metrics.currentRR >= 0 ? "+" : ""}${metrics.currentRR}R`
@@ -362,7 +362,7 @@ function TrackerMetricsCard({
           }
         />
         <StatTile
-          label={t("tracker.statBestTrade")}
+          label={t("routes.tracker.statBestTrade")}
           value={bestTradeLabel}
           tone={
             metrics.bestTrade
@@ -374,7 +374,7 @@ function TrackerMetricsCard({
         />
         <EdgeVerdictTile metrics={metrics} />
       </div>
-      <p className="text-[11px] text-muted-foreground">{t("tracker.computedNote")}</p>
+      <p className="text-[11px] text-muted-foreground">{t("routes.tracker.computedNote")}</p>
     </IqCard>
   );
 }
@@ -429,7 +429,7 @@ function EdgeVerdictTile({ metrics }: { metrics: TrackerMetrics }) {
       });
       setVerdict(completion.text);
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("tracker.verdictGenerationFailed"));
+      setError(e instanceof Error ? e.message : t("routes.tracker.verdictGenerationFailed"));
     } finally {
       setLoading(false);
     }
@@ -439,7 +439,7 @@ function EdgeVerdictTile({ metrics }: { metrics: TrackerMetrics }) {
     <div className="col-span-2 rounded-lg border border-border bg-surface p-2.5 sm:col-span-3">
       <div className="flex items-center justify-between gap-2">
         <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {t("tracker.currentBestEdgeVerdict")}
+          {t("routes.tracker.currentBestEdgeVerdict")}
         </div>
         {aiReady && (
           <button
@@ -448,28 +448,28 @@ function EdgeVerdictTile({ metrics }: { metrics: TrackerMetrics }) {
             className="shrink-0 rounded-md border border-info/30 bg-info-soft px-2 py-0.5 text-[10px] font-medium text-info transition-colors hover:bg-info-soft/80 disabled:opacity-50"
           >
             {loading
-              ? t("tracker.generating")
+              ? t("routes.tracker.generating")
               : verdict
-                ? t("tracker.regenerate")
-                : t("tracker.generateVerdict")}
+                ? t("routes.tracker.regenerate")
+                : t("routes.tracker.generateVerdict")}
           </button>
         )}
       </div>
 
       {!aiReady ? (
         <p className="mt-1 text-[11px] text-muted-foreground">
-          {t("tracker.addAiKeyPrefix")}{" "}
+          {t("routes.tracker.addAiKeyPrefix")}{" "}
           <Link to="/settings" className="font-medium text-info underline-offset-2 hover:underline">
             {t("common.settings")}
           </Link>{" "}
-          {t("tracker.addAiKeySuffix")}
+          {t("routes.tracker.addAiKeySuffix")}
         </p>
       ) : error ? (
         <p className="mt-1 text-[11px] text-bearish">{error}</p>
       ) : verdict ? (
         <p className="mt-1 text-xs leading-relaxed">{verdict}</p>
       ) : (
-        <p className="mt-1 text-[11px] text-muted-foreground">{t("tracker.tapGenerateVerdict")}</p>
+        <p className="mt-1 text-[11px] text-muted-foreground">{t("routes.tracker.tapGenerateVerdict")}</p>
       )}
     </div>
   );
@@ -487,31 +487,31 @@ function EngineRecord() {
     <IqCard className="space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <CardEyebrow>{t("tracker.liveRecordEyebrow")}</CardEyebrow>
+          <CardEyebrow>{t("routes.tracker.liveRecordEyebrow")}</CardEyebrow>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            {t("tracker.liveRecordNotePrefix")}{" "}
-            <span className="font-semibold">{t("tracker.liveRecordNoteFavored")}</span>{" "}
-            {t("tracker.liveRecordNoteSuffix")}
+            {t("routes.tracker.liveRecordNotePrefix")}{" "}
+            <span className="font-semibold">{t("routes.tracker.liveRecordNoteFavored")}</span>{" "}
+            {t("routes.tracker.liveRecordNoteSuffix")}
           </p>
         </div>
       </div>
 
       {summary.total === 0 ? (
         <p className="rounded-lg border border-border bg-surface p-3 text-xs text-muted-foreground">
-          {t("tracker.noFavoredVerdictsOwnRecord")}
+          {t("routes.tracker.noFavoredVerdictsOwnRecord")}
         </p>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <StatTile label={t("tracker.statCallsMade")} value={String(summary.total)} />
-            <StatTile label={t("tracker.statStillOpen")} value={String(summary.open)} />
+            <StatTile label={t("routes.tracker.statCallsMade")} value={String(summary.total)} />
+            <StatTile label={t("routes.tracker.statStillOpen")} value={String(summary.open)} />
             <StatTile
-              label={t("tracker.statWinRate")}
+              label={t("routes.tracker.statWinRate")}
               value={summary.closed ? `${summary.winRate}%` : "—"}
               tone={summary.closed ? (summary.winRate >= 50 ? "bullish" : "bearish") : undefined}
             />
             <StatTile
-              label={t("tracker.statAvgRSettled")}
+              label={t("routes.tracker.statAvgRSettled")}
               value={
                 summary.closed ? `${summary.averageR >= 0 ? "+" : ""}${summary.averageR}R` : "—"
               }
@@ -521,7 +521,7 @@ function EngineRecord() {
 
           {summary.lowSample && (
             <p className="text-[11px] text-muted-foreground">
-              {t("tracker.lowSampleSettledNote", {
+              {t("routes.tracker.lowSampleSettledNote", {
                 count: summary.closed,
                 minTrades: MIN_SHADOW_RECORD_TRADES,
               })}
@@ -531,21 +531,21 @@ function EngineRecord() {
           {combos.length > 0 && (
             <div className="space-y-1.5">
               <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                {t("tracker.bySetupRegime")}
+                {t("routes.tracker.bySetupRegime")}
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[420px] text-xs">
                   <thead>
                     <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground">
-                      <th className="pb-1.5 pr-2 font-semibold">{t("tracker.colSetup")}</th>
-                      <th className="pb-1.5 pr-2 font-semibold">{t("tracker.colRegime")}</th>
+                      <th className="pb-1.5 pr-2 font-semibold">{t("routes.tracker.colSetup")}</th>
+                      <th className="pb-1.5 pr-2 font-semibold">{t("routes.tracker.colRegime")}</th>
                       <th className="pb-1.5 pr-2 text-right font-semibold">
-                        {t("tracker.colSettled")}
+                        {t("routes.tracker.colSettled")}
                       </th>
                       <th className="pb-1.5 pr-2 text-right font-semibold">
-                        {t("tracker.colWin")}
+                        {t("routes.tracker.colWin")}
                       </th>
-                      <th className="pb-1.5 text-right font-semibold">{t("tracker.colAvgR")}</th>
+                      <th className="pb-1.5 text-right font-semibold">{t("routes.tracker.colAvgR")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -562,7 +562,7 @@ function EngineRecord() {
                                 variant="outline"
                                 className="border-warning/30 bg-warning-soft px-1 py-0 text-[9px] text-warning"
                               >
-                                {t("tracker.demoted")}
+                                {t("routes.tracker.demoted")}
                               </Badge>
                             )}
                           </span>
@@ -666,25 +666,25 @@ function AutoTrackedSignalRow({ signal }: { signal: ShadowSignal }) {
           </span>
         </div>
         <div className="mt-0.5 text-[11px] text-muted-foreground">
-          {t("tracker.recorded", { date: new Date(signal.openedAt).toLocaleString() })}
+          {t("routes.tracker.recorded", { date: new Date(signal.openedAt).toLocaleString() })}
         </div>
       </div>
 
       <Badge variant="outline" className={cn("shrink-0", SHADOW_STATUS_TONE[signal.status])}>
-        {t(`tracker.${SHADOW_STATUS_LABEL_KEY[signal.status]}`)}
+        {t(`routes.tracker.${SHADOW_STATUS_LABEL_KEY[signal.status]}`)}
       </Badge>
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
-        <Metric label={t("tracker.entry")} value={formatMoney(signal.entry)} />
-        <Metric label={t("tracker.stop")} value={formatMoney(signal.stop)} />
-        <Metric label={t("tracker.target1")} value={formatMoney(signal.target1)} />
-        <Metric label={t("tracker.target2")} value={formatMoney(signal.target2)} />
+        <Metric label={t("routes.tracker.entry")} value={formatMoney(signal.entry)} />
+        <Metric label={t("routes.tracker.stop")} value={formatMoney(signal.stop)} />
+        <Metric label={t("routes.tracker.target1")} value={formatMoney(signal.target1)} />
+        <Metric label={t("routes.tracker.target2")} value={formatMoney(signal.target2)} />
         <Metric
-          label={terminal ? t("tracker.closedAt") : t("tracker.current")}
+          label={terminal ? t("routes.tracker.closedAt") : t("routes.tracker.current")}
           value={formatMoney(terminal ? (signal.closePrice ?? currentPrice) : currentPrice)}
         />
         <Metric
-          label={terminal ? t("tracker.result") : t("tracker.unrealized")}
+          label={terminal ? t("routes.tracker.result") : t("routes.tracker.unrealized")}
           value={
             terminal
               ? signal.resultR !== undefined
@@ -746,30 +746,30 @@ function TrackedSignalRow({ signal: serverSignal }: { signal: TrackedSignal }) {
           </span>
         </div>
         <div className="mt-0.5 text-[11px] text-muted-foreground">
-          {t("tracker.followedAt", { date: new Date(signal.followedAt).toLocaleString() })}
+          {t("routes.tracker.followedAt", { date: new Date(signal.followedAt).toLocaleString() })}
         </div>
       </div>
 
       <Badge variant="outline" className={cn("shrink-0", STATUS_TONE[signal.status])}>
-        {t(`tracker.${STATUS_LABEL_KEY[signal.status]}`)}
-        {provisional ? t("tracker.settlingSuffix") : ""}
+        {t(`routes.tracker.${STATUS_LABEL_KEY[signal.status]}`)}
+        {provisional ? t("routes.tracker.settlingSuffix") : ""}
       </Badge>
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
-        <Metric label={t("tracker.entry")} value={formatMoney(signal.entryPrice)} />
+        <Metric label={t("routes.tracker.entry")} value={formatMoney(signal.entryPrice)} />
         <Metric
-          label={t("tracker.idealZoneWas")}
+          label={t("routes.tracker.idealZoneWas")}
           value={formatEntryRange(signal.entryLow, signal.entryHigh)}
         />
-        <Metric label={t("tracker.stop")} value={formatMoney(signal.stop)} />
-        <Metric label={t("tracker.target1")} value={formatMoney(signal.target1)} />
-        <Metric label={t("tracker.target2")} value={formatMoney(signal.target2)} />
+        <Metric label={t("routes.tracker.stop")} value={formatMoney(signal.stop)} />
+        <Metric label={t("routes.tracker.target1")} value={formatMoney(signal.target1)} />
+        <Metric label={t("routes.tracker.target2")} value={formatMoney(signal.target2)} />
         <Metric
-          label={terminal ? t("tracker.closedAt") : t("tracker.current")}
+          label={terminal ? t("routes.tracker.closedAt") : t("routes.tracker.current")}
           value={formatMoney(terminal ? (signal.closePrice ?? currentPrice) : currentPrice)}
         />
         <Metric
-          label={terminal ? t("tracker.result") : t("tracker.unrealized")}
+          label={terminal ? t("routes.tracker.result") : t("routes.tracker.unrealized")}
           value={
             terminal
               ? signal.resultR !== undefined
@@ -788,7 +788,7 @@ function TrackedSignalRow({ signal: serverSignal }: { signal: TrackedSignal }) {
         className="ml-auto shrink-0 text-muted-foreground hover:text-bearish"
         onClick={() => unfollow.mutate(signal.id)}
         disabled={unfollow.isPending}
-        aria-label={t("tracker.removeFromTracker", { symbol: signal.symbol })}
+        aria-label={t("routes.tracker.removeFromTracker", { symbol: signal.symbol })}
       >
         <Trash2 className="h-4 w-4" />
       </Button>

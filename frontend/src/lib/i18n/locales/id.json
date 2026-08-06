@@ -1038,6 +1038,46 @@
           "liveAccountState": "Status Akun Live",
           "behaviorCooldowns": "Cooldown Perilaku"
         }
+      },
+      "constitution": {
+        "allowedSessionsLabel": "Sesi yang Diizinkan",
+        "allowedSymbolsLabel": "Simbol yang Diizinkan",
+        "allowedSymbolsPlaceholder": "cth. BTCUSDT, ETHUSDT",
+        "behaviorDetectorCooldownsDescription": "Cooldown diterapkan saat detektor perilaku menandai pola berulang",
+        "behaviorDetectorCooldownsLabel": "Cooldown Detektor Perilaku",
+        "dailyLossLimitLabel": "Batas Rugi Harian",
+        "description": "Konstitusi trading Anda menetapkan batas risiko yang diterapkan pada setiap permit.",
+        "loading": "Memuat…",
+        "maxConcurrentPositionsLabel": "Maks Posisi Bersamaan",
+        "maxCorrelatedExposureHint": "Persentase modal yang diizinkan pada posisi berkorelasi",
+        "maxCorrelatedExposureLabel": "Maks Eksposur Berkorelasi",
+        "maxLeverageLabel": "Leverage Maks",
+        "minRiskRewardLabel": "Rasio Risiko/Imbalan Min",
+        "notSet": "Belum diatur",
+        "outOfBandMessage": "Konstitusi Anda tidak dapat diubah saat posisi masih terbuka.",
+        "riskPerTradeHint": "Persentase akun yang dipertaruhkan per trade",
+        "riskPerTradeLabel": "Risiko per Trade",
+        "saveNewVersion": "Simpan Versi Baru",
+        "savedAsVersion": "Tersimpan sebagai versi {{version}}",
+        "saving": "Menyimpan…",
+        "signInPrompt": "Masuk untuk mengelola konstitusi trading Anda",
+        "statusAdvisory": "Advisory",
+        "statusBinding": "Binding",
+        "statusNotConfigured": "Belum Dikonfigurasi",
+        "title": "Konstitusi Trading",
+        "weeklyLossLimitHint": "Batas rugi maksimum per minggu",
+        "weeklyLossLimitLabel": "Batas Rugi Mingguan"
+      },
+      "search": {
+        "binancePair": "Pasangan Binance",
+        "clearRecent": "Bersihkan riwayat",
+        "commandLabel": "Perintah pencarian",
+        "goTo": "Buka",
+        "hotRightNow": "Panas saat ini",
+        "loadingMarketData": "Memuat data pasar…",
+        "noMatch": "Tidak ada hasil",
+        "placeholder": "Cari token…",
+        "recent": "Terbaru"
       }
     },
     "batchG": {

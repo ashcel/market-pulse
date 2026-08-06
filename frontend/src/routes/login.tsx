@@ -50,17 +50,17 @@ function LoginPage() {
         .then(async (r) => {
           if (r.ok) {
             setStatus("done");
-            setMessage(t("login.signedInRedirecting"));
+            setMessage(t("routes.login.signedInRedirecting"));
             setTimeout(() => (window.location.href = postLoginTarget()), 800);
           } else {
             const j = await r.json().catch(() => ({}));
             setStatus("error");
-            setMessage(j.error ?? t("login.loginLinkInvalid"));
+            setMessage(j.error ?? t("routes.login.loginLinkInvalid"));
           }
         })
         .catch(() => {
           setStatus("error");
-          setMessage(t("login.networkError"));
+          setMessage(t("routes.login.networkError"));
         });
     } else if (inviteToken) {
       setInvite(inviteToken);
@@ -73,7 +73,7 @@ function LoginPage() {
   const signIn = async () => {
     if (!email.trim() || !password) {
       setStatus("error");
-      setMessage(t("login.enterEmailPassword"));
+      setMessage(t("routes.login.enterEmailPassword"));
       return;
     }
     setStatus("working");
@@ -87,16 +87,16 @@ function LoginPage() {
       });
       if (r.ok) {
         setStatus("done");
-        setMessage(t("login.signedInRedirecting"));
+        setMessage(t("routes.login.signedInRedirecting"));
         setTimeout(() => (window.location.href = postLoginTarget()), 600);
       } else {
         const j = await r.json().catch(() => ({}));
         setStatus("error");
-        setMessage(j.error ?? t("login.invalidEmailPassword"));
+        setMessage(j.error ?? t("routes.login.invalidEmailPassword"));
       }
     } catch {
       setStatus("error");
-      setMessage(t("login.networkError"));
+      setMessage(t("routes.login.networkError"));
     }
   };
 
@@ -112,12 +112,12 @@ function LoginPage() {
     });
     if (r.ok) {
       setStatus("done");
-      setMessage(t("login.welcomeAboardRedirecting"));
+      setMessage(t("routes.login.welcomeAboardRedirecting"));
       setTimeout(() => (window.location.href = postLoginTarget()), 800);
     } else {
       const j = await r.json().catch(() => ({}));
       setStatus("error");
-      setMessage(j.error ?? t("login.couldNotRedeemInvite"));
+      setMessage(j.error ?? t("routes.login.couldNotRedeemInvite"));
     }
   };
 
@@ -126,7 +126,7 @@ function LoginPage() {
       <div>
         <h1 className="text-2xl font-semibold">Market Pulse</h1>
         <p className="text-muted-foreground text-sm">
-          {invite ? t("login.closedBeta") : t("login.signInToAccount")}
+          {invite ? t("routes.login.closedBeta") : t("routes.login.signInToAccount")}
         </p>
       </div>
 
@@ -134,14 +134,14 @@ function LoginPage() {
         <div className="flex flex-col gap-3">
           <input
             className="border-input bg-background rounded-md border px-3 py-2 text-sm"
-            placeholder={t("login.emailPlaceholder")}
+            placeholder={t("routes.login.emailPlaceholder")}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
           <input
             className="border-input bg-background rounded-md border px-3 py-2 text-sm"
-            placeholder={t("login.displayNamePlaceholder")}
+            placeholder={t("routes.login.displayNamePlaceholder")}
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
           />
@@ -150,7 +150,7 @@ function LoginPage() {
             disabled={status === "working"}
             onClick={redeem}
           >
-            {t("login.redeemInvite")}
+            {t("routes.login.redeemInvite")}
           </button>
         </div>
       ) : null}
@@ -165,7 +165,7 @@ function LoginPage() {
         >
           <input
             className="border-input bg-background rounded-md border px-3 py-2 text-sm"
-            placeholder={t("login.emailPlaceholder")}
+            placeholder={t("routes.login.emailPlaceholder")}
             type="email"
             autoComplete="email"
             value={email}
@@ -173,7 +173,7 @@ function LoginPage() {
           />
           <input
             className="border-input bg-background rounded-md border px-3 py-2 text-sm"
-            placeholder={t("login.passwordPlaceholder")}
+            placeholder={t("routes.login.passwordPlaceholder")}
             type="password"
             autoComplete="current-password"
             value={password}
@@ -184,9 +184,9 @@ function LoginPage() {
             type="submit"
             disabled={status === "working"}
           >
-            {status === "working" ? t("login.signingIn") : t("login.signIn")}
+            {status === "working" ? t("routes.login.signingIn") : t("routes.login.signIn")}
           </button>
-          <p className="text-muted-foreground text-xs">{t("login.changePasswordNote")}</p>
+          <p className="text-muted-foreground text-xs">{t("routes.login.changePasswordNote")}</p>
         </form>
       ) : null}
 

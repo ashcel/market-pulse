@@ -1038,6 +1038,46 @@
           "liveAccountState": "Live Account State",
           "behaviorCooldowns": "Behavior Cooldowns"
         }
+      },
+      "constitution": {
+        "allowedSessionsLabel": "Allowed Sessions",
+        "allowedSymbolsLabel": "Allowed Symbols",
+        "allowedSymbolsPlaceholder": "e.g. BTCUSDT, ETHUSDT",
+        "behaviorDetectorCooldownsDescription": "Cooldown applied when a behavior detector flags a repeated pattern",
+        "behaviorDetectorCooldownsLabel": "Behavior Detector Cooldowns",
+        "dailyLossLimitLabel": "Daily Loss Limit",
+        "description": "Your trading constitution sets the risk guardrails applied to every permit.",
+        "loading": "Loading…",
+        "maxConcurrentPositionsLabel": "Max Concurrent Positions",
+        "maxCorrelatedExposureHint": "Percentage of capital allowed in correlated positions",
+        "maxCorrelatedExposureLabel": "Max Correlated Exposure",
+        "maxLeverageLabel": "Max Leverage",
+        "minRiskRewardLabel": "Min Risk/Reward",
+        "notSet": "Not set",
+        "outOfBandMessage": "Your constitution can't be edited while a position is open.",
+        "riskPerTradeHint": "Percentage of account risked per trade",
+        "riskPerTradeLabel": "Risk per Trade",
+        "saveNewVersion": "Save New Version",
+        "savedAsVersion": "Saved as version {{version}}",
+        "saving": "Saving…",
+        "signInPrompt": "Sign in to manage your trading constitution",
+        "statusAdvisory": "Advisory",
+        "statusBinding": "Binding",
+        "statusNotConfigured": "Not Configured",
+        "title": "Trading Constitution",
+        "weeklyLossLimitHint": "Maximum loss allowed per week",
+        "weeklyLossLimitLabel": "Weekly Loss Limit"
+      },
+      "search": {
+        "binancePair": "Binance Pair",
+        "clearRecent": "Clear recent",
+        "commandLabel": "Search command",
+        "goTo": "Go to",
+        "hotRightNow": "Hot right now",
+        "loadingMarketData": "Loading market data…",
+        "noMatch": "No match",
+        "placeholder": "Search tokens…",
+        "recent": "Recent"
       }
     },
     "batchG": {

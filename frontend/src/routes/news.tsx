@@ -44,9 +44,9 @@ const FILTER_VALUES: { labelKey: string; value: Impact | "all" }[] = [
 
 function timeUntil(occursAt: string, t: ReturnType<typeof useTranslation>["t"]): string {
   const hours = Math.round((new Date(occursAt).getTime() - Date.now()) / (60 * 60 * 1000));
-  if (hours < 1) return t("news.soon");
-  if (hours < 24) return t("news.inHours", { count: hours });
-  return t("news.inDays", { count: Math.round(hours / 24) });
+  if (hours < 1) return t("routes.news.soon");
+  if (hours < 24) return t("routes.news.inHours", { count: hours });
+  return t("routes.news.inDays", { count: Math.round(hours / 24) });
 }
 
 /** Slim strip surfacing upcoming high-impact macro events above the feed —
@@ -60,7 +60,7 @@ function EconomicEventsStrip() {
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-warning/30 bg-warning-soft px-3 py-2">
       <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-warning">
-        {t("news.upcoming")}
+        {t("routes.news.upcoming")}
       </span>
       {events.slice(0, 4).map((e) => (
         <span
@@ -83,8 +83,8 @@ function useTourSteps(): TourStep[] {
   const { t } = useTranslation();
   return (["filters", "feed"] as const).map((target) => ({
     target,
-    title: t(`news.tour.${target}.title`),
-    body: t(`news.tour.${target}.body`),
+    title: t(`routes.news.tour.${target}.title`),
+    body: t(`routes.news.tour.${target}.body`),
   }));
 }
 
@@ -111,9 +111,9 @@ function NewsPage() {
   return (
     <div className="mx-auto flex max-w-[1000px] flex-col gap-6">
       <PageHeader
-        eyebrow={t("news.eyebrow")}
-        title={t("news.title")}
-        subtitle={t("news.subtitle")}
+        eyebrow={t("routes.news.eyebrow")}
+        title={t("routes.news.title")}
+        subtitle={t("routes.news.subtitle")}
         action={<HelpButton onClick={tour.start} />}
       />
 
@@ -131,7 +131,7 @@ function NewsPage() {
                 : "border-border bg-surface text-muted-foreground hover:text-foreground",
             )}
           >
-            {t(`news.${f.labelKey}`)}
+            {t(`routes.news.${f.labelKey}`)}
           </button>
         ))}
       </div>
