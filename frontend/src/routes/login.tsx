@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 /**
  * Sign-in page. Primary mode is email + password (verified server-side by
@@ -31,6 +32,7 @@ function postLoginTarget(): string {
 }
 
 function LoginPage() {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<"idle" | "working" | "done" | "error">("idle");
   const [message, setMessage] = useState("");
   const [invite, setInvite] = useState<string | null>(null);
@@ -48,27 +50,30 @@ function LoginPage() {
         .then(async (r) => {
           if (r.ok) {
             setStatus("done");
-            setMessage("Signed in. Redirecting…");
+            setMessage(t("login.signedInRedirecting"));
             setTimeout(() => (window.location.href = postLoginTarget()), 800);
           } else {
             const j = await r.json().catch(() => ({}));
             setStatus("error");
-            setMessage(j.error ?? "Login link invalid or expired.");
+            setMessage(j.error ?? t("login.loginLinkInvalid"));
           }
         })
         .catch(() => {
           setStatus("error");
-          setMessage("Network error.");
+          setMessage(t("login.networkError"));
         });
     } else if (inviteToken) {
       setInvite(inviteToken);
     }
+    // Intentionally run-once on mount (URL params don't change) — re-running on
+    // a `t` reference change would re-POST the login token.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const signIn = async () => {
     if (!email.trim() || !password) {
       setStatus("error");
-      setMessage("Enter your email and password.");
+      setMessage(t("login.enterEmailPassword"));
       return;
     }
     setStatus("working");
@@ -82,16 +87,16 @@ function LoginPage() {
       });
       if (r.ok) {
         setStatus("done");
-        setMessage("Signed in. Redirecting…");
+        setMessage(t("login.signedInRedirecting"));
         setTimeout(() => (window.location.href = postLoginTarget()), 600);
       } else {
         const j = await r.json().catch(() => ({}));
         setStatus("error");
-        setMessage(j.error ?? "Invalid email or password.");
+        setMessage(j.error ?? t("login.invalidEmailPassword"));
       }
     } catch {
       setStatus("error");
-      setMessage("Network error.");
+      setMessage(t("login.networkError"));
     }
   };
 
@@ -107,12 +112,12 @@ function LoginPage() {
     });
     if (r.ok) {
       setStatus("done");
-      setMessage("Welcome aboard. Redirecting…");
+      setMessage(t("login.welcomeAboardRedirecting"));
       setTimeout(() => (window.location.href = postLoginTarget()), 800);
     } else {
       const j = await r.json().catch(() => ({}));
       setStatus("error");
-      setMessage(j.error ?? "Could not redeem invite.");
+      setMessage(j.error ?? t("login.couldNotRedeemInvite"));
     }
   };
 
@@ -121,7 +126,7 @@ function LoginPage() {
       <div>
         <h1 className="text-2xl font-semibold">Market Pulse</h1>
         <p className="text-muted-foreground text-sm">
-          {invite ? "Closed beta — invite only." : "Sign in to your account."}
+          {invite ? t("login.closedBeta") : t("login.signInToAccount")}
         </p>
       </div>
 
@@ -129,14 +134,14 @@ function LoginPage() {
         <div className="flex flex-col gap-3">
           <input
             className="border-input bg-background rounded-md border px-3 py-2 text-sm"
-            placeholder="Email"
+            placeholder={t("login.emailPlaceholder")}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
           <input
             className="border-input bg-background rounded-md border px-3 py-2 text-sm"
-            placeholder="Display name"
+            placeholder={t("login.displayNamePlaceholder")}
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
           />
@@ -145,7 +150,7 @@ function LoginPage() {
             disabled={status === "working"}
             onClick={redeem}
           >
-            Redeem invite
+            {t("login.redeemInvite")}
           </button>
         </div>
       ) : null}
@@ -160,7 +165,7 @@ function LoginPage() {
         >
           <input
             className="border-input bg-background rounded-md border px-3 py-2 text-sm"
-            placeholder="Email"
+            placeholder={t("login.emailPlaceholder")}
             type="email"
             autoComplete="email"
             value={email}
@@ -168,7 +173,7 @@ function LoginPage() {
           />
           <input
             className="border-input bg-background rounded-md border px-3 py-2 text-sm"
-            placeholder="Password"
+            placeholder={t("login.passwordPlaceholder")}
             type="password"
             autoComplete="current-password"
             value={password}
@@ -179,12 +184,9 @@ function LoginPage() {
             type="submit"
             disabled={status === "working"}
           >
-            {status === "working" ? "Signing in…" : "Sign in"}
+            {status === "working" ? t("login.signingIn") : t("login.signIn")}
           </button>
-          <p className="text-muted-foreground text-xs">
-            You can change your password afterwards in Settings → Account. Invite links keep working
-            at this page.
-          </p>
+          <p className="text-muted-foreground text-xs">{t("login.changePasswordNote")}</p>
         </form>
       ) : null}
 

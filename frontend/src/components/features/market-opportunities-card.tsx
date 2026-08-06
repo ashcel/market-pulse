@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/components/ui/badge";
 import { AssetIcon } from "@/components/features/asset-icon";
@@ -46,6 +47,7 @@ function OpportunityRow({
   rank: number;
   events: TokenEvent[];
 }) {
+  const { t } = useTranslation();
   return (
     <li>
       <Link
@@ -63,10 +65,13 @@ function OpportunityRow({
                 {o.name}
               </span>
             )}
-            {o.tracked && <StatusBadge tone="info">Tracked</StatusBadge>}
+            {o.tracked && (
+              <StatusBadge tone="info">{t("components.batchD.marketOpportunities.tracked")}</StatusBadge>
+            )}
             {o.spike && (
               <StatusBadge tone={o.spike.direction === "up" ? "warning" : "info"}>
-                {o.spike.direction === "up" ? "↑" : "↓"} Spike rejected
+                {o.spike.direction === "up" ? "↑" : "↓"}{" "}
+                {t("components.batchD.marketOpportunities.spikeRejected")}
               </StatusBadge>
             )}
             {badgesFor(events).map((e) => (
@@ -88,12 +93,14 @@ function OpportunityRow({
         <div className="hidden shrink-0 text-right sm:block">
           <div className="num text-sm">{o.rangePercent24h.toFixed(1)}%</div>
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            24h range
+            {t("components.batchD.marketOpportunities.range24h")}
           </div>
         </div>
         <div className="hidden shrink-0 text-right md:block">
           <div className="num text-sm">{formatTurnover(o.quoteVolume24h)}</div>
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Turnover</div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            {t("components.batchD.marketOpportunities.turnover")}
+          </div>
         </div>
         <div className="shrink-0 text-right">
           <div className="num text-sm">{formatPrice(o.price)}</div>
@@ -105,6 +112,7 @@ function OpportunityRow({
 }
 
 export function MarketOpportunitiesCard() {
+  const { t } = useTranslation();
   const { data } = useOpportunityScan();
   const top = useMemo(() => data?.opportunities.slice(0, SHOWN) ?? [], [data]);
   const { data: events } = useTokenEventsForSymbols(top.map((o) => o.ticker));
@@ -115,21 +123,25 @@ export function MarketOpportunitiesCard() {
     return map;
   }, [events]);
 
+  const n = "components.batchD.marketOpportunities.";
+
   return (
     <IqCard padded={false} data-tour="opportunities">
       <div className="flex flex-wrap items-center justify-between gap-2 p-5 pb-3">
         <div className="flex items-center gap-2">
-          <CardEyebrow>Market Opportunities · Worth Scanning</CardEyebrow>
-          {data?.source === "demo" && <StatusBadge tone="warning">Demo data</StatusBadge>}
+          <CardEyebrow>{t(`${n}eyebrow`)}</CardEyebrow>
+          {data?.source === "demo" && (
+            <StatusBadge tone="warning">{t(`${n}demoData`)}</StatusBadge>
+          )}
         </div>
-        <span className="text-xs text-muted-foreground">Activity scan · not a trade signal</span>
+        <span className="text-xs text-muted-foreground">{t(`${n}scanCaption`)}</span>
       </div>
       {data ? (
         <>
           {data.spikes.length > 0 && (
             <div className="flex items-center gap-2 overflow-x-auto border-t border-border bg-surface/40 px-5 py-2">
               <span className="shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">
-                Live spikes
+                {t(`${n}liveSpikes`)}
               </span>
               {data.spikes.slice(0, 8).map((h) => (
                 <Link
@@ -148,7 +160,7 @@ export function MarketOpportunitiesCard() {
                     {h.spike.direction === "up" ? "↑" : "↓"} {h.ticker}
                   </span>
                   <span className="num text-muted-foreground">
-                    {h.spike.volumeMult.toFixed(1)}× vol
+                    {t(`${n}volMultiplier`, { mult: h.spike.volumeMult.toFixed(1) })}
                   </span>
                 </Link>
               ))}
@@ -165,9 +177,10 @@ export function MarketOpportunitiesCard() {
             ))}
           </ul>
           <div className="border-t border-border px-5 py-2 text-[11px] text-muted-foreground">
-            Liquidity-gated scan of {data.pairsSeen} Binance USDT spot pairs — {data.pairsRanked}{" "}
-            liquid pairs ranked by 24h range, depth, and trade flow. Open a token for the
-            engine&apos;s actual verdict.
+            {t(`${n}footer`, {
+              pairsSeen: data.pairsSeen,
+              pairsRanked: data.pairsRanked,
+            })}
           </div>
         </>
       ) : (

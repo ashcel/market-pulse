@@ -1,6 +1,7 @@
 import { Sparkles } from "lucide-react";
 import { useMemo } from "react";
 import { Area, AreaChart, ResponsiveContainer, YAxis } from "recharts";
+import { useTranslation } from "react-i18next";
 
 import { ConfidenceGauge } from "./confidence-gauge";
 import { CardEyebrow, IqCard } from "./iq-card";
@@ -25,10 +26,11 @@ import { cn } from "@/lib/utils";
  * separate "Ask AI" surface, and this panel never claims to be it.
  */
 
-const ACTION_LINE = {
-  "Risk On": "Conditions favourable — trade your plan, normal size.",
-  Neutral: "Mixed conditions. Be selective, reduce size, and skip low-conviction setups.",
-  "Risk Off": "Poor conditions — sit out or scalp only, tight risk.",
+/** Keys under `outlook.*` — the regime string itself stays the engine's raw value (used for tone logic). */
+const REGIME_KEY = {
+  "Risk On": { label: "riskOn", action: "actionRiskOn" },
+  Neutral: { label: "neutral", action: "actionNeutral" },
+  "Risk Off": { label: "riskOff", action: "actionRiskOff" },
 } as const;
 
 const TONE_CLASS: Record<BriefTone, string> = {
@@ -39,6 +41,7 @@ const TONE_CLASS: Record<BriefTone, string> = {
 };
 
 export function MarketOutlookHero() {
+  const { t } = useTranslation();
   const regime = useRegime();
   const rotation = useRotation();
   const sentiment = useSentiment();
@@ -84,7 +87,7 @@ export function MarketOutlookHero() {
       <div className="grid grid-cols-1 gap-6 p-5 sm:p-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         {/* Verdict */}
         <div className="flex flex-col">
-          <CardEyebrow>Market Outlook</CardEyebrow>
+          <CardEyebrow>{t("outlook.marketOutlook")}</CardEyebrow>
           <h2
             className={cn(
               "mt-3 text-3xl font-black uppercase tracking-tight sm:text-4xl",
@@ -93,17 +96,14 @@ export function MarketOutlookHero() {
               tone === "warning" && "text-warning",
             )}
           >
-            {r.regime}
+            {t(`outlook.${REGIME_KEY[r.regime].label}`)}
           </h2>
           <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
-            {ACTION_LINE[r.regime]}
+            {t(`outlook.${REGIME_KEY[r.regime].action}`)}
           </p>
           <div className="mt-5 flex items-center gap-3 self-start rounded-xl border border-border bg-surface/60 py-1.5 pl-4 pr-2">
-            <span
-              className="text-xs text-muted-foreground"
-              title="Rule-based blend of the regime pillars, not a calibrated probability."
-            >
-              Confidence
+            <span className="text-xs text-muted-foreground" title={t("outlook.confidenceTooltip")}>
+              {t("outlook.confidence")}
             </span>
             <span
               className={cn(
@@ -166,12 +166,12 @@ export function MarketOutlookHero() {
 
           <div className="relative z-10 flex h-full flex-col">
             <div className="flex items-center gap-2">
-              <CardEyebrow>Market Brief</CardEyebrow>
+              <CardEyebrow>{t("outlook.marketBrief")}</CardEyebrow>
               <span
                 className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-muted-foreground"
-                title="Deterministic restatement of the snapshot — not an LLM summary."
+                title={t("outlook.ruleBasedTooltip")}
               >
-                Rule-based
+                {t("outlook.ruleBased")}
               </span>
             </div>
             <ul className="mt-3 flex flex-col gap-2">
@@ -197,18 +197,18 @@ export function MarketOutlookHero() {
                     tone === "warning" && "text-warning",
                   )}
                 >
-                  How to trade it:{" "}
+                  {t("outlook.howToTradeIt")}{" "}
                 </span>
                 <span className="text-foreground">{brief.recommendation.join(" • ")}</span>
               </div>
               <button
                 type="button"
                 onClick={() => setAskAi(true)}
-                title="AI can make mistakes — verify anything it says before acting on it."
+                title={t("outlook.askAiTooltip")}
                 className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium transition-colors hover:bg-surface/70"
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                Ask AI
+                {t("outlook.askAi")}
               </button>
             </div>
           </div>

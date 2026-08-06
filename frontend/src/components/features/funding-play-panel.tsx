@@ -1,5 +1,6 @@
 import { useMemo, useEffect, useState } from "react";
 import { Scale, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { CardEyebrow } from "@/components/features/iq-card";
 import { StatusBadge } from "@/components/features/status-badge";
@@ -133,12 +134,15 @@ function EquityCurveSparkline({
 }
 
 function FundingBacktestDisplay({ backtest }: FundingBacktestDisplayProps) {
+  const { t } = useTranslation();
   const { report } = backtest;
 
   if (report.n === 0) {
     return (
       <p className="text-xs text-muted-foreground">
-        No extreme-funding settlements in the last {backtest.lookbackDays}d for this pair.
+        {t("components.batchG.fundingPlayPanel.noExtremeSettlements", {
+          days: backtest.lookbackDays,
+        })}
       </p>
     );
   }
@@ -148,14 +152,21 @@ function FundingBacktestDisplay({ backtest }: FundingBacktestDisplayProps) {
       {/* Header */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-muted-foreground">
-          {report.n} instances over {backtest.lookbackDays}d
+          {t("components.batchG.fundingPlayPanel.instancesOverDays", {
+            count: report.n,
+            days: backtest.lookbackDays,
+          })}
         </span>
         <span className="text-muted-foreground">·</span>
-        <span className="text-muted-foreground">{backtest.extremeCount} flagged</span>
+        <span className="text-muted-foreground">
+          {t("components.batchG.fundingPlayPanel.flaggedCount", { count: backtest.extremeCount })}
+        </span>
         {backtest.source === "demo" && (
           <>
             <span className="text-muted-foreground">·</span>
-            <StatusBadge tone="warning">No live history</StatusBadge>
+            <StatusBadge tone="warning">
+              {t("components.batchG.fundingPlayPanel.noLiveHistory")}
+            </StatusBadge>
           </>
         )}
       </div>
@@ -164,7 +175,7 @@ function FundingBacktestDisplay({ backtest }: FundingBacktestDisplayProps) {
       <div className="grid grid-cols-4 gap-1 rounded border border-border/50 bg-muted/20 p-2">
         <div className="text-center">
           <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
-            Harvest WR
+            {t("components.batchG.fundingPlayPanel.harvestWr")}
           </div>
           <div className="text-xs font-semibold text-foreground">
             {(report.winRateHarvest * 100).toFixed(0)}%
@@ -172,7 +183,7 @@ function FundingBacktestDisplay({ backtest }: FundingBacktestDisplayProps) {
         </div>
         <div className="text-center">
           <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
-            Reversal WR
+            {t("components.batchG.fundingPlayPanel.reversalWr")}
           </div>
           <div className="text-xs font-semibold text-foreground">
             {(report.winRateReversal * 100).toFixed(0)}%
@@ -180,7 +191,7 @@ function FundingBacktestDisplay({ backtest }: FundingBacktestDisplayProps) {
         </div>
         <div className="text-center">
           <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
-            Total
+            {t("components.batchG.fundingPlayPanel.total")}
           </div>
           <div
             className={cn(
@@ -193,7 +204,7 @@ function FundingBacktestDisplay({ backtest }: FundingBacktestDisplayProps) {
         </div>
         <div className="text-center">
           <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
-            Expectancy
+            {t("components.batchG.fundingPlayPanel.expectancy")}
           </div>
           <div
             className={cn(
@@ -210,7 +221,7 @@ function FundingBacktestDisplay({ backtest }: FundingBacktestDisplayProps) {
       <div className="grid grid-cols-3 gap-1 rounded border border-border/50 bg-muted/20 p-2">
         <div className="text-center">
           <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
-            Avg PnL
+            {t("components.batchG.fundingPlayPanel.avgPnl")}
           </div>
           <div
             className={cn(
@@ -223,7 +234,7 @@ function FundingBacktestDisplay({ backtest }: FundingBacktestDisplayProps) {
         </div>
         <div className="text-center">
           <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
-            Median PnL
+            {t("components.batchG.fundingPlayPanel.medianPnl")}
           </div>
           <div
             className={cn(
@@ -236,7 +247,7 @@ function FundingBacktestDisplay({ backtest }: FundingBacktestDisplayProps) {
         </div>
         <div className="text-center">
           <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
-            Max Drawdown
+            {t("components.batchG.fundingPlayPanel.maxDrawdown")}
           </div>
           <div
             className={cn(
@@ -253,10 +264,10 @@ function FundingBacktestDisplay({ backtest }: FundingBacktestDisplayProps) {
       {report.buckets.length > 0 && (
         <div className="border border-border/50 rounded overflow-hidden">
           <div className="bg-muted/20 px-2 py-1 grid grid-cols-4 gap-1 text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
-            <div>Range</div>
-            <div className="text-center">N</div>
-            <div className="text-center">WR</div>
-            <div className="text-right">Avg PnL</div>
+            <div>{t("components.batchG.fundingPlayPanel.range")}</div>
+            <div className="text-center">{t("components.batchG.fundingPlayPanel.n")}</div>
+            <div className="text-center">{t("components.batchG.fundingPlayPanel.wr")}</div>
+            <div className="text-right">{t("components.batchG.fundingPlayPanel.avgPnl")}</div>
           </div>
           {report.buckets.map((bucket, i) => {
             const isMainBand = bucket.minAbsRate >= 0.02;
@@ -290,7 +301,7 @@ function FundingBacktestDisplay({ backtest }: FundingBacktestDisplayProps) {
       {report.equityCurve.length > 0 && (
         <div className="border border-border/50 rounded p-2 bg-muted/20">
           <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
-            Equity Curve
+            {t("components.batchG.fundingPlayPanel.equityCurve")}
           </div>
           <EquityCurveSparkline curve={report.equityCurve} />
         </div>
@@ -298,14 +309,14 @@ function FundingBacktestDisplay({ backtest }: FundingBacktestDisplayProps) {
 
       {/* Footer caveat */}
       <p className="text-[9px] leading-relaxed text-muted-foreground italic">
-        Indicative, pessimistic-fill model: 1m closes, conservative stops, no slippage; flagged on
-        settled rate.
+        {t("components.batchG.fundingPlayPanel.backtestCaveat")}
       </p>
     </div>
   );
 }
 
 export function FundingPlayPanel({ symbol, market }: FundingPlayPanelProps) {
+  const { t } = useTranslation();
   const { data: scan } = useFundingScan();
   const live = useLiveFunding(symbol, market);
   const [nowMs, setNowMs] = useState(Date.now());
@@ -355,7 +366,7 @@ export function FundingPlayPanel({ symbol, market }: FundingPlayPanelProps) {
         <div className="rounded-lg border border-border bg-surface p-2.5">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
-              <CardEyebrow>Funding Watch</CardEyebrow>
+              <CardEyebrow>{t("components.batchG.fundingPlayPanel.fundingWatch")}</CardEyebrow>
             </div>
           </div>
           <div className="mt-2">
@@ -365,7 +376,7 @@ export function FundingPlayPanel({ symbol, market }: FundingPlayPanelProps) {
             <div className="rounded-md border border-border bg-card px-2 py-1.5">
               <div className="flex items-center gap-1 text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
                 <Scale className="h-3 w-3" />
-                Rate
+                {t("components.batchG.fundingPlayPanel.rate")}
               </div>
               <div className="num mt-0.5 text-sm font-semibold text-foreground">
                 {(live.fundingRate * 100).toFixed(4)}%
@@ -373,7 +384,7 @@ export function FundingPlayPanel({ symbol, market }: FundingPlayPanelProps) {
             </div>
             <div className="rounded-md border border-border bg-card px-2 py-1.5">
               <div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
-                Settlement
+                {t("components.batchG.fundingPlayPanel.settlement")}
               </div>
               <div className="num mt-0.5 text-sm font-semibold text-foreground">{countdown}</div>
             </div>
@@ -386,15 +397,17 @@ export function FundingPlayPanel({ symbol, market }: FundingPlayPanelProps) {
 
   const minutesToFunding = Math.max(0, (live?.nextFundingMs ?? 0 - nowMs) / 60000);
   const countdown = formatCountdown(minutesToFunding * 60000);
-  const { label: verdictLabel, tone: verdictTone } = verdictDisplay(advice.verdict);
+  const { label: verdictLabel, tone: verdictTone } = verdictDisplay(advice.verdict, t);
 
   return (
     <div className="rounded-lg border border-border bg-surface p-3">
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-1.5 min-w-0">
-          <CardEyebrow className="flex-shrink-0">Funding Watch</CardEyebrow>
+          <CardEyebrow className="flex-shrink-0">
+            {t("components.batchG.fundingPlayPanel.fundingWatch")}
+          </CardEyebrow>
           <span className="text-sm font-medium text-foreground truncate">
-            {advice.side} receives
+            {t("components.batchG.fundingPlayPanel.sideReceives", { side: advice.side })}
           </span>
         </div>
         <StatusBadge tone={verdictTone} className="shrink-0">
@@ -409,18 +422,24 @@ export function FundingPlayPanel({ symbol, market }: FundingPlayPanelProps) {
       {/* Rate, interval, countdown */}
       <div className="mb-3 flex flex-wrap gap-2 text-[11px]">
         <div className="rounded px-2 py-1 bg-card border border-border">
-          <span className="text-muted-foreground">Rate: </span>
+          <span className="text-muted-foreground">
+            {t("components.batchG.fundingPlayPanel.rateColon")}
+          </span>
           <span className="font-semibold text-foreground">
             {(advice.fundingRate * 100).toFixed(2)}%
           </span>
         </div>
         {advice.intervalHours !== 8 && (
           <div className="rounded px-2 py-1 bg-card border border-border border-warning/50 bg-warning-soft text-warning font-medium">
-            {advice.intervalHours}h interval
+            {t("components.batchG.fundingPlayPanel.intervalHours", {
+              hours: advice.intervalHours,
+            })}
           </div>
         )}
         <div className="rounded px-2 py-1 bg-card border border-border">
-          <span className="text-muted-foreground">Settlement: </span>
+          <span className="text-muted-foreground">
+            {t("components.batchG.fundingPlayPanel.settlementColon")}
+          </span>
           <span className="font-semibold text-foreground">{countdown}</span>
         </div>
       </div>
@@ -429,7 +448,7 @@ export function FundingPlayPanel({ symbol, market }: FundingPlayPanelProps) {
       <div className="mb-3 grid grid-cols-5 gap-1.5">
         <div className="rounded px-1.5 py-1 bg-card border border-border text-center">
           <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
-            Gross
+            {t("components.batchG.fundingPlayPanel.gross")}
           </div>
           <div className="text-xs font-semibold text-foreground">
             {advice.grossCapturePct.toFixed(2)}%
@@ -437,13 +456,13 @@ export function FundingPlayPanel({ symbol, market }: FundingPlayPanelProps) {
         </div>
         <div className="rounded px-1.5 py-1 bg-card border border-border text-center">
           <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
-            Fees
+            {t("components.batchG.fundingPlayPanel.fees")}
           </div>
           <div className="text-xs font-semibold text-bearish">{advice.feesPct.toFixed(2)}%</div>
         </div>
         <div className="rounded px-1.5 py-1 bg-card border border-border text-center">
           <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
-            Net
+            {t("components.batchG.fundingPlayPanel.net")}
           </div>
           <div
             className={cn(
@@ -456,7 +475,7 @@ export function FundingPlayPanel({ symbol, market }: FundingPlayPanelProps) {
         </div>
         <div className="rounded px-1.5 py-1 bg-card border border-border text-center">
           <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
-            Breakeven
+            {t("components.batchG.fundingPlayPanel.breakeven")}
           </div>
           <div className="text-xs font-semibold text-foreground">
             {advice.breakevenMovePct.toFixed(2)}%
@@ -464,7 +483,7 @@ export function FundingPlayPanel({ symbol, market }: FundingPlayPanelProps) {
         </div>
         <div className="rounded px-1.5 py-1 bg-card border border-border text-center">
           <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
-            Notional
+            {t("components.batchG.fundingPlayPanel.notional")}
           </div>
           <div className="text-xs font-semibold text-foreground">
             ${Math.round(advice.suggestedNotionalUsd)}
@@ -475,7 +494,7 @@ export function FundingPlayPanel({ symbol, market }: FundingPlayPanelProps) {
       {/* Expected capture */}
       <div className="mb-3 rounded px-2 py-1.5 bg-card border border-border">
         <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
-          Expected capture
+          {t("components.batchG.fundingPlayPanel.expectedCapture")}
         </div>
         <div className="text-sm font-semibold text-foreground">
           ${advice.expectedCaptureUsd.toFixed(2)}
@@ -488,7 +507,7 @@ export function FundingPlayPanel({ symbol, market }: FundingPlayPanelProps) {
       {/* What flips it */}
       <div className="mb-3 rounded px-2 py-1.5 bg-info/5 border border-info/20">
         <div className="text-[9px] uppercase tracking-wider text-info font-semibold mb-1">
-          Condition to flip verdict
+          {t("components.batchG.fundingPlayPanel.conditionToFlip")}
         </div>
         <p className="text-[11px] font-medium text-foreground">{advice.whatFlipsIt}</p>
       </div>
@@ -497,7 +516,7 @@ export function FundingPlayPanel({ symbol, market }: FundingPlayPanelProps) {
       {advice.hazards.length > 0 && (
         <div className="mb-3 rounded px-2 py-1.5 bg-warning/5 border border-warning/20">
           <div className="text-[9px] uppercase tracking-wider text-warning font-semibold mb-1">
-            Hazards
+            {t("components.batchG.fundingPlayPanel.hazards")}
           </div>
           <ul className="space-y-0.5">
             {advice.hazards.map((h, i) => (
@@ -514,7 +533,7 @@ export function FundingPlayPanel({ symbol, market }: FundingPlayPanelProps) {
       {advice.reversalNote && (
         <div className="rounded px-2 py-1.5 bg-muted/20 border border-muted/40">
           <div className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
-            Reversal leg
+            {t("components.batchG.fundingPlayPanel.reversalLeg")}
           </div>
           <p className="text-[11px] text-muted-foreground leading-relaxed">{advice.reversalNote}</p>
         </div>
@@ -532,7 +551,7 @@ export function FundingPlayPanel({ symbol, market }: FundingPlayPanelProps) {
             ) : (
               <ChevronDown className="h-3.5 w-3.5" />
             )}
-            Backtest this play (180d)
+            {t("components.batchG.fundingPlayPanel.backtestButton")}
           </span>
         </button>
 
@@ -541,7 +560,7 @@ export function FundingPlayPanel({ symbol, market }: FundingPlayPanelProps) {
             {backtestLoading ? (
               <div className="flex items-center gap-2 py-4 text-xs text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" />
-                Replaying past settlements — takes a few seconds
+                {t("components.batchG.fundingPlayPanel.replayingSettlements")}
               </div>
             ) : backtest ? (
               <FundingBacktestDisplay backtest={backtest} />

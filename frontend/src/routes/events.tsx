@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Landmark, Lock, Coins } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { CardEyebrow, IqCard } from "@/components/features/iq-card";
 import { PageHeader } from "@/components/features/page-header";
@@ -47,6 +48,7 @@ interface Row {
 const WINDOW_DAYS = 14;
 
 function EventsPage() {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<Filter>("all");
   const calendar = useEconomicEvents(WINDOW_DAYS, "low");
   const watched = useWatchlistStore((s) => s.tickers);
@@ -63,8 +65,8 @@ function EventsPage() {
         title: e.title,
         detail: [
           e.country,
-          e.forecast ? `forecast ${e.forecast}` : null,
-          e.previous ? `previous ${e.previous}` : null,
+          e.forecast ? t("events.forecast", { value: e.forecast }) : null,
+          e.previous ? t("events.previous", { value: e.previous }) : null,
         ]
           .filter(Boolean)
           .join(" · "),
@@ -90,7 +92,7 @@ function EventsPage() {
       });
     }
     return out.sort((a, b) => a.at - b.at);
-  }, [calendar.data, tokenEvents.data, now]);
+  }, [calendar.data, tokenEvents.data, now, t]);
 
   const shown = rows.filter((r) => filter === "all" || r.kind === filter);
 
@@ -108,17 +110,17 @@ function EventsPage() {
   return (
     <div className="mx-auto flex max-w-[1100px] flex-col gap-6">
       <PageHeader
-        eyebrow="Overview"
-        title="Events"
-        subtitle={`Everything scheduled in the next ${WINDOW_DAYS} days, in your local time — macro prints plus dated events for the tokens you watch.`}
+        eyebrow={t("events.eyebrow")}
+        title={t("events.title")}
+        subtitle={t("events.subtitle", { days: WINDOW_DAYS })}
       />
 
       <div className="flex flex-wrap gap-1.5">
         {(
           [
-            { label: "All", value: "all" },
-            { label: "Macro calendar", value: "macro" },
-            { label: "Token events", value: "token" },
+            { labelKey: "filterAll", value: "all" },
+            { labelKey: "filterMacro", value: "macro" },
+            { labelKey: "filterToken", value: "token" },
           ] as const
         ).map((f) => (
           <button
@@ -131,7 +133,7 @@ function EventsPage() {
                 : "border-border bg-surface text-muted-foreground hover:text-foreground",
             )}
           >
-            {f.label}
+            {t(`events.${f.labelKey}`)}
           </button>
         ))}
       </div>
@@ -143,11 +145,8 @@ function EventsPage() {
         </div>
       ) : byDay.length === 0 ? (
         <IqCard>
-          <p className="text-sm font-medium">Nothing scheduled in the window.</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Token events are scoped to your watchlist — add tokens to see their unlocks and listings
-            here.
-          </p>
+          <p className="text-sm font-medium">{t("events.emptyTitle")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("events.emptyBody")}</p>
         </IqCard>
       ) : (
         byDay.map(([day, items]) => (
@@ -184,7 +183,7 @@ function EventsPage() {
                             {r.title}
                           </p>
                           {r.impact === "high" && (
-                            <StatusBadge tone="bearish">High impact</StatusBadge>
+                            <StatusBadge tone="bearish">{t("events.highImpact")}</StatusBadge>
                           )}
                         </div>
                         <p className="mt-0.5 truncate text-[11px] capitalize text-muted-foreground">

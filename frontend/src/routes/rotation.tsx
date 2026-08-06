@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { useRotation, useSectors } from "@/hooks/queries";
 import { PageHeader } from "@/components/features/page-header";
 import { RotationFlow } from "@/components/features/rotation-flow";
@@ -29,35 +30,28 @@ export const Route = createFileRoute("/rotation")({
 
 const TOUR_SEEN_KEY = "iq-rotation-tour-v1";
 
-const TOUR_STEPS: TourStep[] = [
-  {
-    target: "flow",
-    title: "The rotation path",
-    body: "Sectors ordered from where money is leaving to where it's arriving, based on 24-hour performance. Capital rarely exits crypto — it rotates. Riding the sector it's rotating into is usually easier than fighting the one it's leaving.",
-  },
-  {
-    target: "metrics",
-    title: "Flow quality",
-    body: "How strong the rotation is, how confident the model is that it's real (24h and 7d rankings agreeing), and the winning and losing sectors with their average 24-hour move. A high-confidence, persistent flow is far more tradeable than an unstable one.",
-  },
-  {
-    target: "heatmap",
-    title: "Sector heatmap",
-    body: "Every sector broken down into its individual assets, coloured by 24-hour performance — so you can see whether a sector's move is broad or carried by a single token.",
-  },
-];
+function useTourSteps(): TourStep[] {
+  const { t } = useTranslation();
+  return (["flow", "metrics", "heatmap"] as const).map((target) => ({
+    target,
+    title: t(`routes.rotation.tour.${target}.title`),
+    body: t(`routes.rotation.tour.${target}.body`),
+  }));
+}
 
 function RotationPage() {
+  const { t } = useTranslation();
   const rotation = useRotation();
   const sectors = useSectors();
   const tour = useProductTour(TOUR_SEEN_KEY);
+  const tourSteps = useTourSteps();
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
       <PageHeader
-        eyebrow="Rotation"
-        title="Capital Rotation"
-        subtitle="Where money is moving right now."
+        eyebrow={t("routes.rotation.eyebrow")}
+        title={t("routes.rotation.title")}
+        subtitle={t("routes.rotation.subtitle")}
         action={<HelpButton onClick={tour.start} />}
       />
 
@@ -69,7 +63,7 @@ function RotationPage() {
         {rotation.data ? (
           <>
             <MetricCard
-              label="Flow Strength"
+              label={t("routes.rotation.flowStrength")}
               accent={
                 rotation.data.strength === "High"
                   ? "bullish"
@@ -78,31 +72,31 @@ function RotationPage() {
                     : "neutral"
               }
               value={rotation.data.strength}
-              footerLeft="Signal"
+              footerLeft={t("routes.rotation.signal")}
               footerRight={
                 rotation.data.confidence >= 70 ? (
-                  <span className="text-bullish">Persistent</span>
+                  <span className="text-bullish">{t("routes.rotation.persistent")}</span>
                 ) : (
-                  <span className="text-warning">Unstable</span>
+                  <span className="text-warning">{t("routes.rotation.unstable")}</span>
                 )
               }
             />
             <MetricCard
               label={
-                <span title="Rescaled from the real 24h-vs-7d sector rank correlation (shown as ρ below) — not an independently calibrated probability.">
-                  Rotation Confidence
+                <span title={t("routes.rotation.rotationConfidenceTooltip")}>
+                  {t("routes.rotation.rotationConfidence")}
                 </span>
               }
               accent="info"
               value={<span className="num">{rotation.data.confidence}%</span>}
-              footerLeft="24h vs 7d rank agreement"
+              footerLeft={t("routes.rotation.rankAgreement")}
               footerRight={`ρ ${rotation.data.rankAgreement >= 0 ? "+" : ""}${rotation.data.rankAgreement}`}
             />
             <MetricCard
-              label="Winning Sector"
+              label={t("routes.rotation.winningSector")}
               accent="bullish"
               value={rotation.data.winning}
-              footerLeft="Avg 24h"
+              footerLeft={t("routes.rotation.avg24h")}
               footerRight={
                 <span className="num text-bullish">
                   {rotation.data.winningChange !== undefined
@@ -112,10 +106,10 @@ function RotationPage() {
               }
             />
             <MetricCard
-              label="Losing Sector"
+              label={t("routes.rotation.losingSector")}
               accent="bearish"
               value={rotation.data.losing}
-              footerLeft="Avg 24h"
+              footerLeft={t("routes.rotation.avg24h")}
               footerRight={
                 <span className="num text-bearish">
                   {rotation.data.losingChange !== undefined
@@ -134,7 +128,7 @@ function RotationPage() {
         {sectors.data ? <Heatmap sectors={sectors.data} /> : <SkeletonCard height={240} />}
       </div>
 
-      <ProductTour steps={TOUR_STEPS} open={tour.open && !!rotation.data} onClose={tour.close} />
+      <ProductTour steps={tourSteps} open={tour.open && !!rotation.data} onClose={tour.close} />
     </div>
   );
 }

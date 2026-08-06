@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { useAssets } from "@/hooks/queries";
 import { MarketCard } from "@/components/features/market-card";
 import { PageHeader } from "@/components/features/page-header";
@@ -28,43 +29,48 @@ export const Route = createFileRoute("/markets")({
   component: MarketsPage,
 });
 
-const FILTERS: { label: string; value: string }[] = [
-  { label: "All", value: "all" },
-  ...SECTOR_ORDER.map((s) => ({ label: s, value: s })),
-];
+// Sector names come from the engine's taxonomy (SECTOR_ORDER) and are compared
+// by value across the app (heatmap, rotation, market.sector) — left untranslated.
+const SECTOR_FILTERS = SECTOR_ORDER.map((s) => ({ label: s, value: s }));
 
 const TOUR_SEEN_KEY = "iq-markets-tour-v1";
 
-const TOUR_STEPS: TourStep[] = [
-  {
-    target: "filters",
-    title: "Sector filters",
-    body: "Narrow the universe to one sector — Majors, Layer 1, DeFi, AI, or Meme — or view everything at once. Sectors matter because money usually rotates between them rather than lifting the whole market.",
-  },
-  {
-    target: "grid",
-    title: "Market cards",
-    body: "Every tracked asset with live price, 24-hour change, and a mini trend line, ranked by Market Pulse score (the engine's 0–100 quality rating). Click any card to open the full chart, signal, and trade plan for that token.",
-  },
-];
+function useTourSteps(): TourStep[] {
+  const { t } = useTranslation();
+  return [
+    {
+      target: "filters",
+      title: t("routes.markets.tour.filters.title"),
+      body: t("routes.markets.tour.filters.body"),
+    },
+    {
+      target: "grid",
+      title: t("routes.markets.tour.grid.title"),
+      body: t("routes.markets.tour.grid.body"),
+    },
+  ];
+}
 
 function MarketsPage() {
+  const { t } = useTranslation();
   const { data } = useAssets();
   const [filter, setFilter] = useState<string>("all");
   const filtered = data?.filter((a) => filter === "all" || a.sector === filter);
   const tour = useProductTour(TOUR_SEEN_KEY);
+  const tourSteps = useTourSteps();
+  const filters = [{ label: t("routes.markets.all"), value: "all" }, ...SECTOR_FILTERS];
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
       <PageHeader
-        eyebrow="Overview"
-        title="Markets"
-        subtitle="Live Binance snapshot across the tracked universe, ranked by Market Pulse score."
+        eyebrow={t("routes.markets.eyebrow")}
+        title={t("routes.markets.title")}
+        subtitle={t("routes.markets.subtitle")}
         action={<HelpButton onClick={tour.start} />}
       />
 
       <div data-tour="filters" className="flex flex-wrap gap-1.5">
-        {FILTERS.map((f) => (
+        {filters.map((f) => (
           <button
             key={f.value}
             onClick={() => setFilter(f.value)}
@@ -98,7 +104,7 @@ function MarketsPage() {
           : Array.from({ length: 10 }).map((_, i) => <SkeletonCard key={i} />)}
       </div>
 
-      <ProductTour steps={TOUR_STEPS} open={tour.open && !!data} onClose={tour.close} />
+      <ProductTour steps={tourSteps} open={tour.open && !!data} onClose={tour.close} />
     </div>
   );
 }

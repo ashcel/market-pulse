@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/features/page-header";
 import { useSignals, useAssets } from "@/hooks/queries";
 import { SignalCard } from "@/components/features/signal-card";
@@ -32,34 +33,23 @@ export const Route = createFileRoute("/technical")({
 });
 
 const TOUR_SEEN_KEY = "iq-technical-tour-v1";
+const TOUR_TARGETS = ["picker", "chart", "signal-strength", "signals"] as const;
 
-const TOUR_STEPS: TourStep[] = [
-  {
-    target: "picker",
-    title: "Pick an asset",
-    body: "Everything on this page — the chart, the signal strength, and the signal cards — recalculates for the asset you select here. Your choice is remembered between visits.",
-  },
-  {
-    target: "chart",
-    title: "TradingView chart",
-    body: "A full TradingView chart for the selected asset. Use its own toolbar to change timeframes, add indicators, or draw on the chart.",
-  },
-  {
-    target: "signal-strength",
-    title: "Signal strength",
-    body: "How strongly the engine's evidence points in one direction — not a probability of success. A composite of trend, structure, volume, and risk checks on live 1H bars.",
-  },
-  {
-    target: "signals",
-    title: "Signal cards",
-    body: "The individual checks behind the score: structure, order blocks, EMAs, volume, ATR, and more. Each card shows its own reading and direction, so you can see exactly what supports — or contradicts — the overall verdict.",
-  },
-];
+function useTourSteps(): TourStep[] {
+  const { t } = useTranslation();
+  return TOUR_TARGETS.map((target) => ({
+    target,
+    title: t(`routes.technical.tour.${target}.title`),
+    body: t(`routes.technical.tour.${target}.body`),
+  }));
+}
 
 function TechnicalPage() {
+  const { t } = useTranslation();
   const { activeAsset, setActiveAsset } = usePreferencesStore();
   const { data: assets } = useAssets();
   const tour = useProductTour(TOUR_SEEN_KEY);
+  const tourSteps = useTourSteps();
 
   // Fall back to BTC if a previously persisted selection is no longer tracked.
   const ticker = assets?.some((a) => a.ticker === activeAsset) ? activeAsset : "BTC";
@@ -71,16 +61,16 @@ function TechnicalPage() {
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
       <PageHeader
-        eyebrow="Technical"
-        title="Technical Analysis"
-        subtitle="Chart + smart-money signals for the selected asset."
+        eyebrow={t("routes.technical.eyebrow")}
+        title={t("routes.technical.title")}
+        subtitle={t("routes.technical.subtitle")}
         action={
           <div className="flex items-center gap-2">
             <div
               data-tour="picker"
               className="flex items-center gap-2 rounded-lg border border-border bg-surface px-2 py-1.5"
             >
-              <span className="text-xs text-muted-foreground">Asset</span>
+              <span className="text-xs text-muted-foreground">{t("routes.technical.asset")}</span>
               <select
                 value={ticker}
                 onChange={(e) => setActiveAsset(e.target.value)}
@@ -108,18 +98,21 @@ function TechnicalPage() {
             data-tour="signal-strength"
             className="flex flex-col items-center gap-4 text-center"
           >
-            <CardEyebrow>Signal Strength</CardEyebrow>
-            <ConfidenceGauge value={signalsData.confidence} size={200} label="Overall" />
+            <CardEyebrow>{t("routes.technical.signalStrength")}</CardEyebrow>
+            <ConfidenceGauge
+              value={signalsData.confidence}
+              size={200}
+              label={t("routes.technical.overall")}
+            />
             <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2">
               <AssetIcon ticker={ticker} className="h-5 w-5" />
               <span className="font-semibold">{ticker}</span>
               <span className="text-xs capitalize text-muted-foreground">
-                — {asset?.setupType?.replaceAll("-", " ") ?? "analyzing"}
+                — {asset?.setupType?.replaceAll("-", " ") ?? t("routes.technical.analyzing")}
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              How strongly the engine's evidence points in one direction — not the probability the
-              trade wins. Composite of trend, structure, volume, and risk on live 1H bars.
+              {t("routes.technical.signalStrengthNote")}
             </p>
           </IqCard>
         ) : (
@@ -128,7 +121,7 @@ function TechnicalPage() {
       </div>
 
       <div data-tour="signals">
-        <CardEyebrow>Signal Cards</CardEyebrow>
+        <CardEyebrow>{t("routes.technical.signalCards")}</CardEyebrow>
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {signalsData
             ? signalsData.signals.map((s) => <SignalCard key={s.label} signal={s} />)
@@ -136,7 +129,7 @@ function TechnicalPage() {
         </div>
       </div>
 
-      <ProductTour steps={TOUR_STEPS} open={tour.open && !!signalsData} onClose={tour.close} />
+      <ProductTour steps={tourSteps} open={tour.open && !!signalsData} onClose={tour.close} />
     </div>
   );
 }

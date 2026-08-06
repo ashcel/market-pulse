@@ -63,6 +63,7 @@ import {
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { Link } from "@tanstack/react-router";
 
@@ -215,22 +216,24 @@ export const Route = createFileRoute("/token/$symbol")({
 function TokenNotFound() {
   const { symbol } = Route.useParams();
   const ticker = normalizeTicker(symbol);
+  const { t } = useTranslation();
   return (
     <div className="flex min-h-[60vh] items-center justify-center px-4">
       <div className="max-w-md text-center">
         <div className="eyebrow">404</div>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-          {ticker || "Token"} isn't listed
+          {t("tokenPage.notFound.title", { ticker: ticker || t("tokenPage.notFound.token") })}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          {ticker ? `${ticker}/USDT` : "This pair"} isn't a tradable spot pair on Binance, so
-          there's no live data to analyze.
+          {t("tokenPage.notFound.body", {
+            pair: ticker ? `${ticker}/USDT` : t("tokenPage.notFound.thisPair"),
+          })}
         </p>
         <Link
           to="/markets"
           className="mt-6 inline-flex items-center justify-center rounded-md bg-info px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-info/90"
         >
-          Browse markets
+          {t("tokenPage.notFound.browseMarkets")}
         </Link>
       </div>
     </div>
@@ -253,38 +256,60 @@ const SESSION_LINE_COLORS: Record<string, string> = {
 
 const TOUR_SEEN_KEY = "iq-token-tour-v2";
 
-const TOUR_STEPS: TourStep[] = [
-  {
-    target: "header",
-    title: "Token overview",
-    body: "Live price, 24-hour change and key stats for this token. Use the timeframe buttons (15M up to 1W) to change the chart — everything on this page recalculates for the timeframe you pick. The tiny dot above each button is that timeframe's bias (green = leans long, red = leans short, grey = neutral), so you can spot when a short-term bounce is fighting the bigger trend.",
-  },
-  {
-    target: "chart",
-    title: "Price chart",
-    body: "Each candle is one period of price movement (green = closed up, red = closed down). The legend below the chart names every overlay — EMAs, support/resistance, swing points, trade-plan levels — and clicking a legend item hides or shows it (your choices are remembered). The trade-plan levels and zones always belong to your selected objective's trigger timeframe — the legend names it (e.g. 'Trade plan · 4H') — so exploring other chart timeframes never changes the plan. When your objective's verdict wants the trade, shaded zones appear: reward (green), risk (red), and the buy/sell pocket (blue). On 1H and higher timeframes the chart also marks true demand/supply bases — consolidations that launched an explosive move. Drag the chart left past the oldest candle to load more history.",
-  },
-  {
-    target: "insight",
-    title: "Key insight & components",
-    body: "The market's condition in plain words — trend, momentum, volume, volatility — plus every check the engine ran. Green passed, amber is a caution, red failed.",
-  },
-  {
-    target: "objective",
-    title: "Start with your objective",
-    body: "Tell the assistant what you're trying to do — a quick scalp, an intraday trade, a multi-day swing, or a weeks-long trend position. Each objective is judged on its own pair of timeframes (a bigger one for context, a smaller one for the trigger), so the same chart can favor a scalp while ruling out a swing. The dot is each objective's verdict at a glance, and picking one switches the chart to its trigger timeframe.",
-  },
-  {
-    target: "decision",
-    title: "A verdict for YOUR objective",
-    body: "Not one answer for everyone: the assistant answers for the objective you picked — go, go at reduced size, not yet, or stand aside — with the plan levels and the one thing standing in the way, all on one screen. 'Not yet' is not 'never': the Why tab lists every missing confirmation and the price events that would flip today's verdict.",
-  },
-  {
-    target: "risk",
-    title: "Execution plan",
-    body: "When your objective has a payable setup: entry, stop, profit targets, and a position sized from your account settings — automatically halved when the trade is counter-trend. When there's no plan, the assistant points at the objective that is payable instead.",
-  },
-];
+function buildTourSteps(t: (k: string, o?: Record<string, unknown>) => string): TourStep[] {
+  return [
+    {
+      target: "header",
+      title: t("tokenPage.tour.overview.title"),
+      body: t("tokenPage.tour.overview.body"),
+    },
+    {
+      target: "chart",
+      title: t("tokenPage.tour.chart.title"),
+      body: t("tokenPage.tour.chart.body"),
+    },
+    {
+      target: "insight",
+      title: t("tokenPage.tour.insight.title"),
+      body: t("tokenPage.tour.insight.body"),
+    },
+    {
+      target: "objective",
+      title: t("tokenPage.tour.objective.title"),
+      body: t("tokenPage.tour.objective.body"),
+    },
+    {
+      target: "decision",
+      title: t("tokenPage.tour.decision.title"),
+      body: t("tokenPage.tour.decision.body"),
+    },
+    {
+      target: "risk",
+      title: t("tokenPage.tour.risk.title"),
+      body: t("tokenPage.tour.risk.body"),
+    },
+  ];
+}
+
+function ChartErrorFallback() {
+  const { t } = useTranslation();
+  return (
+    <IqCard padded={false} className="flex flex-col overflow-hidden lg:min-h-0 lg:flex-1">
+      <div className="h-full w-full bg-surface flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">{t("tokenPage.chart.errorBoundaryTitle")}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-2 text-xs text-info hover:underline"
+          >
+            {t("tokenPage.chart.errorBoundaryReload")}
+          </button>
+        </div>
+      </div>
+    </IqCard>
+  );
+}
 
 class ChartErrorBoundary extends React.Component<
   { children: ReactElement },
@@ -309,22 +334,7 @@ class ChartErrorBoundary extends React.Component<
 
   render() {
     if (this.state.hasError) {
-      return (
-        <IqCard padded={false} className="flex flex-col overflow-hidden lg:min-h-0 lg:flex-1">
-          <div className="h-full w-full bg-surface flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground">Chart encountered an issue</p>
-              <button
-                type="button"
-                onClick={() => window.location.reload()}
-                className="mt-2 text-xs text-info hover:underline"
-              >
-                Reload page
-              </button>
-            </div>
-          </div>
-        </IqCard>
-      );
+      return <ChartErrorFallback />;
     }
     return this.props.children;
   }
@@ -333,6 +343,7 @@ class ChartErrorBoundary extends React.Component<
 function TokenDetailPage() {
   const { symbol: rawSymbol } = Route.useParams();
   const symbol = rawSymbol.toUpperCase();
+  const { t } = useTranslation();
   const [timeframe, setTimeframe] = useState<TokenTimeframe>("4H");
   // The AI analyst is now an on-demand drawer, closed by default so the page
   // stays focused on the decision itself.
@@ -627,7 +638,7 @@ function TokenDetailPage() {
           <div className="leading-tight">
             <h1 className="text-lg font-bold tracking-tight">{symbol}</h1>
             <div className="text-[11px] text-muted-foreground">
-              {name} / USDT{marketType === "perp" ? " · Perp" : ""}
+              {name} / USDT{marketType === "perp" ? t("tokenPage.header.perpSuffix") : ""}
             </div>
           </div>
           <button
@@ -636,17 +647,29 @@ function TokenDetailPage() {
               // Watching is what scopes server-side event alerts, so it needs
               // an account — a local-only star would silently alert nobody.
               if (!isAuthed) {
-                toast.info("Sign in to watch tokens and get their event alerts.", {
-                  action: { label: "Sign in", onClick: () => navigate({ to: "/login" }) },
+                toast.info(t("tokenPage.toast.signInToWatch"), {
+                  action: { label: t("tokenPage.toast.signIn"), onClick: () => navigate({ to: "/login" }) },
                 });
                 return;
               }
               toggleWatch(symbol);
-              toast.success(isWatched ? `Removed ${symbol} from watchlist` : `Watching ${symbol}`);
+              toast.success(
+                isWatched
+                  ? t("tokenPage.toast.removedFromWatchlist", { symbol })
+                  : t("tokenPage.toast.watching", { symbol }),
+              );
             }}
             aria-pressed={isWatched}
-            aria-label={isWatched ? `Unwatch ${symbol}` : `Watch ${symbol}`}
-            title={isWatched ? "In your watchlist — click to remove" : "Add to watchlist"}
+            aria-label={
+              isWatched
+                ? t("tokenPage.header.unwatchAria", { symbol })
+                : t("tokenPage.header.watchAria", { symbol })
+            }
+            title={
+              isWatched
+                ? t("tokenPage.header.inWatchlistTitle")
+                : t("tokenPage.header.addToWatchlistTitle")
+            }
             className={cn(
               "rounded-md border border-border bg-surface p-2 transition-colors hover:text-foreground",
               isWatched ? "text-warning" : "text-muted-foreground",
@@ -676,19 +699,19 @@ function TokenDetailPage() {
                   : "border-warning/30 bg-warning-soft text-warning",
               )}
             >
-              {live ? (
-                <span className="flex items-center gap-1.5">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-bullish opacity-75" />
-                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-bullish" />
-                  </span>
-                  Live
-                </span>
-              ) : data?.source === "live" ? (
-                "Live"
-              ) : (
-                "Demo"
-              )}
+                  {live ? (
+                    <span className="flex items-center gap-1.5">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-bullish opacity-75" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-bullish" />
+                      </span>
+                      {t("tokenPage.header.live")}
+                    </span>
+                  ) : data?.source === "live" ? (
+                    t("tokenPage.header.live")
+                  ) : (
+                    t("tokenPage.header.demo")
+                  )}
             </Badge>
           </div>
         )}
@@ -700,7 +723,7 @@ function TokenDetailPage() {
                 key={item}
                 type="button"
                 onClick={() => setTimeframe(item)}
-                title={biasLabel(item, biasByTimeframe.get(item))}
+                title={biasLabel(item, biasByTimeframe.get(item), t)}
                 className={cn(
                   "flex h-9 flex-col items-center justify-center gap-1 rounded px-2.5 font-semibold transition-colors",
                   timeframe === item
@@ -715,10 +738,16 @@ function TokenDetailPage() {
           </div>
           {stats && (
             <div className="hidden items-center gap-5 border-l border-border pl-4 xl:flex">
-              <HeaderStat label="24h High" value={formatMoney(stats.high)} />
-              <HeaderStat label="24h Low" value={formatMoney(stats.low)} />
-              <HeaderStat label="24h Volume" value={`${formatCompact(stats.volume)} ${symbol}`} />
-              <HeaderStat label="24h Turnover" value={`$${formatCompact(stats.turnover)}`} />
+              <HeaderStat label={t("tokenPage.header.high24h")} value={formatMoney(stats.high)} />
+              <HeaderStat label={t("tokenPage.header.low24h")} value={formatMoney(stats.low)} />
+              <HeaderStat
+                label={t("tokenPage.header.volume24h")}
+                value={`${formatCompact(stats.volume)} ${symbol}`}
+              />
+              <HeaderStat
+                label={t("tokenPage.header.turnover24h")}
+                value={`$${formatCompact(stats.turnover)}`}
+              />
             </div>
           )}
           <HelpButton onClick={tour.start} />
@@ -754,16 +783,21 @@ function TokenDetailPage() {
                   <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b border-border px-3 py-2 sm:px-4">
                     <div className="flex min-w-0 items-baseline gap-3">
                       <div className="flex items-center gap-1.5">
-                        <CardEyebrow>{chartFullscreen ? symbol : "Price Structure"}</CardEyebrow>
+                        <CardEyebrow>
+                          {chartFullscreen ? symbol : t("tokenPage.chart.priceStructure")}
+                        </CardEyebrow>
                         {!chartFullscreen && (
-                          <InfoHint text="Candlestick chart of the selected timeframe. The legend below the chart explains every overlay — click an item to hide or show it. Drag the chart past the oldest candle to load more history. The expand button opens the chart fullscreen." />
+                          <InfoHint text={t("tokenPage.chart.infoHint")} />
                         )}
                       </div>
                       <span className="hidden text-xs text-muted-foreground md:inline">
-                        {data.candles.length} {data.source === "live" ? "Binance" : "synthetic"}{" "}
-                        bars · {data.evaluation.structure.swings.length} swings ·{" "}
-                        {structureReading(data.evaluation.structure)}
-                        {equilibriumReading(data.evaluation)}
+                        {t("tokenPage.chart.barsSummary", {
+                          count: data.candles.length,
+                          source: data.source === "live" ? t("tokenPage.chart.binance") : t("tokenPage.chart.synthetic"),
+                          swings: data.evaluation.structure.swings.length,
+                        })}
+                        {structureReading(data.evaluation.structure, t)}
+                        {equilibriumReading(data.evaluation, t)}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -793,13 +827,22 @@ function TokenDetailPage() {
                           chartFullscreen && "hidden sm:inline-flex",
                         )}
                       >
-                        {timeframe} lean:{" "}
-                        {data.evaluation.lean === "none" ? "neutral" : data.evaluation.lean}
+                        {t("tokenPage.chart.lean", {
+                          timeframe,
+                          lean:
+                            data.evaluation.lean === "none"
+                              ? t("tokenPage.glance.neutral")
+                              : data.evaluation.lean,
+                        })}
                       </Badge>
                       <button
                         type="button"
                         onClick={() => setChartFullscreen((v) => !v)}
-                        aria-label={chartFullscreen ? "Exit fullscreen chart" : "Fullscreen chart"}
+                        aria-label={
+                          chartFullscreen
+                            ? t("tokenPage.chart.exitFullscreen")
+                            : t("tokenPage.chart.enterFullscreen")
+                        }
                         className="rounded-md border border-border bg-surface p-2 text-muted-foreground transition-colors hover:text-foreground"
                       >
                         {chartFullscreen ? (
@@ -881,7 +924,7 @@ function TokenDetailPage() {
           <div className="hidden shrink-0 items-center justify-between rounded-lg border border-border bg-card px-4 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground lg:flex">
             <div className="flex items-center gap-2">
               <span>
-                Last updated:{" "}
+                {t("tokenPage.footer.lastUpdated")}{" "}
                 <span className="num text-foreground">
                   {new Date(signal.dataUpdatedAt || Date.now()).toLocaleTimeString()}
                 </span>
@@ -898,21 +941,22 @@ function TokenDetailPage() {
                     data.source === "live" ? "bg-bullish" : "bg-warning",
                   )}
                 />
-                {data.source === "live" ? "Live" : "Demo"}
+                {data.source === "live" ? t("tokenPage.header.live") : t("tokenPage.header.demo")}
               </span>
             </div>
             <span>
-              Data source: {data.source === "live" ? "Binance" : "Synthetic (Binance unreachable)"}
+              {t("tokenPage.footer.dataSource")}{" "}
+              {data.source === "live" ? t("tokenPage.chart.binance") : t("tokenPage.footer.syntheticSource")}
             </span>
             <span>
-              Auto-refresh: <span className="text-bullish">On</span>
+              {t("tokenPage.footer.autoRefresh")} <span className="text-bullish">{t("tokenPage.footer.on")}</span>
             </span>
           </div>
         </TooltipProvider>
       )}
 
       <ProductTour
-        steps={TOUR_STEPS}
+        steps={buildTourSteps(t)}
         open={tour.open && !signal.isLoading}
         onClose={tour.close}
         onStepChange={(target) => {
@@ -932,10 +976,14 @@ function TokenDetailPage() {
   );
 }
 
-function biasLabel(timeframe: TokenTimeframe, direction: TradeDirection | undefined): string {
-  if (direction === "long") return `${timeframe}: engine leans long`;
-  if (direction === "short") return `${timeframe}: engine leans short`;
-  return `${timeframe}: no directional bias`;
+function biasLabel(
+  timeframe: TokenTimeframe,
+  direction: TradeDirection | undefined,
+  t: (k: string, o?: Record<string, unknown>) => string,
+): string {
+  if (direction === "long") return t("tokenPage.bias.leansLong", { timeframe });
+  if (direction === "short") return t("tokenPage.bias.leansShort", { timeframe });
+  return t("tokenPage.bias.noBias", { timeframe });
 }
 
 function BiasDot({ direction }: { direction: TradeDirection | undefined }) {
@@ -952,12 +1000,13 @@ function BiasDot({ direction }: { direction: TradeDirection | undefined }) {
 }
 
 function InfoHint({ text }: { text: string }) {
+  const { t } = useTranslation();
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <button
           type="button"
-          aria-label="What is this?"
+          aria-label={t("tokenPage.common.whatIsThis")}
           className="text-muted-foreground/70 transition-colors hover:text-foreground"
         >
           <CircleHelp className="h-3 w-3" />
@@ -1010,10 +1059,13 @@ const HISTORY_PAGE = 500;
 const MAX_STRUCTURE_MARKERS = 8;
 
 /** One-glance summary of the swing structure for the chart header. */
-function structureReading(structure: MarketStructure): string {
-  if (structure.trend === "uptrend") return "HH/HL uptrend";
-  if (structure.trend === "downtrend") return "LH/LL downtrend";
-  return "range structure";
+function structureReading(
+  structure: MarketStructure,
+  t: (k: string, o?: Record<string, unknown>) => string,
+): string {
+  if (structure.trend === "uptrend") return t("tokenPage.chart.structure.uptrend");
+  if (structure.trend === "downtrend") return t("tokenPage.chart.structure.downtrend");
+  return t("tokenPage.chart.structure.range");
 }
 
 /**
@@ -1021,11 +1073,14 @@ function structureReading(structure: MarketStructure): string {
  * (Phase 0 instrumentation — annotation only, no verdict behind it). Empty
  * until the engine has a range to measure against.
  */
-function equilibriumReading(evaluation: SignalEvaluation): string {
+function equilibriumReading(
+  evaluation: SignalEvaluation,
+  t: (k: string, o?: Record<string, unknown>) => string,
+): string {
   const { dealingRange, pricePosition } = evaluation;
   if (!dealingRange || !pricePosition) return "";
   const range = `${formatMoney(dealingRange.low.price)}–${formatMoney(dealingRange.high.price)}`;
-  return ` · ${pricePosition} of ${range}`;
+  return t("tokenPage.chart.equilibrium", { position: pricePosition, range });
 }
 
 function humanSetup(setup: SetupType): string {
@@ -1036,11 +1091,10 @@ function humanSetup(setup: SetupType): string {
 }
 
 interface MarketPhase {
-  phase: "No Edge" | "Standby" | "Transition" | "Opportunity";
+  phase: string;
   label: string;
   context: string;
 }
-
 const BIAS_ADJ: Record<"long" | "short", string> = { long: "bullish", short: "bearish" };
 
 /**
@@ -1050,61 +1104,82 @@ const BIAS_ADJ: Record<"long" | "short", string> = { long: "bullish", short: "be
  * verdict, so it carries no version-bump obligation (CLAUDE.md "Engine
  * change discipline").
  */
-function describeMarketPhase(assessment: DisplayIntentAssessment): MarketPhase {
+function describeMarketPhase(
+  assessment: DisplayIntentAssessment,
+  t: (k: string, o?: Record<string, unknown>) => string,
+): MarketPhase {
   const { direction, contextBias, verdict, isCounterTrend, execution, definition } = assessment;
   const ctxTf = definition.contextTimeframe;
   const exeTf = definition.executionTimeframe;
 
   if (direction === "none") {
     return {
-      phase: "No Edge",
-      label: "No directional edge",
-      context: `Neither ${ctxTf} nor ${exeTf} leans clearly either way — nothing to react to yet.`,
+      phase: t("tokenPage.phase.noEdge"),
+      label: t("tokenPage.phase.noDirectionalEdge"),
+      context: t("tokenPage.phase.neitherContext", { ctxTf, exeTf }),
     };
   }
 
   if (isCounterTrend) {
     const moveWord = direction === "long" ? "Bounce" : "Pullback";
     const zoneWord = direction === "long" ? "supply" : "demand";
+    const htf =
+      contextBias === "none"
+        ? BIAS_ADJ[direction === "long" ? "short" : "long"]
+        : BIAS_ADJ[contextBias];
     return {
-      phase: "Transition",
-      label: `Counter-trend ${moveWord}`,
-      context: `Higher timeframe remains ${BIAS_ADJ[contextBias === "none" ? (direction === "long" ? "short" : "long") : contextBias]}. Short-term momentum has shifted ${BIAS_ADJ[direction]} after a ${humanSetup(execution.setupType).toLowerCase()}. Expect a ${moveWord.toLowerCase()} into ${zoneWord} before trend continuation.`,
+      phase: t("tokenPage.phase.transition"),
+      label: t(
+        direction === "long"
+          ? "tokenPage.phase.counterTrendBounce"
+          : "tokenPage.phase.counterTrendPullback",
+      ),
+      context: t("tokenPage.phase.counterTrendContext", {
+        htf,
+        direction: BIAS_ADJ[direction],
+        setup: humanSetup(execution.setupType).toLowerCase(),
+        move: moveWord.toLowerCase(),
+        zone: zoneWord,
+      }),
     };
   }
 
   if (verdict === "favored" || verdict === "caution") {
     return {
-      phase: "Opportunity",
-      label: "Trend continuation",
-      context: `${ctxTf} and ${exeTf} agree ${direction} — with-trend conditions, no conflicting higher-timeframe pull to fade.`,
+      phase: t("tokenPage.phase.opportunity"),
+      label: t("tokenPage.phase.trendContinuation"),
+      context: t("tokenPage.phase.opportunityContext", { ctxTf, exeTf, direction }),
     };
   }
 
   return {
-    phase: "Standby",
-    label: "Waiting for trigger",
-    context: `${ctxTf} leans ${direction}, but ${exeTf} hasn't confirmed the trigger yet — same direction, not tradable at current price.`,
+    phase: t("tokenPage.phase.standby"),
+    label: t("tokenPage.phase.waitingForTrigger"),
+    context: t("tokenPage.phase.standbyContext", { ctxTf, exeTf, direction }),
   };
 }
 
 /** Overview-tab version: phase + label only, no prose — matches the tab's "decide in seconds" rule. Full one-line explanation lives in `MarketPhaseNote` on the Why tab. */
 function MarketPhaseBadge({ assessment }: { assessment: DisplayIntentAssessment }) {
-  const phase = describeMarketPhase(assessment);
+  const { t } = useTranslation();
+  const phase = describeMarketPhase(assessment, t);
   return (
     <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-      Market phase: <span className="text-foreground">{phase.phase}</span> · {phase.label}
+      {t("tokenPage.phase.marketPhase")}{" "}
+      <span className="text-foreground">{phase.phase}</span> · {phase.label}
     </p>
   );
 }
 
 /** Names the phase behind the verdict (e.g. "Transition — Counter-trend Pullback") and explains it in one line, so a counter-trend call reads as a legible market state rather than a bare badge. */
 function MarketPhaseNote({ assessment }: { assessment: DisplayIntentAssessment }) {
-  const phase = describeMarketPhase(assessment);
+  const { t } = useTranslation();
+  const phase = describeMarketPhase(assessment, t);
   return (
     <div className="mt-1.5">
       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Market phase: <span className="text-foreground">{phase.phase}</span> · {phase.label}
+        {t("tokenPage.phase.marketPhase")}{" "}
+        <span className="text-foreground">{phase.phase}</span> · {phase.label}
       </p>
       <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{phase.context}</p>
     </div>
@@ -1142,6 +1217,7 @@ function buildGlanceChips(
   evaluation: SignalEvaluation,
   timeframe: TokenTimeframe,
   candles: Candle[],
+  t: (k: string, o?: Record<string, unknown>) => string,
 ): GlanceChip[] {
   const chips: GlanceChip[] = [];
 
@@ -1150,17 +1226,22 @@ function buildGlanceChips(
     const bias = assessment.contextBias;
     chips.push({
       icon: bias === "long" ? TrendingUp : bias === "short" ? TrendingDown : MoveRight,
-      label: `${assessment.definition.contextTimeframe} trend`,
-      value: bias === "long" ? "Bullish" : bias === "short" ? "Bearish" : "Neutral",
+      label: t("tokenPage.glance.htfTrend"),
+      value:
+        bias === "long"
+          ? t("tokenPage.glance.bullish")
+          : bias === "short"
+            ? t("tokenPage.glance.bearish")
+            : t("tokenPage.glance.neutral"),
       sub: assessment.context.regime.replaceAll("-", " "),
       tone: bias === "long" ? "bullish" : bias === "short" ? "bearish" : "neutral",
     });
   } else {
     chips.push({
       icon: MoveRight,
-      label: "HTF trend",
+      label: t("tokenPage.glance.htfTrend"),
       value: "—",
-      sub: "assessing…",
+      sub: t("tokenPage.glance.assessing"),
       tone: "muted",
     });
   }
@@ -1178,11 +1259,11 @@ function buildGlanceChips(
             : "neutral";
   chips.push({
     icon: Activity,
-    label: `${timeframe} state`,
+    label: t("tokenPage.glance.tfState", { timeframe }),
     value: evaluation.regime.replaceAll("-", " "),
     sub:
       evaluation.setupType === "no-clear-setup"
-        ? "no clear setup"
+        ? t("tokenPage.glance.noClearSetup")
         : humanSetup(evaluation.setupType),
     tone: regimeTone,
   });
@@ -1193,13 +1274,21 @@ function buildGlanceChips(
     s.event && s.eventSwing && (s.eventSwing === s.lastHigh || s.eventSwing === s.lastLow);
   const eventSub = eventCurrent
     ? s.event === "bos"
-      ? "BOS — trend confirmed"
-      : "CHoCH — reversal risk"
-    : `last ${s.lastHigh?.label ?? "–"} high · ${s.lastLow?.label ?? "–"} low`;
+      ? t("tokenPage.glance.bosConfirmed")
+      : t("tokenPage.glance.chochReversal")
+    : t("tokenPage.glance.lastHighLow", {
+        high: s.lastHigh?.label ?? "–",
+        low: s.lastLow?.label ?? "–",
+      });
   chips.push({
     icon: Waypoints,
-    label: "Structure",
-    value: s.trend === "uptrend" ? "HH / HL" : s.trend === "downtrend" ? "LH / LL" : "Range",
+    label: t("tokenPage.glance.structure"),
+    value:
+      s.trend === "uptrend"
+        ? t("tokenPage.glance.hhhl")
+        : s.trend === "downtrend"
+          ? t("tokenPage.glance.lhll")
+          : t("tokenPage.glance.range"),
     sub: eventSub,
     tone: s.trend === "uptrend" ? "bullish" : s.trend === "downtrend" ? "bearish" : "neutral",
   });
@@ -1212,9 +1301,15 @@ function buildGlanceChips(
   if (recentSweep) {
     chips.push({
       icon: Waves,
-      label: "Liquidity",
-      value: recentSweep.side === "ssl" ? "SSL swept" : "BSL swept",
-      sub: recentSweep.side === "ssl" ? "stop hunt below — fuel up" : "stop hunt above — fuel down",
+      label: t("tokenPage.glance.liquidity"),
+      value:
+        recentSweep.side === "ssl"
+          ? t("tokenPage.glance.sslSwept")
+          : t("tokenPage.glance.bslSwept"),
+      sub:
+        recentSweep.side === "ssl"
+          ? t("tokenPage.glance.stopHuntBelow")
+          : t("tokenPage.glance.stopHuntAbove"),
       tone: recentSweep.side === "ssl" ? "bullish" : "bearish",
     });
   } else {
@@ -1225,9 +1320,9 @@ function buildGlanceChips(
     const parts = [bsl > 0 ? `${bsl} BSL` : null, ssl > 0 ? `${ssl} SSL` : null].filter(Boolean);
     chips.push({
       icon: Waves,
-      label: "Liquidity",
-      value: parts.length ? parts.join(" · ") : "None mapped",
-      sub: parts.length ? "intact pools — price magnets" : "no equal highs/lows",
+      label: t("tokenPage.glance.liquidity"),
+      value: parts.length ? parts.join(" · ") : t("tokenPage.glance.noneMapped"),
+      sub: parts.length ? t("tokenPage.glance.intactPools") : t("tokenPage.glance.noEqualHighLows"),
       tone: parts.length ? "info" : "muted",
     });
   }
@@ -1237,14 +1332,16 @@ function buildGlanceChips(
   if (location) {
     chips.push({
       icon: Target,
-      label: "Entry location",
+      label: t("tokenPage.glance.entryLocation"),
       value: location.label,
       sub:
         location.confluence === "multi-timeframe"
-          ? "MTF zone confluence"
+          ? t("tokenPage.glance.mtfConfluence")
           : location.confluence === "single-timeframe"
-            ? "zone-backed"
-            : `${Math.round(Math.min(1, Math.max(0, location.rangePosition)) * 100)}% of S→R range`,
+            ? t("tokenPage.glance.zoneBacked")
+            : t("tokenPage.glance.pctOfRange", {
+                pct: Math.round(Math.min(1, Math.max(0, location.rangePosition)) * 100),
+              }),
       tone:
         location.grade === "at-structure"
           ? "bullish"
@@ -1255,9 +1352,9 @@ function buildGlanceChips(
   } else {
     chips.push({
       icon: Target,
-      label: "Entry location",
+      label: t("tokenPage.glance.entryLocation"),
       value: "—",
-      sub: "no directional read",
+      sub: t("tokenPage.glance.noDirectionalRead"),
       tone: "muted",
     });
   }
@@ -1280,7 +1377,8 @@ function GlanceStrip({
   timeframe: TokenTimeframe;
   candles: Candle[];
 }) {
-  const chips = buildGlanceChips(assessment, evaluation, timeframe, candles);
+  const { t } = useTranslation();
+  const chips = buildGlanceChips(assessment, evaluation, timeframe, candles, t);
   return (
     <IqCard
       padded={false}
@@ -1347,6 +1445,7 @@ function TokenChart({
   planStrong: boolean;
   onTrade?: () => void;
 }) {
+  const { t } = useTranslation();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -1814,7 +1913,10 @@ function TokenChart({
             shape: "circle",
             color: sweep.side === "bsl" ? "#c084fc" : "#22d3ee",
             size: 1,
-            text: sweep.side === "bsl" ? "BSL sweep" : "SSL sweep",
+            text:
+              sweep.side === "bsl"
+                ? t("tokenPage.chartLabels.bslSweep")
+                : t("tokenPage.chartLabels.sslSweep"),
           }));
     // News + calendar events, plotted on the bar that contains them (upcoming
     // calendar items pin to the latest loaded bar, since they have no future
@@ -1872,6 +1974,7 @@ function TokenChart({
     hiddenIndicators.events,
     events,
     candles,
+    t,
   ]);
 
   useEffect(() => {
@@ -1894,10 +1997,10 @@ function TokenChart({
     // Demand/supply bases first so the trade-plan bands paint on top of them.
     const zones: PriceZone[] = [];
     if (!hiddenIndicators.sdZones) {
-      zones.push(...baseZonesToPriceZones(baseZones));
-      zones.push(...poiOverlaysToPriceZones(obFvgPois));
+      zones.push(...baseZonesToPriceZones(baseZones, t));
+      zones.push(...poiOverlaysToPriceZones(obFvgPois, t));
     }
-    if (!hiddenIndicators.zones) zones.push(...computeSetupZones(candles, plan, planStrong));
+    if (!hiddenIndicators.zones) zones.push(...computeSetupZones(candles, plan, planStrong, t));
     zonesPrimitiveRef.current?.setZones(zones);
   }, [
     candles,
@@ -1907,6 +2010,7 @@ function TokenChart({
     obFvgPois,
     hiddenIndicators.zones,
     hiddenIndicators.sdZones,
+    t,
   ]);
 
   // Intact liquidity pools drawn as labeled horizontal price lines: purple
@@ -2002,7 +2106,7 @@ function TokenChart({
         {loadingHistory && (
           <div className="absolute left-2 top-2 z-10 flex items-center gap-1.5 rounded-md border border-border bg-card/90 px-2 py-1 text-[10px] font-semibold text-muted-foreground">
             <span className="h-3 w-3 animate-spin rounded-full border border-info border-t-transparent" />
-            Loading older bars…
+            {t("tokenPage.chart.loadingOlderBars")}
           </div>
         )}
         <div
@@ -2055,6 +2159,7 @@ function computeSetupZones(
   candles: TokenSignalData["candles"],
   risk: RiskRewardPlan | null,
   strong: boolean,
+  t: (k: string, o?: Record<string, unknown>) => string,
 ): PriceZone[] {
   if (!risk || !strong || risk.direction === "none") return [];
   const planStart = candles[Math.max(0, candles.length - 10)]?.time;
@@ -2106,7 +2211,7 @@ function computeSetupZones(
     from: planStart as UTCTimestamp,
     fill: "rgba(96,165,250,0.14)",
     border: "rgba(96,165,250,0.40)",
-    label: long ? "BUY ZONE" : "SELL ZONE",
+    label: long ? t("tokenPage.chartLabels.buyZone") : t("tokenPage.chartLabels.sellZone"),
     labelColor: "rgba(96,165,250,0.95)",
     labelAlign: "middle",
   });
@@ -2116,7 +2221,10 @@ function computeSetupZones(
 
 // Detected accumulation/distribution bases. Fresh (untested) zones paint
 // stronger than ones already retested once.
-function baseZonesToPriceZones(zones: BaseZone[]): PriceZone[] {
+function baseZonesToPriceZones(
+  zones: BaseZone[],
+  t: (k: string, o?: Record<string, unknown>) => string,
+): PriceZone[] {
   return zones.map((zone) => {
     const demand = zone.kind === "demand";
     const fresh = zone.freshness === "fresh";
@@ -2127,7 +2235,7 @@ function baseZonesToPriceZones(zones: BaseZone[]): PriceZone[] {
       from: zone.startTime as UTCTimestamp,
       fill: `rgba(${rgb},${fresh ? 0.1 : 0.06})`,
       border: `rgba(${rgb},${fresh ? 0.3 : 0.16})`,
-      label: `${demand ? "DEMAND" : "SUPPLY"}${fresh ? "" : " · TESTED"}`,
+      label: `${demand ? t("tokenPage.chartLabels.demand") : t("tokenPage.chartLabels.supply")}${fresh ? "" : t("tokenPage.chartLabels.tested")}`,
       labelColor: `rgba(${rgb},${fresh ? 0.85 : 0.55})`,
       labelAlign: demand ? "top" : "bottom",
     };
@@ -2140,7 +2248,10 @@ function baseZonesToPriceZones(zones: BaseZone[]): PriceZone[] {
 // zones: these are secondary reads until the POI cutover gate. Terminal
 // states (invalidated/consumed) stay on the ledger card but are not chart
 // furniture (EDR 0015).
-function poiOverlaysToPriceZones(pois: UnifiedPoi[]): PriceZone[] {
+function poiOverlaysToPriceZones(
+  pois: UnifiedPoi[],
+  t: (k: string, o?: Record<string, unknown>) => string,
+): PriceZone[] {
   return pois
     .filter((poi) => !TERMINAL_POI_STATES.includes(poi.state))
     .map((poi) => {
@@ -2149,7 +2260,7 @@ function poiOverlaysToPriceZones(pois: UnifiedPoi[]): PriceZone[] {
       const rgb = ob ? "129,140,248" : "45,212,191";
       const source = ob ? "OB" : poi.source === "ifvg" ? "iFVG" : "FVG";
       const suffix = fresh ? "" : ` · ${poi.state.toUpperCase()}`;
-      const label = `${source} ${poi.kind === "demand" ? "DEMAND" : "SUPPLY"}${suffix}`;
+      const label = `${source} ${poi.kind === "demand" ? t("tokenPage.chartLabels.demand") : t("tokenPage.chartLabels.supply")}${suffix}`;
       return {
         priceLow: poi.priceLow,
         priceHigh: poi.priceHigh,
@@ -2184,12 +2295,14 @@ function lineSwatch(color: string, dashed = false) {
   );
 }
 
-const LEGEND_ENTRIES: Array<{ key: IndicatorKey; label: string; hint: string; swatch: ReactNode }> =
-  [
+function buildLegendEntries(
+  t: (k: string, o?: Record<string, unknown>) => string,
+): Array<{ key: IndicatorKey; label: string; hint: string; swatch: ReactNode }> {
+  return [
     {
       key: "volume",
-      label: "Volume",
-      hint: "Traded volume per bar along the bottom — green when the candle closed up, red when it closed down. Rising volume confirms a move; falling volume questions it.",
+      label: t("tokenPage.legend.volume.label"),
+      hint: t("tokenPage.legend.volume.hint"),
       swatch: (
         <span className="flex shrink-0 items-end gap-px">
           <span className="h-1.5 w-[3px] rounded-[1px] bg-[#22c55e]/40" />
@@ -2200,32 +2313,32 @@ const LEGEND_ENTRIES: Array<{ key: IndicatorKey; label: string; hint: string; sw
     },
     {
       key: "emaFast",
-      label: `EMA ${EMA_FAST.length}`,
-      hint: "Exponential moving average of the last 13 closes — the fast momentum curve. Price above it with EMA 13 on top of EMA 21 favors buyers.",
+      label: t("tokenPage.legend.emaFast.label", { length: EMA_FAST.length }),
+      hint: t("tokenPage.legend.emaFast.hint"),
       swatch: lineSwatch(EMA_FAST.color),
     },
     {
       key: "emaSlow",
-      label: `EMA ${EMA_SLOW.length}`,
-      hint: "Exponential moving average of the last 21 closes — the slower trend curve the fast EMA is measured against.",
+      label: t("tokenPage.legend.emaSlow.label", { length: EMA_SLOW.length }),
+      hint: t("tokenPage.legend.emaSlow.hint"),
       swatch: lineSwatch(EMA_SLOW.color),
     },
     {
       key: "support",
-      label: "Support",
-      hint: "Dashed green trend line through recent swing lows — the floor buyers have been defending.",
+      label: t("tokenPage.legend.support.label"),
+      hint: t("tokenPage.legend.support.hint"),
       swatch: lineSwatch("#22c55e", true),
     },
     {
       key: "resistance",
-      label: "Resistance",
-      hint: "Dashed amber trend line through recent swing highs — the ceiling sellers have been defending.",
+      label: t("tokenPage.legend.resistance.label"),
+      hint: t("tokenPage.legend.resistance.hint"),
       swatch: lineSwatch("#f59e0b", true),
     },
     {
       key: "pivots",
-      label: "Swing structure",
-      hint: "Arrows mark the confirmed swing legs (amber ▼ highs, green ▲ lows), each labeled against the prior swing of its kind: HH/HL = higher high/low, LH/LL = lower high/low. BOS tags a break that extends the trend; CHoCH a break against it — the first structural hint of a reversal. EQH/EQL mark equal highs/lows — matching swing levels where stop-loss liquidity tends to rest. Trend lines and setups are built from these.",
+      label: t("tokenPage.legend.pivots.label"),
+      hint: t("tokenPage.legend.pivots.hint"),
       swatch: (
         <span className="flex shrink-0 items-center gap-0.5 text-[8px] leading-none">
           <span className="text-[#f59e0b]">▼</span>
@@ -2235,8 +2348,8 @@ const LEGEND_ENTRIES: Array<{ key: IndicatorKey; label: string; hint: string; sw
     },
     {
       key: "liquidity",
-      label: "Liquidity",
-      hint: "Dashed horizontal lines at intact liquidity pools: purple BSL (buy-side) at equal highs — stop orders resting above a double/triple top — and cyan SSL (sell-side) at equal lows. The label is the pool's strength tier — Strong/Moderate/Weak, from touches, tightness, and freshness — an ordinal ranking, not a probability. Price is often drawn toward these levels before reversing. Circles mark liquidity sweeps: a wick ran the pool's stops but the candle closed back inside — a stop hunt, and often the start of the move the raid funded.",
+      label: t("tokenPage.legend.liquidity.label"),
+      hint: t("tokenPage.legend.liquidity.hint"),
       swatch: (
         <span className="flex shrink-0 flex-col gap-[2px]">
           <span className="h-[2px] w-3.5 rounded-full bg-[#c084fc]" />
@@ -2246,8 +2359,8 @@ const LEGEND_ENTRIES: Array<{ key: IndicatorKey; label: string; hint: string; sw
     },
     {
       key: "plan",
-      label: "Trade plan",
-      hint: "Your objective's plan levels: entry (blue), stop (rose), target 1 (solid green), target 2 (dashed green). These come from the objective's trigger timeframe (named on the label) and stay the same while you explore other chart timeframes — one trade story per page. Shown only while the objective has a directional plan.",
+      label: t("tokenPage.legend.plan.label"),
+      hint: t("tokenPage.legend.plan.hint"),
       swatch: (
         <span className="flex shrink-0 flex-col gap-[2px]">
           <span className="h-[2px] w-3.5 rounded-full bg-[#60a5fa]" />
@@ -2258,8 +2371,8 @@ const LEGEND_ENTRIES: Array<{ key: IndicatorKey; label: string; hint: string; sw
     },
     {
       key: "zones",
-      label: "Trade zones",
-      hint: "Shaded bands drawn only while your objective's verdict wants the trade: green = reward to target 1, red = risk to the stop, blue = the buy/sell pocket around entry. Like the trade plan, they belong to the objective's trigger timeframe (named on the label), whatever timeframe the chart shows.",
+      label: t("tokenPage.legend.zones.label"),
+      hint: t("tokenPage.legend.zones.hint"),
       swatch: (
         <span className="flex shrink-0 flex-col">
           <span className="h-1.5 w-3.5 rounded-t-[2px] bg-[#22c55e]/30" />
@@ -2269,8 +2382,8 @@ const LEGEND_ENTRIES: Array<{ key: IndicatorKey; label: string; hint: string; sw
     },
     {
       key: "sdZones",
-      label: "Demand/Supply",
-      hint: "True demand/supply bases: a tight consolidation followed by an explosive move away. Green = demand (buyers launched from here), amber = supply (sellers did). Bright = fresh and untested; faded = already retested once. Zones price closed through are dropped. Detected on 1H, 4H, 1D and 1W charts, where bases are meaningful.",
+      label: t("tokenPage.legend.sdZones.label"),
+      hint: t("tokenPage.legend.sdZones.hint"),
       swatch: (
         <span className="flex shrink-0 flex-col gap-[2px]">
           <span className="h-1 w-3.5 rounded-[1px] border border-[#f59e0b]/40 bg-[#f59e0b]/15" />
@@ -2280,8 +2393,8 @@ const LEGEND_ENTRIES: Array<{ key: IndicatorKey; label: string; hint: string; sw
     },
     {
       key: "sessions",
-      label: "Session H/L",
-      hint: "The high and low of the most recent completed Asia (pink), London (teal) and New York (orange) session, drawn as dotted levels. Yesterday's session extremes are the intraday levels traders lean on. Shown on 15M–4H charts, where they're in range.",
+      label: t("tokenPage.legend.sessions.label"),
+      hint: t("tokenPage.legend.sessions.hint"),
       swatch: (
         <span className="flex shrink-0 flex-col gap-[2px]">
           <span className="h-[2px] w-3.5 rounded-full bg-[#f472b6]" />
@@ -2292,8 +2405,8 @@ const LEGEND_ENTRIES: Array<{ key: IndicatorKey; label: string; hint: string; sw
     },
     {
       key: "events",
-      label: "News & events",
-      hint: "Token news (past) and calendar catalysts (upcoming, ⧗) plotted on the bar they land on — coloured red/grey/green by likely impact (security, delisting, regulatory and unlocks read red; listings and upgrades green). Circles below a bar are past news; squares above the last bar are scheduled events. Click a marker for details and its source, or use the strip under the chart.",
+      label: t("tokenPage.legend.events.label"),
+      hint: t("tokenPage.legend.events.hint"),
       swatch: (
         <span className="flex shrink-0 items-center gap-0.5">
           <span
@@ -2312,6 +2425,7 @@ const LEGEND_ENTRIES: Array<{ key: IndicatorKey; label: string; hint: string; sw
       ),
     },
   ];
+}
 
 function ChartLegend({
   hidden,
@@ -2331,6 +2445,8 @@ function ChartLegend({
   sessionsActive: boolean;
   onToggle: (key: IndicatorKey) => void;
 }) {
+  const { t } = useTranslation();
+  const legendEntries = useMemo(() => buildLegendEntries(t), [t]);
   return (
     // One scrollable row on phones (wrapping would stack three rows of chips
     // between the user and the chart); wraps as before from sm up.
@@ -2342,18 +2458,17 @@ function ChartLegend({
               <span className="h-2.5 w-1 rounded-[1px] bg-[#22c55e]" />
               <span className="h-2 w-1 rounded-[1px] bg-[#f43f5e]" />
             </span>
-            Candles
+            {t("tokenPage.legend.candles")}
           </span>
         </TooltipTrigger>
         <TooltipContent
           side="top"
           className="max-w-[240px] bg-popover text-xs leading-relaxed text-popover-foreground shadow-lg"
         >
-          One bar of price movement — green closed up, red closed down. The wicks show the high and
-          low reached within the bar.
+          {t("tokenPage.legend.candlesHint")}
         </TooltipContent>
       </Tooltip>
-      {LEGEND_ENTRIES.map((entry) => {
+      {legendEntries.map((entry) => {
         if (entry.key === "plan" && !planActive) return null;
         if (entry.key === "zones" && !zonesActive) return null;
         if (entry.key === "sdZones" && !sdActive) return null;
@@ -2385,7 +2500,7 @@ function ChartLegend({
               side="top"
               className="max-w-[240px] bg-popover text-xs leading-relaxed text-popover-foreground shadow-lg"
             >
-              {entry.hint} Click to {isHidden ? "show" : "hide"}.
+              {entry.hint} {t("tokenPage.legend.clickToHide")}
             </TooltipContent>
           </Tooltip>
         );
@@ -2463,6 +2578,7 @@ function AssistantPanel({
   onOpenTrade: () => void;
   className?: string;
 }) {
+  const { t } = useTranslation();
   const byIntent = new Map(assessments.map((a) => [a.intent, a]));
   const router = useRouter();
   const followSignal = useFollowSignal();
@@ -2491,13 +2607,13 @@ function AssistantPanel({
     if (!active?.plan || active.direction === "none") return;
     // Safety re-check: the setup may have invalidated while the dialog was open.
     if (setupValidity && !setupValidity.valid) {
-      toast.error(setupValidity.reason ?? "This setup is no longer valid.");
+      toast.error(setupValidity.reason ?? t("tokenPage.plan.setupInvalid"));
       setFollowDialogOpen(false);
       return;
     }
     const entryPrice = Number.parseFloat(entryPriceInput);
     if (!Number.isFinite(entryPrice) || entryPrice <= 0) {
-      toast.error("Enter a valid entry price.");
+      toast.error(t("tokenPage.toast.enterValidEntryPrice"));
       return;
     }
     try {
@@ -2518,19 +2634,23 @@ function AssistantPanel({
       });
     } catch (error) {
       if (error instanceof NotSignedInError) {
-        toast.error("Sign in to follow signals — follows live in your server record now.", {
-          action: { label: "Sign in", onClick: () => router.navigate({ to: "/login" }) },
+        toast.error(t("tokenPage.toast.signInToFollow"), {
+          action: { label: t("tokenPage.toast.signIn"), onClick: () => router.navigate({ to: "/login" }) },
         });
       } else {
-        toast.error("Couldn't save the follow — check your connection and try again.");
+        toast.error(t("tokenPage.toast.couldNotSaveFollow"));
       }
       return;
     }
     setFollowDialogOpen(false);
-    toast(`Now tracking ${symbol}`, {
-      description: `${active.definition.label} ${active.direction} signal added to the tracker at ${formatMoney(entryPrice)}.`,
+    toast(t("tokenPage.toast.nowTracking", { symbol }), {
+      description: t("tokenPage.toast.trackingDescription", {
+        label: active.definition.label,
+        direction: active.direction,
+        price: formatMoney(entryPrice),
+      }),
       action: {
-        label: "View",
+        label: t("tokenPage.toast.view"),
         onClick: () => router.navigate({ to: "/tracker" }),
       },
     });
@@ -2540,8 +2660,8 @@ function AssistantPanel({
     <IqCard padded={false} className={cn("flex min-h-0 flex-col p-0", className)}>
       <div className="shrink-0 space-y-2.5 border-b border-border p-3">
         <div className="flex items-center gap-1.5">
-          <CardEyebrow>Decision Assistant</CardEyebrow>
-          <InfoHint text="One chart, many valid answers. Pick your objective and the assistant tells you whether this market pays it right now, what confirmation is still missing, and which price events would change today's answer." />
+          <CardEyebrow>{t("tokenPage.assistant.title")}</CardEyebrow>
+          <InfoHint text={t("tokenPage.assistant.infoHint")} />
         </div>
         <div
           data-tour="objective"
@@ -2554,7 +2674,7 @@ function AssistantPanel({
                 key={def.intent}
                 type="button"
                 onClick={() => onSelect(def.intent)}
-                title={a?.headline ?? `${def.label}: assessing…`}
+                title={a?.headline ?? t("tokenPage.assistant.assessing", { label: def.label })}
                 className={cn(
                   "flex h-10 flex-col items-center justify-center gap-1 rounded px-1 font-semibold transition-colors",
                   activeIntent === def.intent
@@ -2585,11 +2705,11 @@ function AssistantPanel({
           <TabsList className="flex h-auto w-full shrink-0 justify-start gap-0.5 overflow-x-auto rounded-none border-b border-border bg-transparent p-1.5">
             {(
               [
-                ["overview", "Overview"],
-                ["why", "Why"],
-                ["plan", "Plan"],
-                ["evidence", "Evidence"],
-                ["details", "Details"],
+                ["overview", t("tokenPage.tabs.overview")],
+                ["why", t("tokenPage.tabs.why")],
+                ["plan", t("tokenPage.tabs.plan")],
+                ["evidence", t("tokenPage.tabs.evidence")],
+                ["details", t("tokenPage.tabs.details")],
               ] as const
             ).map(([value, label]) => (
               <TabsTrigger key={value} value={value} className="shrink-0 px-2.5 py-1 text-[11px]">
@@ -2615,7 +2735,11 @@ function AssistantPanel({
                         : active.headline}
                     </p>
                     <p className="mt-0.5 text-[10px] text-muted-foreground">
-                      {`${active.definition.contextTimeframe} context · ${active.definition.executionTimeframe} trigger · holds ${active.definition.horizon}`}
+                      {t("tokenPage.overview.contextLine", {
+                        ctxTf: active.definition.contextTimeframe,
+                        exeTf: active.definition.executionTimeframe,
+                        horizon: active.definition.horizon,
+                      })}
                     </p>
                     <MarketPhaseBadge assessment={active} />
                   </div>
@@ -2631,27 +2755,27 @@ function AssistantPanel({
                     <div className="min-w-0 flex-1 space-y-1">
                       <PlanRow
                         color="#60a5fa"
-                        label="Entry"
+                        label={t("tokenPage.plan.entry")}
                         value={formatEntryRange(active.plan.entryLow, active.plan.entryHigh)}
                       />
                       <PlanRow
                         color="#f43f5e"
-                        label="Stop loss"
+                        label={t("tokenPage.plan.stopLoss")}
                         value={formatMoney(active.plan.stop)}
                       />
                       <PlanRow
                         color="#22c55e"
-                        label="Target 1"
+                        label={t("tokenPage.plan.target1")}
                         value={formatMoney(active.plan.target1)}
                       />
                       <PlanRow
                         color="#22c55e"
-                        label="Target 2"
+                        label={t("tokenPage.plan.target2")}
                         value={formatMoney(active.plan.target2)}
                       />
                       <PlanRow
                         color="#94a3b8"
-                        label="R / R"
+                        label={t("tokenPage.plan.rr")}
                         value={`${active.plan.rewardRisk1}R / ${active.plan.rewardRisk2}R`}
                       />
                     </div>
@@ -2659,18 +2783,18 @@ function AssistantPanel({
                   </div>
                   <div className="grid grid-cols-3 gap-1.5">
                     <RiskMetric
-                      label="Position"
+                      label={t("tokenPage.plan.position")}
                       value={formatMoney(active.plan.positionSize * active.plan.entry)}
                       compact
                     />
                     <RiskMetric
-                      label="Max loss"
+                      label={t("tokenPage.plan.maxLoss")}
                       value={formatMoney(active.plan.maxDollarLoss)}
                       tone="bearish"
                       compact
                     />
                     <RiskMetric
-                      label="Gain @ T1"
+                      label={t("tokenPage.plan.gainAtT1")}
                       value={formatMoney(active.plan.estimatedGain1)}
                       tone="bullish"
                       compact
@@ -2686,8 +2810,10 @@ function AssistantPanel({
             <TabsContent value="why" className="mt-0 space-y-3">
               <div className={cn("rounded-lg border p-2.5", verdictTone(active))}>
                 <div className="flex items-center gap-1.5">
-                  <CardEyebrow>Verdict · {active.definition.label}</CardEyebrow>
-                  <InfoHint text="'Not yet', 'reduced size', 'wrong direction', and 'unsuitable market' are all different answers. The Overview names the one that applies; this text explains why in plain words." />
+                  <CardEyebrow>
+                    {t("tokenPage.why.verdictTitle", { label: active.definition.label })}
+                  </CardEyebrow>
+                  <InfoHint text={t("tokenPage.why.verdictInfoHint")} />
                 </div>
                 <MarketPhaseNote assessment={active} />
                 <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
@@ -2699,10 +2825,12 @@ function AssistantPanel({
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5">
                   <CardEyebrow>
-                    Checklist · {active.checklist.filter((item) => item.done).length}/
-                    {active.checklist.length}
+                    {t("tokenPage.why.checklistTitle", {
+                      done: active.checklist.filter((item) => item.done).length,
+                      total: active.checklist.length,
+                    })}
                   </CardEyebrow>
-                  <InfoHint text="Everything this objective needs before a full-size entry. The unchecked items are what 'not yet' means, concretely. Hover an item for the detail." />
+                  <InfoHint text={t("tokenPage.why.checklistInfoHint")} />
                 </div>
                 <div className="space-y-1">
                   {active.checklist.map((item) => (
@@ -2732,8 +2860,8 @@ function AssistantPanel({
 
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5">
-                  <CardEyebrow>What Changes This Answer</CardEyebrow>
-                  <InfoHint text="Concrete price events that would upgrade, downgrade, or flip today's verdict — so you know what to watch for instead of re-reading the chart all day." />
+                  <CardEyebrow>{t("tokenPage.why.whatChangesTitle")}</CardEyebrow>
+                  <InfoHint text={t("tokenPage.why.whatChangesInfoHint")} />
                 </div>
                 <div className="space-y-1">
                   {active.triggers.map((trigger) => (
@@ -2751,8 +2879,8 @@ function AssistantPanel({
               {marketOutlook && (
                 <div className="rounded-lg border border-border bg-surface p-2.5">
                   <div className="flex items-center gap-1.5">
-                    <CardEyebrow>Market Outlook</CardEyebrow>
-                    <InfoHint text="The current market story for this token, told before any recommendation: the big picture, the near-term tape, and what that combination rewards. Every verdict is this narrative applied to one objective." />
+                    <CardEyebrow>{t("tokenPage.why.marketOutlookTitle")}</CardEyebrow>
+                    <InfoHint text={t("tokenPage.why.marketOutlookInfoHint")} />
                   </div>
                   <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
                     {marketOutlook}
@@ -2767,16 +2895,18 @@ function AssistantPanel({
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
                     <CardEyebrow>
-                      Execution Plan · {active.definition.executionTimeframe}
+                      {t("tokenPage.plan.executionTitle", {
+                        timeframe: active.definition.executionTimeframe,
+                      })}
                     </CardEyebrow>
-                    <InfoHint text="A complete plan for your objective, sized to your account: entry, stop, two targets, position size, and worst-case loss. Counter-trend verdicts are automatically halved. Change account size and risk in Settings." />
+                    <InfoHint text={t("tokenPage.plan.executionInfoHint")} />
                   </div>
                   {active.plan && active.sizeMultiplier < 1 && (
                     <Badge
                       variant="outline"
                       className="border-warning/30 bg-warning-soft text-warning"
                     >
-                      ½ size
+                      {t("tokenPage.verdict.halfSize")}
                     </Badge>
                   )}
                 </div>
@@ -2784,46 +2914,46 @@ function AssistantPanel({
                   <>
                     <div className="grid grid-cols-2 gap-1.5">
                       <RiskMetric
-                        label="Entry zone"
+                        label={t("tokenPage.plan.entryZone")}
                         value={formatEntryRange(active.plan.entryLow, active.plan.entryHigh)}
                         compact
                       />
                       <RiskMetric
-                        label="Stop"
+                        label={t("tokenPage.plan.stop")}
                         value={formatMoney(active.plan.stop)}
                         tone="bearish"
                         compact
                       />
                       <RiskMetric
-                        label="Target 1"
+                        label={t("tokenPage.plan.target1")}
                         value={formatMoney(active.plan.target1)}
                         tone="bullish"
                         compact
                       />
                       <RiskMetric
-                        label="Target 2"
+                        label={t("tokenPage.plan.target2")}
                         value={formatMoney(active.plan.target2)}
                         tone="bullish"
                         compact
                       />
                       <RiskMetric
-                        label="Position"
+                        label={t("tokenPage.plan.position")}
                         value={`${formatUnits(active.plan.positionSize)} ≈ ${formatMoney(active.plan.positionSize * active.plan.entry)}`}
                         compact
                       />
                       <RiskMetric
-                        label="R/R"
+                        label={t("tokenPage.plan.rrCompact")}
                         value={`${active.plan.rewardRisk1}R / ${active.plan.rewardRisk2}R`}
                         compact
                       />
                       <RiskMetric
-                        label="Max loss"
+                        label={t("tokenPage.plan.maxLoss")}
                         value={formatMoney(active.plan.maxDollarLoss)}
                         tone="bearish"
                         compact
                       />
                       <RiskMetric
-                        label="Gain @ T1 / T2"
+                        label={t("tokenPage.plan.gainT1T2")}
                         value={`${formatMoney(active.plan.estimatedGain1)} / ${formatMoney(active.plan.estimatedGain2)}`}
                         tone="bullish"
                         compact
@@ -2844,7 +2974,7 @@ function AssistantPanel({
                       <div className="flex w-full items-center gap-1.5 rounded-md border border-warning/30 bg-warning-soft px-2.5 py-2 text-xs text-warning">
                         <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
                         <span>
-                          {setupValidity.reason ?? "Setup no longer valid at current price."}
+                          {setupValidity.reason ?? t("tokenPage.plan.setupInvalid")}
                         </span>
                       </div>
                     ) : (
@@ -2862,7 +2992,7 @@ function AssistantPanel({
                             onClick={onOpenTrade}
                           >
                             <Send className="h-3.5 w-3.5" />
-                            Place Trade — Get Permit
+                            {t("tokenPage.plan.placeTrade")}
                           </Button>
                           {hasOpenSignal(symbol, active.intent, active.direction) ? (
                             <Button
@@ -2872,7 +3002,7 @@ function AssistantPanel({
                               className="w-full gap-1.5 text-xs"
                             >
                               <BookmarkCheck className="h-3.5 w-3.5" />
-                              Following this signal
+                              {t("tokenPage.plan.followingSignal")}
                             </Button>
                           ) : (
                             <Button
@@ -2882,7 +3012,7 @@ function AssistantPanel({
                               onClick={openFollowDialog}
                             >
                               <Bookmark className="h-3.5 w-3.5" />
-                              Follow this signal
+                              {t("tokenPage.plan.followSignal")}
                             </Button>
                           )}
                         </div>
@@ -2891,7 +3021,7 @@ function AssistantPanel({
                   </>
                 ) : (
                   <p className="rounded-lg border border-border bg-surface p-2.5 text-xs leading-relaxed text-muted-foreground">
-                    {planEmptyMessage(active, assessments)}
+                    {planEmptyMessage(active, assessments, t)}
                   </p>
                 )}
               </div>
@@ -2922,18 +3052,20 @@ function AssistantPanel({
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5">
                   <CardEyebrow>
-                    Support & Resistance · {active.definition.executionTimeframe}
+                    {t("tokenPage.sr.title", {
+                      timeframe: active.definition.executionTimeframe,
+                    })}
                   </CardEyebrow>
-                  <InfoHint text="Support is where buyers stepped in before (price floor); resistance is where sellers did (price ceiling). A long is best entered near support, a short near resistance." />
+                  <InfoHint text={t("tokenPage.sr.infoHint")} />
                 </div>
                 <div className="grid grid-cols-2 gap-1.5">
                   <LevelStat
-                    label="Support"
+                    label={t("tokenPage.sr.support")}
                     value={formatMoney(active.execution.analytics.support)}
                     tone="bullish"
                   />
                   <LevelStat
-                    label="Resistance"
+                    label={t("tokenPage.sr.resistance")}
                     value={formatMoney(active.execution.analytics.resistance)}
                     tone="bearish"
                   />
@@ -2945,17 +3077,21 @@ function AssistantPanel({
             <TabsContent value="details" className="mt-0 space-y-3">
               <div className="rounded-lg border border-border bg-surface p-2.5">
                 <div className="flex items-center gap-1.5">
-                  <CardEyebrow>Market Read</CardEyebrow>
-                  <InfoHint text="What the two timeframes behind your objective are doing. When they disagree it doesn't mean 'no trade' — it changes which objectives are payable and which should wait." />
+                  <CardEyebrow>{t("tokenPage.details.marketRead")}</CardEyebrow>
+                  <InfoHint text={t("tokenPage.details.marketReadInfoHint")} />
                 </div>
                 <div className="mt-1.5 grid grid-cols-2 gap-1.5">
                   <BiasCell
-                    label={`${active.definition.contextTimeframe} context`}
+                    label={t("tokenPage.details.contextLabel", {
+                      timeframe: active.definition.contextTimeframe,
+                    })}
                     regime={active.context.regime}
                     bias={active.contextBias}
                   />
                   <BiasCell
-                    label={`${active.definition.executionTimeframe} trigger`}
+                    label={t("tokenPage.details.triggerLabel", {
+                      timeframe: active.definition.executionTimeframe,
+                    })}
                     regime={active.execution.regime}
                     bias={active.executionBias}
                   />
@@ -2972,29 +3108,33 @@ function AssistantPanel({
 
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5">
-                  <CardEyebrow>Conditions · {active.definition.executionTimeframe}</CardEyebrow>
-                  <InfoHint text="The market's current condition in plain words — trend, momentum, volume, volatility, and the swing structure (higher or lower highs and lows) the engine reads from the chart — with the exact ATR and volume readings below. Bigger ATR means wilder swings." />
+                  <CardEyebrow>
+                    {t("tokenPage.details.conditionsTitle", {
+                      timeframe: active.definition.executionTimeframe,
+                    })}
+                  </CardEyebrow>
+                  <InfoHint text={t("tokenPage.details.conditionsInfoHint")} />
                 </div>
                 <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-                  {keyInsights(active.execution).map((row) => (
+                  {keyInsights(active.execution, t).map((row) => (
                     <KeyInsightBox key={row.label} {...row} />
                   ))}
                 </div>
                 <div className="grid grid-cols-2 gap-1.5">
                   <LevelStat
-                    label="ATR (14)"
+                    label={t("tokenPage.details.atr14")}
                     value={
                       active.execution.analytics.atrPercent !== null
                         ? `${active.execution.analytics.atrPercent}%`
-                        : "n/a"
+                        : t("tokenPage.details.na")
                     }
                   />
                   <LevelStat
-                    label="Vol vs 20-bar"
+                    label={t("tokenPage.details.volVs20")}
                     value={
                       active.execution.analytics.volumeRatio !== null
                         ? `${active.execution.analytics.volumeRatio}×`
-                        : "n/a"
+                        : t("tokenPage.details.na")
                     }
                   />
                 </div>
@@ -3006,8 +3146,12 @@ function AssistantPanel({
 
               <div data-tour="insight" className="space-y-1.5">
                 <div className="flex items-center gap-1.5">
-                  <CardEyebrow>Engine Checks · {active.definition.executionTimeframe}</CardEyebrow>
-                  <InfoHint text="Every check the engine ran with its score contribution. Hover a check to read what it found. Green passed, amber is a caution, red failed." />
+                  <CardEyebrow>
+                    {t("tokenPage.details.engineChecks", {
+                      timeframe: active.definition.executionTimeframe,
+                    })}
+                  </CardEyebrow>
+                  <InfoHint text={t("tokenPage.details.engineChecksInfoHint")} />
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {active.execution.components.map((component) => (
@@ -3047,7 +3191,7 @@ function AssistantPanel({
                   <History className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <div>
                     <span className="text-[9px] font-semibold uppercase tracking-wider">
-                      Engine's live record
+                      {t("tokenPage.evidence.engineRecord")}
                     </span>
                     <p className="mt-0.5">{active.record.note}</p>
                   </div>
@@ -3063,10 +3207,15 @@ function AssistantPanel({
       <Dialog open={followDialogOpen} onOpenChange={setFollowDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Follow {symbol}</DialogTitle>
+            <DialogTitle>{t("tokenPage.follow.title", { symbol })}</DialogTitle>
             <DialogDescription>
               {active &&
-                `Confirm the price you actually entered at — the engine's ideal zone was ${formatEntryRange(active.plan?.entryLow ?? 0, active.plan?.entryHigh ?? 0)}.`}
+                t("tokenPage.follow.description", {
+                  zone: formatEntryRange(
+                    active.plan?.entryLow ?? 0,
+                    active.plan?.entryHigh ?? 0,
+                  ),
+                })}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5">
@@ -3074,7 +3223,7 @@ function AssistantPanel({
               htmlFor="follow-entry-price"
               className="text-xs font-medium text-muted-foreground"
             >
-              Your entry price
+              {t("tokenPage.follow.yourEntryPrice")}
             </label>
             <Input
               id="follow-entry-price"
@@ -3088,19 +3237,19 @@ function AssistantPanel({
           {active?.plan && (
             <div className="grid grid-cols-3 gap-1.5 text-xs">
               <RiskMetric
-                label="Stop"
+                label={t("tokenPage.plan.stop")}
                 value={formatMoney(active.plan.stop)}
                 tone="bearish"
                 compact
               />
               <RiskMetric
-                label="Target 1"
+                label={t("tokenPage.plan.target1")}
                 value={formatMoney(active.plan.target1)}
                 tone="bullish"
                 compact
               />
               <RiskMetric
-                label="Target 2"
+                label={t("tokenPage.plan.target2")}
                 value={formatMoney(active.plan.target2)}
                 tone="bullish"
                 compact
@@ -3109,9 +3258,9 @@ function AssistantPanel({
           )}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setFollowDialogOpen(false)}>
-              Cancel
+              {t("tokenPage.follow.cancel")}
             </Button>
-            <Button onClick={confirmFollow}>Confirm and track</Button>
+            <Button onClick={confirmFollow}>{t("tokenPage.follow.confirm")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -3119,26 +3268,27 @@ function AssistantPanel({
   );
 }
 
-function formatHeldFor(heldAt: string): string {
+function formatHeldFor(
+  heldAt: string,
+  t: (k: string, o?: Record<string, unknown>) => string,
+): string {
   const ms = Date.now() - Date.parse(heldAt);
-  if (!Number.isFinite(ms) || ms < 0) return "just now";
+  if (!Number.isFinite(ms) || ms < 0) return t("tokenPage.hold.justNow");
   const mins = Math.floor(ms / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m`;
+  if (mins < 1) return t("tokenPage.hold.justNow");
+  if (mins < 60) return t("tokenPage.hold.min", { count: mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h`;
-  return `${Math.floor(hours / 24)}d`;
+  if (hours < 24) return t("tokenPage.hold.hour", { count: hours });
+  return t("tokenPage.hold.day", { count: Math.floor(hours / 24) });
 }
 
 function HoldNote({ hold }: { hold: DisplayIntentAssessment["hold"] }) {
+  const { t } = useTranslation();
   if (hold.isHeld) {
     return (
       <div className="mt-1.5 flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
         <Lock className="h-3 w-3 shrink-0" />
-        <span>
-          Verdict held {formatHeldFor(hold.heldAt)} — it stands until a trigger below fires, so it
-          won't flicker between refreshes.
-        </span>
+        <span>{t("tokenPage.hold.held", { heldFor: formatHeldFor(hold.heldAt, t) })}</span>
       </div>
     );
   }
@@ -3146,7 +3296,7 @@ function HoldNote({ hold }: { hold: DisplayIntentAssessment["hold"] }) {
     return (
       <div className="mt-1.5 flex items-start gap-1.5 text-[10px] font-medium text-info">
         <MoveRight className="mt-0.5 h-3 w-3 shrink-0" />
-        <span>Updated: {hold.adoptedBecause}</span>
+        <span>{t("tokenPage.hold.updated", { reason: hold.adoptedBecause })}</span>
       </div>
     );
   }
@@ -3162,21 +3312,35 @@ function HoldNote({ hold }: { hold: DisplayIntentAssessment["hold"] }) {
 function AnticipatoryRecordNote() {
   const signals = useAnticipatorySignalsStore((s) => s.signals);
   const summary = summarizeAnticipatoryRecord(signals);
+  const { t } = useTranslation();
   if (summary.filled + summary.neverFilled === 0) return null;
   return (
     <div className="flex items-start gap-2 rounded-lg border border-border bg-surface p-2.5 text-[11px] leading-relaxed text-muted-foreground">
       <History className="mt-0.5 h-3.5 w-3.5 shrink-0" />
       <div>
         <span className="text-[9px] font-semibold uppercase tracking-wider">
-          Anticipatory limit record (all symbols)
+          {t("tokenPage.evidence.anticipatoryTitle")}
         </span>
         <p className="mt-0.5">
-          {summary.fillRate}% of resting limits filled ({summary.filled} of{" "}
-          {summary.filled + summary.neverFilled} decided
-          {summary.pending > 0 ? `, ${summary.pending} still resting` : ""}).
+          {t("tokenPage.evidence.anticipatoryFills", {
+            fillRate: summary.fillRate,
+            filled: summary.filled,
+            decided: summary.filled + summary.neverFilled,
+            pending:
+              summary.pending > 0
+                ? t("tokenPage.evidence.anticipatoryPending", { count: summary.pending })
+                : "",
+          })}
           {summary.settled > 0
-            ? ` Filled positions: ${summary.winRate}% wins, ${summary.averageR >= 0 ? "+" : ""}${summary.averageR}R avg over ${summary.settled} settled${summary.lowSample ? " — small sample, treat as anecdote" : ""}.`
-            : " No filled position has settled yet."}
+            ? t("tokenPage.evidence.anticipatorySettled", {
+                winRate: summary.winRate,
+                avgR: `${summary.averageR >= 0 ? "+" : ""}${summary.averageR}`,
+                settled: summary.settled,
+                lowSample: summary.lowSample
+                  ? t("tokenPage.evidence.anticipatoryLowSample")
+                  : "",
+              })
+            : t("tokenPage.evidence.anticipatoryNoneSettled")}
         </p>
       </div>
     </div>
@@ -3184,6 +3348,7 @@ function AnticipatoryRecordNote() {
 }
 
 function SessionLevelsCard({ levels, price }: { levels: SessionLevel[]; price: number }) {
+  const { t } = useTranslation();
   // The single high/low across all sessions that price is currently nearest —
   // the level most likely to act as immediate support/resistance.
   let nearestKey = "";
@@ -3226,8 +3391,8 @@ function SessionLevelsCard({ levels, price }: { levels: SessionLevel[]; price: n
   return (
     <div className="rounded-lg border border-border bg-surface p-2.5">
       <div className="flex items-center gap-1.5">
-        <CardEyebrow>Session Levels</CardEyebrow>
-        <InfoHint text="The high and low each trading region (Asia, London, New York) printed in its most recent completed session. Yesterday's session extremes are the intraday levels traders lean on — reclaiming a session high or holding a session low is a structure event. The level price is nearest is highlighted; the verdict's entry-location read counts a session level you're holding as structure." />
+        <CardEyebrow>{t("tokenPage.session.title")}</CardEyebrow>
+        <InfoHint text={t("tokenPage.session.infoHint")} />
       </div>
       <div className="mt-2 space-y-1">
         {levels.map((l) => (
@@ -3245,6 +3410,7 @@ function SessionLevelsCard({ levels, price }: { levels: SessionLevel[]; price: n
 }
 
 function PerpContextCard({ perp }: { perp: PerpRead }) {
+  const { t } = useTranslation();
   const fundingTone =
     perp.fundingBias === "neutral"
       ? "border-border bg-muted text-muted-foreground"
@@ -3253,10 +3419,10 @@ function PerpContextCard({ perp }: { perp: PerpRead }) {
         : "border-warning/30 bg-warning-soft text-warning";
   const fundingLabel =
     perp.fundingBias === "longs-crowded"
-      ? "Longs crowded"
+      ? t("tokenPage.perp.longsCrowded")
       : perp.fundingBias === "shorts-crowded"
-        ? "Shorts crowded"
-        : "Balanced";
+        ? t("tokenPage.perp.shortsCrowded")
+        : t("tokenPage.perp.balanced");
   const apr = `${perp.fundingAnnualizedPct > 0 ? "+" : ""}${perp.fundingAnnualizedPct.toFixed(0)}%`;
   const oiTone =
     perp.oiTrend === "rising"
@@ -3270,8 +3436,8 @@ function PerpContextCard({ perp }: { perp: PerpRead }) {
     <div className="rounded-lg border border-border bg-surface p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
-          <CardEyebrow>Perp Positioning</CardEyebrow>
-          <InfoHint text="Funding + open interest — what perp traders check first. Positive funding means longs are paying to hold (crowded long, flush risk); negative means shorts are paying (crowded short, squeeze risk). Rising open interest means fresh money is behind the move; falling means positions are being closed. The verdict trims size when funding is extreme with the crowd already on your side." />
+          <CardEyebrow>{t("tokenPage.perp.title")}</CardEyebrow>
+          <InfoHint text={t("tokenPage.perp.infoHint")} />
         </div>
         <Badge variant="outline" className={cn("shrink-0", fundingTone)}>
           {fundingLabel}
@@ -3281,22 +3447,26 @@ function PerpContextCard({ perp }: { perp: PerpRead }) {
         <div className="rounded-md border border-border bg-card px-2 py-1.5">
           <div className="flex items-center gap-1 text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
             <Scale className="h-3 w-3" />
-            Funding · 8h
+            {t("tokenPage.perp.funding8h")}
           </div>
           <div className="num mt-0.5 text-sm font-semibold text-foreground">
             {(perp.fundingRate * 100).toFixed(4)}%
           </div>
-          <div className="text-[10px] text-muted-foreground">{apr} annualized</div>
+          <div className="text-[10px] text-muted-foreground">
+            {t("tokenPage.perp.annualized", { apr })}
+          </div>
         </div>
         <div className="rounded-md border border-border bg-card px-2 py-1.5">
           <div className="flex items-center gap-1 text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
             <Activity className="h-3 w-3" />
-            Open interest
+            {t("tokenPage.perp.openInterest")}
           </div>
           <div className="num mt-0.5 text-sm font-semibold text-foreground">
             {perp.openInterestValue > 0 ? `$${formatCompact(perp.openInterestValue)}` : "—"}
           </div>
-          <div className={cn("text-[10px] font-medium", oiTone)}>{oiChange} · 24h</div>
+          <div className={cn("text-[10px] font-medium", oiTone)}>
+            {t("tokenPage.perp.change24h", { change: oiChange })}
+          </div>
         </div>
       </div>
       <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">{perp.note}</p>
@@ -3313,6 +3483,7 @@ function LocationRow({
   support: number | null;
   resistance: number | null;
 }) {
+  const { t } = useTranslation();
   const tone =
     location.grade === "at-structure"
       ? { chip: "border-bullish/30 bg-bullish-soft text-bullish", marker: "bg-bullish" }
@@ -3323,10 +3494,10 @@ function LocationRow({
 
   return (
     <div className="rounded-lg border border-border bg-surface p-2.5">
-      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
-          <CardEyebrow>Entry Location</CardEyebrow>
-          <InfoHint text="Where price sits between support and resistance for this trade's direction. A long is best entered near support, a short near resistance — 'favored' is reserved for well-located setups, and an extended price becomes 'wait for a pullback' even when the direction is right." />
+          <CardEyebrow>{t("tokenPage.location.title")}</CardEyebrow>
+          <InfoHint text={t("tokenPage.location.infoHint")} />
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {location.confluence !== "none" && (
@@ -3339,7 +3510,9 @@ function LocationRow({
               )}
             >
               <Layers className="mr-1 h-3 w-3" />
-              {location.confluence === "multi-timeframe" ? "MTF confluence" : "Zone-backed"}
+              {location.confluence === "multi-timeframe"
+                ? t("tokenPage.location.mtfConfluence")
+                : t("tokenPage.location.zoneBacked")}
             </Badge>
           )}
           <Badge variant="outline" className={cn(tone.chip)}>
@@ -3354,8 +3527,12 @@ function LocationRow({
         />
       </div>
       <div className="mt-1 flex justify-between text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
-        <span>S {support !== null ? formatMoney(support) : "—"}</span>
-        <span>R {resistance !== null ? formatMoney(resistance) : "—"}</span>
+        <span>
+          {t("tokenPage.location.support")} {support !== null ? formatMoney(support) : "—"}
+        </span>
+        <span>
+          {t("tokenPage.location.resistance")} {resistance !== null ? formatMoney(resistance) : "—"}
+        </span>
       </div>
       <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">{location.note}</p>
     </div>
@@ -3378,6 +3555,7 @@ function verdictTone(assessment: IntentAssessment): string {
  * badges keep the counter-trend/half-size nuance the old text badge carried.
  */
 function VerdictHero({ assessment }: { assessment: DisplayIntentAssessment }) {
+  const { t } = useTranslation();
   const { verdict, direction, isCounterTrend, sizeMultiplier } = assessment;
   const DirIcon =
     direction === "long" ? TrendingUp : direction === "short" ? TrendingDown : MoveRight;
@@ -3386,9 +3564,9 @@ function VerdictHero({ assessment }: { assessment: DisplayIntentAssessment }) {
       ? direction.toUpperCase()
       : verdict === "wait"
         ? direction === "none"
-          ? "NOT YET"
-          : `${direction.toUpperCase()} · NOT YET`
-        : "STAND ASIDE";
+          ? t("tokenPage.verdict.notYet")
+          : `${direction.toUpperCase()} · ${t("tokenPage.verdict.notYet")}`
+        : t("tokenPage.verdict.standAside");
   const text =
     verdict === "favored"
       ? direction === "short"
@@ -3405,12 +3583,12 @@ function VerdictHero({ assessment }: { assessment: DisplayIntentAssessment }) {
       <span className={cn("text-2xl font-bold leading-none tracking-tight", text)}>{word}</span>
       {sizeMultiplier < 1 && (
         <Badge variant="outline" className="border-warning/30 bg-warning-soft text-warning">
-          ½ size
+          {t("tokenPage.verdict.halfSize")}
         </Badge>
       )}
       {isCounterTrend && (
         <Badge variant="outline" className="border-warning/30 bg-warning-soft text-warning">
-          counter-trend
+          {t("tokenPage.verdict.counterTrend")}
         </Badge>
       )}
     </div>
@@ -3426,6 +3604,7 @@ function VerdictHero({ assessment }: { assessment: DisplayIntentAssessment }) {
  * not yet satisfied" rather than a contradiction.
  */
 function ReadStrengthGauge({ assessment }: { assessment: DisplayIntentAssessment }) {
+  const { t } = useTranslation();
   const { verdict, direction } = assessment;
   const tone =
     verdict === "favored"
@@ -3439,20 +3618,18 @@ function ReadStrengthGauge({ assessment }: { assessment: DisplayIntentAssessment
           : "var(--color-muted-foreground)";
   const meaning =
     verdict === "favored"
-      ? "Here the read and the entry conditions agree — the setup is confirmed."
+      ? t("tokenPage.gauge.meaningFavored")
       : verdict === "caution"
-        ? "The read is tradable but fights the higher timeframe — hence reduced size."
+        ? t("tokenPage.gauge.meaningCaution")
         : verdict === "wait"
-          ? "A strong number beside 'not yet' is not a contradiction: the engine is confident about the direction while the entry conditions are still unsatisfied — the checklist shows exactly what's missing."
-          : "Whatever its strength, this market doesn't pay your objective — stand aside.";
+          ? t("tokenPage.gauge.meaningWait")
+          : t("tokenPage.gauge.meaningAvoid");
   return (
     <div className="flex shrink-0 flex-col items-center">
       <ConfidenceGauge value={assessment.confidence} size={60} tone={tone} />
       <span className="mt-0.5 flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Read strength
-        <InfoHint
-          text={`How strongly the engine's evidence points in one direction — signal strength, not a win probability. The verdict word is the action. ${meaning}`}
-        />
+        {t("tokenPage.gauge.readStrength")}
+        <InfoHint text={`${t("tokenPage.gauge.tooltipPrefix")} ${meaning}`} />
       </span>
     </div>
   );
@@ -3460,6 +3637,7 @@ function ReadStrengthGauge({ assessment }: { assessment: DisplayIntentAssessment
 
 /** R:R to each target and risk level — the ref-style stat row. */
 function EdgeStats({ assessment }: { assessment: DisplayIntentAssessment }) {
+  const { t } = useTranslation();
   const risk = assessment.execution.risk;
   const atr = assessment.execution.analytics.atrPercent;
   // The engine owns the risk formula (ATR bands + counter-trend bump).
@@ -3467,24 +3645,24 @@ function EdgeStats({ assessment }: { assessment: DisplayIntentAssessment }) {
   return (
     <div className="grid grid-cols-3 gap-1.5">
       <GlanceStat
-        label="R:R to T1"
+        label={t("tokenPage.edge.rrToT1")}
         value={`${risk.rewardRisk1}R`}
-        sub="target 1 vs. stop"
+        sub={t("tokenPage.edge.target1VsStop")}
         tone={risk.rewardRisk1 >= 1 ? "bullish" : undefined}
       />
       <GlanceStat
-        label="R:R to T2"
+        label={t("tokenPage.edge.rrToT2")}
         value={`${risk.rewardRisk2}R`}
-        sub="target 2 vs. stop"
+        sub={t("tokenPage.edge.target2VsStop")}
         tone={risk.rewardRisk2 >= 1 ? "bullish" : undefined}
       />
       <GlanceStat
-        label="Risk level"
-        value={grade ? grade[0].toUpperCase() + grade.slice(1) : "n/a"}
+        label={t("tokenPage.edge.riskLevel")}
+        value={grade ? grade[0].toUpperCase() + grade.slice(1) : t("tokenPage.edge.na")}
         sub={
-          [atr !== null ? `ATR ${atr}%` : null, assessment.isCounterTrend ? "counter-trend" : null]
+          [atr !== null ? `ATR ${atr}%` : null, assessment.isCounterTrend ? t("tokenPage.edge.counterTrend") : null]
             .filter(Boolean)
-            .join(" · ") || "no ATR read"
+            .join(" · ") || t("tokenPage.edge.noAtrRead")
         }
         tone={grade === "high" ? "bearish" : grade === "medium" ? "warning" : undefined}
       />
@@ -3636,10 +3814,11 @@ function DecisionBanner({
   active: DisplayIntentAssessment;
   assessments: DisplayIntentAssessment[];
 }) {
+  const { t } = useTranslation();
   const done = active.checklist.filter((item) => item.done).length;
   const total = active.checklist.length;
   const next = active.checklist.find((item) => !item.done);
-  const heldFor = active.hold.isHeld ? formatHeldFor(active.hold.heldAt) : null;
+  const heldFor = active.hold.isHeld ? formatHeldFor(active.hold.heldAt, t) : null;
 
   let tone: string;
   let Icon: typeof CheckCircle2;
@@ -3648,35 +3827,38 @@ function DecisionBanner({
   if (active.verdict === "favored") {
     tone = "border-bullish/30 bg-bullish-soft text-bullish";
     Icon = CheckCircle2;
-    headline = `Setup confirmed — ${done}/${total} checks in`;
-    detail = next ? `Open: ${next.label}` : null;
+    headline = t("tokenPage.decision.setupConfirmed", { done, total });
+    detail = next ? t("tokenPage.decision.open", { label: next.label }) : null;
   } else if (active.verdict === "caution") {
     tone = "border-warning/30 bg-warning-soft text-warning";
     Icon = ShieldAlert;
-    headline = active.isCounterTrend ? "Counter-trend — tradable at ½ size" : "Tradable at ½ size";
+    headline = active.isCounterTrend
+      ? t("tokenPage.decision.counterTrendHalf")
+      : t("tokenPage.decision.tradableHalf");
     detail = next
-      ? `${total - done} check${total - done === 1 ? "" : "s"} open — next: ${next.label}`
+      ? t("tokenPage.decision.checksOpen", { count: total - done, label: next.label })
       : null;
   } else if (active.verdict === "wait") {
     tone = "border-info/30 bg-info-soft text-info";
     Icon = CircleAlert;
     const extended = active.location?.grade === "extended";
+    const missing = total - done;
     headline = extended
-      ? `No entry at current price — ${total - done} of ${total} confirmations missing`
-      : `Not yet — ${total - done} of ${total} confirmations missing`;
+      ? t("tokenPage.decision.noEntryExtended", { missing, total })
+      : t("tokenPage.decision.notYetConfirmations", { missing, total });
     detail = next
-      ? `Next: ${next.label}${
+      ? `${t("tokenPage.decision.next", { label: next.label })}${
           active.plan
             ? ""
             : extended
-              ? " · plan appears once price returns to the zone"
-              : " · plan appears once the trigger confirms"
+              ? t("tokenPage.decision.planWhenZone")
+              : t("tokenPage.decision.planWhenTrigger")
         }`
       : null;
   } else {
     tone = "border-border bg-muted/40 text-muted-foreground";
     Icon = CircleX;
-    headline = "Doesn't pay this objective";
+    headline = t("tokenPage.decision.doesntPay");
     const alt = assessments.find(
       (a) =>
         a.intent !== active.intent &&
@@ -3684,8 +3866,12 @@ function DecisionBanner({
         a.plan !== null,
     );
     detail = alt
-      ? `${alt.definition.label} has a ${alt.direction} setup on the ${alt.definition.executionTimeframe}`
-      : "No other objective is payable — flat is a position";
+      ? t("tokenPage.decision.altSetup", {
+          label: alt.definition.label,
+          direction: alt.direction,
+          timeframe: alt.definition.executionTimeframe,
+        })
+      : t("tokenPage.decision.flatIsPosition");
   }
 
   return (
@@ -3698,7 +3884,7 @@ function DecisionBanner({
       {heldFor && (
         <span className="flex shrink-0 items-center gap-1 text-[9px] font-semibold uppercase tracking-wider opacity-80">
           <Lock className="h-3 w-3" />
-          held {heldFor}
+          {t("tokenPage.decision.held", { heldFor })}
         </span>
       )}
     </div>
@@ -3707,7 +3893,11 @@ function DecisionBanner({
 
 // When there is nothing to execute for the chosen objective, say what would
 // pay instead — "no trade" should read as "wrong objective", not "go away".
-function planEmptyMessage(active: IntentAssessment, assessments: IntentAssessment[]): string {
+function planEmptyMessage(
+  active: IntentAssessment,
+  assessments: IntentAssessment[],
+  t: (k: string, o?: Record<string, unknown>) => string,
+): string {
   const alt = assessments.find(
     (a) =>
       a.intent !== active.intent &&
@@ -3717,31 +3907,42 @@ function planEmptyMessage(active: IntentAssessment, assessments: IntentAssessmen
   const extended = active.verdict === "wait" && active.location?.grade === "extended";
   const base = extended
     ? active.anticipatoryPlan
-      ? `No ${active.direction} at current price — price is extended into structure. If it ${active.direction === "long" ? "pulls back" : "rallies"} to ${formatMoney(active.anticipatoryPlan.zone.priceLow)}–${formatMoney(active.anticipatoryPlan.zone.priceHigh)}, a ${active.direction} becomes viable (see the conditional setup below).`
-      : `No ${active.direction} at current price — price is extended into structure. Wait for a pullback.`
+      ? t("tokenPage.plan.emptyExtendedWithPlan", {
+          direction: active.direction,
+          reaction: active.direction === "long" ? t("tokenPage.plan.pullsBack") : t("tokenPage.plan.rallies"),
+          low: formatMoney(active.anticipatoryPlan.zone.priceLow),
+          high: formatMoney(active.anticipatoryPlan.zone.priceHigh),
+        })
+      : t("tokenPage.plan.emptyExtended", { direction: active.direction })
     : active.verdict === "wait"
-      ? "No entry yet — the plan appears the moment the trigger confirms."
-      : "This market doesn't pay your objective right now.";
+      ? t("tokenPage.plan.emptyWait")
+      : t("tokenPage.plan.emptyAvoid");
   if (alt) {
-    return `${base} If you want action today, the ${alt.definition.label.toLowerCase()} objective has a ${alt.verdict === "caution" ? "reduced-size " : ""}${alt.direction} setup on the ${alt.definition.executionTimeframe}.`;
+    return `${base}${t("tokenPage.plan.emptyAlt", {
+      objective: alt.definition.label.toLowerCase(),
+      size: alt.verdict === "caution" ? t("tokenPage.plan.emptyAltReduced") : "",
+      direction: alt.direction,
+      timeframe: alt.definition.executionTimeframe,
+    })}`;
   }
-  return `${base} No other objective has a payable setup either — flat is a position.`;
+  return `${base}${t("tokenPage.plan.emptyNoAlt")}`;
 }
 
 function SizingNote({ multiplier = 1 }: { multiplier?: number }) {
   const risk = usePreferencesStore((s) => s.risk);
+  const { t } = useTranslation();
   return (
     <p className="text-[10px] leading-relaxed text-muted-foreground">
-      Sized for a ${risk.accountSize.toLocaleString()} account risking {risk.maxRiskPerTradePercent}
-      % per trade ({risk.stopMethod.replaceAll("-", " ")} stop).
+      {t("tokenPage.plan.sizedFor", {
+        accountSize: risk.accountSize.toLocaleString(),
+        riskPercent: risk.maxRiskPerTradePercent,
+        stopMethod: risk.stopMethod.replaceAll("-", " "),
+      })}
       {multiplier < 1 && (
-        <span className="font-semibold text-warning">
-          {" "}
-          Shown at half size — counter-trend for this objective.
-        </span>
+        <span className="font-semibold text-warning">{t("tokenPage.plan.halfSizeNote")}</span>
       )}{" "}
       <Link to="/settings" className="font-semibold text-info hover:underline">
-        Adjust →
+        {t("tokenPage.plan.adjust")}
       </Link>
     </p>
   );
@@ -3756,36 +3957,39 @@ interface InsightRow {
   wide?: boolean;
 }
 
-function keyInsights(evaluation: SignalEvaluation): InsightRow[] {
+function keyInsights(
+  evaluation: SignalEvaluation,
+  t: (k: string, o?: Record<string, unknown>) => string,
+): InsightRow[] {
   const a = evaluation.analytics;
   const trend: InsightRow =
     evaluation.regime === "trending-up"
-      ? { label: "Trend", value: "Uptrend", tone: "bullish", dir: "up" }
+      ? { label: t("tokenPage.insights.trend"), value: t("tokenPage.insights.uptrend"), tone: "bullish", dir: "up" }
       : evaluation.regime === "trending-down"
-        ? { label: "Trend", value: "Downtrend", tone: "bearish", dir: "down" }
-        : { label: "Trend", value: "Sideways", tone: "neutral", dir: "flat" };
+        ? { label: t("tokenPage.insights.trend"), value: t("tokenPage.insights.downtrend"), tone: "bearish", dir: "down" }
+        : { label: t("tokenPage.insights.trend"), value: t("tokenPage.insights.sideways"), tone: "neutral", dir: "flat" };
 
   const aboveMean = a.sma20 !== null && a.lastClose > a.sma20;
   const momentum: InsightRow = aboveMean
-    ? { label: "Momentum", value: "Positive", tone: "bullish", dir: "up" }
-    : { label: "Momentum", value: "Weak", tone: "bearish", dir: "down" };
+    ? { label: t("tokenPage.insights.momentum"), value: t("tokenPage.insights.positive"), tone: "bullish", dir: "up" }
+    : { label: t("tokenPage.insights.momentum"), value: t("tokenPage.insights.weak"), tone: "bearish", dir: "down" };
 
   const ratio = a.volumeRatio ?? 1;
   const volume: InsightRow =
     ratio >= 1.15
-      ? { label: "Volume", value: "Above avg", tone: "bullish", dir: "up" }
+      ? { label: t("tokenPage.insights.volume"), value: t("tokenPage.insights.aboveAvg"), tone: "bullish", dir: "up" }
       : ratio <= 0.85
-        ? { label: "Volume", value: "Below avg", tone: "warning", dir: "down" }
-        : { label: "Volume", value: "Average", tone: "neutral", dir: "flat" };
+        ? { label: t("tokenPage.insights.volume"), value: t("tokenPage.insights.belowAvg"), tone: "warning", dir: "down" }
+        : { label: t("tokenPage.insights.volume"), value: t("tokenPage.insights.average"), tone: "neutral", dir: "flat" };
 
   // Same engine formula the Overview risk chip reads — the two can't diverge.
   const atrGrade = gradeRisk(a.atrPercent);
   const volatility: InsightRow =
     atrGrade === "high"
-      ? { label: "Volatility (ATR)", value: "High", tone: "bearish", dir: "up" }
+      ? { label: t("tokenPage.insights.volatilityAtr"), value: t("tokenPage.insights.high"), tone: "bearish", dir: "up" }
       : atrGrade === "medium"
-        ? { label: "Volatility (ATR)", value: "Medium", tone: "warning", dir: "flat" }
-        : { label: "Volatility (ATR)", value: "Low", tone: "neutral", dir: "flat" };
+        ? { label: t("tokenPage.insights.volatilityAtr"), value: t("tokenPage.insights.medium"), tone: "warning", dir: "flat" }
+        : { label: t("tokenPage.insights.volatilityAtr"), value: t("tokenPage.insights.low"), tone: "neutral", dir: "flat" };
 
   // Swing structure is a separate read from the regime above: the regime is
   // MA/ATR-derived, structure is the HH/HL/LH/LL sequence of validated swing
@@ -3793,27 +3997,30 @@ function keyInsights(evaluation: SignalEvaluation): InsightRow[] {
   const s = evaluation.structure;
   const eventCurrent =
     s.event && s.eventSwing && (s.eventSwing === s.lastHigh || s.eventSwing === s.lastLow);
-  const eventNote = eventCurrent ? (s.event === "bos" ? " · BOS" : " · CHoCH") : "";
+  const eventNote = eventCurrent ? (s.event === "bos" ? t("tokenPage.insights.bosNote") : t("tokenPage.insights.chochNote")) : "";
   const structure: InsightRow =
     s.trend === "uptrend"
       ? {
-          label: "Structure",
-          value: `Higher highs & higher lows${eventNote}`,
+          label: t("tokenPage.insights.structure"),
+          value: `${t("tokenPage.insights.hhhl")}${eventNote}`,
           tone: "bullish",
           dir: "up",
           wide: true,
         }
       : s.trend === "downtrend"
         ? {
-            label: "Structure",
-            value: `Lower highs & lower lows${eventNote}`,
+            label: t("tokenPage.insights.structure"),
+            value: `${t("tokenPage.insights.lhll")}${eventNote}`,
             tone: "bearish",
             dir: "down",
             wide: true,
           }
         : {
-            label: "Structure",
-            value: `Range — ${s.lastHigh?.label ?? "–"} high / ${s.lastLow?.label ?? "–"} low${eventNote}`,
+            label: t("tokenPage.insights.structure"),
+            value: t("tokenPage.insights.rangeStruct", {
+              high: s.lastHigh?.label ?? "–",
+              low: s.lastLow?.label ?? "–",
+            }) + eventNote,
             tone: "neutral",
             dir: "flat",
             wide: true,
@@ -3872,6 +4079,7 @@ function TradeDrawer({
   chartStructure?: ChartStructure | null;
   externalContext?: ExternalContext | null;
 }) {
+  const { t } = useTranslation();
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -3894,13 +4102,16 @@ function TradeDrawer({
     if (!open || !evaluation || analysis || loading) return;
 
     const fallback = () =>
-      deterministicFallback({
-        symbol,
-        range: timeframe || "1H",
-        evaluation,
-        assessment: assessment || null,
-        thinkingMode: false,
-      });
+      deterministicFallback(
+        {
+          symbol,
+          range: timeframe || "1H",
+          evaluation,
+          assessment: assessment || null,
+          thinkingMode: false,
+        },
+        t,
+      );
 
     if (!aiReady) {
       setAnalysis(fallback());
@@ -3943,6 +4154,7 @@ function TradeDrawer({
     assessment,
     chartStructure,
     externalContext,
+    t,
   ]);
 
   return (
@@ -3951,8 +4163,10 @@ function TradeDrawer({
         <div className="flex shrink-0 flex-col gap-1.5 border-b border-border px-3 py-2 pr-10">
           <div className="flex min-w-0 items-center gap-2">
             <Zap className="h-4 w-4 shrink-0 text-primary" />
-            <SheetTitle className="truncate text-xs font-bold">{symbol} Trade</SheetTitle>
-            <InfoHint text="Requests a constitution-gated permit using this token's current execution plan. The backend rechecks account state and derives executable quantity from the persisted permit snapshot." />
+            <SheetTitle className="truncate text-xs font-bold">
+              {t("tokenPage.drawer.title", { symbol })}
+            </SheetTitle>
+            <InfoHint text={t("tokenPage.drawer.infoHint")} />
           </div>
           {/* Echo the plan this was opened from, so the drawer never reads as
               a disconnected detour from the Plan tab it was launched from. */}
@@ -3970,8 +4184,11 @@ function TradeDrawer({
                 {assessment.direction}
               </Badge>
               <span className="num text-muted-foreground">
-                Entry {formatEntryRange(assessment.plan.entryLow, assessment.plan.entryHigh)} · Stop{" "}
-                {formatMoney(assessment.plan.stop)} · T1 {formatMoney(assessment.plan.target1)}
+                {t("tokenPage.drawer.planEcho", {
+                  entry: formatEntryRange(assessment.plan.entryLow, assessment.plan.entryHigh),
+                  stop: formatMoney(assessment.plan.stop),
+                  target1: formatMoney(assessment.plan.target1),
+                })}
               </span>
             </div>
           )}
@@ -3982,11 +4199,11 @@ function TradeDrawer({
           {evaluation && (
             <div className="rounded-lg border bg-muted/30 p-3 text-sm">
               <div className="flex items-center gap-2 font-bold mb-2 text-muted-foreground text-[10px] uppercase tracking-wider">
-                <Brain className="h-3.5 w-3.5" /> Setup Analysis
+                <Brain className="h-3.5 w-3.5" /> {t("tokenPage.drawer.setupAnalysis")}
               </div>
               {loading ? (
                 <div className="animate-pulse text-muted-foreground italic text-xs">
-                  Generating AI Analysis...
+                  {t("tokenPage.drawer.generating")}
                 </div>
               ) : (
                 <div className="prose prose-sm dark:prose-invert text-xs leading-relaxed max-w-none">
@@ -4001,46 +4218,77 @@ function TradeDrawer({
   );
 }
 
-function deterministicFallback(req: {
-  symbol: string;
-  range: string;
-  evaluation: SignalEvaluation;
-  assessment?: DisplayIntentAssessment | null;
-  question?: string;
-  thinkingMode: boolean;
-}): string {
+function deterministicFallback(
+  req: {
+    symbol: string;
+    range: string;
+    evaluation: SignalEvaluation;
+    assessment?: DisplayIntentAssessment | null;
+    question?: string;
+    thinkingMode: boolean;
+  },
+  t: (k: string, o?: Record<string, unknown>) => string,
+): string {
   const e = req.evaluation;
   const held = req.assessment?.hold.isHeld;
   const lines = [
-    `### Quant memo: ${req.assessment ? req.assessment.headline : e.decision.replaceAll("-", " ")}`,
+    t("tokenPage.memo.title", {
+      headline: req.assessment ? req.assessment.headline : e.decision.replaceAll("-", " "),
+    }),
     ``,
     ...(req.assessment
       ? [
-          `- **Your objective (${req.assessment.definition.label}):** ${req.assessment.summary}`,
+          t("tokenPage.memo.objective", {
+            label: req.assessment.definition.label,
+            summary: req.assessment.summary,
+          }),
           ...(held
             ? [
-                `- **Held call:** this verdict was adopted ${formatHeldFor(req.assessment.hold.heldAt)} ago and stands until its own trigger fires — the setup below is live and may have already moved on without releasing it.`,
+                t("tokenPage.memo.heldCall", {
+                  heldFor: formatHeldFor(req.assessment.hold.heldAt, t),
+                }),
               ]
             : []),
         ]
       : []),
-    `- **Setup:** ${e.setupType.replaceAll("-", " ")}`,
-    `- **Regime:** ${e.regime.replaceAll("-", " ")}`,
-    `- **Signal strength:** ${e.confidence}/100 (heuristic checklist score, not a win probability)`,
-    `- **Risk plan:** entry zone \`${e.risk.entryLow}–${e.risk.entryHigh}\`, stop \`${e.risk.stop}\`, target 1 \`${e.risk.target1}\`, target 2 \`${e.risk.target2}\``,
-    `- **Position:** ${e.risk.positionSize} units, max loss \`${e.risk.maxDollarLoss}\`, target 1 reward \`${e.risk.rewardRisk1}R\``,
+    t("tokenPage.memo.setup", { value: e.setupType.replaceAll("-", " ") }),
+    t("tokenPage.memo.regime", { value: e.regime.replaceAll("-", " ") }),
+    t("tokenPage.memo.signalStrength", { value: e.confidence }),
+    t("tokenPage.memo.riskPlan", {
+      entryLow: e.risk.entryLow,
+      entryHigh: e.risk.entryHigh,
+      stop: e.risk.stop,
+      target1: e.risk.target1,
+      target2: e.risk.target2,
+    }),
+    t("tokenPage.memo.position", {
+      units: e.risk.positionSize,
+      maxLoss: e.risk.maxDollarLoss,
+      rewardRisk: e.risk.rewardRisk1,
+    }),
   ];
   if (e.noTradeReasons.length) {
-    lines.push(`- **Primary blocker:** ${e.noTradeReasons[0]}`);
+    lines.push(t("tokenPage.memo.primaryBlocker", { value: e.noTradeReasons[0] }));
   } else {
-    lines.push(`- **Action:** ${e.reason}`);
+    lines.push(t("tokenPage.memo.action", { value: e.reason }));
   }
   const strongest = [...e.components].sort((a, b) => b.score - a.score)[0];
   const weakest = [...e.components].sort((a, b) => a.score - b.score)[0];
-  if (strongest) lines.push(`- **Best evidence:** ${strongest.name} - ${strongest.explanation}`);
+  if (strongest)
+    lines.push(
+      t("tokenPage.memo.bestEvidence", {
+        name: strongest.name,
+        explanation: strongest.explanation,
+      }),
+    );
   if (weakest && weakest.score < 0)
-    lines.push(`- **Risk evidence:** ${weakest.name} - ${weakest.explanation}`);
-  if (req.question) lines.push(`\n### Prompt\n- ${req.question}`);
+    lines.push(
+      t("tokenPage.memo.riskEvidence", {
+        name: weakest.name,
+        explanation: weakest.explanation,
+      }),
+    );
+  if (req.question) lines.push(t("tokenPage.memo.prompt", { question: req.question }));
   return lines.join("\n");
 }
 
@@ -4053,6 +4301,7 @@ function PerpLeverage({
   leverage: number;
   onLeverage: (value: number) => void;
 }) {
+  const { t } = useTranslation();
   const metrics = computeLeverageMetrics(
     plan.entry,
     plan.stop,
@@ -4066,8 +4315,8 @@ function PerpLeverage({
     <div className="space-y-2.5 rounded-lg border border-border bg-surface p-2.5">
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Leverage
-          <InfoHint text="Leverage doesn't change the risk-sized position — the same units and max loss hold. It only sets the margin you post and where you'd be liquidated. Keep leverage at or below 'Max safe' so your stop triggers before liquidation. Liquidation is an estimate; it excludes fees and funding." />
+          {t("tokenPage.leverage.title")}
+          <InfoHint text={t("tokenPage.leverage.infoHint")} />
         </span>
         <span className="num text-sm font-semibold text-foreground">{leverage}×</span>
       </div>
@@ -4077,18 +4326,18 @@ function PerpLeverage({
         step={1}
         value={[leverage]}
         onValueChange={([value]) => onLeverage(value)}
-        aria-label="Leverage"
+        aria-label={t("tokenPage.leverage.ariaLabel")}
       />
       <div className="grid grid-cols-2 gap-1.5">
-        <RiskMetric label="Margin" value={formatMoney(metrics.margin)} compact />
-        <RiskMetric label="Notional" value={formatMoney(metrics.notional)} compact />
+        <RiskMetric label={t("tokenPage.leverage.margin")} value={formatMoney(metrics.margin)} compact />
+        <RiskMetric label={t("tokenPage.leverage.notional")} value={formatMoney(metrics.notional)} compact />
         <RiskMetric
-          label="Est. liquidation"
+          label={t("tokenPage.leverage.estLiquidation")}
           value={formatMoney(metrics.liquidation)}
           tone={metrics.liquidatesBeforeStop ? "bearish" : undefined}
           compact
         />
-        <RiskMetric label="Max safe" value={`${metrics.maxSafeLeverage}×`} compact />
+        <RiskMetric label={t("tokenPage.leverage.maxSafe")} value={`${metrics.maxSafeLeverage}×`} compact />
       </div>
     </div>
   );
@@ -4108,6 +4357,7 @@ function LiquidationCheck({
   plan: NonNullable<IntentAssessment["plan"]>;
   leverage: number;
 }) {
+  const { t } = useTranslation();
   const metrics = computeLeverageMetrics(
     plan.entry,
     plan.stop,
@@ -4127,25 +4377,38 @@ function LiquidationCheck({
 
   const message =
     metrics.liquidationSafety === "danger" ? (
-      <>
-        At {leverage}× liquidation ({formatMoney(metrics.liquidation)}) triggers{" "}
-        <strong>before</strong> your stop ({formatMoney(plan.stop)}) — you'd be liquidated before
-        the idea is even invalidated. Drop to {metrics.maxSafeLeverage}× or lower so your stop does
-        its job.
-      </>
+      <span
+        dangerouslySetInnerHTML={{
+          __html: t("tokenPage.liquidation.danger", {
+            leverage,
+            liq: formatMoney(metrics.liquidation),
+            stop: formatMoney(plan.stop),
+            maxSafe: metrics.maxSafeLeverage,
+          }),
+        }}
+      />
     ) : metrics.liquidationSafety === "thin" ? (
-      <>
-        Liquidation ({formatMoney(metrics.liquidation)}) sits only {bufferPct.toFixed(1)}% past your
-        stop ({formatMoney(plan.stop)}) — a stop-run wick could liquidate you before the trade is
-        invalidated. Consider {metrics.maxSafeLeverage}× or lower for more cushion.
-      </>
+      <span
+        dangerouslySetInnerHTML={{
+          __html: t("tokenPage.liquidation.thin", {
+            liq: formatMoney(metrics.liquidation),
+            buffer: bufferPct.toFixed(1),
+            stop: formatMoney(plan.stop),
+            maxSafe: metrics.maxSafeLeverage,
+          }),
+        }}
+      />
     ) : (
-      <>
-        Your stop ({formatMoney(plan.stop)}) triggers first; liquidation (
-        {formatMoney(metrics.liquidation)}) sits {bufferPct.toFixed(1)}% further out — a{" "}
-        {metrics.bufferInStops.toFixed(1)}× stop-distance cushion. Invalidation stays in your
-        control.
-      </>
+      <span
+        dangerouslySetInnerHTML={{
+          __html: t("tokenPage.liquidation.safe", {
+            stop: formatMoney(plan.stop),
+            liq: formatMoney(metrics.liquidation),
+            buffer: bufferPct.toFixed(1),
+            stops: metrics.bufferInStops.toFixed(1),
+          }),
+        }}
+      />
     );
 
   return (
@@ -4153,7 +4416,7 @@ function LiquidationCheck({
       <tone.Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
       <div>
         <span className="text-[9px] font-semibold uppercase tracking-wider">
-          Liquidation vs invalidation
+          {t("tokenPage.liquidation.title")}
         </span>
         <p className="mt-0.5 text-[11px] leading-relaxed">{message}</p>
       </div>

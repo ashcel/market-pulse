@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import {
   X,
   Send,
@@ -1061,6 +1062,7 @@ function ChallengeRow({ challenge, pack }: { challenge: DeskChallenge; pack: Evi
 }
 
 function EngineCeiling({ anchor }: { anchor: DeskAnchor }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   return (
     <div className="rounded-lg border border-border/50 bg-surface/30">
@@ -1068,7 +1070,7 @@ function EngineCeiling({ anchor }: { anchor: DeskAnchor }) {
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground"
       >
-        <span>Engine ceiling: {anchor.maxOutcome}</span>
+        <span>{t("components.askAiSidebar.engineCeiling", { maxOutcome: anchor.maxOutcome })}</span>
         {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
       </button>
       {open && (

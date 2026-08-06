@@ -1,5 +1,6 @@
 import { Bell } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 import {
   DropdownMenu,
@@ -15,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { humanRelative } from "@/lib/time";
 
 export function NotificationBell() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const items = useNotificationsStore((s) => s.items);
   const unreadCount = useNotificationsStore((s) => s.unreadCount);
@@ -30,7 +32,7 @@ export function NotificationBell() {
       <DropdownMenuTrigger asChild>
         <button
           className="relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
-          aria-label="Notifications"
+          aria-label={t("components.batchB.notificationBell.notifications")}
         >
           <Bell className="h-4 w-4" />
           {unreadCount > 0 && (
@@ -39,11 +41,11 @@ export function NotificationBell() {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80">
-        <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+        <DropdownMenuLabel>{t("components.batchB.notificationBell.notifications")}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {items.length === 0 && (
           <div className="px-2 py-4 text-center text-xs text-muted-foreground">
-            No notifications yet.
+            {t("components.batchB.notificationBell.empty")}
           </div>
         )}
         {items.slice(0, 8).map((event) => (

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { TradeTicket } from "./trade-ticket";
 import { PermitCard } from "./permit-card";
 import { useAuth } from "@/hooks/useAuth";
@@ -48,6 +49,7 @@ export function ExecutionPanel({
   /** When present, a confirmed trade is also logged as a running position via useCreateTrade. */
   logContext?: ExecutionLogContext;
 }) {
+  const { t } = useTranslation();
   const { isAuthed, isPending: authPending } = useAuth();
   const [step, setStep] = useState<Step>("TICKET");
   const [isConfirming, setIsConfirming] = useState(false);
@@ -76,16 +78,17 @@ export function ExecutionPanel({
   if (!authPending && !isAuthed) {
     return (
       <IqCard className={className}>
-        <h3 className="text-sm font-semibold">Sign in to place a trade</h3>
+        <h3 className="text-sm font-semibold">
+          {t("components.batchE.executionPanel.signInTitle")}
+        </h3>
         <p className="mt-1.5 text-xs text-muted-foreground">
-          Position sizing, the risk permit, and order placement are tied to your account and its
-          Trading Constitution limits.
+          {t("components.batchE.executionPanel.signInBody")}
         </p>
         <Link
           to="/login"
           className="mt-4 inline-flex rounded-md border border-info/30 bg-info/10 px-3 py-1.5 text-xs font-semibold text-info transition-colors hover:bg-info/20"
         >
-          Sign in
+          {t("components.batchE.executionPanel.signInButton")}
         </Link>
       </IqCard>
     );
@@ -102,7 +105,7 @@ export function ExecutionPanel({
       const permitId = approvedPermit?.permit_id;
 
       if (!permitId) {
-        setExecutionError("Permit ID not found. Please request a new permit.");
+        setExecutionError(t("components.batchE.executionPanel.permitIdNotFound"));
         setIsConfirming(false);
         return;
       }
@@ -119,7 +122,7 @@ export function ExecutionPanel({
       try {
         executeData = await executeRes.json();
       } catch {
-        setExecutionError("Failed to parse execution response");
+        setExecutionError(t("components.batchE.executionPanel.failedToParseResponse"));
         setIsConfirming(false);
         return;
       }
@@ -131,22 +134,22 @@ export function ExecutionPanel({
 
         // Special case: kill switch (execution_disabled)
         if (executeRes.status === 409 && errorMessage?.includes("execution_disabled")) {
-          setExecutionError(
-            "Live execution is turned off (testnet kill switch). The permit is approved but no order was placed.",
-          );
+          setExecutionError(t("components.batchE.executionPanel.killSwitchError"));
           setIsConfirming(false);
           return;
         }
 
         // Other error cases
         if (executeRes.status === 503) {
-          setExecutionError("Execution service is not ready. Please try again in a moment.");
+          setExecutionError(t("components.batchE.executionPanel.serviceNotReady"));
         } else if (executeRes.status === 404 || executeRes.status === 410) {
-          setExecutionError("Permit not found or has expired. Please request a new permit.");
+          setExecutionError(t("components.batchE.executionPanel.permitExpired"));
         } else if (executeRes.status === 409) {
-          setExecutionError("Permit has already been used. Please request a new permit.");
+          setExecutionError(t("components.batchE.executionPanel.permitAlreadyUsed"));
         } else {
-          setExecutionError(errorMessage || "Failed to execute trade. Please try again.");
+          setExecutionError(
+            errorMessage || t("components.batchE.executionPanel.executeFailedFallback"),
+          );
         }
         setIsConfirming(false);
         return;
@@ -176,7 +179,9 @@ export function ExecutionPanel({
       setStep("SUBMITTED");
     } catch (err) {
       console.error("Execution error:", err);
-      setExecutionError(err instanceof Error ? err.message : "An unexpected error occurred");
+      setExecutionError(
+        err instanceof Error ? err.message : t("components.batchE.executionPanel.unexpectedError"),
+      );
       setIsConfirming(false);
     }
   };
@@ -192,7 +197,11 @@ export function ExecutionPanel({
       {/* Optionally show last quality score if available across steps */}
       {step === "SUBMITTED" && permitReq.permit?.decision?.status === "APPROVED" && (
         <div className="mb-4 text-center text-xs text-muted-foreground">
-          Quality Score: {(permitReq.permit as PermitCardApproved).quality?.score || "N/A"}
+          {t("components.batchE.executionPanel.qualityScore", {
+            score:
+              (permitReq.permit as PermitCardApproved).quality?.score ||
+              t("components.batchE.executionPanel.qualityScoreNotAvailable"),
+          })}
         </div>
       )}
 
@@ -238,25 +247,29 @@ export function ExecutionPanel({
         <IqCard className="flex flex-col items-center justify-center gap-4 py-12 text-center">
           <CheckCircle2 className="h-16 w-16 text-bullish" />
           <div className="flex flex-col gap-1">
-            <h3 className="text-xl font-bold">Order Submitted</h3>
+            <h3 className="text-xl font-bold">
+              {t("components.batchE.executionPanel.orderSubmittedTitle")}
+            </h3>
             <p className="text-sm text-muted-foreground">
-              Order submitted to the exchange.
-              {logContext && " Logged as a running position."}
+              {t("components.batchE.executionPanel.orderSubmittedBody")}
+              {logContext && ` ${t("components.batchE.executionPanel.loggedAsRunningPosition")}`}
             </p>
             {executionResult?.entry_order_id && (
               <p className="mt-2 text-xs text-muted-foreground">
-                Entry Order · {executionResult.entry_order_id}
+                {t("components.batchE.executionPanel.entryOrder", {
+                  orderId: executionResult.entry_order_id,
+                })}
               </p>
             )}
           </div>
           <div className="mt-4 flex items-center gap-2">
             {logContext && (
               <Button asChild size="sm">
-                <Link to="/trades">View running trades</Link>
+                <Link to="/trades">{t("components.batchE.executionPanel.viewRunningTrades")}</Link>
               </Button>
             )}
             <Button onClick={handleReset} variant="outline" size="sm">
-              New Trade
+              {t("components.batchE.executionPanel.newTrade")}
             </Button>
           </div>
         </IqCard>

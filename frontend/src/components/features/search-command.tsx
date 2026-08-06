@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Clock, Flame, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 
 import { Change } from "@/components/features/change";
 import { formatPrice } from "@/components/features/market-card";
@@ -29,6 +30,7 @@ export function SearchCommand({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const { recent, addRecent, clearRecent } = useSearchStore();
@@ -155,7 +157,7 @@ export function SearchCommand({
           >
             <Command
               shouldFilter={false}
-              label="Search tokens"
+              label={t("components.batchF.search.commandLabel")}
               value={selected}
               onValueChange={setSelected}
             >
@@ -165,7 +167,7 @@ export function SearchCommand({
                   autoFocus
                   value={query}
                   onValueChange={setQuery}
-                  placeholder="Search tokens by name, ticker, or sector..."
+                  placeholder={t("components.batchF.search.placeholder")}
                   className="h-12 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                 />
                 <kbd className="rounded border border-border bg-surface px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
@@ -201,7 +203,7 @@ export function SearchCommand({
                     ))}
                     {matches.length === 0 && directoryMatches.length === 0 && !showFreeSearch && (
                       <p className="px-2 py-4 text-center text-xs text-muted-foreground">
-                        No Binance USDT pair matches "{trimmed}".
+                        {t("components.batchF.search.noMatch", { query: trimmed })}
                       </p>
                     )}
                     {showFreeSearch && (
@@ -214,16 +216,23 @@ export function SearchCommand({
                           <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
                         </span>
                         <span className="text-sm">
-                          Go to <span className="font-semibold">{freeSymbol}</span>
+                          {t("components.batchF.search.goTo")}{" "}
+                          <span className="font-semibold">{freeSymbol}</span>
                         </span>
-                        <span className="ml-auto text-xs text-muted-foreground">Binance pair</span>
+                        <span className="ml-auto text-xs text-muted-foreground">
+                          {t("components.batchF.search.binancePair")}
+                        </span>
                       </Command.Item>
                     )}
                   </>
                 ) : (
                   <>
                     {recent.length > 0 && (
-                      <Command.Group heading={<GroupHeading icon={Clock} label="Recent" />}>
+                      <Command.Group
+                        heading={
+                          <GroupHeading icon={Clock} label={t("components.batchF.search.recent")} />
+                        }
+                      >
                         {recent.map((ticker) => {
                           const entry = UNIVERSE.find((u) => u.ticker === ticker);
                           return (
@@ -243,11 +252,15 @@ export function SearchCommand({
                           onClick={clearRecent}
                           className="mt-0.5 flex items-center gap-1 px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
                         >
-                          <X className="h-3 w-3" /> Clear recent
+                          <X className="h-3 w-3" /> {t("components.batchF.search.clearRecent")}
                         </button>
                       </Command.Group>
                     )}
-                    <Command.Group heading={<GroupHeading icon={Flame} label="Hot right now" />}>
+                    <Command.Group
+                      heading={
+                        <GroupHeading icon={Flame} label={t("components.batchF.search.hotRightNow")} />
+                      }
+                    >
                       {hot.map((asset) => (
                         <TokenItem
                           key={asset.ticker}
@@ -261,7 +274,7 @@ export function SearchCommand({
                       ))}
                       {hot.length === 0 && (
                         <p className="px-2 py-3 text-xs text-muted-foreground">
-                          Loading market data...
+                          {t("components.batchF.search.loadingMarketData")}
                         </p>
                       )}
                     </Command.Group>

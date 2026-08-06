@@ -1,4 +1,6 @@
 import { X, Clock, ShieldAlert, CheckCircle2, ChevronDown } from "lucide-react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { IqCard, CardEyebrow } from "@/components/features/iq-card";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
@@ -30,29 +32,33 @@ interface PermitCardProps {
   estimatedRR?: number | null;
 }
 
-const SCORE_DISCLAIMER = "evaluation, not prediction";
-
-const LABELS: Record<string, string> = {
-  RISK_PCT_OUT_OF_BAND: "Risk per Trade",
-  DAILY_LOSS_LIMIT: "Daily Loss Limit",
-  WEEKLY_LOSS_LIMIT: "Weekly Loss Limit",
-  MAX_LEVERAGE: "Max Leverage",
-  MAX_CONCURRENT_POSITIONS: "Max Concurrent Positions",
-  MAX_CORRELATED_EXPOSURE: "Max Correlated Exposure",
-  RR_BELOW_MIN: "Minimum Risk/Reward",
-  STOP_MISSING: "Stop Loss Required",
-  SYMBOL_NOT_ALLOWED: "Allowed Symbols",
-  SESSION_NOT_ALLOWED: "Allowed Trading Sessions",
-  STALE_ACCOUNT_STATE: "Live Account State",
-  BEHAVIOR_COOLDOWN: "Behavior Cooldowns",
+/** Maps a permit check code to its `components.batchF.permit.checks.*` translation key. */
+const CHECK_LABEL_KEYS: Record<string, string> = {
+  RISK_PCT_OUT_OF_BAND: "riskPerTrade",
+  DAILY_LOSS_LIMIT: "dailyLossLimit",
+  WEEKLY_LOSS_LIMIT: "weeklyLossLimit",
+  MAX_LEVERAGE: "maxLeverage",
+  MAX_CONCURRENT_POSITIONS: "maxConcurrentPositions",
+  MAX_CORRELATED_EXPOSURE: "maxCorrelatedExposure",
+  RR_BELOW_MIN: "minimumRiskReward",
+  STOP_MISSING: "stopLossRequired",
+  SYMBOL_NOT_ALLOWED: "allowedSymbols",
+  SESSION_NOT_ALLOWED: "allowedTradingSessions",
+  STALE_ACCOUNT_STATE: "liveAccountState",
+  BEHAVIOR_COOLDOWN: "behaviorCooldowns",
 };
 
-function formatDetail(check: string, detail: string, passed: boolean): string {
+function checkLabel(t: TFunction, check: string): string {
+  const key = CHECK_LABEL_KEYS[check];
+  return key ? t(`components.batchF.permit.checks.${key}`) : check;
+}
+
+function formatDetail(t: TFunction, check: string, detail: string, passed: boolean): string {
   if (check === "SYMBOL_NOT_ALLOWED" && passed && detail.includes("[]")) {
-    return "No symbol restriction configured";
+    return t("components.batchF.permit.noSymbolRestriction");
   }
   if (check === "SESSION_NOT_ALLOWED" && passed && detail.includes("[]")) {
-    return "No session restriction configured";
+    return t("components.batchF.permit.noSessionRestriction");
   }
   return detail.replace(/(\d+\.\d+)/g, (match) => {
     const num = parseFloat(match);
@@ -102,6 +108,7 @@ function MiniGauge({ score }: { score: number }) {
 }
 
 function CheckList({ items }: { items: CheckCardItem[] }) {
+  const { t } = useTranslation();
   if (!items || items.length === 0) return null;
   return (
     <div className="flex flex-col gap-2">
@@ -113,10 +120,10 @@ function CheckList({ items }: { items: CheckCardItem[] }) {
             <X className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
           )}
           <div className="flex flex-col">
-            <span className="text-sm font-medium">{LABELS[item.check] || item.check}</span>
+            <span className="text-sm font-medium">{checkLabel(t, item.check)}</span>
             {item.detail && (
               <span className="text-xs text-muted-foreground">
-                {formatDetail(item.check, item.detail, item.passed)}
+                {formatDetail(t, item.check, item.detail, item.passed)}
               </span>
             )}
           </div>
@@ -134,6 +141,7 @@ function CollapsibleCheckSection({
   title: string;
   checks: CheckCardItem[] | undefined;
 }) {
+  const { t } = useTranslation();
   if (!checks || checks.length === 0) return null;
   const { passed, total } = checkSummary(checks);
   const allPassed = passed === total;
@@ -161,7 +169,7 @@ function CollapsibleCheckSection({
         </div>
         <div className="flex items-center gap-2">
           <span className={cn("text-xs font-semibold num", noneFailed)}>
-            {passed}/{total} passed
+            {t("components.batchF.permit.passedCount", { passed, total })}
           </span>
           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
         </div>
@@ -183,6 +191,7 @@ export function PermitCard({
   ticket,
   estimatedRR,
 }: PermitCardProps) {
+  const { t } = useTranslation();
   const isApproved = permit.decision.status === "APPROVED";
 
   if (!isApproved) {
@@ -190,12 +199,12 @@ export function PermitCard({
     return (
       <IqCard className="flex flex-col gap-5 border-destructive/50 bg-destructive/5">
         <div className="flex items-center justify-between">
-          <CardEyebrow className="text-destructive">Permit Rejected</CardEyebrow>
+          <CardEyebrow className="text-destructive">{t("components.batchF.permit.rejectedTitle")}</CardEyebrow>
           <ShieldAlert className="h-5 w-5 text-destructive" />
         </div>
 
         <div className="flex flex-col gap-3">
-          <h4 className="text-sm font-semibold">Rejection Reasons</h4>
+          <h4 className="text-sm font-semibold">{t("components.batchF.permit.rejectionReasons")}</h4>
           <ul className="flex flex-col gap-2">
             {rejected.reasons?.map((r, i) => (
               <li
@@ -203,14 +212,14 @@ export function PermitCard({
                 className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
               >
                 <X className="h-4 w-4 shrink-0" />
-                <span className="leading-tight">{formatDetail("", r, false)}</span>
+                <span className="leading-tight">{formatDetail(t, "", r, false)}</span>
               </li>
             ))}
           </ul>
         </div>
 
         <Button variant="outline" onClick={onRequestNew} className="mt-2">
-          Modify Ticket
+          {t("components.batchF.permit.modifyTicket")}
         </Button>
       </IqCard>
     );
@@ -229,12 +238,14 @@ export function PermitCard({
     >
       <div className="flex items-center justify-between">
         <CardEyebrow className={isExpired ? "text-muted-foreground" : "text-bullish"}>
-          {isExpired ? "Permit Expired" : "Permit Approved"}
+          {isExpired
+            ? t("components.batchF.permit.expiredTitle")
+            : t("components.batchF.permit.approvedTitle")}
         </CardEyebrow>
         {isExpired ? (
           <div className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
             <Clock className="h-3.5 w-3.5" />
-            Expired
+            {t("components.batchF.permit.expiredBadge")}
           </div>
         ) : (
           <div
@@ -244,7 +255,7 @@ export function PermitCard({
             )}
           >
             <Clock className="h-3.5 w-3.5" />
-            {timeRemainingSeconds}s remaining
+            {t("components.batchF.permit.secondsRemaining", { count: timeRemainingSeconds })}
           </div>
         )}
       </div>
@@ -262,7 +273,7 @@ export function PermitCard({
               {side ?? "—"}
             </span>
             <span className="text-[9px] uppercase leading-tight tracking-wider text-muted-foreground">
-              Direction
+              {t("components.batchF.permit.direction")}
             </span>
           </div>
 
@@ -276,7 +287,7 @@ export function PermitCard({
               className="max-w-full truncate text-[9px] uppercase leading-tight tracking-wider text-muted-foreground"
               title={approved.quality?.label}
             >
-              {approved.quality?.label || "Quality"}
+              {approved.quality?.label || t("components.batchF.permit.quality")}
             </span>
           </div>
 
@@ -285,7 +296,7 @@ export function PermitCard({
               {estimatedRR != null ? `${estimatedRR.toFixed(2)}R` : "—"}
             </span>
             <span className="text-[9px] uppercase leading-tight tracking-wider text-muted-foreground">
-              Est. R:R
+              {t("components.batchF.permit.estRR")}
             </span>
           </div>
 
@@ -294,13 +305,13 @@ export function PermitCard({
               {ticket ? `${ticket.risk_percent.toFixed(1)}%` : "—"}
             </span>
             <span className="text-[9px] uppercase leading-tight tracking-wider text-muted-foreground">
-              Risk
+              {t("components.batchF.permit.risk")}
             </span>
           </div>
         </div>
         {approved.quality && (
           <span className="text-center text-[10px] uppercase tracking-wider text-muted-foreground">
-            {SCORE_DISCLAIMER}
+            {t("components.batchF.permit.scoreDisclaimer")}
           </span>
         )}
       </div>
@@ -311,28 +322,32 @@ export function PermitCard({
           <div className="flex flex-col gap-0.5">
             <span className="text-sm font-semibold num">{formatPrice(ticket.entry_price)}</span>
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              Entry
+              {t("components.batchF.permit.entry")}
             </span>
           </div>
           <div className="flex flex-col gap-0.5">
             <span className="text-sm font-semibold text-bearish num">
               {formatPrice(ticket.stop_price)}
             </span>
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Stop</span>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              {t("components.batchF.permit.stop")}
+            </span>
           </div>
           <div className="flex flex-col gap-0.5">
             <span className="text-sm font-semibold text-bullish num">
               {formatPrice(ticket.target_price)}
             </span>
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              Target
+              {t("components.batchF.permit.target")}
             </span>
           </div>
           <div className="flex flex-col gap-0.5">
             <span className="text-xs italic leading-tight text-muted-foreground">
-              At submission
+              {t("components.batchF.permit.atSubmission")}
             </span>
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Size</span>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              {t("components.batchF.permit.size")}
+            </span>
           </div>
         </div>
       )}
@@ -341,9 +356,18 @@ export function PermitCard({
 
       {/* PROGRESSIVE DISCLOSURE — collapsed summary, expand for per-check detail */}
       <div className="flex flex-col gap-2">
-        <CollapsibleCheckSection title="Constitution" checks={approved.constitution?.checks} />
-        <CollapsibleCheckSection title="Portfolio Risk" checks={approved.portfolio_risk?.checks} />
-        <CollapsibleCheckSection title="Daily Budget" checks={approved.daily_budget?.checks} />
+        <CollapsibleCheckSection
+          title={t("components.batchF.permit.constitution")}
+          checks={approved.constitution?.checks}
+        />
+        <CollapsibleCheckSection
+          title={t("components.batchF.permit.portfolioRisk")}
+          checks={approved.portfolio_risk?.checks}
+        />
+        <CollapsibleCheckSection
+          title={t("components.batchF.permit.dailyBudget")}
+          checks={approved.daily_budget?.checks}
+        />
       </div>
 
       <div className="mt-1 flex flex-col gap-3">
@@ -353,14 +377,18 @@ export function PermitCard({
             className="flex-1"
             onClick={onRequestNew}
           >
-            {isExpired ? "Request New Permit" : "Back"}
+            {isExpired
+              ? t("components.batchF.permit.requestNewPermit")
+              : t("components.batchF.permit.back")}
           </Button>
           <Button
             className="flex-[2] bg-bullish text-white font-bold hover:bg-bullish/90"
             disabled={isExpired || isConfirming}
             onClick={onConfirm}
           >
-            {isConfirming ? "Confirming..." : "Confirm Trade"}
+            {isConfirming
+              ? t("components.batchF.permit.confirming")
+              : t("components.batchF.permit.confirmTrade")}
           </Button>
         </div>
       </div>

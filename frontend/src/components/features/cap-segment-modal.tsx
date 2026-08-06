@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { Coins, Gem } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useCurrentUser } from "@/hooks/queries";
@@ -10,27 +11,12 @@ import { usePreferencesStore } from "@/stores/preferences";
 
 type Option = {
   segment: "bigcap" | "smallcap";
-  label: string;
-  hint: string;
-  detail: string;
   icon: typeof Coins;
 };
 
 const OPTIONS: Option[] = [
-  {
-    segment: "bigcap",
-    label: "Big caps",
-    hint: "BTC / ETH / majors",
-    detail: "Steadier moves — allows larger size, higher leverage.",
-    icon: Coins,
-  },
-  {
-    segment: "smallcap",
-    label: "Small caps",
-    hint: "Higher volatility",
-    detail: "The app enforces tighter risk defaults and lower leverage.",
-    icon: Gem,
-  },
+  { segment: "bigcap", icon: Coins },
+  { segment: "smallcap", icon: Gem },
 ];
 
 /**
@@ -42,6 +28,7 @@ const OPTIONS: Option[] = [
  * cap-segment choice is confirmed, and never on /login.
  */
 export function CapSegmentModal() {
+  const { t } = useTranslation();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const { data: user } = useCurrentUser();
   const capSegment = usePreferencesStore((s) => s.capSegment);
@@ -65,10 +52,10 @@ export function CapSegmentModal() {
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>What do you mainly trade?</DialogTitle>
+          <DialogTitle>{t("components.batchB.capSegmentModal.title")}</DialogTitle>
         </DialogHeader>
         <p className="-mt-2 text-sm text-muted-foreground">
-          This sets sane starting risk defaults — you can hand-tune them anytime in Settings.
+          {t("components.batchB.capSegmentModal.subtitle")}
         </p>
 
         <div className="mt-2 grid gap-3 sm:grid-cols-2">
@@ -83,10 +70,16 @@ export function CapSegmentModal() {
             >
               <option.icon className="h-5 w-5 text-info" />
               <div>
-                <div className="text-sm font-semibold text-foreground">{option.label}</div>
-                <div className="text-xs text-muted-foreground">{option.hint}</div>
+                <div className="text-sm font-semibold text-foreground">
+                  {t(`components.batchB.capSegmentModal.options.${option.segment}.label`)}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {t(`components.batchB.capSegmentModal.options.${option.segment}.hint`)}
+                </div>
               </div>
-              <p className="text-xs leading-snug text-muted-foreground">{option.detail}</p>
+              <p className="text-xs leading-snug text-muted-foreground">
+                {t(`components.batchB.capSegmentModal.options.${option.segment}.detail`)}
+              </p>
             </button>
           ))}
         </div>
@@ -95,7 +88,7 @@ export function CapSegmentModal() {
           onClick={() => setDismissedThisSession(true)}
           className="mt-1 self-center text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
         >
-          Decide later
+          {t("components.batchB.capSegmentModal.decideLater")}
         </button>
       </DialogContent>
     </Dialog>

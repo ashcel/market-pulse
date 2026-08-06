@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/components/ui/badge";
 import { AssetIcon } from "@/components/features/asset-icon";
@@ -25,15 +26,26 @@ function formatTurnover(value: number): string {
   return `$${Math.round(value / 1e3)}K`;
 }
 
-const TREND_SHORT: Record<string, string> = { uptrend: "up", downtrend: "down", range: "range" };
+const TREND_SHORT: Record<string, string> = {
+  uptrend: "up",
+  downtrend: "down",
+  range: "range",
+};
 
 function TransitionBadge({ flag }: { flag: RsTransitionFlag }) {
+  const { t } = useTranslation();
   const confirmed = flag.phase === "confirmed";
   const bullish = flag.to === "uptrend";
+  const n = "components.batchC.rsScan.";
   return (
     <Badge
       variant="outline"
-      title={`Daily structure: ${flag.from} → ${flag.to}, ${confirmed ? "confirmed" : "CHoCH hint"}, ${flag.barsAgo}d ago`}
+      title={t(`${n}transitionTooltip`, {
+        from: flag.from,
+        to: flag.to,
+        status: confirmed ? t(`${n}confirmed`) : t(`${n}chochHint`),
+        days: flag.barsAgo,
+      })}
       className={cn(
         "px-1 py-0 text-[9px] font-semibold uppercase",
         confirmed
@@ -50,6 +62,8 @@ function TransitionBadge({ flag }: { flag: RsTransitionFlag }) {
 }
 
 function RsScanRow({ row, rank }: { row: RsRow; rank: number }) {
+  const { t } = useTranslation();
+  const n = "components.batchC.rsScan.";
   return (
     <li>
       <Link
@@ -62,14 +76,17 @@ function RsScanRow({ row, rank }: { row: RsRow; rank: number }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-sm font-semibold group-hover:text-info">{row.ticker}</span>
-            {row.tracked && <StatusBadge tone="info">Tracked</StatusBadge>}
+            {row.tracked && (
+              <StatusBadge tone="info">{t(`${n}tracked`)}</StatusBadge>
+            )}
             {row.transition && <TransitionBadge flag={row.transition} />}
           </div>
           <div className="text-[10px] text-muted-foreground">
-            {formatTurnover(row.quoteVolume24h)} 24h
+            {formatTurnover(row.quoteVolume24h)} {t(`${n}volumeSuffix24h`)}
             {row.rsBtc7d !== null && (
               <>
-                {" · 7d vs BTC "}
+                {" · "}
+                {t(`${n}vsBtc7d`)}{" "}
                 <span className={row.rsBtc7d >= 0 ? "text-bullish" : "text-bearish"}>
                   {row.rsBtc7d >= 0 ? "+" : ""}
                   {row.rsBtc7d.toFixed(1)}%
@@ -91,11 +108,13 @@ function RsScanRow({ row, rank }: { row: RsRow; rank: number }) {
 const COLLAPSED_ROWS = 6;
 
 export function RsScanCard() {
+  const { t } = useTranslation();
   const { data } = useRsScan();
   // Fifteen rows per side stacked into one column on a phone buries the page
   // — each column collapses to its strongest few until expanded.
   const [expanded, setExpanded] = useState(false);
   if (!data) return <SkeletonCard height={320} />;
+  const n = "components.batchC.rsScan.";
 
   const column = (title: string, tone: string, rows: RsRow[]) => (
     <div className="min-w-0 flex-1">
@@ -116,20 +135,18 @@ export function RsScanCard() {
   return (
     <IqCard padded={false}>
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4">
-        <CardEyebrow>RS vs BTC · Full Exchange</CardEyebrow>
+        <CardEyebrow>{t(`${n}eyebrow`)}</CardEyebrow>
         <span className="text-[10px] text-muted-foreground">
-          {data.pairsRanked} pairs ranked
-          {data.source === "demo" && " · demo data"}
+          {t(`${n}pairsRanked`, { count: data.pairsRanked })}
+          {data.source === "demo" && ` · ${t(`${n}demoData`)}`}
         </span>
       </div>
       <p className="px-4 pt-1 text-[11px] leading-relaxed text-muted-foreground">
-        24h relative strength against BTC across every liquid USDT pair, not just the tracked
-        universe. Badges flag recent daily trend transitions — rotation candidates among the
-        extremes. A ranking, not a signal.
+        {t(`${n}description`)}
       </p>
       <div className="flex flex-col divide-y divide-border/60 sm:flex-row sm:divide-x sm:divide-y-0">
-        {column("Leaders", "text-bullish", data.leaders)}
-        {column("Laggards", "text-bearish", data.laggards)}
+        {column(t(`${n}leaders`), "text-bullish", data.leaders)}
+        {column(t(`${n}laggards`), "text-bearish", data.laggards)}
       </div>
       {(hiddenCount > 0 || expanded) && (
         <button
@@ -137,7 +154,7 @@ export function RsScanCard() {
           onClick={() => setExpanded((v) => !v)}
           className="w-full border-t border-border py-2 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
         >
-          {expanded ? "Show fewer" : `Show all (${hiddenCount} more)`}
+          {expanded ? t(`${n}showFewer`) : t(`${n}showAll`, { count: hiddenCount })}
         </button>
       )}
     </IqCard>

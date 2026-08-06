@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Trash2, TrendingDown, TrendingUp } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { AssetIcon } from "@/components/features/asset-icon";
 import { IqCard, CardEyebrow } from "@/components/features/iq-card";
@@ -60,11 +61,11 @@ export const Route = createFileRoute("/tracker")({
   component: TrackerPage,
 });
 
-const STATUS_LABEL: Record<TrackedSignalStatus, string> = {
-  active: "Active",
-  "target1-hit": "Target 1 hit",
-  "target2-hit": "Target 2 hit",
-  "stopped-out": "Stopped out",
+const STATUS_LABEL_KEY: Record<TrackedSignalStatus, string> = {
+  active: "statusActive",
+  "target1-hit": "statusTarget1Hit",
+  "target2-hit": "statusTarget2Hit",
+  "stopped-out": "statusStoppedOut",
 };
 
 const STATUS_TONE: Record<TrackedSignalStatus, string> = {
@@ -74,12 +75,12 @@ const STATUS_TONE: Record<TrackedSignalStatus, string> = {
   "stopped-out": "border-bearish/30 bg-bearish-soft text-bearish",
 };
 
-const SHADOW_STATUS_LABEL: Record<ShadowSignalStatus, string> = {
-  active: "Active",
-  "target1-hit": "Target 1 hit",
-  "target2-hit": "Target 2 hit",
-  "stopped-out": "Stopped out",
-  expired: "Expired",
+const SHADOW_STATUS_LABEL_KEY: Record<ShadowSignalStatus, string> = {
+  active: "statusActive",
+  "target1-hit": "statusTarget1Hit",
+  "target2-hit": "statusTarget2Hit",
+  "stopped-out": "statusStoppedOut",
+  expired: "statusExpired",
 };
 
 const SHADOW_STATUS_TONE: Record<ShadowSignalStatus, string> = {
@@ -92,10 +93,10 @@ const SHADOW_STATUS_TONE: Record<ShadowSignalStatus, string> = {
 
 type Filter = "all" | "open" | "closed";
 
-const FILTERS: { label: string; value: Filter }[] = [
-  { label: "All", value: "all" },
-  { label: "Open", value: "open" },
-  { label: "Closed", value: "closed" },
+const FILTERS: { labelKey: string; value: Filter }[] = [
+  { labelKey: "filterAll", value: "all" },
+  { labelKey: "filterOpen", value: "open" },
+  { labelKey: "filterClosed", value: "closed" },
 ];
 
 const INTENT_LABEL = new Map(INTENTS.map((def) => [def.intent, def.label]));
@@ -117,6 +118,7 @@ function Pager({
   totalPages: number;
   onPageChange: (page: number) => void;
 }) {
+  const { t } = useTranslation();
   if (totalPages <= 1) return null;
   return (
     <div className="flex items-center justify-between gap-2 pt-1">
@@ -127,10 +129,10 @@ function Pager({
         disabled={page <= 1}
         onClick={() => onPageChange(page - 1)}
       >
-        Prev
+        {t("tracker.pagerPrev")}
       </Button>
       <span className="text-xs text-muted-foreground">
-        Page {page} of {totalPages}
+        {t("tracker.pagerPage", { page, total: totalPages })}
       </span>
       <Button
         variant="outline"
@@ -139,13 +141,14 @@ function Pager({
         disabled={page >= totalPages}
         onClick={() => onPageChange(page + 1)}
       >
-        Next
+        {t("tracker.pagerNext")}
       </Button>
     </div>
   );
 }
 
 function TrackerPage() {
+  const { t } = useTranslation();
   const { data: records = [] } = useForwardTestRecords();
   const { follows: signals, authenticated } = useTrackedFollows();
   const [filter, setFilter] = useState<Filter>("all");
@@ -179,9 +182,9 @@ function TrackerPage() {
   return (
     <div className="space-y-5 pb-20 lg:pb-6">
       <PageHeader
-        eyebrow="Forward Test"
-        title="Signal Tracker"
-        subtitle="Every favored call the engine issues is tracked here automatically — follow one from a token's Execution Plan to forward-test your own entry alongside it."
+        eyebrow={t("tracker.eyebrow")}
+        title={t("tracker.title")}
+        subtitle={t("tracker.subtitle")}
       />
 
       <TrackerMetricsCard records={records} summary={summarizeShadowRecord(records)} />
@@ -200,27 +203,23 @@ function TrackerPage() {
                 : "border-border bg-surface text-muted-foreground hover:text-foreground",
             )}
           >
-            {f.label}
+            {t(`tracker.${f.labelKey}`)}
           </button>
         ))}
       </div>
 
       <div className="flex items-center gap-1.5 pt-1">
-        <CardEyebrow>Signals the Engine Is Tracking</CardEyebrow>
+        <CardEyebrow>{t("tracker.autoTrackedEyebrow")}</CardEyebrow>
       </div>
-      <p className="-mt-3 text-xs text-muted-foreground">
-        Auto-tracked — recorded the instant the engine favors a call and settled against real
-        candles. No follow needed.
-      </p>
+      <p className="-mt-3 text-xs text-muted-foreground">{t("tracker.autoTrackedNote")}</p>
 
       {records.length === 0 ? (
         <IqCard className="text-center text-sm text-muted-foreground">
-          No favored verdicts recorded yet. Open a few tokens and the engine starts building this
-          list automatically as verdicts fire.
+          {t("tracker.noFavoredVerdicts")}
         </IqCard>
       ) : autoFiltered.length === 0 ? (
         <IqCard className="text-center text-sm text-muted-foreground">
-          No signals match this filter.
+          {t("tracker.noSignalsMatchFilter")}
         </IqCard>
       ) : (
         <div className="space-y-2.5">
@@ -236,48 +235,42 @@ function TrackerPage() {
       )}
 
       <div className="flex items-center gap-1.5 pt-1">
-        <CardEyebrow>Signals You Followed</CardEyebrow>
+        <CardEyebrow>{t("tracker.followedEyebrow")}</CardEyebrow>
       </div>
 
       <IqCard className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <StatTile label="Followed" value={String(summary.total)} />
-        <StatTile label="Open" value={String(summary.open)} />
+        <StatTile label={t("tracker.statFollowed")} value={String(summary.total)} />
+        <StatTile label={t("tracker.statOpen")} value={String(summary.open)} />
         <StatTile
-          label="Win rate"
+          label={t("tracker.statWinRate")}
           value={summary.closed ? `${summary.winRate}%` : "—"}
           tone={summary.closed ? (summary.winRate >= 50 ? "bullish" : "bearish") : undefined}
         />
         <StatTile
-          label="Avg R (closed)"
+          label={t("tracker.statAvgRClosed")}
           value={summary.closed ? `${summary.averageR >= 0 ? "+" : ""}${summary.averageR}R` : "—"}
           tone={summary.closed ? (summary.averageR >= 0 ? "bullish" : "bearish") : undefined}
         />
       </IqCard>
       {summary.lowSample && (
         <p className="-mt-2 text-xs text-muted-foreground">
-          Only {summary.closed} closed trade{summary.closed === 1 ? "" : "s"} so far — too few to
-          trust win rate or average R as a real statistic yet.
+          {t("tracker.lowSampleNote", { count: summary.closed })}
         </p>
       )}
 
       {!authenticated && signals.length === 0 ? (
         <IqCard className="space-y-2 text-center text-sm text-muted-foreground">
-          <p>
-            Follows live in your server record now — they settle against real candles even with
-            every browser closed.
-          </p>
+          <p>{t("tracker.followsServerNote")}</p>
           <p>
             <Link to="/login" className="font-medium text-info underline-offset-2 hover:underline">
-              Sign in
+              {t("common.signIn")}
             </Link>{" "}
-            to follow your own entries alongside the engine's auto-tracked calls above.
+            {t("tracker.signInToFollowSuffix")}
           </p>
         </IqCard>
       ) : filtered.length === 0 ? (
         <IqCard className="text-center text-sm text-muted-foreground">
-          {signals.length === 0
-            ? "You haven't followed any signals yet — the engine's own tracked calls are above; follow one from a token's Execution Plan to forward-test your own entry too."
-            : "No signals match this filter."}
+          {signals.length === 0 ? t("tracker.noFollowsYet") : t("tracker.noSignalsMatchFilter")}
         </IqCard>
       ) : (
         <div className="space-y-2.5">
@@ -340,6 +333,7 @@ function TrackerMetricsCard({
   records: ShadowSignal[];
   summary: ShadowRecordSummary;
 }) {
+  const { t } = useTranslation();
   const metrics = computeTrackerMetrics(records, summary);
   const bestTradeLabel = metrics.bestTrade
     ? `${metrics.bestTrade.symbol} ${(metrics.bestTrade.resultR ?? 0) >= 0 ? "+" : ""}${metrics.bestTrade.resultR}R`
@@ -347,13 +341,13 @@ function TrackerMetricsCard({
 
   return (
     <IqCard className="space-y-3">
-      <CardEyebrow>Engine Auto-Track Metrics</CardEyebrow>
+      <CardEyebrow>{t("tracker.autoTrackMetricsEyebrow")}</CardEyebrow>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        <StatTile label="Opened trades" value={String(metrics.opened)} />
-        <StatTile label="Closed trades" value={String(metrics.closed)} />
-        <StatTile label="Total trades" value={String(metrics.total)} />
+        <StatTile label={t("tracker.statOpenedTrades")} value={String(metrics.opened)} />
+        <StatTile label={t("tracker.statClosedTrades")} value={String(metrics.closed)} />
+        <StatTile label={t("tracker.statTotalTrades")} value={String(metrics.total)} />
         <StatTile
-          label="Current RR"
+          label={t("tracker.statCurrentRR")}
           value={
             metrics.currentRR !== null
               ? `${metrics.currentRR >= 0 ? "+" : ""}${metrics.currentRR}R`
@@ -368,7 +362,7 @@ function TrackerMetricsCard({
           }
         />
         <StatTile
-          label="Best trade"
+          label={t("tracker.statBestTrade")}
           value={bestTradeLabel}
           tone={
             metrics.bestTrade
@@ -380,16 +374,14 @@ function TrackerMetricsCard({
         />
         <EdgeVerdictTile metrics={metrics} />
       </div>
-      <p className="text-[11px] text-muted-foreground">
-        Computed from every call the engine auto-tracks (not your own follows). Current RR is the
-        mean realized R across closed auto-tracked signals.
-      </p>
+      <p className="text-[11px] text-muted-foreground">{t("tracker.computedNote")}</p>
     </IqCard>
   );
 }
 
 /** The one AI-backed tile — fires only on button click, result cached in state, never auto-refetched. */
 function EdgeVerdictTile({ metrics }: { metrics: TrackerMetrics }) {
+  const { t } = useTranslation();
   const [verdict, setVerdict] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -437,7 +429,7 @@ function EdgeVerdictTile({ metrics }: { metrics: TrackerMetrics }) {
       });
       setVerdict(completion.text);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Verdict generation failed.");
+      setError(e instanceof Error ? e.message : t("tracker.verdictGenerationFailed"));
     } finally {
       setLoading(false);
     }
@@ -447,7 +439,7 @@ function EdgeVerdictTile({ metrics }: { metrics: TrackerMetrics }) {
     <div className="col-span-2 rounded-lg border border-border bg-surface p-2.5 sm:col-span-3">
       <div className="flex items-center justify-between gap-2">
         <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Current best edge verdict
+          {t("tracker.currentBestEdgeVerdict")}
         </div>
         {aiReady && (
           <button
@@ -455,33 +447,36 @@ function EdgeVerdictTile({ metrics }: { metrics: TrackerMetrics }) {
             disabled={loading}
             className="shrink-0 rounded-md border border-info/30 bg-info-soft px-2 py-0.5 text-[10px] font-medium text-info transition-colors hover:bg-info-soft/80 disabled:opacity-50"
           >
-            {loading ? "Generating…" : verdict ? "Regenerate" : "Generate verdict"}
+            {loading
+              ? t("tracker.generating")
+              : verdict
+                ? t("tracker.regenerate")
+                : t("tracker.generateVerdict")}
           </button>
         )}
       </div>
 
       {!aiReady ? (
         <p className="mt-1 text-[11px] text-muted-foreground">
-          Add an AI key in{" "}
+          {t("tracker.addAiKeyPrefix")}{" "}
           <Link to="/settings" className="font-medium text-info underline-offset-2 hover:underline">
-            Settings
+            {t("common.settings")}
           </Link>{" "}
-          to generate an on-demand edge verdict.
+          {t("tracker.addAiKeySuffix")}
         </p>
       ) : error ? (
         <p className="mt-1 text-[11px] text-bearish">{error}</p>
       ) : verdict ? (
         <p className="mt-1 text-xs leading-relaxed">{verdict}</p>
       ) : (
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          Tap "Generate verdict" for an AI read on your current edge, based on the metrics above.
-        </p>
+        <p className="mt-1 text-[11px] text-muted-foreground">{t("tracker.tapGenerateVerdict")}</p>
       )}
     </div>
   );
 }
 
 function EngineRecord() {
+  const { t } = useTranslation();
   const { data: forwardTest } = useForwardTestRecord();
   const summary = forwardTest?.shadow.summary;
   const combos = forwardTest?.shadow.combos ?? [];
@@ -492,33 +487,31 @@ function EngineRecord() {
     <IqCard className="space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <CardEyebrow>Engine's Live Record</CardEyebrow>
+          <CardEyebrow>{t("tracker.liveRecordEyebrow")}</CardEyebrow>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Every time the assistant issues a <span className="font-semibold">favored</span> verdict
-            it's auto-recorded here and settled against real candle highs and lows — nothing
-            cherry-picked, no follow required. Combos with a proven losing record get demoted to
-            half-size on the token page.
+            {t("tracker.liveRecordNotePrefix")}{" "}
+            <span className="font-semibold">{t("tracker.liveRecordNoteFavored")}</span>{" "}
+            {t("tracker.liveRecordNoteSuffix")}
           </p>
         </div>
       </div>
 
       {summary.total === 0 ? (
         <p className="rounded-lg border border-border bg-surface p-3 text-xs text-muted-foreground">
-          No favored verdicts recorded yet. Open a few tokens and the engine starts building its own
-          track record automatically as verdicts fire.
+          {t("tracker.noFavoredVerdictsOwnRecord")}
         </p>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <StatTile label="Calls made" value={String(summary.total)} />
-            <StatTile label="Still open" value={String(summary.open)} />
+            <StatTile label={t("tracker.statCallsMade")} value={String(summary.total)} />
+            <StatTile label={t("tracker.statStillOpen")} value={String(summary.open)} />
             <StatTile
-              label="Win rate"
+              label={t("tracker.statWinRate")}
               value={summary.closed ? `${summary.winRate}%` : "—"}
               tone={summary.closed ? (summary.winRate >= 50 ? "bullish" : "bearish") : undefined}
             />
             <StatTile
-              label="Avg R (settled)"
+              label={t("tracker.statAvgRSettled")}
               value={
                 summary.closed ? `${summary.averageR >= 0 ? "+" : ""}${summary.averageR}R` : "—"
               }
@@ -528,26 +521,31 @@ function EngineRecord() {
 
           {summary.lowSample && (
             <p className="text-[11px] text-muted-foreground">
-              Only {summary.closed} settled call{summary.closed === 1 ? "" : "s"} so far — the
-              engine needs {MIN_SHADOW_RECORD_TRADES} per setup/regime combo before it trusts a
-              record enough to demote a verdict.
+              {t("tracker.lowSampleSettledNote", {
+                count: summary.closed,
+                minTrades: MIN_SHADOW_RECORD_TRADES,
+              })}
             </p>
           )}
 
           {combos.length > 0 && (
             <div className="space-y-1.5">
               <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                By setup × regime
+                {t("tracker.bySetupRegime")}
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[420px] text-xs">
                   <thead>
                     <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground">
-                      <th className="pb-1.5 pr-2 font-semibold">Setup</th>
-                      <th className="pb-1.5 pr-2 font-semibold">Regime</th>
-                      <th className="pb-1.5 pr-2 text-right font-semibold">Settled</th>
-                      <th className="pb-1.5 pr-2 text-right font-semibold">Win</th>
-                      <th className="pb-1.5 text-right font-semibold">Avg R</th>
+                      <th className="pb-1.5 pr-2 font-semibold">{t("tracker.colSetup")}</th>
+                      <th className="pb-1.5 pr-2 font-semibold">{t("tracker.colRegime")}</th>
+                      <th className="pb-1.5 pr-2 text-right font-semibold">
+                        {t("tracker.colSettled")}
+                      </th>
+                      <th className="pb-1.5 pr-2 text-right font-semibold">
+                        {t("tracker.colWin")}
+                      </th>
+                      <th className="pb-1.5 text-right font-semibold">{t("tracker.colAvgR")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -564,7 +562,7 @@ function EngineRecord() {
                                 variant="outline"
                                 className="border-warning/30 bg-warning-soft px-1 py-0 text-[9px] text-warning"
                               >
-                                demoted
+                                {t("tracker.demoted")}
                               </Badge>
                             )}
                           </span>
@@ -634,6 +632,7 @@ function StatTile({
  * only ever comes from the worker.
  */
 function AutoTrackedSignalRow({ signal }: { signal: ShadowSignal }) {
+  const { t } = useTranslation();
   const terminal = signal.status !== "active";
   const live = useLivePrice(signal.symbol, !terminal, signal.market);
 
@@ -667,25 +666,25 @@ function AutoTrackedSignalRow({ signal }: { signal: ShadowSignal }) {
           </span>
         </div>
         <div className="mt-0.5 text-[11px] text-muted-foreground">
-          Recorded {new Date(signal.openedAt).toLocaleString()}
+          {t("tracker.recorded", { date: new Date(signal.openedAt).toLocaleString() })}
         </div>
       </div>
 
       <Badge variant="outline" className={cn("shrink-0", SHADOW_STATUS_TONE[signal.status])}>
-        {SHADOW_STATUS_LABEL[signal.status]}
+        {t(`tracker.${SHADOW_STATUS_LABEL_KEY[signal.status]}`)}
       </Badge>
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
-        <Metric label="Entry" value={formatMoney(signal.entry)} />
-        <Metric label="Stop" value={formatMoney(signal.stop)} />
-        <Metric label="Target 1" value={formatMoney(signal.target1)} />
-        <Metric label="Target 2" value={formatMoney(signal.target2)} />
+        <Metric label={t("tracker.entry")} value={formatMoney(signal.entry)} />
+        <Metric label={t("tracker.stop")} value={formatMoney(signal.stop)} />
+        <Metric label={t("tracker.target1")} value={formatMoney(signal.target1)} />
+        <Metric label={t("tracker.target2")} value={formatMoney(signal.target2)} />
         <Metric
-          label={terminal ? "Closed at" : "Current"}
+          label={terminal ? t("tracker.closedAt") : t("tracker.current")}
           value={formatMoney(terminal ? (signal.closePrice ?? currentPrice) : currentPrice)}
         />
         <Metric
-          label={terminal ? "Result" : "Unrealized"}
+          label={terminal ? t("tracker.result") : t("tracker.unrealized")}
           value={
             terminal
               ? signal.resultR !== undefined
@@ -702,6 +701,7 @@ function AutoTrackedSignalRow({ signal }: { signal: ShadowSignal }) {
 }
 
 function TrackedSignalRow({ signal: serverSignal }: { signal: TrackedSignal }) {
+  const { t } = useTranslation();
   const unfollow = useUnfollowSignal();
   const serverTerminal = isTerminalStatus(serverSignal.status);
   const live = useLivePrice(serverSignal.symbol, !serverTerminal, serverSignal.market ?? "spot");
@@ -746,30 +746,30 @@ function TrackedSignalRow({ signal: serverSignal }: { signal: TrackedSignal }) {
           </span>
         </div>
         <div className="mt-0.5 text-[11px] text-muted-foreground">
-          Followed {new Date(signal.followedAt).toLocaleString()}
+          {t("tracker.followedAt", { date: new Date(signal.followedAt).toLocaleString() })}
         </div>
       </div>
 
       <Badge variant="outline" className={cn("shrink-0", STATUS_TONE[signal.status])}>
-        {STATUS_LABEL[signal.status]}
-        {provisional ? " · settling" : ""}
+        {t(`tracker.${STATUS_LABEL_KEY[signal.status]}`)}
+        {provisional ? t("tracker.settlingSuffix") : ""}
       </Badge>
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
-        <Metric label="Entry" value={formatMoney(signal.entryPrice)} />
+        <Metric label={t("tracker.entry")} value={formatMoney(signal.entryPrice)} />
         <Metric
-          label="Ideal zone was"
+          label={t("tracker.idealZoneWas")}
           value={formatEntryRange(signal.entryLow, signal.entryHigh)}
         />
-        <Metric label="Stop" value={formatMoney(signal.stop)} />
-        <Metric label="Target 1" value={formatMoney(signal.target1)} />
-        <Metric label="Target 2" value={formatMoney(signal.target2)} />
+        <Metric label={t("tracker.stop")} value={formatMoney(signal.stop)} />
+        <Metric label={t("tracker.target1")} value={formatMoney(signal.target1)} />
+        <Metric label={t("tracker.target2")} value={formatMoney(signal.target2)} />
         <Metric
-          label={terminal ? "Closed at" : "Current"}
+          label={terminal ? t("tracker.closedAt") : t("tracker.current")}
           value={formatMoney(terminal ? (signal.closePrice ?? currentPrice) : currentPrice)}
         />
         <Metric
-          label={terminal ? "Result" : "Unrealized"}
+          label={terminal ? t("tracker.result") : t("tracker.unrealized")}
           value={
             terminal
               ? signal.resultR !== undefined
@@ -788,7 +788,7 @@ function TrackedSignalRow({ signal: serverSignal }: { signal: TrackedSignal }) {
         className="ml-auto shrink-0 text-muted-foreground hover:text-bearish"
         onClick={() => unfollow.mutate(signal.id)}
         disabled={unfollow.isPending}
-        aria-label={`Remove ${signal.symbol} from tracker`}
+        aria-label={t("tracker.removeFromTracker", { symbol: signal.symbol })}
       >
         <Trash2 className="h-4 w-4" />
       </Button>

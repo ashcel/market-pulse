@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/features/page-header";
 import { useEconomicEvents, useNews } from "@/hooks/queries";
 import { NewsImpactCard } from "@/components/features/news-impact-card";
@@ -34,31 +35,32 @@ export const Route = createFileRoute("/news")({
   component: NewsPage,
 });
 
-const FILTERS: { label: string; value: Impact | "all" }[] = [
-  { label: "All", value: "all" },
-  { label: "High", value: "high" },
-  { label: "Medium", value: "medium" },
-  { label: "Low", value: "low" },
+const FILTER_VALUES: { labelKey: string; value: Impact | "all" }[] = [
+  { labelKey: "filterAll", value: "all" },
+  { labelKey: "filterHigh", value: "high" },
+  { labelKey: "filterMedium", value: "medium" },
+  { labelKey: "filterLow", value: "low" },
 ];
 
-function timeUntil(occursAt: string): string {
+function timeUntil(occursAt: string, t: ReturnType<typeof useTranslation>["t"]): string {
   const hours = Math.round((new Date(occursAt).getTime() - Date.now()) / (60 * 60 * 1000));
-  if (hours < 1) return "soon";
-  if (hours < 24) return `in ${hours}h`;
-  return `in ${Math.round(hours / 24)}d`;
+  if (hours < 1) return t("news.soon");
+  if (hours < 24) return t("news.inHours", { count: hours });
+  return t("news.inDays", { count: Math.round(hours / 24) });
 }
 
 /** Slim strip surfacing upcoming high-impact macro events above the feed —
  * the same "economy/Fed" news the priority rule bumps to the top, but for
  * events that haven't happened yet (scheduled, not yet reported). */
 function EconomicEventsStrip() {
+  const { t } = useTranslation();
   const { data: events } = useEconomicEvents(3, "high");
   if (!events || events.length === 0) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-warning/30 bg-warning-soft px-3 py-2">
       <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-warning">
-        Upcoming
+        {t("news.upcoming")}
       </span>
       {events.slice(0, 4).map((e) => (
         <span
@@ -67,7 +69,7 @@ function EconomicEventsStrip() {
         >
           <span className="font-medium text-foreground">{e.title}</span>
           <span className="text-muted-foreground">
-            {e.country} · {timeUntil(e.occursAt)}
+            {e.country} · {timeUntil(e.occursAt, t)}
           </span>
         </span>
       ))}
@@ -77,20 +79,17 @@ function EconomicEventsStrip() {
 
 const TOUR_SEEN_KEY = "iq-news-tour-v1";
 
-const TOUR_STEPS: TourStep[] = [
-  {
-    target: "filters",
-    title: "Impact filters",
-    body: "Filter the feed by how much a story is expected to move the market. Start with High when you're short on time — those are the stories most likely to change today's picture.",
-  },
-  {
-    target: "feed",
-    title: "Signal-first news",
-    body: "Each card shows the expected direction (bullish, bearish, or neutral), the impact level, and exactly which assets the story affects — so you read for trading relevance, not just headlines.",
-  },
-];
+function useTourSteps(): TourStep[] {
+  const { t } = useTranslation();
+  return (["filters", "feed"] as const).map((target) => ({
+    target,
+    title: t(`news.tour.${target}.title`),
+    body: t(`news.tour.${target}.body`),
+  }));
+}
 
 function NewsPage() {
+  const { t } = useTranslation();
   const { data } = useNews();
   const [filter, setFilter] = useState<Impact | "all">("all");
   const watchedTickers = useWatchlistStore((s) => s.tickers);
@@ -107,20 +106,21 @@ function NewsPage() {
     );
   }, [filtered, tickers]);
   const tour = useProductTour(TOUR_SEEN_KEY);
+  const tourSteps = useTourSteps();
 
   return (
     <div className="mx-auto flex max-w-[1000px] flex-col gap-6">
       <PageHeader
-        eyebrow="News"
-        title="News Impact"
-        subtitle="Only the news that moves markets today."
+        eyebrow={t("news.eyebrow")}
+        title={t("news.title")}
+        subtitle={t("news.subtitle")}
         action={<HelpButton onClick={tour.start} />}
       />
 
       <EconomicEventsStrip />
 
       <div data-tour="filters" className="flex flex-wrap gap-1.5">
-        {FILTERS.map((f) => (
+        {FILTER_VALUES.map((f) => (
           <button
             key={f.value}
             onClick={() => setFilter(f.value)}
@@ -131,7 +131,7 @@ function NewsPage() {
                 : "border-border bg-surface text-muted-foreground hover:text-foreground",
             )}
           >
-            {f.label}
+            {t(`news.${f.labelKey}`)}
           </button>
         ))}
       </div>
@@ -148,7 +148,7 @@ function NewsPage() {
           : Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} height={160} />)}
       </div>
 
-      <ProductTour steps={TOUR_STEPS} open={tour.open && !!data} onClose={tour.close} />
+      <ProductTour steps={tourSteps} open={tour.open && !!data} onClose={tour.close} />
     </div>
   );
 }

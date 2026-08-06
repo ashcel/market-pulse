@@ -1,4 +1,5 @@
 import { AlertTriangle, ExternalLink, ShieldAlert } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/components/ui/badge";
 import { CardEyebrow } from "@/components/features/iq-card";
@@ -29,6 +30,10 @@ export const SEVERITY_TONE: Record<TokenEventSeverity, string> = {
 };
 
 function EventRow({ event }: { event: TokenEvent }) {
+  const { t } = useTranslation();
+  const kindLabel = t(`components.batchB.tokenEvents.kind.${event.kind}`, {
+    defaultValue: KIND_LABEL[event.kind] ?? event.kind,
+  });
   const inner = (
     <div className="flex items-start gap-2 rounded-md border border-border bg-card px-2 py-1.5">
       {event.severity === "critical" ? (
@@ -50,7 +55,7 @@ function EventRow({ event }: { event: TokenEvent }) {
               SEVERITY_TONE[event.severity],
             )}
           >
-            {KIND_LABEL[event.kind] ?? event.kind}
+            {kindLabel}
           </Badge>
           <span className="text-[10px] text-muted-foreground">
             {humanRelative(event.publishedAt)} · {event.source}
@@ -73,15 +78,16 @@ function EventRow({ event }: { event: TokenEvent }) {
 }
 
 export function TokenEventsCard({ symbol }: { symbol: string }) {
+  const { t } = useTranslation();
   const { data: events } = useTokenEvents(symbol);
   if (!events || events.length === 0) return null;
 
   return (
     <div className="rounded-lg border border-border bg-surface p-2.5">
       <div className="flex items-center gap-1.5">
-        <CardEyebrow>Token Events</CardEyebrow>
+        <CardEyebrow>{t("components.batchB.tokenEvents.title")}</CardEyebrow>
         <span className="text-[10px] text-muted-foreground">
-          unlocks · security · regulatory — auto-detected from news
+          {t("components.batchB.tokenEvents.description")}
         </span>
       </div>
       <div className="mt-2 space-y-1.5">

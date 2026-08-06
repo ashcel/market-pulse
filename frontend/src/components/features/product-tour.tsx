@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { CircleHelp, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -36,18 +37,19 @@ export function useProductTour(seenKey: string) {
 
 /** The "Help" button that relaunches a page's tour. */
 export function HelpButton({ onClick, className }: { onClick: () => void; className?: string }) {
+  const { t } = useTranslation();
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label="Start page help tour"
+      aria-label={t("components.batchE.productTour.helpButtonAriaLabel")}
       className={cn(
         "flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground",
         className,
       )}
     >
       <CircleHelp className="h-3.5 w-3.5" />
-      Help
+      {t("components.batchE.productTour.helpButtonLabel")}
     </button>
   );
 }
@@ -115,6 +117,7 @@ export function ProductTour({
   onClose: () => void;
   onStepChange?: (target: string) => void;
 }) {
+  const { t } = useTranslation();
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<Rect | null>(null);
 
@@ -165,7 +168,11 @@ export function ProductTour({
   const { top: cardTop, left: cardLeft } = placeCard(rect, viewportW, viewportH);
 
   return (
-    <div className="fixed inset-0 z-[70]" role="dialog" aria-label="Product tour">
+    <div
+      className="fixed inset-0 z-[70]"
+      role="dialog"
+      aria-label={t("components.batchE.productTour.dialogAriaLabel")}
+    >
       {rect ? (
         // The spotlight: transparent hole over the target, dimming everything else.
         <div
@@ -188,12 +195,15 @@ export function ProductTour({
       >
         <div className="flex items-start justify-between gap-3">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-info">
-            Step {index + 1} of {steps.length}
+            {t("components.batchE.productTour.stepCounter", {
+              current: index + 1,
+              total: steps.length,
+            })}
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close tour"
+            aria-label={t("components.batchE.productTour.closeAriaLabel")}
             className="text-muted-foreground hover:text-foreground"
           >
             <X className="h-4 w-4" />
@@ -207,7 +217,7 @@ export function ProductTour({
             onClick={onClose}
             className="text-xs font-medium text-muted-foreground hover:text-foreground"
           >
-            Skip tour
+            {t("components.batchE.productTour.skipTour")}
           </button>
           <div className="flex gap-2">
             <Button
@@ -217,7 +227,7 @@ export function ProductTour({
               className={cn("h-7", index === 0 && "invisible")}
               onClick={() => setIndex((i) => Math.max(0, i - 1))}
             >
-              Back
+              {t("components.batchE.productTour.back")}
             </Button>
             <Button
               type="button"
@@ -225,7 +235,9 @@ export function ProductTour({
               className="h-7"
               onClick={() => (index === steps.length - 1 ? onClose() : setIndex((i) => i + 1))}
             >
-              {index === steps.length - 1 ? "Finish" : "Next"}
+              {index === steps.length - 1
+                ? t("components.batchE.productTour.finish")
+                : t("components.batchE.productTour.next")}
             </Button>
           </div>
         </div>

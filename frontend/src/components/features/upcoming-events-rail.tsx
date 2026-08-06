@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { CalendarClock, Coins, Landmark, Lock } from "lucide-react";
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 import { CardEyebrow, IqCard } from "./iq-card";
 import { StatusBadge } from "./status-badge";
@@ -35,6 +36,7 @@ const ICONS = {
 } as const;
 
 export function UpcomingEventsRail({ days = 7 }: { days?: number }) {
+  const { t } = useTranslation();
   const calendar = useEconomicEvents(days, "medium");
   const watched = useWatchlistStore((s) => s.tickers);
   const tokenEvents = useTokenEventsForSymbols(watched);
@@ -51,7 +53,7 @@ export function UpcomingEventsRail({ days = 7 }: { days?: number }) {
       out.push({
         id: `econ:${e.id}`,
         title: e.title,
-        category: `${e.country} · Macro event`,
+        category: t("components.batchD.upcomingEvents.macroCategory", { country: e.country }),
         impact: e.impact,
         at,
         symbol: null,
@@ -65,7 +67,10 @@ export function UpcomingEventsRail({ days = 7 }: { days?: number }) {
       out.push({
         id: `token:${e.id}`,
         title: e.title,
-        category: e.kind === "unlock" ? "Token unlock" : `${e.kind} event`,
+        category:
+          e.kind === "unlock"
+            ? t("components.batchD.upcomingEvents.tokenUnlockCategory")
+            : t("components.batchD.upcomingEvents.tokenEventCategory", { kind: e.kind }),
         impact: e.severity === "critical" ? "high" : e.severity === "warning" ? "medium" : "low",
         at,
         symbol: e.symbol,
@@ -74,16 +79,16 @@ export function UpcomingEventsRail({ days = 7 }: { days?: number }) {
     }
 
     return out.sort((a, b) => a.at - b.at).slice(0, 6);
-  }, [calendar.data, tokenEvents.data, days, now]);
+  }, [calendar.data, tokenEvents.data, days, now, t]);
 
   const loading = calendar.isLoading && tokenEvents.isLoading;
 
   return (
     <IqCard padded={false} className="flex flex-col p-5">
       <div className="flex items-center justify-between">
-        <CardEyebrow>Upcoming Events</CardEyebrow>
+        <CardEyebrow>{t("components.batchD.upcomingEvents.title")}</CardEyebrow>
         <Link to="/events" className="text-xs font-medium text-info hover:underline">
-          View all
+          {t("components.batchD.upcomingEvents.viewAll")}
         </Link>
       </div>
 
@@ -94,7 +99,7 @@ export function UpcomingEventsRail({ days = 7 }: { days?: number }) {
         </div>
       ) : events.length === 0 ? (
         <p className="mt-4 text-xs text-muted-foreground">
-          Nothing scheduled in the next {days} days for your watchlist or the macro calendar.
+          {t("components.batchD.upcomingEvents.empty", { days })}
         </p>
       ) : (
         <ul className="mt-3 flex flex-col divide-y divide-border">
@@ -120,7 +125,11 @@ export function UpcomingEventsRail({ days = 7 }: { days?: number }) {
                       {e.symbol ? `${e.symbol} · ` : ""}
                       {e.title}
                     </p>
-                    {e.impact === "high" && <StatusBadge tone="bearish">High impact</StatusBadge>}
+                    {e.impact === "high" && (
+                      <StatusBadge tone="bearish">
+                        {t("components.batchD.upcomingEvents.highImpact")}
+                      </StatusBadge>
+                    )}
                   </div>
                   <p className="mt-0.5 text-[11px] capitalize text-muted-foreground">
                     {e.category}
@@ -165,7 +174,7 @@ export function UpcomingEventsRail({ days = 7 }: { days?: number }) {
       {!loading && events.length > 0 && (
         <p className="mt-2 flex items-center gap-1.5 border-t border-border pt-2 text-[10px] text-muted-foreground">
           <CalendarClock className="h-3 w-3" />
-          Macro calendar + dated events for watched tokens · your local time
+          {t("components.batchD.upcomingEvents.footer")}
         </p>
       )}
     </IqCard>

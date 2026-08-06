@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { IChartApi, ISeriesApi } from "lightweight-charts";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Zap, Lock } from "lucide-react";
 import type { RiskRewardPlan } from "@/lib/engine/quant";

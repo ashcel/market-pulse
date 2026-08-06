@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   RefreshCw,
   Sparkles,
@@ -64,10 +65,10 @@ export const Route = createFileRoute("/review")({
 });
 
 type SideFilter = "all" | "LONG" | "SHORT";
-const SIDE_FILTERS: { label: string; value: SideFilter }[] = [
-  { label: "All", value: "all" },
-  { label: "Long", value: "LONG" },
-  { label: "Short", value: "SHORT" },
+const SIDE_FILTERS: { labelKey: string; value: SideFilter }[] = [
+  { labelKey: "filterAll", value: "all" },
+  { labelKey: "filterLong", value: "LONG" },
+  { labelKey: "filterShort", value: "SHORT" },
 ];
 
 function formatPnl(pnl: number | null | undefined): string {
@@ -114,6 +115,7 @@ const SECTION_ORDER = [
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 function ReviewPage() {
+  const { t } = useTranslation();
   const [sideFilter, setSideFilter] = useState<SideFilter>("all");
   const { trades, authenticated, isLoading } = useReviewTrades();
   const aiSettings = useAiSettingsStore();
@@ -127,9 +129,9 @@ function ReviewPage() {
   return (
     <div className="space-y-5 pb-20 lg:pb-6">
       <PageHeader
-        eyebrow="Trade Review"
-        title="Trade Review"
-        subtitle="Sync your Binance history, see where your edge actually is, and get an honest per-trade AI review — generated in your browser with your own AI key."
+        eyebrow={t("review.eyebrow")}
+        title={t("review.title")}
+        subtitle={t("review.subtitle")}
       />
 
       <SyncCard authenticated={authenticated} />
@@ -157,20 +159,20 @@ function ReviewPage() {
                     : "border-border bg-surface text-muted-foreground hover:text-foreground",
                 )}
               >
-                {f.label}
+                {t(`review.${f.labelKey}`)}
               </button>
             ))}
           </div>
 
           {isLoading ? (
             <IqCard className="text-center text-sm text-muted-foreground py-6">
-              Loading trades…
+              {t("review.loadingTrades")}
             </IqCard>
           ) : filteredTrades.length === 0 ? (
             <IqCard className="text-center text-sm text-muted-foreground py-6">
               {trades.length === 0
-                ? "No trades synced yet — connect Binance above and hit Sync now."
-                : `No ${sideFilter.toLowerCase()} trades.`}
+                ? t("review.noTradesSynced")
+                : t("review.noSideTrades", { side: sideFilter.toLowerCase() })}
             </IqCard>
           ) : (
             <div className="space-y-2.5">
@@ -191,14 +193,15 @@ function ReviewPage() {
 }
 
 function NotSignedInCard() {
+  const { t } = useTranslation();
   return (
     <IqCard className="space-y-2 text-center text-sm text-muted-foreground">
-      <p>Trade Review lives on the server — sign in to connect Binance and review your trades.</p>
+      <p>{t("review.signInPrompt1")}</p>
       <p>
         <Link to="/login" className="font-medium text-info underline-offset-2 hover:underline">
-          Sign in
+          {t("common.signIn")}
         </Link>{" "}
-        to get started.
+        {t("review.signInPrompt2")}
       </p>
     </IqCard>
   );
@@ -207,6 +210,7 @@ function NotSignedInCard() {
 // ── Sync / connection card ──────────────────────────────────────────────────
 
 function SyncCard({ authenticated }: { authenticated: boolean }) {
+  const { t } = useTranslation();
   const { connected, lastSyncedAt, isLoading } = useBinanceKeyStatus();
   const sync = useSyncBinance();
 
@@ -215,7 +219,7 @@ function SyncCard({ authenticated }: { authenticated: boolean }) {
   return (
     <IqCard className="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <CardEyebrow>Binance Sync</CardEyebrow>
+        <CardEyebrow>{t("review.binanceSync")}</CardEyebrow>
         <div className="mt-1 flex items-center gap-2">
           <span
             className={cn(
@@ -223,13 +227,17 @@ function SyncCard({ authenticated }: { authenticated: boolean }) {
               connected ? "bg-bullish-soft text-bullish" : "bg-muted text-muted-foreground",
             )}
           >
-            {isLoading ? "Checking…" : connected ? "Connected" : "Not connected"}
+            {isLoading
+              ? t("review.checking")
+              : connected
+                ? t("review.connected")
+                : t("review.notConnected")}
           </span>
           {connected && (
             <span className="text-xs text-muted-foreground">
               {lastSyncedAt
-                ? `Last synced ${new Date(lastSyncedAt).toLocaleString()}`
-                : "Never synced"}
+                ? t("review.lastSynced", { date: new Date(lastSyncedAt).toLocaleString() })
+                : t("review.neverSynced")}
             </span>
           )}
         </div>
@@ -246,11 +254,11 @@ function SyncCard({ authenticated }: { authenticated: boolean }) {
           disabled={sync.isPending}
         >
           <RefreshCw className={cn("h-3.5 w-3.5", sync.isPending && "animate-spin")} />
-          {sync.isPending ? "Syncing…" : "Sync now"}
+          {sync.isPending ? t("review.syncing") : t("review.syncNow")}
         </Button>
       ) : (
         <Button size="sm" variant="outline" className="text-xs" asChild>
-          <Link to="/settings">Connect Binance in Settings</Link>
+          <Link to="/settings">{t("review.connectBinanceInSettings")}</Link>
         </Button>
       )}
     </IqCard>
@@ -293,6 +301,7 @@ function executionStatusLabel(status: string): string {
 
 /** Live executions section — user-confirmed Binance (testnet) order placements. */
 function LiveExecutionsSection() {
+  const { t } = useTranslation();
   const { executions, authenticated, isLoading } = useExecutions();
 
   if (!authenticated) return null;
@@ -302,17 +311,15 @@ function LiveExecutionsSection() {
     <IqCard padded={false} className="overflow-hidden">
       <div className="flex items-center justify-between gap-2 p-4 pb-2 sm:p-5 sm:pb-2">
         <div>
-          <CardEyebrow>Live Executions · Binance testnet</CardEyebrow>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Order-placement records from confirmed executions — not PnL-settled trades yet.
-          </p>
+          <CardEyebrow>{t("review.liveExecutions")}</CardEyebrow>
+          <p className="mt-1 text-[11px] text-muted-foreground">{t("review.liveExecutionsNote")}</p>
         </div>
         <Zap className="h-4 w-4 shrink-0 text-muted-foreground" />
       </div>
 
       {isLoading ? (
         <div className="p-4 pt-2 text-center text-sm text-muted-foreground sm:p-5 sm:pt-2">
-          Loading executions…
+          {t("review.loadingExecutions")}
         </div>
       ) : (
         <div className="divide-y divide-border/40">
@@ -326,6 +333,7 @@ function LiveExecutionsSection() {
 }
 
 function ExecutionRow({ execution }: { execution: ExecutionRecord }) {
+  const { t } = useTranslation();
   const isBuy = execution.side === "BUY";
   return (
     <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 sm:px-5">
@@ -344,7 +352,7 @@ function ExecutionRow({ execution }: { execution: ExecutionRecord }) {
       <div className="text-right text-xs">
         <div className="num font-semibold">{formatMoney(execution.entry_price)}</div>
         <div className="text-[10px] text-muted-foreground">
-          {execution.filled_quantity}/{execution.quantity} filled
+          {t("review.filledOf", { filled: execution.filled_quantity, total: execution.quantity })}
         </div>
       </div>
 
@@ -377,6 +385,7 @@ function formatFractionPercent(value: number | null | undefined, digits = 2): st
 
 /** Ground-truth forward-return track record — see `forward_return` table (engine/smc worker). */
 function TrackRecordSection({ authenticated }: { authenticated: boolean }) {
+  const { t } = useTranslation();
   const { data } = useForwardReturnEvidence();
   const horizons = data?.horizons ?? [];
 
@@ -385,21 +394,19 @@ function TrackRecordSection({ authenticated }: { authenticated: boolean }) {
   return (
     <IqCard padded={false} className="overflow-hidden">
       <div className="p-4 pb-2 sm:p-5 sm:pb-2">
-        <CardEyebrow>Track Record — Forward Returns</CardEyebrow>
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          Ground truth measured from closed 1H bars; recomputed hourly.
-        </p>
+        <CardEyebrow>{t("review.trackRecord")}</CardEyebrow>
+        <p className="mt-1 text-[11px] text-muted-foreground">{t("review.trackRecordNote")}</p>
       </div>
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Horizon</TableHead>
-            <TableHead className="text-right">n</TableHead>
-            <TableHead className="text-right">Avg</TableHead>
-            <TableHead className="text-right">Median</TableHead>
-            <TableHead className="text-right">Win%</TableHead>
-            <TableHead className="text-right">Best</TableHead>
-            <TableHead className="text-right">Worst</TableHead>
+            <TableHead>{t("review.colHorizon")}</TableHead>
+            <TableHead className="text-right">{t("review.colN")}</TableHead>
+            <TableHead className="text-right">{t("review.colAvg")}</TableHead>
+            <TableHead className="text-right">{t("review.colMedian")}</TableHead>
+            <TableHead className="text-right">{t("review.colWinPct")}</TableHead>
+            <TableHead className="text-right">{t("review.colBest")}</TableHead>
+            <TableHead className="text-right">{t("review.colWorst")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -413,13 +420,14 @@ function TrackRecordSection({ authenticated }: { authenticated: boolean }) {
 }
 
 function TrackRecordRow({ horizon: h }: { horizon: HorizonEvidence }) {
+  const { t } = useTranslation();
   return (
     <TableRow>
       <TableCell className="font-medium uppercase">
         {h.horizon}
         {h.insufficient && (
           <Badge variant="outline" className="ml-2 border-warning/30 text-warning text-[9px]">
-            insufficient
+            {t("review.insufficient")}
           </Badge>
         )}
       </TableCell>
@@ -455,17 +463,20 @@ function TrackRecordRow({ horizon: h }: { horizon: HorizonEvidence }) {
 // ── Analytics hero ───────────────────────────────────────────────────────────
 
 function AnalyticsHero() {
+  const { t } = useTranslation();
   const { analytics, isLoading } = useReviewAnalytics();
 
   if (isLoading) {
     return (
-      <IqCard className="text-center text-sm text-muted-foreground py-6">Loading analytics…</IqCard>
+      <IqCard className="text-center text-sm text-muted-foreground py-6">
+        {t("review.loadingAnalytics")}
+      </IqCard>
     );
   }
   if (!analytics || analytics.total_trades === 0) {
     return (
       <IqCard className="text-center text-sm text-muted-foreground py-6">
-        Sync trades to see your RR, best/worst trades, and edge by time of day.
+        {t("review.syncToSeeAnalytics")}
       </IqCard>
     );
   }
@@ -485,16 +496,16 @@ function AnalyticsHero() {
     .sort((a, b) => b.win_rate - a.win_rate)[0];
 
   const sessionLabel: Record<string, string> = {
-    asia: "Asia",
-    london: "London",
-    new_york: "New York",
+    asia: t("review.sessionAsia"),
+    london: t("review.sessionLondon"),
+    new_york: t("review.sessionNewYork"),
   };
 
   return (
     <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
       <HeroTile
         icon={Target}
-        eyebrow="RR"
+        eyebrow={t("review.rr")}
         value={rrValue}
         secondary={analytics.rr.label}
         tone={
@@ -507,23 +518,25 @@ function AnalyticsHero() {
       />
       <HeroTile
         icon={Trophy}
-        eyebrow="Best trade"
+        eyebrow={t("review.bestTrade")}
         value={analytics.best_trade ? baseSymbol(analytics.best_trade.symbol) : "—"}
-        secondary={analytics.best_trade ? formatPnl(analytics.best_trade.realized_pnl) : "No data"}
+        secondary={
+          analytics.best_trade ? formatPnl(analytics.best_trade.realized_pnl) : t("review.noData")
+        }
         tone="bullish"
       />
       <HeroTile
         icon={Skull}
-        eyebrow="Worst trade"
+        eyebrow={t("review.worstTrade")}
         value={analytics.worst_trade ? baseSymbol(analytics.worst_trade.symbol) : "—"}
         secondary={
-          analytics.worst_trade ? formatPnl(analytics.worst_trade.realized_pnl) : "No data"
+          analytics.worst_trade ? formatPnl(analytics.worst_trade.realized_pnl) : t("review.noData")
         }
         tone="bearish"
       />
       <HeroTile
         icon={Clock}
-        eyebrow="Best hour"
+        eyebrow={t("review.bestHour")}
         value={
           analytics.time_range
             ? `${pad2(analytics.time_range.start_hour_utc)}:00–${pad2(analytics.time_range.end_hour_utc)}:00 UTC`
@@ -531,15 +544,18 @@ function AnalyticsHero() {
         }
         secondary={
           analytics.time_range
-            ? `${formatPercent(analytics.time_range.win_rate, 0)} win rate · n=${analytics.time_range.sample_size}`
+            ? t("review.winRateN", {
+                pct: formatPercent(analytics.time_range.win_rate, 0),
+                n: analytics.time_range.sample_size,
+              })
             : bestSession
-              ? `${sessionLabel[bestSession.key]} session strongest`
-              : "Not enough data yet"
+              ? t("review.sessionStrongest", { session: sessionLabel[bestSession.key] })
+              : t("review.notEnoughData")
         }
       />
       <HeroTile
         icon={AlarmClock}
-        eyebrow="Worst hour"
+        eyebrow={t("review.worstHour")}
         value={
           analytics.worst_time_range
             ? `${pad2(analytics.worst_time_range.start_hour_utc)}:00–${pad2(analytics.worst_time_range.end_hour_utc)}:00 UTC`
@@ -547,23 +563,26 @@ function AnalyticsHero() {
         }
         secondary={
           analytics.worst_time_range
-            ? `${formatPercent(analytics.worst_time_range.win_rate, 0)} win rate · n=${analytics.worst_time_range.sample_size}`
-            : "Not enough data yet"
+            ? t("review.winRateN", {
+                pct: formatPercent(analytics.worst_time_range.win_rate, 0),
+                n: analytics.worst_time_range.sample_size,
+              })
+            : t("review.notEnoughData")
         }
         tone="bearish"
       />
       <HeroTile
         icon={Sparkles}
-        eyebrow="Style verdict"
+        eyebrow={t("review.styleVerdict")}
         value={
           analytics.style.recommended
             ? analytics.style.recommended.charAt(0).toUpperCase() +
               analytics.style.recommended.slice(1)
-            : "Inconclusive"
+            : t("review.inconclusive")
         }
         secondary={
           analytics.style.recommended
-            ? `${analytics.style.confidence === "ok" ? "Confident" : "Low confidence"} · ${analytics.style.data_quality}`
+            ? `${analytics.style.confidence === "ok" ? t("review.confident") : t("review.lowConfidence")} · ${analytics.style.data_quality}`
             : analytics.style.data_quality
         }
         badge={analytics.style.confidence}
@@ -627,6 +646,7 @@ function HeroTile({
 // ── Style bucket table ───────────────────────────────────────────────────────
 
 function StyleBucketTable() {
+  const { t } = useTranslation();
   const { analytics } = useReviewAnalytics();
   if (!analytics || analytics.total_trades === 0) return null;
 
@@ -639,15 +659,15 @@ function StyleBucketTable() {
   return (
     <IqCard padded={false} className="overflow-hidden">
       <div className="p-4 pb-0 sm:p-5 sm:pb-0">
-        <CardEyebrow>Style breakdown</CardEyebrow>
+        <CardEyebrow>{t("review.styleBreakdown")}</CardEyebrow>
       </div>
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Style</TableHead>
-            <TableHead className="text-right">Trades</TableHead>
-            <TableHead className="text-right">Win rate</TableHead>
-            <TableHead className="text-right">Expectancy</TableHead>
+            <TableHead>{t("review.colStyle")}</TableHead>
+            <TableHead className="text-right">{t("review.colTrades")}</TableHead>
+            <TableHead className="text-right">{t("review.colWinRate")}</TableHead>
+            <TableHead className="text-right">{t("review.colExpectancy")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -660,7 +680,7 @@ function StyleBucketTable() {
                 {row.label}
                 {analytics.style.recommended === row.key && (
                   <Badge variant="outline" className="ml-2 border-info/30 text-info text-[10px]">
-                    Recommended
+                    {t("review.recommended")}
                   </Badge>
                 )}
               </TableCell>
@@ -692,6 +712,7 @@ function TradeReviewRow({
   allTrades: ReviewTrade[];
   aiConfigured: boolean;
 }) {
+  const { t } = useTranslation();
   const { data: review, isLoading: reviewLoading } = useTradeReview(trade.id);
   const generate = useGenerateTradeReview();
 
@@ -719,7 +740,11 @@ function TradeReviewRow({
             )}
           </div>
           <div className="mt-0.5 text-[11px] text-muted-foreground">
-            Closed {trade.closed_at ? new Date(trade.closed_at).toLocaleString() : "recently"}
+            {t("review.closed", {
+              date: trade.closed_at
+                ? new Date(trade.closed_at).toLocaleString()
+                : t("review.recently"),
+            })}
           </div>
         </div>
 
@@ -734,15 +759,15 @@ function TradeReviewRow({
       </div>
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
-        <Metric label="Entry" value={formatMoney(trade.entry_price)} />
-        <Metric label="Exit" value={formatMoney(trade.exit_price)} />
-        <Metric label="Qty" value={String(trade.quantity)} />
-        <Metric label="Close trigger" value={trade.close_trigger ?? "—"} />
+        <Metric label={t("review.entry")} value={formatMoney(trade.entry_price)} />
+        <Metric label={t("review.exit")} value={formatMoney(trade.exit_price)} />
+        <Metric label={t("review.qty")} value={String(trade.quantity)} />
+        <Metric label={t("review.closeTrigger")} value={trade.close_trigger ?? "—"} />
       </div>
 
       <div className="border-t border-border/40 pt-2">
         {reviewLoading ? (
-          <p className="text-xs text-muted-foreground">Checking for an existing review…</p>
+          <p className="text-xs text-muted-foreground">{t("review.checkingExistingReview")}</p>
         ) : review ? (
           <TradeReviewCard review={review} />
         ) : null}
@@ -757,18 +782,18 @@ function TradeReviewRow({
           >
             <Sparkles className="h-3 w-3" />
             {generate.isPending
-              ? "Generating…"
+              ? t("review.generating")
               : review
-                ? "Regenerate AI review"
-                : "Generate AI review"}
+                ? t("review.regenerateAiReview")
+                : t("review.generateAiReview")}
           </Button>
           {!aiConfigured && (
             <span className="text-[11px] text-muted-foreground">
-              Configure an AI provider in{" "}
+              {t("review.configureAiProviderPrefix")}{" "}
               <Link to="/settings" className="text-info underline-offset-2 hover:underline">
-                Settings
+                {t("common.settings")}
               </Link>{" "}
-              first.
+              {t("review.configureAiProviderSuffix")}
             </span>
           )}
         </div>
@@ -792,6 +817,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 }
 
 function TradeReviewCard({ review }: { review: TradeReview }) {
+  const { t } = useTranslation();
   const sections = SECTION_ORDER.map((type) => review.sections.find((s) => s.type === type)).filter(
     (s): s is NonNullable<typeof s> => Boolean(s && s.content),
   );
@@ -823,21 +849,21 @@ function TradeReviewCard({ review }: { review: TradeReview }) {
 
       <div>
         <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Suggestion
+          {t("review.suggestion")}
         </div>
         <p className="mt-0.5 text-xs leading-relaxed">{review.suggestion}</p>
       </div>
 
       <div>
         <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Closing question
+          {t("review.closingQuestion")}
         </div>
         <p className="mt-0.5 text-xs italic leading-relaxed">{review.closing_question}</p>
       </div>
 
       <div>
         <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Coaching note
+          {t("review.coachingNote")}
         </div>
         <p className="mt-0.5 text-xs leading-relaxed">{review.coaching_note}</p>
       </div>
@@ -859,7 +885,7 @@ function TradeReviewCard({ review }: { review: TradeReview }) {
       {review.annotations && review.annotations.length > 0 && (
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Chart annotations
+            {t("review.chartAnnotations")}
           </div>
           <ul className="mt-1 space-y-1">
             {review.annotations.map((a) => (

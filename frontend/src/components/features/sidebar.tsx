@@ -18,56 +18,59 @@ import {
   Star,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/useAuth";
 import { useUiStore } from "@/stores/ui";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export type NavItem = {
   to: string;
-  label: string;
+  /** Key under `nav.items.*` in the i18n resources — render via `t(\`nav.items.${labelKey}\`)`. */
+  labelKey: string;
   icon: React.ElementType;
   /** Personal-plane destination: hidden from anonymous visitors and guarded server-side. */
   requiresAuth?: boolean;
 };
 
 type NavGroup = {
-  label: string;
+  /** Key under `nav.groups.*`. */
+  groupKey: string;
   items: NavItem[];
 };
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    label: "Overview",
+    groupKey: "overview",
     items: [
-      { to: "/", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/markets", label: "Markets", icon: Layers },
-      { to: "/discover", label: "Discover", icon: Compass },
-      { to: "/news", label: "News", icon: Newspaper },
-      { to: "/events", label: "Events", icon: CalendarDays },
-      { to: "/watchlist", label: "Watchlist", icon: Star, requiresAuth: true },
+      { to: "/", labelKey: "dashboard", icon: LayoutDashboard },
+      { to: "/markets", labelKey: "markets", icon: Layers },
+      { to: "/discover", labelKey: "discover", icon: Compass },
+      { to: "/news", labelKey: "news", icon: Newspaper },
+      { to: "/events", labelKey: "events", icon: CalendarDays },
+      { to: "/watchlist", labelKey: "watchlist", icon: Star, requiresAuth: true },
     ],
   },
   {
-    label: "Analysis",
+    groupKey: "analysis",
     items: [
-      { to: "/regime", label: "Regime", icon: Activity },
-      { to: "/rotation", label: "Rotation", icon: ArrowLeftRight },
-      { to: "/rankings", label: "Rankings", icon: BarChart3 },
-      { to: "/technical", label: "Technical", icon: LineChart },
+      { to: "/regime", labelKey: "regime", icon: Activity },
+      { to: "/rotation", labelKey: "rotation", icon: ArrowLeftRight },
+      { to: "/rankings", labelKey: "rankings", icon: BarChart3 },
+      { to: "/technical", labelKey: "technical", icon: LineChart },
     ],
   },
   {
-    label: "Trading",
+    groupKey: "trading",
     items: [
-      { to: "/tracker", label: "Tracker", icon: Bookmark, requiresAuth: true },
-      { to: "/review", label: "Trade Review", icon: ClipboardList, requiresAuth: true },
-      { to: "/trades", label: "Trades", icon: CandlestickChart, requiresAuth: true },
-      { to: "/alerts", label: "Alerts", icon: Bell, requiresAuth: true },
+      { to: "/tracker", labelKey: "tracker", icon: Bookmark, requiresAuth: true },
+      { to: "/review", labelKey: "review", icon: ClipboardList, requiresAuth: true },
+      { to: "/trades", labelKey: "trades", icon: CandlestickChart, requiresAuth: true },
+      { to: "/alerts", labelKey: "alerts", icon: Bell, requiresAuth: true },
     ],
   },
   {
-    label: "Account",
-    items: [{ to: "/settings", label: "Settings", icon: Settings, requiresAuth: true }],
+    groupKey: "account",
+    items: [{ to: "/settings", labelKey: "settings", icon: Settings, requiresAuth: true }],
   },
 ];
 
@@ -87,6 +90,7 @@ export function visibleNavGroups(isAuthed: boolean): NavGroup[] {
 }
 
 export function IqLogo({ className }: { className?: string }) {
+  const { t } = useTranslation();
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
       <img
@@ -95,9 +99,9 @@ export function IqLogo({ className }: { className?: string }) {
         className="h-9 w-9 shrink-0 rounded-lg object-cover"
       />
       <div className="leading-tight min-w-0">
-        <div className="text-base font-semibold tracking-tight">Market Pulse</div>
+        <div className="text-base font-semibold tracking-tight">{t("common.appName")}</div>
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-          Crypto Market Intelligence
+          {t("common.tagline")}
         </div>
       </div>
     </div>
@@ -105,6 +109,7 @@ export function IqLogo({ className }: { className?: string }) {
 }
 
 export function Sidebar() {
+  const { t } = useTranslation();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const collapsed = useUiStore((s) => !s.sidebarOpen);
   const setSidebar = useUiStore((s) => s.setSidebar);
@@ -135,7 +140,7 @@ export function Sidebar() {
         {/* Nav groups */}
         <nav className="flex flex-col gap-3 px-2 mt-1 flex-1 overflow-y-auto overflow-x-hidden">
           {groups.map((group) => (
-            <div key={group.label}>
+            <div key={group.groupKey}>
               <AnimatePresence initial={false}>
                 {!collapsed && (
                   <motion.div
@@ -146,7 +151,7 @@ export function Sidebar() {
                     transition={{ duration: 0.15 }}
                     className="px-3 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60"
                   >
-                    {group.label}
+                    {t(`nav.groups.${group.groupKey}`)}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -182,7 +187,7 @@ export function Sidebar() {
                             exit={{ opacity: 0, width: 0 }}
                             transition={{ duration: 0.15 }}
                           >
-                            {item.label}
+                            {t(`nav.items.${item.labelKey}`)}
                           </motion.span>
                         )}
                       </AnimatePresence>
@@ -194,7 +199,7 @@ export function Sidebar() {
                       <Tooltip key={item.to}>
                         <TooltipTrigger asChild>{link}</TooltipTrigger>
                         <TooltipContent side="right" sideOffset={8}>
-                          {item.label}
+                          {t(`nav.items.${item.labelKey}`)}
                         </TooltipContent>
                       </Tooltip>
                     );
@@ -217,7 +222,7 @@ export function Sidebar() {
               transition={{ duration: 0.15 }}
               className="mx-2 border-t border-sidebar-border pt-4 pb-2 px-2"
             >
-              <div className="eyebrow">Market Time</div>
+              <div className="eyebrow">{t("sidebar.marketTime")}</div>
               <div className="mt-1.5 num text-lg font-semibold tracking-tight">
                 <MarketClock />
               </div>
@@ -241,15 +246,15 @@ export function Sidebar() {
                 <AccountBlock />
               ) : (
                 <div className="rounded-xl border border-sidebar-border bg-surface p-4">
-                  <div className="text-sm font-semibold">Sign in</div>
+                  <div className="text-sm font-semibold">{t("sidebar.signInTitle")}</div>
                   <p className="mt-1.5 text-[11px] text-muted-foreground">
-                    Track trades, keep a watchlist, and get alerts on the tokens you follow.
+                    {t("sidebar.signInBody")}
                   </p>
                   <Link
                     to="/login"
                     className="mt-3 block rounded-md border border-info/30 bg-info/10 py-1.5 text-center text-xs font-medium text-info transition-colors hover:bg-info/20"
                   >
-                    Sign in
+                    {t("common.signIn")}
                   </Link>
                 </div>
               )}
@@ -284,22 +289,21 @@ function MarketClock() {
 }
 
 function AccountBlock() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const initial = (user?.displayName || user?.email || "?").charAt(0).toUpperCase();
   return (
     <>
       <div className="rounded-xl border border-sidebar-border bg-surface p-4">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold">Market Pulse Pro</span>
+          <span className="text-sm font-semibold">{t("sidebar.proTitle")}</span>
           <span className="rounded-md bg-info px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-background">
-            Pro
+            {t("sidebar.proLabel")}
           </span>
         </div>
-        <p className="mt-1.5 text-[11px] text-muted-foreground">
-          Unlock advanced insights, alerts, and more.
-        </p>
+        <p className="mt-1.5 text-[11px] text-muted-foreground">{t("sidebar.proBody")}</p>
         <button className="mt-3 w-full rounded-md border border-info/30 bg-info/10 py-1.5 text-xs font-medium text-info transition-colors hover:bg-info/20">
-          Upgrade Now
+          {t("sidebar.upgradeNow")}
         </button>
       </div>
 
@@ -311,8 +315,10 @@ function AccountBlock() {
           {initial}
         </div>
         <div className="leading-tight min-w-0">
-          <div className="text-xs font-semibold truncate">{user?.displayName ?? "Account"}</div>
-          <div className="text-[10px] text-muted-foreground">Signed in</div>
+          <div className="text-xs font-semibold truncate">
+            {user?.displayName ?? t("common.account")}
+          </div>
+          <div className="text-[10px] text-muted-foreground">{t("common.signedIn")}</div>
         </div>
       </Link>
     </>

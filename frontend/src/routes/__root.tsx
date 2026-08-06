@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { I18nextProvider } from "react-i18next";
 import {
   Outlet,
   createRootRouteWithContext,
@@ -8,6 +9,7 @@ import {
   Link,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -16,6 +18,8 @@ import { TopBar } from "../components/features/top-bar";
 import { BottomNav } from "../components/features/bottom-nav";
 import { FloatingPnlWidget } from "../components/features/floating-pnl-widget";
 import { ThemeSync } from "../components/features/theme-sync";
+import { LocaleSync } from "../components/features/locale-sync";
+import { i18next } from "../lib/i18n";
 import { Toaster } from "../components/ui/sonner";
 import { useLiveUniverseSubscription } from "../hooks/useLiveUniverseSubscription";
 import { useAuth } from "../hooks/useAuth";
@@ -26,21 +30,20 @@ import { usePreferencesSync } from "../hooks/usePreferencesSync";
 import { CapSegmentModal } from "../components/features/cap-segment-modal";
 
 function NotFoundComponent() {
+  const { t } = useTranslation();
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <div className="eyebrow">404</div>
+        <div className="eyebrow">{t("notFound.eyebrow")}</div>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-          Page not found
+          {t("notFound.title")}
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist.
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">{t("notFound.body")}</p>
         <Link
           to="/"
           className="mt-6 inline-flex items-center justify-center rounded-md bg-info px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-info/90"
         >
-          Go home
+          {t("common.goHome")}
         </Link>
       </div>
     </div>
@@ -48,6 +51,7 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+  const { t } = useTranslation();
   console.error(error);
   const router = useRouter();
   useEffect(() => {
@@ -58,11 +62,9 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
+          {t("errorBoundary.title")}
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong. Try refreshing or head back home.
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">{t("errorBoundary.body")}</p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
@@ -71,13 +73,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
             }}
             className="inline-flex items-center justify-center rounded-md bg-info px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-info/90"
           >
-            Try again
+            {t("common.tryAgain")}
           </button>
           <a
             href="/"
             className="inline-flex items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-surface"
           >
-            Go home
+            {t("common.goHome")}
           </a>
         </div>
       </div>
@@ -162,6 +164,7 @@ function RootContent() {
   return (
     <>
       <ThemeSync />
+      <LocaleSync />
       <Toaster position="top-right" />
       <CapSegmentModal />
       <div className="flex h-screen w-full bg-background overflow-hidden">
@@ -187,7 +190,9 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <RootContent />
+      <I18nextProvider i18n={i18next}>
+        <RootContent />
+      </I18nextProvider>
     </QueryClientProvider>
   );
 }

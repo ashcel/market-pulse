@@ -36,7 +36,7 @@ export const Route = createFileRoute("/api/binance-review/trades")({
         const page = url.searchParams.get("page") ?? "1";
         const perPage = url.searchParams.get("per_page") ?? "50";
 
-        const params = new URLSearchParams({ page, per_page: perPage });
+        const params = new URLSearchParams({ page, per_page: perPage, consolidated: "true" });
         if (symbol) params.set("symbol", symbol);
 
         const res = await fetch(

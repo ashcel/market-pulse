@@ -1,4 +1,5 @@
 import { Search, Sun, Moon, Menu, PanelLeftClose, PanelLeftOpen, Sparkles } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useUiStore } from "@/stores/ui";
 import { usePreferencesStore } from "@/stores/preferences";
 import { useSnapshotMeta } from "@/hooks/queries";
@@ -9,9 +10,11 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { IqLogo, visibleNavGroups } from "./sidebar";
 import { SearchCommand } from "./search-command";
 import { NotificationBell } from "./notification-bell";
+import { LocaleSwitcher } from "./locale-sync";
 import { cn } from "@/lib/utils";
 
 export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
+  const { t } = useTranslation();
   const { theme, toggleTheme, sidebarOpen, setSidebar } = useUiStore();
   const marketType = usePreferencesStore((s) => s.marketType);
   const setMarketType = usePreferencesStore((s) => s.setMarketType);
@@ -26,8 +29,8 @@ export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
       <button
         onClick={() => setSidebar(!sidebarOpen)}
         className="hidden h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground lg:flex"
-        aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-        title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+        aria-label={sidebarOpen ? t("topBar.collapseSidebar") : t("topBar.expandSidebar")}
+        title={sidebarOpen ? t("topBar.collapseSidebar") : t("topBar.expandSidebar")}
       >
         {sidebarOpen ? (
           <PanelLeftClose className="h-4 w-4" />
@@ -49,7 +52,7 @@ export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
           className="group flex w-full items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-ring"
         >
           <Search className="h-4 w-4" />
-          <span className="flex-1 text-left">Search assets, news, or metrics...</span>
+          <span className="flex-1 text-left">{t("topBar.searchPlaceholder")}</span>
           <kbd className="rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-mono">
             Shift ⏎
           </kbd>
@@ -60,13 +63,14 @@ export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
 
       <div className="ml-auto flex items-center gap-1">
         <ExchangeClock />
+        <LocaleSwitcher />
         <div className="mr-1 hidden items-center rounded-md border border-border bg-surface p-0.5 text-xs sm:flex">
           {(["spot", "perp"] as const).map((m) => (
             <button
               key={m}
               type="button"
               onClick={() => setMarketType(m)}
-              title={m === "spot" ? "Binance spot" : "Binance USDⓈ-M perpetual futures"}
+              title={m === "spot" ? t("topBar.spotTitle") : t("topBar.perpTitle")}
               className={cn(
                 "h-8 rounded px-2.5 font-semibold transition-colors",
                 marketType === m
@@ -74,14 +78,14 @@ export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {m === "spot" ? "Spot" : "Perp"}
+              {m === "spot" ? t("topBar.spot") : t("topBar.perp")}
             </button>
           ))}
         </div>
         <button
           onClick={() => setSearchOpen(true)}
           className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground lg:hidden"
-          aria-label="Search"
+          aria-label={t("topBar.search")}
         >
           <Search className="h-4 w-4" />
         </button>
@@ -89,7 +93,7 @@ export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
         <button
           onClick={toggleTheme}
           className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
-          aria-label="Toggle theme"
+          aria-label={t("topBar.toggleTheme")}
         >
           {mounted && theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </button>
@@ -97,7 +101,7 @@ export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
           <button
             onClick={onToggleAskAi}
             className="flex h-9 w-9 items-center justify-center rounded-lg text-info transition-colors hover:bg-surface"
-            aria-label="Toggle AI"
+            aria-label={t("topBar.toggleAi")}
           >
             <Sparkles className="h-4 w-4" />
           </button>
@@ -105,7 +109,7 @@ export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
         {isPending ? null : isAuthed ? (
           <Link
             to="/settings"
-            aria-label="Account"
+            aria-label={t("topBar.account")}
             className="ml-1 h-8 w-8 rounded-full bg-gradient-to-br from-info to-primary"
           />
         ) : (
@@ -113,7 +117,7 @@ export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
             to="/login"
             className="ml-1 rounded-lg border border-info/30 bg-info/10 px-3 py-1.5 text-xs font-semibold text-info transition-colors hover:bg-info/20"
           >
-            Sign in
+            {t("common.signIn")}
           </Link>
         )}
       </div>
@@ -127,6 +131,7 @@ export function TopBar({ onToggleAskAi }: { onToggleAskAi?: () => void }) {
  * app fell back to the deterministic demo build.
  */
 function ExchangeClock() {
+  const { t } = useTranslation();
   const meta = useSnapshotMeta();
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -139,14 +144,15 @@ function ExchangeClock() {
   const sign = offsetMinutes >= 0 ? "+" : "-";
   const abs = Math.abs(offsetMinutes);
   const offset = `UTC${sign}${Math.floor(abs / 60)}${abs % 60 ? `:${String(abs % 60).padStart(2, "0")}` : ""}`;
+  const updatedTime = meta.data ? new Date(meta.data.updatedAt).toLocaleTimeString() : "";
 
   return (
     <div
       className="mr-2 hidden items-center gap-2 text-xs md:flex"
       title={
         meta.data
-          ? `Snapshot ${live ? "live from Binance" : "using the offline demo build"} · updated ${new Date(meta.data.updatedAt).toLocaleTimeString()}`
-          : "Waiting for the first snapshot"
+          ? t(live ? "topBar.snapshotTitleLive" : "topBar.snapshotTitleDemo", { time: updatedTime })
+          : t("topBar.snapshotTitleWaiting")
       }
     >
       <span
@@ -155,7 +161,7 @@ function ExchangeClock() {
           !meta.data ? "bg-muted-foreground" : live ? "bg-bullish" : "bg-warning",
         )}
       />
-      <span className="font-medium text-foreground">{live ? "Binance" : "Demo"}</span>
+      <span className="font-medium text-foreground">{live ? "Binance" : t("topBar.demo")}</span>
       <span className="num text-muted-foreground">
         {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })} {offset}
       </span>
@@ -164,6 +170,7 @@ function ExchangeClock() {
 }
 
 function MobileNav() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const { isAuthed } = useAuth();
@@ -173,19 +180,19 @@ function MobileNav() {
       <SheetTrigger asChild>
         <button
           className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-surface hover:text-foreground lg:hidden"
-          aria-label="Menu"
+          aria-label={t("topBar.menu")}
         >
           <Menu className="h-4 w-4" />
         </button>
       </SheetTrigger>
       <SheetContent side="left" className="w-72 bg-sidebar p-5">
-        <SheetTitle className="sr-only">Navigation</SheetTitle>
+        <SheetTitle className="sr-only">{t("topBar.navigation")}</SheetTitle>
         <IqLogo />
         <nav className="mt-8 flex flex-col gap-4">
           {groups.map((group) => (
-            <div key={group.label}>
+            <div key={group.groupKey}>
               <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-                {group.label}
+                {t(`nav.groups.${group.groupKey}`)}
               </div>
               <div className="flex flex-col gap-0.5">
                 {group.items.map((item) => {
@@ -202,7 +209,7 @@ function MobileNav() {
                       )}
                     >
                       <item.icon className="h-4 w-4" />
-                      {item.label}
+                      {t(`nav.items.${item.labelKey}`)}
                     </Link>
                   );
                 })}

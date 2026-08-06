@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { Sector } from "@/lib/types";
 import { CardEyebrow, IqCard } from "./iq-card";
@@ -15,6 +16,7 @@ function toneClass(change: number) {
 }
 
 export function Heatmap({ sectors, className }: { sectors: Sector[]; className?: string }) {
+  const { t } = useTranslation();
   const groups = sectors.reduce<string[]>(
     (acc, s) => (acc.includes(s.group) ? acc : [...acc, s.group]),
     [],
@@ -59,14 +61,14 @@ export function Heatmap({ sectors, className }: { sectors: Sector[]; className?:
       </div>
       <div className="flex items-center justify-between text-[10px] text-muted-foreground">
         <div className="flex items-center gap-2">
-          <span>Capital Inflow</span>
+          <span>{t("components.batchB.heatmap.capitalInflow")}</span>
           <span className="h-1 w-24 rounded-full bg-gradient-to-r from-bullish/20 to-bullish" />
-          <span className="text-bullish">Strong</span>
+          <span className="text-bullish">{t("components.batchB.heatmap.strong")}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-bearish">Strong</span>
+          <span className="text-bearish">{t("components.batchB.heatmap.strong")}</span>
           <span className="h-1 w-24 rounded-full bg-gradient-to-r from-bearish to-bearish/20" />
-          <span>Capital Outflow</span>
+          <span>{t("components.batchB.heatmap.capitalOutflow")}</span>
         </div>
       </div>
     </IqCard>

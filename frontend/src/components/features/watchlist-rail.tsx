@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Plus, Star } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { AssetIcon } from "./asset-icon";
 import { Change } from "./change";
@@ -18,6 +19,7 @@ import { useWatchlistStore } from "@/stores/watchlist";
  * prompting about.
  */
 export function WatchlistRail({ limit = 6 }: { limit?: number }) {
+  const { t } = useTranslation();
   const { isAuthed, isPending } = useAuth();
   const tickers = useWatchlistStore((s) => s.tickers);
   const { data: assets } = useAssets();
@@ -34,17 +36,16 @@ export function WatchlistRail({ limit = 6 }: { limit?: number }) {
   if (!isAuthed) {
     return (
       <IqCard padded={false} className="flex flex-col p-5">
-        <CardEyebrow>Watchlist</CardEyebrow>
+        <CardEyebrow>{t("components.batchC.watchlist.title")}</CardEyebrow>
         <p className="mt-2 text-xs text-muted-foreground">
-          Sign in to track tokens, get their unlocks and listings on this dashboard, and receive
-          alerts when something happens to them.
+          {t("components.batchC.watchlist.signInBody")}
         </p>
         <Link
           to="/login"
           className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-info/30 bg-info/10 py-2 text-xs font-semibold text-info transition-colors hover:bg-info/20"
         >
           <Star className="h-3.5 w-3.5" />
-          Sign in to build a watchlist
+          {t("components.batchC.watchlist.signInCta")}
         </Link>
       </IqCard>
     );
@@ -53,10 +54,10 @@ export function WatchlistRail({ limit = 6 }: { limit?: number }) {
   return (
     <IqCard padded={false} className="flex flex-col p-5">
       <div className="flex items-center justify-between">
-        <CardEyebrow>Watchlist</CardEyebrow>
+        <CardEyebrow>{t("components.batchC.watchlist.title")}</CardEyebrow>
         {tickers.length > 0 && (
           <Link to="/watchlist" className="text-xs font-medium text-info hover:underline">
-            View all
+            {t("components.batchC.watchlist.viewAll")}
           </Link>
         )}
       </div>
@@ -64,8 +65,7 @@ export function WatchlistRail({ limit = 6 }: { limit?: number }) {
       {tickers.length === 0 ? (
         <>
           <p className="mt-2 text-xs text-muted-foreground">
-            Track your favourite assets — watched tokens drive your event alerts and the catalyst
-            rail.
+            {t("components.batchC.watchlist.emptyBody")}
           </p>
           <button
             type="button"
@@ -73,7 +73,7 @@ export function WatchlistRail({ limit = 6 }: { limit?: number }) {
             className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-info/30 bg-info/10 py-2 text-xs font-semibold text-info transition-colors hover:bg-info/20"
           >
             <Plus className="h-3.5 w-3.5" />
-            Add your first token
+            {t("components.batchC.watchlist.addFirst")}
           </button>
         </>
       ) : (
@@ -94,7 +94,9 @@ export function WatchlistRail({ limit = 6 }: { limit?: number }) {
                       <Change value={asset.change24h} />
                     </span>
                   ) : (
-                    <span className="text-[11px] text-muted-foreground">not tracked</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {t("components.batchC.watchlist.notTracked")}
+                    </span>
                   )}
                 </Link>
               </li>
@@ -106,7 +108,7 @@ export function WatchlistRail({ limit = 6 }: { limit?: number }) {
             className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-border py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             <Star className="h-3 w-3" />
-            Add token
+            {t("components.batchC.watchlist.addToken")}
           </button>
         </>
       )}

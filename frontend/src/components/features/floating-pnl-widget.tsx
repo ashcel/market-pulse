@@ -1,10 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import { TrendingUp } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useOpenTradesPnl } from "@/hooks/useOpenTradesPnl";
 import { formatMoney } from "@/lib/utils/format";
 import { cn } from "@/lib/utils";
 
 export function FloatingPnlWidget() {
+  const { t } = useTranslation();
   const { count, totalUnrealized, authenticated, isLoading } = useOpenTradesPnl();
 
   // Only render when authenticated and have open trades
@@ -50,7 +52,7 @@ export function FloatingPnlWidget() {
       {/* Count and PnL display */}
       <div className="flex items-center gap-1.5">
         <span className="text-muted-foreground text-xs">
-          {count === 1 ? "1 open" : `${count} open`}
+          {t("components.batchB.floatingPnl.openCount", { count })}
         </span>
         <div className="h-1 w-1 rounded-full bg-border/50" />
         <span className={cn(isProfit ? "text-bullish" : "text-bearish", "font-semibold")}>

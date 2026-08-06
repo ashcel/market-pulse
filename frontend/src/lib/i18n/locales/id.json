@@ -1,0 +1,1517 @@
+{
+  "common": {
+    "appName": "Market Pulse",
+    "tagline": "Intelijen Pasar Kripto",
+    "signIn": "Masuk",
+    "signedIn": "Sudah masuk",
+    "account": "Akun",
+    "settings": "Pengaturan",
+    "goHome": "Ke beranda",
+    "tryAgain": "Coba lagi"
+  },
+  "nav": {
+    "groups": {
+      "overview": "Ringkasan",
+      "analysis": "Analisis",
+      "trading": "Trading",
+      "account": "Akun"
+    },
+    "items": {
+      "dashboard": "Dasbor",
+      "markets": "Pasar",
+      "discover": "Jelajahi",
+      "news": "Berita",
+      "events": "Acara",
+      "watchlist": "Pantauan",
+      "regime": "Rezim",
+      "rotation": "Rotasi",
+      "rankings": "Peringkat",
+      "technical": "Teknikal",
+      "tracker": "Pelacak",
+      "review": "Ulasan Trade",
+      "trades": "Transaksi",
+      "alerts": "Notifikasi",
+      "settings": "Pengaturan",
+      "signIn": "Masuk"
+    }
+  },
+  "sidebar": {
+    "marketTime": "Waktu Pasar",
+    "signInTitle": "Masuk",
+    "signInBody": "Lacak transaksi, simpan daftar pantauan, dan dapatkan notifikasi token yang kamu ikuti.",
+    "proLabel": "Pro",
+    "proTitle": "Market Pulse Pro",
+    "proBody": "Buka wawasan lanjutan, notifikasi, dan lainnya.",
+    "upgradeNow": "Upgrade Sekarang"
+  },
+  "topBar": {
+    "collapseSidebar": "Ciutkan sidebar",
+    "expandSidebar": "Perluas sidebar",
+    "search": "Cari",
+    "searchPlaceholder": "Cari aset, berita, atau metrik...",
+    "menu": "Menu",
+    "navigation": "Navigasi",
+    "spot": "Spot",
+    "perp": "Perp",
+    "spotTitle": "Binance spot",
+    "perpTitle": "Binance USDⓈ-M futures perpetual",
+    "toggleTheme": "Ganti tema",
+    "toggleAi": "Ganti AI",
+    "account": "Akun",
+    "language": "Bahasa",
+    "demo": "Demo",
+    "live": "Live",
+    "snapshotTitleLive": "Snapshot live dari Binance · diperbarui {{time}}",
+    "snapshotTitleDemo": "Snapshot pakai build demo offline · diperbarui {{time}}",
+    "snapshotTitleWaiting": "Menunggu snapshot pertama"
+  },
+  "notFound": {
+    "eyebrow": "404",
+    "title": "Halaman tidak ditemukan",
+    "body": "Halaman yang kamu cari tidak ada."
+  },
+  "errorBoundary": {
+    "title": "Halaman ini gagal dimuat",
+    "body": "Terjadi kesalahan. Coba muat ulang atau kembali ke beranda."
+  },
+  "attention": {
+    "title": "Yang layak diperhatikan hari ini",
+    "subtitle": "Peluang pilihan dan peristiwa penggerak pasar.",
+    "filters": {
+      "all": "Semua",
+      "setups": "Setup",
+      "spikeVol": "Lonjakan Vol",
+      "liquidity": "Likuiditas",
+      "news": "Berita",
+      "unlocks": "Unlock"
+    },
+    "emptyTitle": "Tidak ada yang perlu diperhatikan.",
+    "emptyBody": "Tidak ada setup aktif, lonjakan, atau peristiwa berdampak tinggi saat ini. Menunggu juga posisi.",
+    "scrollForMore": "Geser untuk lihat lagi",
+    "market": "Pasar"
+  },
+  "metrics": {
+    "marketCap": "Kapitalisasi Pasar",
+    "volume24h": "Volume 24 Jam",
+    "volumeTooltip": "Total perputaran USDT di semua pasangan USDT Binance — volume exchange, bukan volume kripto global.",
+    "btcDominance": "Dominasi BTC",
+    "fearGreed": "Fear & Greed",
+    "fearGreedTooltip": "API Fear & Greed tidak terjangkau — estimasi internal dari breadth/momentum.",
+    "altStrength": "Kekuatan Alt",
+    "altStrengthTooltip": "Persentase tier USDT likuid Binance yang mengungguli BTC dalam 24 jam terakhir. Bukan Altcoin Season Index 90 hari.",
+    "global": "Global · {{source}}",
+    "breadthUnavailable": "Data breadth tidak tersedia",
+    "binanceUsdtPairs": "Binance USDT · {{pairs}} pasangan",
+    "exchangeUnavailable": "Scan exchange tidak tersedia",
+    "ethDominance": "ETH {{value}}%",
+    "estimatedSuffix": " · estimasi",
+    "sentimentUnavailable": "Sentimen tidak tersedia",
+    "pairsBeatingBtc": "{{count}} pasangan ungguli BTC (24 jam)",
+    "rsUnavailable": "Scan RS tidak tersedia",
+    "fear": "Takut",
+    "greed": "Rakus"
+  },
+  "macro": {
+    "eyebrow": "Konteks Makro",
+    "tradingWithTech": "Bergerak searah saham tech",
+    "decoupled": "Terpisah dari tech",
+    "movingAgainstTech": "Bergerak berlawanan dari tech"
+  },
+  "outlook": {
+    "askAi": "Tanya AI",
+    "askAiTooltip": "AI bisa salah — verifikasi dulu apa pun yang dikatakan sebelum ditindaklanjuti.",
+    "riskOn": "Risk On",
+    "riskOff": "Risk Off",
+    "neutral": "Netral",
+    "marketOutlook": "Outlook Pasar",
+    "actionRiskOn": "Kondisi mendukung — jalankan rencana kamu, ukuran normal.",
+    "actionNeutral": "Kondisi campuran. Pilih-pilih, kurangi ukuran, dan lewati setup keyakinan rendah.",
+    "actionRiskOff": "Kondisi buruk — tunggu di pinggir atau scalp saja, risiko ketat.",
+    "confidence": "Keyakinan",
+    "confidenceTooltip": "Campuran berbasis aturan dari pilar rezim, bukan probabilitas terkalibrasi.",
+    "marketBrief": "Ringkasan Pasar",
+    "ruleBased": "Berbasis aturan",
+    "ruleBasedTooltip": "Pernyataan ulang deterministik dari snapshot — bukan ringkasan LLM.",
+    "howToTradeIt": "Cara menyikapinya:"
+  },
+  "home": {
+    "greetingMorning": "Selamat Pagi",
+    "greetingAfternoon": "Selamat Siang",
+    "greetingEvening": "Selamat Malam",
+    "subtitle": "Ini briefing pasar kamu hari ini.",
+    "statusLive": "Live · Binance",
+    "statusDemo": "Data demo",
+    "marketContext": "Konteks Pasar",
+    "heuristicNote": "Skor checklist heuristik, bukan probabilitas edge yang terbukti.",
+    "tabEdge": "Edge Hari Ini",
+    "tabMarketInternals": "Internal Pasar",
+    "marketOverview": "Ringkasan Pasar · Paling Aktif",
+    "last48h": "48 jam terakhir · bar 1 jam",
+    "topAssets": "Aset Teratas",
+    "tableRank": "#",
+    "tableAsset": "Aset",
+    "tablePrice": "Harga",
+    "table24h": "24J",
+    "tableScore": "Skor",
+    "tableTrend": "Tren",
+    "viewAllRankings": "Lihat Semua Peringkat",
+    "capitalFlowHeatmap": "Heatmap Arus Modal",
+    "yourTrades": "Transaksi Kamu",
+    "openCount": "{{count}} terbuka",
+    "unrealized": "belum terealisasi",
+    "openTrades": "Lihat transaksi terbuka",
+    "overtradeWatch": "{{count}} transaksi dalam 2 jam terakhir — waspada overtrade",
+    "tour": {
+      "outlook": {
+        "title": "Vonis hari ini",
+        "body": "Panggilan rezim dan artinya untuk ukuran posisi kamu, di samping ringkasan berbasis aturan yang menjabarkan snapshot dalam kalimat. Menjawab 'harus trading hari ini atau tidak?' sebelum kamu scroll."
+      },
+      "globals": {
+        "title": "Kondisi global",
+        "body": "Total kapitalisasi pasar dan dominasi BTC dari data breadth, perputaran USDT Binance, indeks Fear & Greed, dan porsi alt likuid yang mengungguli BTC dalam 24 jam."
+      },
+      "attention": {
+        "title": "Yang perlu diperhatikan",
+        "body": "Satu feed berperingkat lintas setup engine, lonjakan volatilitas, scan likuiditas, berita penggerak pasar, dan unlock token. Filter berdasarkan tipe. Setup satu-satunya kartu dengan arah — sisanya konteks."
+      },
+      "context": {
+        "title": "Konteks pasar",
+        "body": "Rezim, rotasi, sentimen, breadth, dan volatilitas sekilas. Ketuk kartu mana pun untuk halaman lengkap di balik angkanya."
+      },
+      "rail": {
+        "title": "Kalender, berita, pantauan",
+        "body": "Apa yang akan datang (rilis makro dan peristiwa token berjadwal), headline terbaru, dan daftar pantauan kamu — yang juga jadi cakupan notifikasi peristiwa kamu."
+      }
+    }
+  },
+  "status": {
+    "bullish": "bullish",
+    "bearish": "bearish",
+    "neutral": "netral",
+    "warning": "waspada"
+  },
+  "routes": {
+    "discover": {
+      "eyebrow": "Ringkasan",
+      "title": "Jelajahi",
+      "subtitle": "Scan seluruh exchange — daftar penjelajahan, bukan sinyal trade. Buka token untuk vonis engine.",
+      "pairsPassed": "{{ranked}} dari {{seen}} pasangan USDT lolos gerbang likuiditas",
+      "sourceLive": "Binance live",
+      "sourceDemo": "build demo offline",
+      "sourceUpdated": "Sumber: {{source}} · diperbarui {{time}}",
+      "worthScanning": "Layak Discan"
+    },
+    "settings": {
+      "eyebrow": "Pengaturan",
+      "title": "Pengaturan",
+      "subtitle": "Preferensi, daftar pantauan, dan notifikasi.",
+      "theme": "Tema",
+      "dark": "Gelap",
+      "light": "Terang",
+      "watchlist": "Daftar Pantauan",
+      "assetsCount": "{{count}} aset",
+      "removeAria": "Hapus {{ticker}}",
+      "addFavoritesFromRankings": "Tambah favorit dari halaman Peringkat.",
+      "notifications": "Notifikasi",
+      "notifTriggerAlert": "Trigger vonis kena (level vonis yang ditahan pecah)",
+      "notifRegime": "Notifikasi perubahan rezim",
+      "notifRotation": "Pergeseran rotasi modal",
+      "notifHighQualitySetup": "Setup berkualitas tinggi ditemukan",
+      "notifSpikeAlert": "Notifikasi lonjakan & penolakan (seluruh pasar)",
+      "notifHighImpactNews": "Berita berdampak tinggi",
+      "refreshInterval": "Interval Refresh",
+      "apiStatus": "Status API",
+      "allSystemsOperational": "Semua sistem berjalan normal",
+      "online": "Online",
+      "browserNotifEnabled": "Aktif",
+      "browserNotifEnabledHint": "Browser ini akan menampilkan notifikasi OS.",
+      "browserNotifBlocked": "Diblokir",
+      "browserNotifBlockedHint": "Aktifkan lagi notifikasi untuk situs ini di pengaturan browser kamu.",
+      "browserNotifUnsupported": "Tidak Didukung",
+      "browserNotifUnsupportedHint": "Browser ini tidak mendukung notifikasi.",
+      "browserNotifNotEnabled": "Belum Aktif",
+      "browserNotifNotEnabledHint": "Izinkan notifikasi untuk dapat notifikasi meski tab ini tidak fokus.",
+      "browserNotifications": "Notifikasi browser",
+      "enable": "Aktifkan",
+      "stopSwing": "Swing",
+      "stopSwingHint": "Di bawah low/high struktural terakhir",
+      "stopAtr": "ATR",
+      "stopAtrHint": "Jarak berskala volatilitas",
+      "stopFixedPercent": "Persen Tetap",
+      "stopFixedPercentHint": "Persentase datar dari entry",
+      "newPasswordMinLength": "Kata sandi baru minimal 8 karakter.",
+      "newPasswordsDontMatch": "Kata sandi baru tidak cocok.",
+      "passwordChanged": "Kata sandi berhasil diubah.",
+      "signInFirstChangePassword": "Masuk dulu, baru ubah kata sandi di sini.",
+      "couldNotChangePassword": "Tidak bisa mengubah kata sandi.",
+      "networkError": "Kesalahan jaringan.",
+      "account": "Akun",
+      "changePasswordNote": "Ubah kata sandi yang kamu pakai untuk masuk. Sesi di perangkat lain tetap masuk.",
+      "currentPassword": "Kata sandi saat ini",
+      "newPasswordPlaceholder": "Kata sandi baru (min 8 karakter)",
+      "confirmNewPassword": "Konfirmasi kata sandi baru",
+      "changing": "Mengubah…",
+      "changePassword": "Ubah kata sandi",
+      "bigCaps": "Big cap",
+      "bigCapsHint": "BTC / ETH / mayor",
+      "smallCaps": "Small cap",
+      "smallCapsHint": "Volatilitas lebih tinggi",
+      "tradingFocus": "Fokus Trading",
+      "tradingFocusNote": "Apa yang utamanya kamu trading, big cap atau small cap. Mengubah ini menerapkan ulang default risiko yang cocok di bawah (risiko maks per transaksi, reward/risk minimum, leverage) — kamu masih bisa mengatur ulang sendiri setelahnya.",
+      "riskDefaultsUpdated": "Default risiko diperbarui sesuai — lihat Risiko Transaksi di bawah.",
+      "notSetYet": "Belum diatur — pilih satu untuk menerapkan default risiko.",
+      "tradeRisk": "Risiko Transaksi",
+      "sizesEveryTradePlan": "Mengukur setiap rencana transaksi",
+      "accountSize": "Ukuran akun",
+      "orExactBalance": "Atau saldo pasti",
+      "customBalanceAria": "Saldo akun kustom dalam dolar",
+      "maxRiskPerTrade": "Risiko maks per transaksi",
+      "minimumRewardRisk": "Reward/risk minimum",
+      "stopPlacement": "Penempatan stop",
+      "riskSummaryPrefix": "Dengan pengaturan ini, setiap rencana berisiko paling banyak",
+      "riskSummaryMid": "per transaksi dan hanya setup yang menawarkan",
+      "riskSummarySuffix": "yang lolos cek reward/risk.",
+      "aiAnalyst": "Analis AI",
+      "connected": "Tersambung",
+      "notConfigured": "Belum diatur",
+      "aiAnalystNote": "Bawa kunci kamu sendiri untuk menghidupkan analis AI di halaman token. Kunci kamu hanya tersimpan di browser ini dan dikirim langsung ke provider — tidak pernah ke server kami. Tanpa kunci, analis beralih ke memo deterministik.",
+      "provider": "Provider",
+      "apiKey": "Kunci API",
+      "getAKey": "Ambil kunci · {{label}}",
+      "hideKey": "Sembunyikan kunci",
+      "showKey": "Tampilkan kunci",
+      "baseUrl": "Base URL",
+      "customBaseUrlAria": "Base URL kustom",
+      "model": "Model",
+      "modelNameAria": "Nama model",
+      "pickPresetOrType": "Pilih preset atau ketik model apa pun yang didukung provider.",
+      "binanceConnection": "Koneksi Binance",
+      "checking": "Memeriksa…",
+      "notConnected": "Belum tersambung",
+      "binanceConnectionNote": "Menghidupkan Ulasan Trade: sambungkan kunci API Binance agar server bisa menarik riwayat transaksi futures USDT-M kamu. Beda dari kunci AI di atas, kunci ini tersimpan di server (terenkripsi saat disimpan) dan dipakai backend kami untuk sinkron dengan Binance atas nama kamu — ini bukan kredensial bring-your-own-key dan tidak pernah keluar dari server kami. Buat kunci read-only (tanpa izin trading/withdrawal) di API Management Binance.",
+      "lastSynced": "Terakhir sinkron {{date}}.",
+      "binanceApiKeyLabel": "Kunci API",
+      "binanceApiKeyPlaceholder": "Kunci API Binance",
+      "binanceApiSecretLabel": "Secret API",
+      "binanceApiSecretPlaceholder": "Secret API Binance",
+      "hideSecret": "Sembunyikan secret",
+      "showSecret": "Tampilkan secret",
+      "connecting": "Menyambungkan…",
+      "updateAndReconnect": "Perbarui & sambung ulang",
+      "saveAndConnect": "Simpan & sambungkan",
+      "disconnect": "Putuskan",
+      "enterKeyAndSecret": "Masukkan kunci API dan secret.",
+      "connectedSyncHint": "Tersambung. Buka Ulasan Trade untuk sinkron riwayat kamu."
+    },
+    "review": {
+      "eyebrow": "Ulasan Trade",
+      "title": "Ulasan Trade",
+      "subtitle": "Sinkron riwayat Binance kamu, lihat di mana edge kamu sebenarnya, dan dapatkan ulasan AI per-transaksi yang jujur — dibuat di browser kamu dengan kunci AI kamu sendiri.",
+      "filterAll": "Semua",
+      "filterLong": "Long",
+      "filterShort": "Short",
+      "loadingTrades": "Memuat transaksi…",
+      "noTradesSynced": "Belum ada transaksi tersinkron — sambungkan Binance di atas dan klik Sync now.",
+      "noSideTrades": "Tidak ada transaksi {{side}}.",
+      "signInPrompt1": "Ulasan Trade tersimpan di server — masuk untuk sambungkan Binance dan ulas transaksi kamu.",
+      "signInPrompt2": "untuk memulai.",
+      "binanceSync": "Sinkron Binance",
+      "checking": "Memeriksa…",
+      "connected": "Tersambung",
+      "notConnected": "Belum tersambung",
+      "lastSynced": "Terakhir sinkron {{date}}",
+      "neverSynced": "Belum pernah sinkron",
+      "syncing": "Menyinkron…",
+      "syncNow": "Sync sekarang",
+      "connectBinanceInSettings": "Sambungkan Binance di Pengaturan",
+      "liveExecutions": "Eksekusi Live · Binance testnet",
+      "liveExecutionsNote": "Catatan penempatan order dari eksekusi terkonfirmasi — belum transaksi yang PnL-nya selesai.",
+      "loadingExecutions": "Memuat eksekusi…",
+      "filledOf": "{{filled}}/{{total}} terisi",
+      "trackRecord": "Rekam Jejak — Forward Return",
+      "trackRecordNote": "Ground truth diukur dari bar 1H yang sudah tertutup; dihitung ulang tiap jam.",
+      "colHorizon": "Horizon",
+      "colN": "n",
+      "colAvg": "Rata-rata",
+      "colMedian": "Median",
+      "colWinPct": "Win%",
+      "colBest": "Terbaik",
+      "colWorst": "Terburuk",
+      "insufficient": "kurang data",
+      "loadingAnalytics": "Memuat analitik…",
+      "syncToSeeAnalytics": "Sinkron transaksi untuk lihat RR, transaksi terbaik/terburuk, dan edge berdasarkan waktu.",
+      "rr": "RR",
+      "bestTrade": "Transaksi terbaik",
+      "worstTrade": "Transaksi terburuk",
+      "noData": "Tidak ada data",
+      "bestHour": "Jam terbaik",
+      "worstHour": "Jam terburuk",
+      "notEnoughData": "Data belum cukup",
+      "winRateN": "{{pct}} win rate · n={{n}}",
+      "sessionStrongest": "Sesi {{session}} terkuat",
+      "sessionAsia": "Asia",
+      "sessionLondon": "London",
+      "sessionNewYork": "New York",
+      "styleVerdict": "Vonis gaya",
+      "inconclusive": "Belum jelas",
+      "confident": "Yakin",
+      "lowConfidence": "Keyakinan rendah",
+      "styleBreakdown": "Rincian gaya",
+      "colStyle": "Gaya",
+      "colTrades": "Transaksi",
+      "colWinRate": "Win rate",
+      "colExpectancy": "Expectancy",
+      "recommended": "Rekomendasi",
+      "closed": "Ditutup {{date}}",
+      "recently": "baru saja",
+      "entry": "Masuk",
+      "exit": "Keluar",
+      "qty": "Jumlah",
+      "closeTrigger": "Trigger tutup",
+      "checkingExistingReview": "Memeriksa ulasan yang sudah ada…",
+      "generating": "Membuat…",
+      "regenerateAiReview": "Buat ulang ulasan AI",
+      "generateAiReview": "Buat ulasan AI",
+      "configureAiProviderPrefix": "Atur provider AI di",
+      "configureAiProviderSuffix": "dulu.",
+      "suggestion": "Saran",
+      "closingQuestion": "Pertanyaan penutup",
+      "coachingNote": "Catatan coaching",
+      "chartAnnotations": "Anotasi chart"
+    },
+    "tracker": {
+      "eyebrow": "Forward Test",
+      "title": "Pelacak Sinyal",
+      "subtitle": "Setiap panggilan favorit yang dikeluarkan engine dilacak di sini otomatis — follow satu dari Rencana Eksekusi token untuk forward-test entry kamu sendiri di sampingnya.",
+      "filterAll": "Semua",
+      "filterOpen": "Terbuka",
+      "filterClosed": "Ditutup",
+      "pagerPrev": "Sebelumnya",
+      "pagerNext": "Berikutnya",
+      "pagerPage": "Halaman {{page}} dari {{total}}",
+      "autoTrackedEyebrow": "Sinyal yang Dilacak Engine",
+      "autoTrackedNote": "Terlacak otomatis — dicatat saat engine memfavoritkan panggilan dan diselesaikan terhadap candle nyata. Tidak perlu follow.",
+      "noFavoredVerdicts": "Belum ada vonis favorit tercatat. Buka beberapa token dan engine mulai membangun daftar ini otomatis saat vonis muncul.",
+      "noSignalsMatchFilter": "Tidak ada sinyal yang cocok dengan filter ini.",
+      "followedEyebrow": "Sinyal yang Kamu Follow",
+      "statFollowed": "Di-follow",
+      "statOpen": "Terbuka",
+      "statWinRate": "Win rate",
+      "statAvgRClosed": "Avg R (ditutup)",
+      "lowSampleNote_one": "Baru {{count}} transaksi ditutup — masih terlalu sedikit untuk dipercaya sebagai win rate atau rata-rata R yang valid.",
+      "lowSampleNote_other": "Baru {{count}} transaksi ditutup — masih terlalu sedikit untuk dipercaya sebagai win rate atau rata-rata R yang valid.",
+      "followsServerNote": "Follow kini tersimpan di record server kamu — mereka diselesaikan terhadap candle nyata bahkan saat semua browser tertutup.",
+      "signInToFollowSuffix": "untuk follow entry kamu sendiri di samping panggilan auto-track engine di atas.",
+      "noFollowsYet": "Kamu belum follow sinyal apa pun — panggilan terlacak engine sendiri ada di atas; follow satu dari Rencana Eksekusi token untuk forward-test entry kamu sendiri juga.",
+      "autoTrackMetricsEyebrow": "Metrik Auto-Track Engine",
+      "statOpenedTrades": "Transaksi dibuka",
+      "statClosedTrades": "Transaksi ditutup",
+      "statTotalTrades": "Total transaksi",
+      "statCurrentRR": "RR Saat Ini",
+      "statBestTrade": "Transaksi terbaik",
+      "computedNote": "Dihitung dari setiap panggilan yang di-auto-track engine (bukan follow kamu sendiri). Current RR adalah rata-rata R terealisasi di sinyal auto-tracked yang ditutup.",
+      "currentBestEdgeVerdict": "Vonis edge terbaik saat ini",
+      "generating": "Membuat…",
+      "regenerate": "Buat Ulang",
+      "generateVerdict": "Buat Vonis",
+      "addAiKeyPrefix": "Tambah kunci AI di",
+      "addAiKeySuffix": "untuk buat vonis edge on-demand.",
+      "tapGenerateVerdict": "Ketuk \"Buat Vonis\" untuk pembacaan AI atas edge kamu saat ini, berdasarkan metrik di atas.",
+      "verdictGenerationFailed": "Pembuatan vonis gagal.",
+      "liveRecordEyebrow": "Record Live Engine",
+      "liveRecordNotePrefix": "Setiap kali asisten mengeluarkan vonis",
+      "liveRecordNoteFavored": "favorit",
+      "liveRecordNoteSuffix": "otomatis tercatat di sini dan diselesaikan terhadap high/low candle nyata — tidak ada yang dipilih-pilih, tidak perlu follow. Kombo dengan rekam jejak kalah terbukti didemosikan ke setengah ukuran di halaman token.",
+      "noFavoredVerdictsOwnRecord": "Belum ada vonis favorit tercatat. Buka beberapa token dan engine mulai membangun rekam jejaknya sendiri otomatis saat vonis muncul.",
+      "statCallsMade": "Panggilan dibuat",
+      "statStillOpen": "Masih terbuka",
+      "statAvgRSettled": "Avg R (selesai)",
+      "lowSampleSettledNote_one": "Baru {{count}} panggilan selesai — engine butuh {{minTrades}} per kombo setup/rezim sebelum mempercayai record cukup untuk mendemosikan vonis.",
+      "lowSampleSettledNote_other": "Baru {{count}} panggilan selesai — engine butuh {{minTrades}} per kombo setup/rezim sebelum mempercayai record cukup untuk mendemosikan vonis.",
+      "bySetupRegime": "Berdasarkan setup × rezim",
+      "colSetup": "Setup",
+      "colRegime": "Rezim",
+      "colSettled": "Selesai",
+      "colWin": "Win",
+      "colAvgR": "Avg R",
+      "demoted": "didemosikan",
+      "recorded": "Dicatat {{date}}",
+      "followedAt": "Di-follow {{date}}",
+      "settlingSuffix": " · menyelesaikan",
+      "entry": "Masuk",
+      "stop": "Stop",
+      "target1": "Target 1",
+      "target2": "Target 2",
+      "closedAt": "Ditutup di",
+      "current": "Saat Ini",
+      "result": "Hasil",
+      "unrealized": "Belum Terealisasi",
+      "idealZoneWas": "Zona ideal dulunya",
+      "removeFromTracker": "Hapus {{symbol}} dari pelacak",
+      "statusActive": "Aktif",
+      "statusTarget1Hit": "Target 1 kena",
+      "statusTarget2Hit": "Target 2 kena",
+      "statusStoppedOut": "Kena stop",
+      "statusExpired": "Kedaluwarsa"
+    },
+    "trades": {
+      "eyebrow": "Posisi Live & Jurnal",
+      "title": "Transaksi",
+      "subtitle": "Posisi berjalan diperbarui real-time dari data pasar live. Transaksi tertutup dijurnal di bawah untuk ditinjau.",
+      "signInPrompt1": "Jurnal transaksi kamu tersimpan di server — masuk untuk mulai mencatat transaksi.",
+      "signInPrompt2": "untuk akses posisi dan jurnal transaksi kamu.",
+      "newTradeTitle": "Transaksi Baru",
+      "symbol": "Simbol",
+      "direction": "Arah",
+      "long": "Long ↑",
+      "short": "Short ↓",
+      "entryPrice": "Harga Masuk",
+      "quantity": "Jumlah",
+      "leverage": "Leverage",
+      "strategyOptional": "Strategi (opsional)",
+      "notesOptional": "Catatan (opsional)",
+      "notesPlaceholder": "Kenapa kamu ambil transaksi ini?",
+      "symbolRequired": "Simbol wajib diisi.",
+      "entryPricePositive": "Harga masuk harus positif.",
+      "quantityPositive": "Jumlah harus positif.",
+      "validExitPrice": "Masukkan harga keluar yang valid.",
+      "loggingEllipsis": "Mencatat…",
+      "logTrade": "Catat Transaksi",
+      "cancel": "Batal",
+      "exitPricePlaceholder": "Harga keluar",
+      "close": "Tutup",
+      "live": "Live",
+      "awaitingTick": "Menunggu tick…",
+      "entry": "Masuk",
+      "mark": "Mark",
+      "markEntry": "Mark (masuk)",
+      "closeTrade": "Tutup Transaksi",
+      "deleteTradeAria": "Hapus transaksi {{symbol}}",
+      "opened": "Dibuka {{date}}",
+      "recently": "baru saja",
+      "exit": "Keluar",
+      "open": "Terbuka",
+      "pnl": "PnL",
+      "openPnl": "P&L Terbuka",
+      "livePriced": "{{live}}/{{count}} live",
+      "noPositions": "tidak ada posisi",
+      "noRunningPositions": "Tidak ada posisi berjalan saat ini.",
+      "acrossPositions_one": "Dari {{count}} posisi berjalan · belum terealisasi, tampilan saja",
+      "acrossPositions_other": "Dari {{count}} posisi berjalan · belum terealisasi, tampilan saja",
+      "runningPositions": "Posisi Berjalan",
+      "newTradeButton": "Transaksi Baru",
+      "loadingPositions": "Memuat posisi…",
+      "noRunningClickNewTrade": "Tidak ada posisi berjalan — klik \"Transaksi Baru\" untuk buka satu.",
+      "journal": "Jurnal",
+      "statTotalTrades": "Total transaksi",
+      "statClosed": "Ditutup",
+      "statWinRate": "Win rate",
+      "statTotalRealizedPnl": "Total PnL terealisasi",
+      "historyFilterAll": "Semua",
+      "historyFilterClosed": "Ditutup",
+      "historyFilterCancelled": "Dibatalkan",
+      "loadingJournal": "Memuat jurnal…",
+      "noClosedTradesYet": "Belum ada transaksi tertutup — riwayat kamu akan muncul di sini setelah kamu menutup posisi.",
+      "noClosedFilterTrades": "Tidak ada transaksi ditutup.",
+      "noCancelledFilterTrades": "Tidak ada transaksi dibatalkan.",
+      "statusOpen": "Terbuka",
+      "statusClosed": "Ditutup",
+      "statusCancelled": "Dibatalkan"
+    },
+    "rankings": {
+      "eyebrow": "Peringkat",
+      "title": "Peringkat Aset",
+      "subtitle": "Momentum, kekuatan, volume, dan kualitas sinyal dihitung live dari data Binance.",
+      "searchPlaceholder": "Cari ticker atau nama",
+      "filterAll": "Semua",
+      "filterFavorites": "Favorit",
+      "colRank": "#",
+      "colAsset": "Aset",
+      "colSector": "Sektor",
+      "colScore": "Skor",
+      "colScoreTooltip": "Skor checklist heuristik, bukan probabilitas edge yang terbukti. Diberi bobot independen dari Signal dan Technical — bukan konfirmasi pembacaan yang sama.",
+      "colSetup": "Setup",
+      "colChange": "Perubahan",
+      "colRs": "RS/BTC 7h",
+      "colMomentum": "Momentum",
+      "colStrength": "Kekuatan",
+      "colVolume": "Volume",
+      "colTechnical": "Teknikal",
+      "colTechnicalTooltip": "Skor checklist heuristik, bukan probabilitas edge yang terbukti.",
+      "colSignal": "Sinyal",
+      "colSignalTooltip": "Skor checklist heuristik, bukan probabilitas edge yang terbukti.",
+      "colTrend": "Tren",
+      "toggleFavorite": "Toggle favorit",
+      "noMatches": "Tidak ada aset yang cocok dengan filter kamu.",
+      "tour": {
+        "controls": {
+          "title": "Cari & filter",
+          "body": "Temukan aset mana pun berdasarkan ticker atau nama, persempit ke satu sektor, atau tampilkan hanya token yang kamu tandai sebagai Favorit."
+        },
+        "table": {
+          "title": "Tabel peringkat",
+          "body": "Setiap aset diberi skor 0–100 untuk momentum, kekuatan, volume, dan kualitas teknikal, plus panggilan setup engine saat ini. RS/BTC menunjukkan siapa yang benar-benar mengungguli Bitcoin selama 7 hari (dengan ρ, korelasi pergerakan per jamnya terhadap BTC, di bawahnya). Klik header kolom untuk mengurutkan (klik lagi untuk membalik urutan), klik baris untuk buka analisis lengkap token itu, dan gunakan bintang di akhir baris untuk menambahkannya ke Favorit."
+        }
+      }
+    },
+    "events": {
+      "eyebrow": "Ringkasan",
+      "title": "Acara",
+      "subtitle": "Semua yang terjadwal dalam {{days}} hari ke depan, di waktu lokal kamu — rilis makro plus peristiwa berjadwal untuk token yang kamu pantau.",
+      "filterAll": "Semua",
+      "filterMacro": "Kalender makro",
+      "filterToken": "Peristiwa token",
+      "emptyTitle": "Tidak ada yang terjadwal dalam rentang ini.",
+      "emptyBody": "Peristiwa token dibatasi ke daftar pantauan kamu — tambah token untuk lihat unlock dan listing mereka di sini.",
+      "highImpact": "Dampak tinggi",
+      "forecast": "perkiraan {{value}}",
+      "previous": "sebelumnya {{value}}"
+    },
+    "login": {
+      "closedBeta": "Beta tertutup — khusus undangan.",
+      "signInToAccount": "Masuk ke akun kamu.",
+      "emailPlaceholder": "Email",
+      "passwordPlaceholder": "Kata sandi",
+      "displayNamePlaceholder": "Nama tampilan",
+      "redeemInvite": "Tukar undangan",
+      "signIn": "Masuk",
+      "signingIn": "Sedang masuk…",
+      "changePasswordNote": "Kamu bisa ganti kata sandi nanti di Pengaturan → Akun. Link undangan tetap berfungsi di halaman ini.",
+      "signedInRedirecting": "Berhasil masuk. Mengalihkan…",
+      "welcomeAboardRedirecting": "Selamat bergabung. Mengalihkan…",
+      "networkError": "Kesalahan jaringan.",
+      "enterEmailPassword": "Masukkan email dan kata sandi kamu.",
+      "invalidEmailPassword": "Email atau kata sandi salah.",
+      "loginLinkInvalid": "Link login tidak valid atau kedaluwarsa.",
+      "couldNotRedeemInvite": "Tidak bisa menukar undangan."
+    },
+    "regime": {
+      "eyebrow": "Rezim",
+      "title": "Rezim Pasar",
+      "subtitle": "Bagaimana pasar berperilaku saat ini.",
+      "currentRegime": "Rezim Saat Ini",
+      "confidence": "Keyakinan",
+      "confidenceNote": "Campuran berbasis aturan dari lima pilar rezim di bawah, bukan probabilitas terkalibrasi.",
+      "trendStrength": "Kekuatan Tren · {{value}}",
+      "regimeTimeline": "Linimasa Rezim",
+      "last60Sessions": "60 sesi terakhir",
+      "regimePillars": "Pilar Rezim",
+      "tour": {
+        "current": {
+          "title": "Rezim saat ini",
+          "body": "Satu jawaban untuk pertanyaan terpenting hari ini: apakah pasar menghargai risiko (Risk On), menghukumnya (Risk Off), atau belum jelas (Netral)? Gauge menunjukkan seberapa yakin model — trading lebih kecil saat keyakinan rendah."
+        },
+        "timeline": {
+          "title": "Linimasa rezim",
+          "body": "Skor rezim selama 60 sesi terakhir. Di atas garis putus-putus atas adalah wilayah Risk On, di bawah garis bawah adalah Risk Off. Skor yang terus melintasi garis berarti pasar tidak stabil dan choppy."
+        },
+        "pillars": {
+          "title": "Lima pilar",
+          "body": "Dasar pembentuk vonis rezim: tren, breadth, volatilitas, likuiditas, dan makro — masing-masing diberi skor 0–100. Saat pilar tidak sepakat (misal, tren bullish tapi breadth bearish), perlakukan rezim keseluruhan dengan lebih hati-hati."
+        }
+      }
+    },
+    "news": {
+      "eyebrow": "Berita",
+      "title": "Dampak Berita",
+      "subtitle": "Hanya berita yang menggerakkan pasar hari ini.",
+      "upcoming": "Akan Datang",
+      "soon": "sebentar lagi",
+      "inHours": "dalam {{count}}j",
+      "inDays": "dalam {{count}}h",
+      "filterAll": "Semua",
+      "filterHigh": "Tinggi",
+      "filterMedium": "Sedang",
+      "filterLow": "Rendah",
+      "tour": {
+        "filters": {
+          "title": "Filter dampak",
+          "body": "Filter feed berdasarkan seberapa besar dampak berita diperkirakan menggerakkan pasar. Mulai dari Tinggi kalau waktu kamu terbatas — itu berita yang paling mungkin mengubah gambaran hari ini."
+        },
+        "feed": {
+          "title": "Berita signal-first",
+          "body": "Setiap kartu menampilkan arah yang diperkirakan (bullish, bearish, atau netral), level dampak, dan aset mana persisnya yang terpengaruh — jadi kamu baca untuk relevansi trading, bukan cuma headline."
+        }
+      }
+    },
+    "watchlist": {
+      "eyebrow": "Ringkasan",
+      "title": "Daftar Pantauan",
+      "subtitle": "Token yang dipantau menggerakkan notifikasi peristiwa dan rail katalis dasbor kamu.",
+      "addToken": "Tambah token",
+      "emptyTitle": "Daftar pantauan kamu kosong.",
+      "emptyBody": "Tambah token untuk memunculkan unlock, listing, dan peristiwa keamanannya di dasbor serta dikirim sebagai notifikasi.",
+      "addFirstToken": "Tambah token pertama kamu",
+      "removeFromWatchlist": "Hapus {{ticker}} dari daftar pantauan",
+      "notInUniverse": "Tidak ada di universe yang dipantau",
+      "score": "Skor",
+      "outsideUniverse": "Di luar universe snapshot — buka halaman token untuk pembacaan live.",
+      "eventsInLast7d_one": "{{count}} peristiwa dalam 7 hari terakhir",
+      "eventsInLast7d_other": "{{count}} peristiwa dalam 7 hari terakhir"
+    },
+    "alerts": {
+      "title": "Notifikasi",
+      "subtitle": "Semua yang sudah dikirim stream notifikasi ke browser ini.",
+      "enableBrowserAlerts": "Aktifkan notifikasi browser",
+      "all": "Semua",
+      "typeSetupFound": "Setup ditemukan",
+      "typeTriggerHit": "Trigger kena",
+      "typeFollowSettled": "Follow selesai",
+      "typeWorkerHealth": "Kesehatan worker",
+      "typeTokenEvent": "Peristiwa token",
+      "typeSpikeAlert": "Notifikasi lonjakan",
+      "emptyTitle": "Belum ada notifikasi.",
+      "emptyBodyPrefix": "Notifikasi muncul saat engine mengadopsi setup, trigger yang diikuti kena, atau token yang dipantau kena peristiwa berdampak tinggi. Tambah token ke",
+      "emptyBodySuffix": "untuk memperluas jangkauan.",
+      "watchlist": "daftar pantauan"
+    },
+    "technical": {
+      "eyebrow": "Teknikal",
+      "title": "Analisis Teknikal",
+      "subtitle": "Chart + sinyal smart-money untuk aset terpilih.",
+      "asset": "Aset",
+      "signalStrength": "Kekuatan Sinyal",
+      "overall": "Keseluruhan",
+      "analyzing": "menganalisis",
+      "signalStrengthNote": "Seberapa kuat bukti engine mengarah ke satu arah — bukan probabilitas trade menang. Komposit dari trend, struktur, volume, dan risiko pada bar 1H live.",
+      "signalCards": "Kartu Sinyal",
+      "tour": {
+        "picker": {
+          "title": "Pilih aset",
+          "body": "Semua di halaman ini — chart, kekuatan sinyal, dan kartu sinyal — dihitung ulang untuk aset yang kamu pilih di sini. Pilihan kamu diingat antar kunjungan."
+        },
+        "chart": {
+          "title": "Chart TradingView",
+          "body": "Chart TradingView lengkap untuk aset terpilih. Gunakan toolbar-nya sendiri untuk ganti timeframe, tambah indikator, atau menggambar di chart."
+        },
+        "signal-strength": {
+          "title": "Kekuatan sinyal",
+          "body": "Seberapa kuat bukti engine mengarah ke satu arah — bukan probabilitas keberhasilan. Komposit dari trend, struktur, volume, dan cek risiko pada bar 1H live."
+        },
+        "signals": {
+          "title": "Kartu sinyal",
+          "body": "Cek individual di balik skor: struktur, order block, EMA, volume, ATR, dan lainnya. Setiap kartu menampilkan pembacaan dan arahnya sendiri, jadi kamu bisa lihat persis apa yang mendukung — atau bertentangan — dengan vonis keseluruhan."
+        }
+      }
+    },
+    "rotation": {
+      "eyebrow": "Rotasi",
+      "title": "Rotasi Modal",
+      "subtitle": "Ke mana uang bergerak saat ini.",
+      "flowStrength": "Kekuatan Arus",
+      "signal": "Sinyal",
+      "persistent": "Persisten",
+      "unstable": "Tidak Stabil",
+      "rotationConfidence": "Keyakinan Rotasi",
+      "rotationConfidenceTooltip": "Diskalakan ulang dari korelasi peringkat sektor 24 jam vs 7 hari asli (ditampilkan sebagai ρ di bawah) — bukan probabilitas terkalibrasi independen.",
+      "rankAgreement": "Kesepakatan peringkat 24 jam vs 7 hari",
+      "winningSector": "Sektor Terbaik",
+      "losingSector": "Sektor Terburuk",
+      "avg24h": "Rata-rata 24 Jam",
+      "tour": {
+        "flow": {
+          "title": "Jalur rotasi",
+          "body": "Sektor diurutkan dari tempat uang keluar ke tempat uang masuk, berdasarkan performa 24 jam. Modal jarang keluar dari kripto — ia berotasi. Mengikuti sektor tujuan rotasi biasanya lebih mudah daripada melawan sektor yang ditinggalkan."
+        },
+        "metrics": {
+          "title": "Kualitas arus",
+          "body": "Seberapa kuat rotasinya, seberapa yakin model bahwa ini nyata (peringkat 24 jam dan 7 hari sepakat), dan sektor pemenang serta pecundang dengan rata-rata pergerakan 24 jam mereka. Arus persisten berkeyakinan tinggi jauh lebih bisa ditradingkan daripada yang tidak stabil."
+        },
+        "heatmap": {
+          "title": "Heatmap sektor",
+          "body": "Setiap sektor dipecah ke aset individualnya, diwarnai berdasarkan performa 24 jam — jadi kamu bisa lihat apakah pergerakan sektor itu luas atau dibawa oleh satu token saja."
+        }
+      }
+    },
+    "markets": {
+      "eyebrow": "Ringkasan",
+      "title": "Pasar",
+      "subtitle": "Snapshot Binance live di seluruh universe yang dipantau, diperingkat berdasarkan skor Market Pulse.",
+      "all": "Semua",
+      "tour": {
+        "filters": {
+          "title": "Filter sektor",
+          "body": "Persempit universe ke satu sektor — Majors, Layer 1, DeFi, AI, atau Meme — atau lihat semuanya sekaligus. Sektor penting karena uang biasanya berotasi antar sektor, bukan mengangkat seluruh pasar sekaligus."
+        },
+        "grid": {
+          "title": "Kartu pasar",
+          "body": "Setiap aset yang dipantau lengkap dengan harga live, perubahan 24 jam, dan mini trend line, diperingkat berdasarkan skor Market Pulse (rating kualitas 0–100 dari engine). Klik kartu mana pun untuk buka chart lengkap, sinyal, dan rencana trade untuk token itu."
+        }
+      }
+    }
+  },
+  "components": {
+    "batchA": {
+      "rotationFlow": {
+        "capitalExiting": "Modal keluar",
+        "capitalEntering": "Modal masuk"
+      },
+      "marketCard": {
+        "buySetup": "Setup beli",
+        "shortSetup": "Setup short"
+      },
+      "anticipatoryReadCard": {
+        "title": "Jika Harga Tarik Balik · Antisipasi",
+        "rewardRiskLabel": "~{{rewardRisk}}R dari limit"
+      }
+    },
+    "batchB": {
+      "floatingPnl": {
+        "openCount": "{{count}} terbuka"
+      },
+      "latestNewsRail": {
+        "title": "Berita Terbaru",
+        "viewAll": "Lihat semua",
+        "empty": "Belum ada headline di feed saat ini.",
+        "highImpact": "dampak tinggi"
+      },
+      "newsImpactCard": {
+        "macro": "Makro",
+        "affects": "Memengaruhi"
+      },
+      "timeAgo": {
+        "minutes": "{{count}} mnt lalu",
+        "hours": "{{count}} jam lalu",
+        "days": "{{count}} hr lalu"
+      },
+      "heatmap": {
+        "capitalInflow": "Modal Masuk",
+        "capitalOutflow": "Modal Keluar",
+        "strong": "Kuat"
+      },
+      "notificationBell": {
+        "notifications": "Notifikasi",
+        "empty": "Belum ada notifikasi."
+      },
+      "tokenEvents": {
+        "title": "Peristiwa Token",
+        "description": "unlock · keamanan · regulasi — terdeteksi otomatis dari berita",
+        "kind": {
+          "unlock": "Unlock",
+          "security": "Keamanan",
+          "regulatory": "Regulasi",
+          "delisting": "Delisting",
+          "listing": "Listing",
+          "upgrade": "Upgrade"
+        }
+      },
+      "tradeActionOverlay": {
+        "entry": "Entry",
+        "long": "Long",
+        "short": "Short"
+      },
+      "capSegmentModal": {
+        "title": "Kamu utamanya trading apa?",
+        "subtitle": "Ini mengatur default risiko awal yang masuk akal — kamu bisa menyesuaikannya sendiri kapan saja di Pengaturan.",
+        "decideLater": "Putuskan nanti",
+        "options": {
+          "bigcap": {
+            "label": "Big cap",
+            "hint": "BTC / ETH / mayor",
+            "detail": "Pergerakan lebih stabil — memungkinkan ukuran posisi lebih besar dan leverage lebih tinggi."
+          },
+          "smallcap": {
+            "label": "Small cap",
+            "hint": "Volatilitas lebih tinggi",
+            "detail": "Aplikasi menerapkan default risiko lebih ketat dan leverage lebih rendah."
+          }
+        }
+      }
+    },
+    "batchC": {
+      "poiMap": {
+        "title": "Titik Minat · {{timeframe}}",
+        "sourceZone": "Zona",
+        "sourceOb": "OB",
+        "sourceFvg": "FVG",
+        "sourceIfvg": "iFVG",
+        "supplyAbove": "Supply di atas",
+        "demandBelow": "Demand di bawah",
+        "showFewer": "Tampilkan lebih sedikit",
+        "showAll": "Tampilkan semua ({{count}} lagi)",
+        "disclaimer": "Hanya tampilan — rencana antisipatif masih memilih dari zona dasar (EDR 0009). Kecocokan pembacaan OB dan FVG dengan sebuah zona adalah konteks konfluensi, bukan sinyal."
+      },
+      "watchlist": {
+        "title": "Daftar Pantauan",
+        "signInBody": "Masuk untuk melacak token, dapatkan info unlock dan listing mereka di dashboard ini, dan terima notifikasi saat ada kejadian pada token itu.",
+        "signInCta": "Masuk untuk buat daftar pantauan",
+        "viewAll": "Lihat semua",
+        "emptyBody": "Lacak aset favorit kamu — token yang kamu pantau menggerakkan notifikasi peristiwa dan rail katalis.",
+        "addFirst": "Tambah token pertamamu",
+        "notTracked": "belum dilacak",
+        "addToken": "Tambah token"
+      },
+      "chartEventStrip": {
+        "eventsLabel": "Peristiwa",
+        "closeLabel": "Tutup",
+        "eventLabel": "Peristiwa",
+        "eventsCount": "{{count}} peristiwa"
+      },
+      "rsScan": {
+        "trendUp": "naik",
+        "trendDown": "turun",
+        "trendRange": "sideways",
+        "transitionTooltip": "Struktur harian: {{from}} → {{to}}, {{status}}, {{days}}h lalu",
+        "confirmed": "dikonfirmasi",
+        "chochHint": "petunjuk CHoCH",
+        "tracked": "Dilacak",
+        "volumeSuffix24h": "24J",
+        "vsBtc7d": "7H vs BTC",
+        "eyebrow": "RS vs BTC · Seluruh Exchange",
+        "pairsRanked": "{{count}} pair diperingkat",
+        "demoData": "data demo",
+        "description": "Kekuatan relatif 24 jam terhadap BTC di semua pair USDT likuid, bukan cuma universe yang dilacak. Badge menandai transisi tren harian terbaru — kandidat rotasi di antara yang paling ekstrem. Ini peringkat, bukan sinyal.",
+        "leaders": "Pemimpin",
+        "laggards": "Tertinggal",
+        "showFewer": "Tampilkan lebih sedikit",
+        "showAll": "Tampilkan semua ({{count}} lagi)"
+      },
+      "structureAlignment": {
+        "infoHintAriaLabel": "Apa ini?",
+        "infoHintText": "Struktur swing (higher-highs/higher-lows vs lower-highs/lower-lows) di semua timeframe sekaligus, dengan break struktural terakhir di masing-masing — BOS melanjutkan tren, CHoCH adalah retakan pertama melawannya. Timeframe yang selaras adalah yang membuat objektif searah tren layak dieksekusi; dua baris bertanda ctx dan trig adalah yang mendasari objektif kamu saat ini.",
+        "eyebrow": "Keselarasan Struktur",
+        "noBreakYet": "belum ada break",
+        "trendUp": "naik",
+        "trendDown": "turun",
+        "trendRange": "sideways",
+        "awaitingConfirm": "menunggu konfirmasi",
+        "uptrendLabel": "Tren Naik",
+        "downtrendLabel": "Tren Turun",
+        "rangeLabel": "Sideways",
+        "alignedUp": "selaras naik",
+        "alignedDown": "selaras turun",
+        "upCount": "{{up}}/{{total}} naik",
+        "downCount": "{{down}}/{{total}} turun"
+      }
+    },
+    "batchD": {
+      "upcomingEvents": {
+        "title": "Acara Mendatang",
+        "viewAll": "Lihat semua",
+        "empty": "Tidak ada jadwal dalam {{days}} hari ke depan untuk watchlist kamu atau kalender makro.",
+        "macroCategory": "{{country}} · Acara makro",
+        "tokenUnlockCategory": "Token unlock",
+        "tokenEventCategory": "Acara {{kind}}",
+        "highImpact": "Dampak tinggi",
+        "footer": "Kalender makro + acara token yang kamu pantau · waktu lokal kamu"
+      },
+      "marketOpportunities": {
+        "eyebrow": "Peluang Pasar · Layak Dipantau",
+        "demoData": "Data demo",
+        "scanCaption": "Scan aktivitas · bukan sinyal trading",
+        "tracked": "Dipantau",
+        "spikeRejected": "Spike ditolak",
+        "range24h": "Range 24j",
+        "turnover": "Turnover",
+        "liveSpikes": "Spike langsung",
+        "volMultiplier": "{{mult}}× volume",
+        "footer": "Scan tersaring likuiditas dari {{pairsSeen}} pair spot USDT Binance — {{pairsRanked}} pair likuid diperingkat berdasarkan range 24 jam, depth, dan arus transaksi. Buka satu token untuk lihat verdict asli dari engine."
+      },
+      "marketContext": {
+        "regime": "Regime",
+        "rotation": "Rotasi",
+        "sentiment": "Sentimen",
+        "breadth": "Breadth",
+        "volatility": "Volatilitas",
+        "regimeDetail": "Confidence rule {{confidence}}% · tren {{trend}}",
+        "rotationDetail": "Kekuatan rotasi {{strength}}",
+        "sentimentDetail": "{{score}} / 100",
+        "estimatedSuffix": " · estimasi",
+        "breadthFallback": "Partisipasi di seluruh universe yang dipantau",
+        "volatilityDetail": "BTC ATR (1D) {{vix}}%"
+      },
+      "fundingPlays": {
+        "title": "Funding Watch",
+        "demoData": "Data demo",
+        "notRecommended": "Tidak disarankan.",
+        "cautionBody": "Funding-harvest membawa risiko besar — rate bisa berbalik sebelum settlement, order book yang tipis mengundang squeeze, dan risiko exchange/likuidasi tetap berlaku di atas itu semua. Ditampilkan hanya untuk informasi.",
+        "verdictActive": "kondisi aktif",
+        "verdictNotYet": "belum saatnya",
+        "verdictSkip": "lewati",
+        "longsPay": "long yang bayar",
+        "shortsPay": "short yang bayar",
+        "sideReceives": "{{side}} menerima",
+        "emptyState": "Tidak ada funding ekstrem di exchange saat ini (ambang ≥0,5%/interval).",
+        "footer": "Funding ekstrem ditampilkan saat rate ±0,5%/interval atau lebih tinggi — cek tiap token untuk baca risiko lengkapnya. Hanya informasi; bukan rekomendasi."
+      }
+    },
+    "batchE": {
+      "tradeTicket": {
+        "title": "Tiket Trade",
+        "live": "LIVE",
+        "testnet": "TESTNET",
+        "long": "LONG",
+        "short": "SHORT",
+        "entryLabel": "Entry",
+        "type": "Tipe",
+        "market": "MKT",
+        "limit": "LMT",
+        "price": "Harga",
+        "marketPlaceholder": "Market",
+        "pricePlaceholder": "0.00",
+        "risk": "Risiko",
+        "stop": "Stop",
+        "requiredPlaceholder": "Wajib diisi",
+        "target": "Target",
+        "optionalPlaceholder": "Opsional",
+        "riskPerTrade": "Risiko per Trade (Global)",
+        "estRewardRisk": "Est. Reward/Risk",
+        "positionSize": "Ukuran Posisi",
+        "calculatedAtSubmission": "dihitung saat submit",
+        "requestingPermit": "Meminta Permit...",
+        "submitLong": "Long",
+        "submitShort": "Short"
+      },
+      "productTour": {
+        "helpButtonAriaLabel": "Mulai tur bantuan halaman",
+        "helpButtonLabel": "Bantuan",
+        "dialogAriaLabel": "Tur produk",
+        "stepCounter": "Langkah {{current}} dari {{total}}",
+        "closeAriaLabel": "Tutup tur",
+        "skipTour": "Lewati tur",
+        "back": "Kembali",
+        "next": "Lanjut",
+        "finish": "Selesai"
+      },
+      "executionPanel": {
+        "signInTitle": "Masuk untuk membuka trade",
+        "signInBody": "Position sizing, risk permit, dan penempatan order terikat ke akun kamu dan batas Trading Constitution-nya.",
+        "signInButton": "Masuk",
+        "permitIdNotFound": "Permit ID tidak ditemukan. Silakan minta permit baru.",
+        "failedToParseResponse": "Gagal memproses respons eksekusi",
+        "killSwitchError": "Eksekusi live sedang dimatikan (kill switch testnet). Permit sudah disetujui tapi tidak ada order yang ditempatkan.",
+        "serviceNotReady": "Layanan eksekusi belum siap. Coba lagi sebentar lagi.",
+        "permitExpired": "Permit tidak ditemukan atau sudah kedaluwarsa. Silakan minta permit baru.",
+        "permitAlreadyUsed": "Permit sudah pernah dipakai. Silakan minta permit baru.",
+        "executeFailedFallback": "Gagal mengeksekusi trade. Coba lagi.",
+        "unexpectedError": "Terjadi kesalahan yang tidak terduga",
+        "qualityScore": "Quality Score: {{score}}",
+        "qualityScoreNotAvailable": "N/A",
+        "orderSubmittedTitle": "Order Terkirim",
+        "orderSubmittedBody": "Order sudah dikirim ke exchange.",
+        "loggedAsRunningPosition": "Tercatat sebagai posisi berjalan.",
+        "entryOrder": "Entry Order · {{orderId}}",
+        "viewRunningTrades": "Lihat trade berjalan",
+        "newTrade": "Trade Baru"
+      }
+    },
+    "batchF": {
+      "permit": {
+        "rejectedTitle": "Permit Ditolak",
+        "rejectionReasons": "Alasan Penolakan",
+        "modifyTicket": "Ubah Tiket",
+        "approvedTitle": "Permit Disetujui",
+        "expiredTitle": "Permit Kedaluwarsa",
+        "expiredBadge": "Kedaluwarsa",
+        "secondsRemaining": "tersisa {{count}} detik",
+        "passedCount": "{{passed}}/{{total}} lolos",
+        "direction": "Arah",
+        "quality": "Kualitas",
+        "estRR": "Est. R:R",
+        "risk": "Risiko",
+        "scoreDisclaimer": "Evaluasi, bukan prediksi",
+        "entry": "Entry",
+        "stop": "Stop",
+        "target": "Target",
+        "atSubmission": "Saat diajukan",
+        "size": "Ukuran",
+        "constitution": "Konstitusi",
+        "portfolioRisk": "Risiko Portofolio",
+        "dailyBudget": "Budget Harian",
+        "requestNewPermit": "Minta Permit Baru",
+        "back": "Kembali",
+        "confirming": "Mengonfirmasi...",
+        "confirmTrade": "Konfirmasi Trade",
+        "noSymbolRestriction": "Tidak ada pembatasan simbol",
+        "noSessionRestriction": "Tidak ada pembatasan sesi",
+        "checks": {
+          "riskPerTrade": "Risiko per Trade",
+          "dailyLossLimit": "Batas Rugi Harian",
+          "weeklyLossLimit": "Batas Rugi Mingguan",
+          "maxLeverage": "Leverage Maks",
+          "maxConcurrentPositions": "Posisi Berjalan Maks",
+          "maxCorrelatedExposure": "Eksposur Berkorelasi Maks",
+          "minimumRiskReward": "Risk/Reward Minimum",
+          "stopLossRequired": "Stop Loss Wajib",
+          "allowedSymbols": "Simbol yang Diizinkan",
+          "allowedTradingSessions": "Sesi Trading yang Diizinkan",
+          "liveAccountState": "Status Akun Live",
+          "behaviorCooldowns": "Cooldown Perilaku"
+        }
+      }
+    },
+    "batchG": {
+      "fundingPlayPanel": {
+        "fundingWatch": "Pantauan Funding",
+        "rate": "Rate",
+        "rateColon": "Rate: ",
+        "settlement": "Settlement",
+        "settlementColon": "Settlement: ",
+        "sideReceives": "{{side}} menerima",
+        "intervalHours": "interval {{hours}}j",
+        "gross": "Kotor",
+        "fees": "Fee",
+        "net": "Bersih",
+        "breakeven": "Breakeven",
+        "notional": "Notional",
+        "expectedCapture": "Perkiraan capture",
+        "conditionToFlip": "Kondisi yang membalik verdict",
+        "hazards": "Bahaya",
+        "reversalLeg": "Leg reversal",
+        "backtestButton": "Backtest play ini (180h)",
+        "replayingSettlements": "Memutar ulang settlement lampau — perlu beberapa detik",
+        "noExtremeSettlements": "Tidak ada settlement funding ekstrem dalam {{days}}h terakhir untuk pair ini.",
+        "instancesOverDays": "{{count}} kejadian selama {{days}}h",
+        "flaggedCount": "{{count}} ditandai",
+        "noLiveHistory": "Tidak ada histori live",
+        "harvestWr": "WR Harvest",
+        "reversalWr": "WR Reversal",
+        "total": "Total",
+        "expectancy": "Expectancy",
+        "avgPnl": "Rata-rata PnL",
+        "medianPnl": "Median PnL",
+        "maxDrawdown": "Drawdown Maks",
+        "range": "Range",
+        "n": "N",
+        "wr": "WR",
+        "equityCurve": "Kurva Ekuitas",
+        "backtestCaveat": "Model indikatif dan pesimistis: close 1m, stop konservatif, tanpa slippage; ditandai berdasarkan rate yang settle."
+      }
+    },
+    "batchH": {},
+    "askAiSidebar": {
+      "engineCeiling": "Batas atas mesin: {{maxOutcome}}"
+    }
+  },
+  "tokenPage": {
+    "notFound": {
+      "token": "Token",
+      "title": "{{ticker}} tidak terdaftar",
+      "thisPair": "Pasangan ini",
+      "body": "{{pair}} bukan pasangan spot yang bisa ditradingkan di Binance, jadi tidak ada data live untuk dianalisis.",
+      "browseMarkets": "Jelajahi pasar"
+    },
+    "tour": {
+      "overview": {
+        "title": "Ringkasan token",
+        "body": "Harga live, perubahan 24 jam, dan statistik kunci untuk token ini. Gunakan tombol timeframe (15M sampai 1W) untuk mengganti chart — semua yang ada di halaman ini dihitung ulang untuk timeframe yang kamu pilih. Titik kecil di atas setiap tombol adalah bias timeframe tersebut (hijau = condong long, merah = condong short, abu-abu = netral), jadi kamu bisa melihat saat bounce jangka pendek melawan tren yang lebih besar."
+      },
+      "chart": {
+        "title": "Chart harga",
+        "body": "Setiap candle adalah satu periode pergerakan harga (hijau = ditutup naik, merah = ditutup turun). Legend di bawah chart memberi nama setiap overlay — EMA, support/resistance, titik swing, level rencana trade — dan klik item legend untuk menyembunyikan atau menampilkannya (pilihanmu diingat). Level dan zona rencana trade selalu mengikuti timeframe trigger objektif yang kamu pilih — legend menyebutkannya (mis. 'Trade plan · 4H') — jadi menjelajah timeframe chart lain tidak pernah mengubah rencana. Saat vonis objektif menginginkan trade, muncul zona berbayang: reward (hijau), risiko (merah), dan zona beli/jual (biru). Di timeframe 1H ke atas, chart juga menandai basis demand/supply sungguhan — konsolidasi yang meluncurkan pergerakan eksplosif. Tarik chart ke kiri melewati candle paling tua untuk memuat lebih banyak riwayat."
+      },
+      "insight": {
+        "title": "Wawasan kunci & komponen",
+        "body": "Kondisi pasar dalam kata-kata sederhana — tren, momentum, volume, volatilitas — plus setiap cek yang dijalankan engine. Hijau lolos, kuning adalah peringatan, merah gagal."
+      },
+      "objective": {
+        "title": "Mulai dari objektifmu",
+        "body": "Beri tahu asisten apa yang ingin kamu lakukan — scalp cepat, trade intraday, swing beberapa hari, atau posisi tren berminggu-minggu. Setiap objektif dinilai dengan sepasang timeframe sendiri (satu lebih besar untuk konteks, satu lebih kecil untuk trigger), jadi chart yang sama bisa mendukung scalp sambil mengesampingkan swing. Titik adalah vonis setiap objektif sekilas, dan memilih satu mengalihkan chart ke timeframe trigger-nya."
+      },
+      "decision": {
+        "title": "Vonis untuk objektifmu",
+        "body": "Bukan satu jawaban untuk semua: asisten menjawab untuk objektif yang kamu pilih — gas, gas dengan ukuran kecil, belum saatnya, atau minggir — lengkap dengan level rencana dan satu hal yang menghalangi, semua dalam satu layar. 'Belum saatnya' bukan 'tidak pernah': tab Why mencantumkan setiap konfirmasi yang kurang dan peristiwa harga yang bisa membalik vonis hari ini."
+      },
+      "risk": {
+        "title": "Rencana eksekusi",
+        "body": "Saat objektifmu punya setup yang layak: entry, stop, target profit, dan posisi yang diukur dari pengaturan akunmu — otomatis dipotong setengah saat trade melawan tren. Saat tidak ada rencana, asisten menunjuk objektif yang justru layak dieksekusi."
+      }
+    },
+    "chart": {
+      "errorBoundaryTitle": "Chart mengalami masalah",
+      "errorBoundaryReload": "Muat ulang halaman",
+      "priceStructure": "Struktur Harga",
+      "infoHint": "Chart candlestick dari timeframe yang dipilih. Legend di bawah chart menjelaskan setiap overlay — klik item untuk menyembunyikan atau menampilkannya. Tarik chart melewati candle paling tua untuk memuat lebih banyak riwayat. Tombol perluas membuka chart fullscreen.",
+      "binance": "Binance",
+      "synthetic": "sintetis",
+      "barsSummary": "{{count}} {{source}} bar · {{swings}} swing",
+      "equilibrium": " · {{position}} dari {{range}}",
+      "lean": "{{timeframe}} lean: {{lean}}",
+      "exitFullscreen": "Keluar dari chart fullscreen",
+      "enterFullscreen": "Chart fullscreen",
+      "loadingOlderBars": "Memuat bar yang lebih lama…",
+      "structure": {
+        "uptrend": "uptrend HH/HL",
+        "downtrend": "downtrend LH/LL",
+        "range": "struktur sideways"
+      }
+    },
+    "header": {
+      "perpSuffix": " · Perp",
+      "live": "Live",
+      "demo": "Demo",
+      "unwatchAria": "Berhenti pantau {{symbol}}",
+      "watchAria": "Pantau {{symbol}}",
+      "inWatchlistTitle": "Ada di daftar pantauanmu — klik untuk hapus",
+      "addToWatchlistTitle": "Tambah ke daftar pantauan",
+      "high24h": "Tertinggi 24J",
+      "low24h": "Terendah 24J",
+      "volume24h": "Volume 24J",
+      "turnover24h": "Turnover 24J"
+    },
+    "common": {
+      "whatIsThis": "Apa ini?"
+    },
+    "bias": {
+      "leansLong": "{{timeframe}}: engine condong long",
+      "leansShort": "{{timeframe}}: engine condong short",
+      "noBias": "{{timeframe}}: tanpa bias arah"
+    },
+    "phase": {
+      "noEdge": "Tanpa Edge",
+      "noDirectionalEdge": "Tanpa edge arah",
+      "neitherContext": "Baik {{ctxTf}} maupun {{exeTf}} tidak condong jelas ke satu arah — belum ada yang bisa direspons.",
+      "transition": "Transisi",
+      "counterTrendBounce": "Bounce Melawan Tren",
+      "counterTrendPullback": "Pullback Melawan Tren",
+      "counterTrendContext": "Timeframe lebih tinggi tetap {{htf}}. Momentum jangka pendek sudah bergeser ke {{direction}} setelah {{setup}}. Perkirakan {{move}} menuju {{zone}} sebelum tren berlanjut.",
+      "opportunity": "Peluang",
+      "trendContinuation": "Lanjutan tren",
+      "opportunityContext": "{{ctxTf}} dan {{exeTf}} sepakat {{direction}} — kondisi searah tren, tanpa tarikan timeframe lebih tinggi yang harus dilawan.",
+      "standby": "Siaga",
+      "waitingForTrigger": "Menunggu trigger",
+      "standbyContext": "{{ctxTf}} condong {{direction}}, tapi {{exeTf}} belum mengonfirmasi trigger — arah sama, belum bisa ditradingkan di harga sekarang.",
+      "marketPhase": "Fase pasar:",
+      "moveLong": "bounce",
+      "moveShort": "pullback",
+      "zoneLong": "demand",
+      "zoneShort": "supply"
+    },
+    "glance": {
+      "htfTrend": "Tren HTF",
+      "assessing": "menilai…",
+      "bullish": "Bullish",
+      "bearish": "Bearish",
+      "neutral": "Netral",
+      "tfState": "kondisi {{timeframe}}",
+      "noClearSetup": "tanpa setup jelas",
+      "structure": "Struktur",
+      "hhhl": "HH / HL",
+      "lhll": "LH / LL",
+      "range": "Sideways",
+      "bosConfirmed": "BOS — tren terkonfirmasi",
+      "chochReversal": "CHoCH — risiko reversal",
+      "lastHighLow": "high {{high}} · low {{low}} terakhir",
+      "liquidity": "Likuiditas",
+      "sslSwept": "SSL tersapu",
+      "bslSwept": "BSL tersapu",
+      "stopHuntBelow": "perburuan stop di bawah — bahan bakar naik",
+      "stopHuntAbove": "perburuan stop di atas — bahan bakar turun",
+      "noneMapped": "Tidak terpetakan",
+      "intactPools": "pool utuh — magnet harga",
+      "noEqualHighLows": "tanpa high/low setara",
+      "entryLocation": "Lokasi entry",
+      "mtfConfluence": "konfluensi zona MTF",
+      "zoneBacked": "didukung zona",
+      "pctOfRange": "{{pct}}% dari range S→R",
+      "noDirectionalRead": "tanpa pembacaan arah"
+    },
+    "footer": {
+      "lastUpdated": "Terakhir diperbarui:",
+      "dataSource": "Sumber data:",
+      "syntheticSource": "Sintetis (Binance tidak terjangkau)",
+      "autoRefresh": "Auto-refresh:",
+      "on": "Menyala"
+    },
+    "assistant": {
+      "title": "Asisten Keputusan",
+      "infoHint": "Satu chart, banyak jawaban valid. Pilih objektifmu dan asisten memberitahu apakah pasar membayar objektif itu saat ini, konfirmasi apa yang masih kurang, dan peristiwa harga apa yang akan mengubah jawaban hari ini.",
+      "assessing": "{{label}}: menilai…"
+    },
+    "tabs": {
+      "overview": "Ringkasan",
+      "why": "Kenapa",
+      "plan": "Rencana",
+      "evidence": "Bukti",
+      "details": "Detail"
+    },
+    "overview": {
+      "contextLine": "konteks {{ctxTf}} · trigger {{exeTf}} · bertahan {{horizon}}"
+    },
+    "plan": {
+      "entry": "Entry",
+      "stopLoss": "Stop loss",
+      "target1": "Target 1",
+      "target2": "Target 2",
+      "rr": "R / R",
+      "position": "Posisi",
+      "maxLoss": "Kerugian maks",
+      "gainAtT1": "Untung @ T1",
+      "entryZone": "Zona entry",
+      "stop": "Stop",
+      "rrCompact": "R/R",
+      "gainT1T2": "Untung @ T1 / T2",
+      "executionTitle": "Rencana Eksekusi · {{timeframe}}",
+      "executionInfoHint": "Rencana lengkap untuk objektifmu, diukur dari ukuran akunmu: entry, stop, dua target, ukuran posisi, dan kerugian terburuk. Vonis melawan tren otomatis dipotong setengah. Ubah ukuran akun dan risiko di Pengaturan.",
+      "setupInvalid": "Setup tidak lagi valid di harga saat ini.",
+      "placeTrade": "Pasang Trade — Ambil Permit",
+      "followingSignal": "Mengikuti sinyal ini",
+      "followSignal": "Ikuti sinyal ini",
+      "emptyExtendedWithPlan": "Tidak ada {{direction}} di harga saat ini — harga terlalu menjauh dari struktur. Kalau ia {{reaction}} ke {{low}}–{{high}}, {{direction}} jadi layak (lihat setup kondisional di bawah).",
+      "emptyExtended": "Tidak ada {{direction}} di harga saat ini — harga terlalu menjauh dari struktur. Tunggu pullback.",
+      "emptyWait": "Belum ada entry — rencananya muncul begitu trigger terkonfirmasi.",
+      "emptyAvoid": "Pasar ini tidak membayar objektifmu saat ini.",
+      "emptyAlt": " Kalau mau aksi hari ini, objektif {{objective}} punya setup {{size}}{{direction}} di timeframe {{timeframe}}.",
+      "emptyAltReduced": "berukuran kecil ",
+      "emptyNoAlt": " Tidak ada objektif lain yang punya setup layak juga — flat adalah posisi.",
+      "pullsBack": "tarik balik",
+      "rallies": "melaju naik",
+      "sizedFor": "Diukur untuk akun ${{accountSize}} dengan risiko {{riskPercent}}% per transaksi (stop {{stopMethod}}).",
+      "halfSizeNote": "Ditampilkan setengah ukuran — melawan tren untuk objektif ini.",
+      "adjust": "Sesuaikan →"
+    },
+    "why": {
+      "verdictTitle": "Vonis · {{label}}",
+      "verdictInfoHint": "'Belum saatnya', 'ukuran kecil', 'arah salah', dan 'pasar tidak cocok' adalah jawaban yang berbeda. Ringkasan menyebut mana yang berlaku; teks ini menjelaskan kenapa dengan kata-kata sederhana.",
+      "checklistTitle": "Checklist · {{done}}/{{total}}",
+      "checklistInfoHint": "Semua yang dibutuhkan objektif ini sebelum entry ukuran penuh. Item yang belum dicentang adalah makna 'belum saatnya' secara konkret. Arahkan kursor ke item untuk detailnya.",
+      "whatChangesTitle": "Apa yang Mengubah Jawaban Ini",
+      "whatChangesInfoHint": "Peristiwa harga konkret yang akan menaikkan, menurunkan, atau membalik vonis hari ini — jadi kamu tahu apa yang harus dipantau daripada baca chart seharian.",
+      "marketOutlookTitle": "Outlook Pasar",
+      "marketOutlookInfoHint": "Kisah pasar terkini untuk token ini, diceritakan sebelum rekomendasi apa pun: gambaran besar, pergerakan jangka pendek, dan apa yang dihargai kombinasi keduanya. Setiap vonis adalah narasi ini yang diterapkan ke satu objektif."
+    },
+    "hold": {
+      "held": "Vonis dipertahankan {{heldFor}} — berlaku sampai salah satu trigger di bawah menyala, jadi tidak akan berkedip antar refresh.",
+      "updated": "Diperbarui: {{reason}}",
+      "justNow": "baru saja",
+      "min": "{{count}}m",
+      "hour": "{{count}}j",
+      "day": "{{count}}h"
+    },
+    "verdict": {
+      "notYet": "BELUM SAATNYA",
+      "standAside": "MINGGIR",
+      "halfSize": "½ ukuran",
+      "counterTrend": "melawan tren"
+    },
+    "gauge": {
+      "readStrength": "Kekuatan pembacaan",
+      "meaningFavored": "Di sini pembacaan dan kondisi entry sepakat — setup terkonfirmasi.",
+      "meaningCaution": "Pembacaannya bisa ditradingkan tapi melawan timeframe lebih tinggi — karena itu ukurannya dikecilkan.",
+      "meaningWait": "Angka tinggi di samping 'belum saatnya' bukan kontradiksi: engine yakin soal arah sementara kondisi entry belum terpenuhi — checklist menunjukkan persis apa yang kurang.",
+      "meaningAvoid": "Sekuat apa pun, pasar ini tidak membayar objektifmu — minggir.",
+      "tooltipPrefix": "Seberapa kuat bukti engine mengarah ke satu arah — kekuatan sinyal, bukan probabilitas menang. Kata vonis adalah aksinya."
+    },
+    "edge": {
+      "rrToT1": "R:R ke T1",
+      "target1VsStop": "target 1 vs. stop",
+      "rrToT2": "R:R ke T2",
+      "target2VsStop": "target 2 vs. stop",
+      "riskLevel": "Level risiko",
+      "na": "n/a",
+      "counterTrend": "melawan tren",
+      "noAtrRead": "tanpa baca ATR"
+    },
+    "decision": {
+      "setupConfirmed": "Setup terkonfirmasi — {{done}}/{{total}} cek terpenuhi",
+      "open": "Buka: {{label}}",
+      "counterTrendHalf": "Melawan tren — bisa ditradingkan di ½ ukuran",
+      "tradableHalf": "Bisa ditradingkan di ½ ukuran",
+      "checksOpen_one": "{{count}} cek terbuka — berikutnya: {{label}}",
+      "checksOpen_other": "{{count}} cek terbuka — berikutnya: {{label}}",
+      "noEntryExtended": "Tidak ada entry di harga saat ini — {{missing}} dari {{total}} konfirmasi kurang",
+      "notYetConfirmations": "Belum saatnya — {{missing}} dari {{total}} konfirmasi kurang",
+      "next": "Berikutnya: {{label}}",
+      "planWhenZone": " · rencana muncul begitu harga kembali ke zona",
+      "planWhenTrigger": " · rencana muncul begitu trigger terkonfirmasi",
+      "doesntPay": "Tidak membayar objektif ini",
+      "altSetup": "{{label}} punya setup {{direction}} di timeframe {{timeframe}}",
+      "flatIsPosition": "Tidak ada objektif lain yang layak — flat adalah posisi",
+      "held": "dipertahankan {{heldFor}}"
+    },
+    "leverage": {
+      "title": "Leverage",
+      "infoHint": "Leverage tidak mengubah posisi yang diukur dari risiko — unit dan kerugian maks tetap sama. Ia hanya menentukan margin yang kamu setor dan di mana kamu akan dilikuidasi. Jaga leverage di atau di bawah 'Max safe' agar stop-mu memicu sebelum likuidasi. Likuidasi adalah estimasi; belum termasuk fee dan funding.",
+      "ariaLabel": "Leverage",
+      "margin": "Margin",
+      "notional": "Notional",
+      "estLiquidation": "Est. likuidasi",
+      "maxSafe": "Max safe"
+    },
+    "liquidation": {
+      "title": "Likuidasi vs invalidasi",
+      "danger": "Di {{leverage}}× likuidasi ({{liq}}) memicu <strong>sebelum</strong> stop-mu ({{stop}}) — kamu akan dilikuidasi sebelum ide ini bahkan terbukti salah. Turunkan ke {{maxSafe}}× atau lebih rendah agar stop-mu berfungsi.",
+      "thin": "Likuidasi ({{liq}}) hanya {{buffer}}% di belakang stop-mu ({{stop}}) — wick perburuan stop bisa melikuidasi kamu sebelum trade invalid. Pertimbangkan {{maxSafe}}× atau lebih rendah untuk ruang aman lebih besar.",
+      "safe": "Stop-mu ({{stop}}) memicu lebih dulu; likuidasi ({{liq}}) berada {{buffer}}% lebih jauh — bantalan jarak stop {{stops}}×. Invalidasi tetap di kendalimu."
+    },
+    "location": {
+      "title": "Lokasi Entry",
+      "infoHint": "Di mana harga berada antara support dan resistance untuk arah trade ini. Long paling baik dimasukkan dekat support, short dekat resistance — 'favored' dikhususkan untuk setup dengan lokasi bagus, dan harga yang terlalu menjauh berubah menjadi 'tunggu pullback' meski arahnya benar.",
+      "mtfConfluence": "Konfluensi MTF",
+      "zoneBacked": "Didukung zona",
+      "support": "S",
+      "resistance": "R"
+    },
+    "session": {
+      "title": "Level Sesi",
+      "infoHint": "High dan low yang dicetak setiap wilayah trading (Asia, London, New York) di sesi selesai terbarunya. Ekstrem sesi kemarin adalah level intraday yang diandalkan trader — menembus kembali high sesi atau menahan low sesi adalah peristiwa struktur. Level yang paling dekat dengan harga disorot; pembacaan lokasi entry vonis menghitung level sesi yang kamu tahan sebagai struktur."
+    },
+    "sr": {
+      "title": "Support & Resistance · {{timeframe}}",
+      "infoHint": "Support adalah tempat pembeli turun tangan sebelumnya (lantai harga); resistance adalah tempat penjual (plafon harga). Long paling baik dimasukkan dekat support, short dekat resistance.",
+      "support": "Support",
+      "resistance": "Resistance"
+    },
+    "details": {
+      "marketRead": "Pembacaan Pasar",
+      "marketReadInfoHint": "Apa yang dilakukan dua timeframe di balik objektifmu. Saat mereka tidak sepakat itu bukan berarti 'tidak ada trade' — itu mengubah objektif mana yang layak dan mana yang harus menunggu.",
+      "contextLabel": "konteks {{timeframe}}",
+      "triggerLabel": "trigger {{timeframe}}",
+      "conditionsTitle": "Kondisi · {{timeframe}}",
+      "conditionsInfoHint": "Kondisi pasar saat ini dalam kata-kata sederhana — tren, momentum, volume, volatilitas, dan struktur swing (high/low lebih tinggi atau lebih rendah) yang dibaca engine dari chart — dengan pembacaan ATR dan volume yang tepat di bawah. ATR lebih besar berarti ayunan lebih liar.",
+      "atr14": "ATR (14)",
+      "volVs20": "Vol vs 20-bar",
+      "na": "n/a",
+      "engineChecks": "Cek Engine · {{timeframe}}",
+      "engineChecksInfoHint": "Setiap cek yang dijalankan engine beserta kontribusi skornya. Arahkan kursor ke cek untuk membaca temuannya. Hijau lolos, kuning peringatan, merah gagal."
+    },
+    "insights": {
+      "trend": "Tren",
+      "momentum": "Momentum",
+      "volume": "Volume",
+      "volatilityAtr": "Volatilitas (ATR)",
+      "structure": "Struktur",
+      "uptrend": "Uptrend",
+      "downtrend": "Downtrend",
+      "sideways": "Sideways",
+      "positive": "Positif",
+      "weak": "Lemah",
+      "aboveAvg": "Di atas rata-rata",
+      "belowAvg": "Di bawah rata-rata",
+      "average": "Rata-rata",
+      "high": "Tinggi",
+      "medium": "Sedang",
+      "low": "Rendah",
+      "hhhl": "High lebih tinggi & low lebih tinggi",
+      "lhll": "High lebih rendah & low lebih rendah",
+      "rangeStruct": "Sideways — high {{high}} / low {{low}}",
+      "bosNote": " · BOS",
+      "chochNote": " · CHoCH"
+    },
+    "evidence": {
+      "engineRecord": "Rekam jejak live engine",
+      "anticipatoryTitle": "Rekam limit antisipatif (semua simbol)",
+      "anticipatoryFills": "{{fillRate}}% limit menunggu terisi ({{filled}} dari {{decided}} diputuskan{{pending}}).",
+      "anticipatoryPending": ", {{count}} masih menunggu",
+      "anticipatorySettled": " Posisi terisi: {{winRate}}% menang, rata-rata {{avgR}}R atas {{settled}} yang selesai{{lowSample}}.",
+      "anticipatoryLowSample": " — sampel kecil, perlakukan sebagai anekdot",
+      "anticipatoryNoneSettled": " Belum ada posisi terisi yang selesai."
+    },
+    "follow": {
+      "title": "Ikuti {{symbol}}",
+      "description": "Konfirmasi harga yang sebenarnya kamu pakai untuk masuk — zona ideal engine adalah {{zone}}.",
+      "yourEntryPrice": "Harga entry-mu",
+      "cancel": "Batal",
+      "confirm": "Konfirmasi & pantau"
+    },
+    "toast": {
+      "signInToWatch": "Masuk untuk memantau token dan dapatkan notifikasi peristiwanya.",
+      "signIn": "Masuk",
+      "removedFromWatchlist": "{{symbol}} dihapus dari daftar pantauan",
+      "watching": "Memantau {{symbol}}",
+      "setupNoLongerValid": "Setup ini tidak lagi valid.",
+      "enterValidEntryPrice": "Masukkan harga entry yang valid.",
+      "signInToFollow": "Masuk untuk mengikuti sinyal — follow kini tersimpan di record server kamu.",
+      "couldNotSaveFollow": "Tidak bisa menyimpan follow — periksa koneksimu dan coba lagi.",
+      "nowTracking": "Sekarang melacak {{symbol}}",
+      "trackingDescription": "Sinyal {{label}} {{direction}} ditambahkan ke pelacak di {{price}}.",
+      "view": "Lihat"
+    },
+    "perp": {
+      "title": "Posisi Perp",
+      "infoHint": "Funding + open interest — yang pertama dicek trader perp. Funding positif berarti long membayar untuk bertahan (long ramai, risiko flush); negatif berarti short yang membayar (short ramai, risiko squeeze). Open interest naik berarti uang baru mendukung pergerakan; turun berarti posisi sedang ditutup. Vonis mengecilkan ukuran saat funding ekstrem dan keramaian sudah berada di sisimu.",
+      "longsCrowded": "Long ramai",
+      "shortsCrowded": "Short ramai",
+      "balanced": "Seimbang",
+      "funding8h": "Funding · 8J",
+      "annualized": "{{apr}} per tahun",
+      "openInterest": "Open interest",
+      "change24h": "{{change}} · 24J"
+    },
+    "drawer": {
+      "title": "Trade {{symbol}}",
+      "infoHint": "Meminta permit yang digerbangi konstitusi menggunakan rencana eksekusi token ini saat ini. Backend memeriksa ulang status akun dan menurunkan kuantitas yang bisa dieksekusi dari snapshot permit yang tersimpan.",
+      "planEcho": "Entry {{entry}} · Stop {{stop}} · T1 {{target1}}",
+      "setupAnalysis": "Analisis Setup",
+      "generating": "Membuat Analisis AI..."
+    },
+    "memo": {
+      "title": "### Memo kuant: {{headline}}",
+      "objective": "- **Objektifmu ({{label}}):** {{summary}}",
+      "heldCall": "- **Panggilan dipertahankan:** vonis ini diadopsi {{heldFor}} yang lalu dan berlaku sampai trigger-nya sendiri menyala — setup di bawah masih live dan mungkin sudah bergerak tanpa melepaskannya.",
+      "setup": "- **Setup:** {{value}}",
+      "regime": "- **Rezim:** {{value}}",
+      "signalStrength": "- **Kekuatan sinyal:** {{value}}/100 (skor checklist heuristik, bukan probabilitas menang)",
+      "riskPlan": "- **Rencana risiko:** zona entry `{{entryLow}}–{{entryHigh}}`, stop `{{stop}}`, target 1 `{{target1}}`, target 2 `{{target2}}`",
+      "position": "- **Posisi:** {{units}} unit, kerugian maks `{{maxLoss}}`, reward target 1 `{{rewardRisk}}R`",
+      "primaryBlocker": "- **Penghambat utama:** {{value}}",
+      "action": "- **Aksi:** {{value}}",
+      "bestEvidence": "- **Bukti terbaik:** {{name}} - {{explanation}}",
+      "riskEvidence": "- **Bukti risiko:** {{name}} - {{explanation}}",
+      "prompt": "\n### Prompt\n- {{question}}"
+    },
+    "legend": {
+      "candles": "Candle",
+      "candlesHint": "Satu bar pergerakan harga — hijau ditutup naik, merah ditutup turun. Sumbu menampilkan high dan low yang dicapai dalam bar.",
+      "clickToShow": " Klik untuk menampilkan.",
+      "clickToHide": " Klik untuk menyembunyikan.",
+      "volume": {
+        "label": "Volume",
+        "hint": "Volume yang diperdagangkan per bar di bagian bawah — hijau saat candle ditutup naik, merah saat ditutup turun. Volume naik mengonfirmasi pergerakan; volume turun membuatnya dipertanyakan."
+      },
+      "emaFast": {
+        "label": "EMA {{length}}",
+        "hint": "Exponential moving average dari 13 close terakhir — kurva momentum cepat. Harga di atasnya dengan EMA 13 di atas EMA 21 berpihak pada pembeli."
+      },
+      "emaSlow": {
+        "label": "EMA {{length}}",
+        "hint": "Exponential moving average dari 21 close terakhir — kurva tren lebih lambat tempat EMA cepat diukur."
+      },
+      "support": {
+        "label": "Support",
+        "hint": "Garis tren hijau putus-putus melewati low swing terbaru — lantai yang dipertahankan pembeli."
+      },
+      "resistance": {
+        "label": "Resistance",
+        "hint": "Garis tren kuning putus-putus melewati high swing terbaru — plafon yang dipertahankan penjual."
+      },
+      "pivots": {
+        "label": "Struktur swing",
+        "hint": "Panah menandai leg swing terkonfirmasi (▼ high kuning, ▲ low hijau), masing-masing diberi label terhadap swing sebelumnya sejenis: HH/HL = higher high/low, LH/LL = lower high/low. BOS menandai break yang memperpanjang tren; CHoCH break melawannya — petunjuk struktural pertama sebuah reversal. EQH/EQL menandai high/low setara — level swing yang cocok tempat likuiditas stop-loss cenderung berada. Garis tren dan setup dibangun dari ini."
+      },
+      "liquidity": {
+        "label": "Likuiditas",
+        "hint": "Garis horizontal putus-putus di pool likuiditas utuh: BSL ungu (buy-side) di high setara — order stop menumpuk di atas double/triple top — dan SSL cyan (sell-side) di low setara. Label adalah tier kekuatan pool — Strong/Moderate/Weak, dari sentuhan, kerapatan, dan kesegaran — peringkat ordinal, bukan probabilitas. Harga sering tertarik ke level ini sebelum berbalik. Lingkaran menandai sapuan likuiditas: wick menembus stop pool tapi candle ditutup kembali ke dalam — perburuan stop, dan sering jadi awal pergerakan yang dibiayai serbuan itu."
+      },
+      "plan": {
+        "label": "Rencana trade",
+        "hint": "Level rencana objektifmu: entry (biru), stop (merah mawar), target 1 (hijau solid), target 2 (hijau putus-putus). Ini berasal dari timeframe trigger objektif (disebut di label) dan tetap sama saat kamu menjelajah timeframe chart lain — satu kisah trade per halaman. Hanya ditampilkan saat objektif punya rencana berarah."
+      },
+      "zones": {
+        "label": "Zona trade",
+        "hint": "Pita berbayang digambar hanya saat vonis objektifmu menginginkan trade: hijau = reward ke target 1, merah = risiko ke stop, biru = kantong beli/jual di sekitar entry. Seperti rencana trade, ini milik timeframe trigger objektif (disebut di label), apa pun timeframe yang ditampilkan chart."
+      },
+      "sdZones": {
+        "label": "Demand/Supply",
+        "hint": "Basis demand/supply sungguhan: konsolidasi ketat yang diikuti pergerakan eksplosif menjauh. Hijau = demand (pembeli berangkat dari sini), kuning = supply (penjual yang melakukannya). Terang = segar dan belum teruji; pudar = sudah teruji sekali. Zona yang ditembus harga akan dibuang. Terdeteksi di chart 1H, 4H, 1D, dan 1W, tempat basis bermakna."
+      },
+      "sessions": {
+        "label": "H/L Sesi",
+        "hint": "High dan low sesi selesai terbaru Asia (pink), London (teal), dan New York (oranye), digambar sebagai level titik-titik. Ekstrem sesi kemarin adalah level intraday yang diandalkan trader. Ditampilkan di chart 15M–4H, tempat levelnya masih masuk range."
+      },
+      "events": {
+        "label": "Berita & acara",
+        "hint": "Berita token (lalu) dan katalis kalender (akan datang, ⧗) diplot di bar tempatnya jatuh — diwarnai merah/abu-abu/hijau sesuai perkiraan dampak (keamanan, delisting, regulasi, dan unlock dibaca merah; listing dan upgrade hijau). Lingkaran di bawah bar adalah berita lalu; kotak di atas bar terakhir adalah acara terjadwal. Klik penanda untuk detail dan sumbernya, atau gunakan strip di bawah chart."
+      }
+    },
+    "chartLabels": {
+      "buyZone": "ZONA BELI",
+      "sellZone": "ZONA JUAL",
+      "demand": "DEMAND",
+      "supply": "SUPPLY",
+      "tested": " · TERUJI",
+      "bslSweep": "Sapuan BSL",
+      "sslSweep": "Sapuan SSL"
+    }
+  }
+}

@@ -1,4 +1,6 @@
 import { CircleHelp, Minus, TrendingDown, TrendingUp } from "lucide-react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/components/ui/badge";
 import { CardEyebrow } from "@/components/features/iq-card";
@@ -16,12 +18,13 @@ import { latestTransition } from "@/lib/engine/trend-transition";
  */
 
 function InfoHint({ text }: { text: string }) {
+  const { t } = useTranslation();
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <button
           type="button"
-          aria-label="What is this?"
+          aria-label={t("components.batchC.structureAlignment.infoHintAriaLabel")}
           className="text-muted-foreground/70 transition-colors hover:text-foreground"
         >
           <CircleHelp className="h-3 w-3" />
@@ -34,15 +37,16 @@ function InfoHint({ text }: { text: string }) {
   );
 }
 
-const TREND_META: Record<StructureTrend, { label: string; tone: string; Icon: typeof Minus }> = {
-  uptrend: { label: "Uptrend", tone: "text-bullish", Icon: TrendingUp },
-  downtrend: { label: "Downtrend", tone: "text-bearish", Icon: TrendingDown },
-  range: { label: "Range", tone: "text-muted-foreground", Icon: Minus },
+const TREND_META: Record<StructureTrend, { labelKey: string; tone: string; Icon: typeof Minus }> = {
+  uptrend: { labelKey: "uptrendLabel", tone: "text-bullish", Icon: TrendingUp },
+  downtrend: { labelKey: "downtrendLabel", tone: "text-bearish", Icon: TrendingDown },
+  range: { labelKey: "rangeLabel", tone: "text-muted-foreground", Icon: Minus },
 };
 
-function eventChip(structure: MarketStructure) {
+function eventChip(structure: MarketStructure, t: TFunction) {
+  const n = "components.batchC.structureAlignment.";
   if (!structure.event || !structure.eventSwing) {
-    return <span className="text-[10px] text-muted-foreground">no break yet</span>;
+    return <span className="text-[10px] text-muted-foreground">{t(`${n}noBreakYet`)}</span>;
   }
   // A break event always sits on the swing that broke structure: a swing high
   // breaking above prior structure is a bullish break, a swing low breaking
@@ -65,7 +69,8 @@ function eventChip(structure: MarketStructure) {
 
 // The latest trend-transition read (display-only, EDR 0016): a confirmed flip
 // shows its full narrative, a live CHoCH hint shows what it's waiting on.
-function transitionChip(structure: MarketStructure) {
+function transitionChip(structure: MarketStructure, t: TFunction) {
+  const n = "components.batchC.structureAlignment.";
   const transition = latestTransition(structure);
   if (!transition) return null;
   const short: Record<StructureTrend, string> = {
@@ -89,7 +94,7 @@ function transitionChip(structure: MarketStructure) {
     >
       {confirmed
         ? `${short[transition.from]}→${short[transition.to]}`
-        : `${short[transition.to]}? awaiting confirm`}
+        : `${short[transition.to]}? ${t(`${n}awaitingConfirm`)}`}
     </Badge>
   );
 }
@@ -104,6 +109,8 @@ export function StructureAlignmentCard({
   contextTimeframe?: TokenTimeframe;
   executionTimeframe?: TokenTimeframe;
 }) {
+  const { t } = useTranslation();
+  const n = "components.batchC.structureAlignment.";
   const rows = TOKEN_TIMEFRAMES.map((tf) => ({ tf, structure: structures[tf] })).filter(
     (r): r is { tf: TokenTimeframe; structure: MarketStructure } => r.structure !== undefined,
   );
@@ -113,19 +120,19 @@ export function StructureAlignmentCard({
   const down = rows.filter((r) => r.structure.trend === "downtrend").length;
   const summary =
     up === rows.length
-      ? "aligned up"
+      ? t(`${n}alignedUp`)
       : down === rows.length
-        ? "aligned down"
+        ? t(`${n}alignedDown`)
         : up >= down
-          ? `${up}/${rows.length} up`
-          : `${down}/${rows.length} down`;
+          ? t(`${n}upCount`, { up, total: rows.length })
+          : t(`${n}downCount`, { down, total: rows.length });
 
   return (
     <div className="rounded-lg border border-border bg-surface p-2.5">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
-          <CardEyebrow>Structure Alignment</CardEyebrow>
-          <InfoHint text="The swing structure (higher-highs/higher-lows vs lower-highs/lower-lows) on every timeframe at once, with the last structural break on each — BOS continues the trend, CHoCH is the first crack against it. Timeframes agreeing is what makes a with-trend objective payable; the two rows marked ctx and trig are the ones behind your current objective." />
+          <CardEyebrow>{t(`${n}eyebrow`)}</CardEyebrow>
+          <InfoHint text={t(`${n}infoHintText`)} />
         </div>
         <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           {summary}
@@ -149,11 +156,11 @@ export function StructureAlignmentCard({
               </span>
               <meta.Icon className={cn("h-3 w-3 shrink-0", meta.tone)} />
               <span className={cn("w-20 shrink-0 text-[11px] font-medium", meta.tone)}>
-                {meta.label}
+                {t(`${n}${meta.labelKey}`)}
               </span>
               <div className="flex flex-1 flex-wrap items-center gap-1">
-                {eventChip(structure)}
-                {transitionChip(structure)}
+                {eventChip(structure, t)}
+                {transitionChip(structure, t)}
               </div>
               {roleTag && (
                 <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wider text-info">

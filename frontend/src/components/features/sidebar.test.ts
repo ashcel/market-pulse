@@ -25,9 +25,9 @@ describe("visibleNavGroups", () => {
   });
 
   it("drops a group that ends up empty instead of rendering a bare heading", () => {
-    const labels = visibleNavGroups(false).map((g) => g.label);
-    expect(labels).not.toContain("Trading");
-    expect(labels).not.toContain("Account");
+    const keys = visibleNavGroups(false).map((g) => g.groupKey);
+    expect(keys).not.toContain("trading");
+    expect(keys).not.toContain("account");
   });
 
   /**

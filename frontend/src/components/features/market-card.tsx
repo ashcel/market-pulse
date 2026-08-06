@@ -4,8 +4,10 @@ import { MiniChart } from "./mini-chart";
 import { Change } from "./change";
 import type { Asset } from "@/lib/types";
 import { AssetIcon } from "./asset-icon";
+import { useTranslation } from "react-i18next";
 
 export function MarketCard({ asset, className }: { asset: Asset; className?: string }) {
+  const { t } = useTranslation();
   const tone = asset.change24h >= 0 ? "bullish" : "bearish";
   const actionable = asset.decision === "buy-candidate" || asset.decision === "short-candidate";
   return (
@@ -28,7 +30,7 @@ export function MarketCard({ asset, className }: { asset: Asset; className?: str
               : "border-bearish/30 bg-bearish-soft text-bearish",
           )}
         >
-          {asset.decision === "buy-candidate" ? "Buy setup" : "Short setup"}
+          {asset.decision === "buy-candidate" ? t("components.batchA.marketCard.buySetup") : t("components.batchA.marketCard.shortSetup")}
         </span>
       )}
     </IqCard>

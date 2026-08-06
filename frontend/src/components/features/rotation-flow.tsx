@@ -3,13 +3,15 @@ import type { RotationData } from "@/lib/types";
 import { IqCard } from "./iq-card";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export function RotationFlow({ data, className }: { data: RotationData; className?: string }) {
+  const { t } = useTranslation();
   return (
     <IqCard className={cn("flex flex-col gap-4", className)}>
       <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        <span>Capital exiting</span>
-        <span>Capital entering</span>
+        <span>{t("components.batchA.rotationFlow.capitalExiting")}</span>
+        <span>{t("components.batchA.rotationFlow.capitalEntering")}</span>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
         {data.flow.map((node, i) => (

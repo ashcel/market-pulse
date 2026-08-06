@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 import { FundingPlaysCard } from "@/components/features/funding-plays-card";
 import { CardEyebrow } from "@/components/features/iq-card";
@@ -28,33 +29,43 @@ export const Route = createFileRoute("/discover")({
 });
 
 function DiscoverPage() {
+  const { t } = useTranslation();
   const scan = useOpportunityScan();
 
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
       <PageHeader
-        eyebrow="Overview"
-        title="Discover"
-        subtitle="Exchange-wide scans — a discovery list, not a trade signal. Open a token for the engine's verdict."
+        eyebrow={t("routes.discover.eyebrow")}
+        title={t("routes.discover.title")}
+        subtitle={t("routes.discover.subtitle")}
       />
 
       {scan.data && (
         <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
           <span>
-            {scan.data.pairsRanked} of {scan.data.pairsSeen} USDT pairs passed the liquidity gates
+            {t("routes.discover.pairsPassed", {
+              ranked: scan.data.pairsRanked,
+              seen: scan.data.pairsSeen,
+            })}
           </span>
           <span>
-            Source: {scan.data.source === "live" ? "Binance live" : "offline demo build"} · updated{" "}
-            {new Date(scan.data.updatedAt).toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
+            {t("routes.discover.sourceUpdated", {
+              source: t(
+                scan.data.source === "live"
+                  ? "routes.discover.sourceLive"
+                  : "routes.discover.sourceDemo",
+              ),
+              time: new Date(scan.data.updatedAt).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
             })}
           </span>
         </div>
       )}
 
       <div className="flex flex-col gap-3">
-        <CardEyebrow>Worth Scanning</CardEyebrow>
+        <CardEyebrow>{t("routes.discover.worthScanning")}</CardEyebrow>
         <MarketOpportunitiesCard />
       </div>
 

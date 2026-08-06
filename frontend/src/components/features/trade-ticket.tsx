@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ export function TradeTicket({
   onSubmit,
   isSubmitting,
 }: TradeTicketProps) {
+  const { t } = useTranslation();
   const { data: health } = useQuery({
     queryKey: ["health"],
     queryFn: () => fetchHealthServer(),
@@ -38,7 +40,7 @@ export function TradeTicket({
   return (
     <IqCard className="flex flex-col gap-5">
       <CardEyebrow className="flex items-center justify-between">
-        <span>Trade Ticket</span>
+        <span>{t("components.batchE.tradeTicket.title")}</span>
         {health?.environment && (
           <span
             className={cn(
@@ -46,7 +48,7 @@ export function TradeTicket({
               isLive ? "bg-bullish/20 text-bullish" : "bg-warning/20 text-warning",
             )}
           >
-            {isLive ? "LIVE" : "TESTNET"}
+            {isLive ? t("components.batchE.tradeTicket.live") : t("components.batchE.tradeTicket.testnet")}
           </span>
         )}
       </CardEyebrow>
@@ -63,13 +65,13 @@ export function TradeTicket({
             value="LONG"
             className="flex-1 h-12 text-base font-bold data-[state=on]:bg-bullish data-[state=on]:text-bullish-foreground"
           >
-            LONG
+            {t("components.batchE.tradeTicket.long")}
           </ToggleGroupItem>
           <ToggleGroupItem
             value="SHORT"
             className="flex-1 h-12 text-base font-bold data-[state=on]:bg-bearish data-[state=on]:text-bearish-foreground"
           >
-            SHORT
+            {t("components.batchE.tradeTicket.short")}
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
@@ -79,11 +81,13 @@ export function TradeTicket({
       {/* SECONDARY: Entry Group */}
       <div className="flex flex-col gap-3">
         <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">
-          Entry
+          {t("components.batchE.tradeTicket.entryLabel")}
         </Label>
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-2">
-            <Label className="text-xs text-muted-foreground/60">Type</Label>
+            <Label className="text-xs text-muted-foreground/60">
+              {t("components.batchE.tradeTicket.type")}
+            </Label>
             <ToggleGroup
               type="single"
               value={state.entry_type}
@@ -91,22 +95,26 @@ export function TradeTicket({
               className="justify-start"
             >
               <ToggleGroupItem value="MARKET" className="flex-1 text-xs">
-                MKT
+                {t("components.batchE.tradeTicket.market")}
               </ToggleGroupItem>
               <ToggleGroupItem value="LIMIT" className="flex-1 text-xs">
-                LMT
+                {t("components.batchE.tradeTicket.limit")}
               </ToggleGroupItem>
             </ToggleGroup>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="entry_price" className="text-xs text-muted-foreground/60">
-              Price
+              {t("components.batchE.tradeTicket.price")}
             </Label>
             <Input
               id="entry_price"
               type="number"
               inputMode="decimal"
-              placeholder={state.entry_type === "MARKET" ? "Market" : "0.00"}
+              placeholder={
+                state.entry_type === "MARKET"
+                  ? t("components.batchE.tradeTicket.marketPlaceholder")
+                  : t("components.batchE.tradeTicket.pricePlaceholder")
+              }
               value={state.entry_price}
               onChange={(e) =>
                 setField("entry_price", e.target.value === "" ? "" : Number(e.target.value))
@@ -121,18 +129,18 @@ export function TradeTicket({
       {/* SECONDARY: Risk Group (Stop & Target) */}
       <div className="flex flex-col gap-3">
         <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70">
-          Risk
+          {t("components.batchE.tradeTicket.risk")}
         </Label>
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="stop_price" className="text-xs text-muted-foreground/60">
-              Stop
+              {t("components.batchE.tradeTicket.stop")}
             </Label>
             <Input
               id="stop_price"
               type="number"
               inputMode="decimal"
-              placeholder="Required"
+              placeholder={t("components.batchE.tradeTicket.requiredPlaceholder")}
               value={state.stop_price}
               onChange={(e) =>
                 setField("stop_price", e.target.value === "" ? "" : Number(e.target.value))
@@ -142,13 +150,13 @@ export function TradeTicket({
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="target_price" className="text-xs text-muted-foreground/60">
-              Target
+              {t("components.batchE.tradeTicket.target")}
             </Label>
             <Input
               id="target_price"
               type="number"
               inputMode="decimal"
-              placeholder="Optional"
+              placeholder={t("components.batchE.tradeTicket.optionalPlaceholder")}
               value={state.target_price}
               onChange={(e) =>
                 setField("target_price", e.target.value === "" ? "" : Number(e.target.value))
@@ -163,7 +171,9 @@ export function TradeTicket({
 
       {/* SECONDARY: Risk Display */}
       <div className="flex items-center justify-between px-2 py-1">
-        <Label className="text-xs text-muted-foreground/70">Risk per Trade (Global)</Label>
+        <Label className="text-xs text-muted-foreground/70">
+          {t("components.batchE.tradeTicket.riskPerTrade")}
+        </Label>
         <span className="text-sm font-semibold num text-foreground">
           {state.risk_percent.toFixed(1)}%
         </span>
@@ -175,7 +185,7 @@ export function TradeTicket({
       <div className="flex flex-col gap-3 rounded-lg bg-muted/30 p-3">
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs text-muted-foreground/70 uppercase font-semibold tracking-wide">
-            Est. Reward/Risk
+            {t("components.batchE.tradeTicket.estRewardRisk")}
           </span>
           <Badge
             variant="secondary"
@@ -190,8 +200,12 @@ export function TradeTicket({
           </Badge>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground/70">Position Size</span>
-          <span className="text-xs italic text-muted-foreground/60">calculated at submission</span>
+          <span className="text-xs text-muted-foreground/70">
+            {t("components.batchE.tradeTicket.positionSize")}
+          </span>
+          <span className="text-xs italic text-muted-foreground/60">
+            {t("components.batchE.tradeTicket.calculatedAtSubmission")}
+          </span>
         </div>
       </div>
 
@@ -206,7 +220,11 @@ export function TradeTicket({
             : "bg-bearish text-bearish-foreground hover:bg-bearish/90",
         )}
       >
-        {isSubmitting ? "Requesting Permit..." : state.side === "LONG" ? "Long" : "Short"}
+        {isSubmitting
+          ? t("components.batchE.tradeTicket.requestingPermit")
+          : state.side === "LONG"
+            ? t("components.batchE.tradeTicket.submitLong")
+            : t("components.batchE.tradeTicket.submitShort")}
       </Button>
     </IqCard>
   );

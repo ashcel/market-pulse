@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Plus, Star, X } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { AssetIcon } from "@/components/features/asset-icon";
 import { Change } from "@/components/features/change";
@@ -35,6 +36,7 @@ export const Route = createFileRoute("/watchlist")({
 });
 
 function WatchlistPage() {
+  const { t } = useTranslation();
   const tickers = useWatchlistStore((s) => s.tickers);
   const toggle = useWatchlistStore((s) => s.toggle);
   const { data: assets } = useAssets();
@@ -49,9 +51,9 @@ function WatchlistPage() {
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
       <PageHeader
-        eyebrow="Overview"
-        title="Watchlist"
-        subtitle="Watched tokens drive your event alerts and the dashboard's catalyst rail."
+        eyebrow={t("watchlist.eyebrow")}
+        title={t("watchlist.title")}
+        subtitle={t("watchlist.subtitle")}
         action={
           <button
             type="button"
@@ -59,7 +61,7 @@ function WatchlistPage() {
             className="flex items-center gap-1.5 rounded-lg border border-info/30 bg-info/10 px-3 py-2 text-xs font-semibold text-info transition-colors hover:bg-info/20"
           >
             <Plus className="h-3.5 w-3.5" />
-            Add token
+            {t("watchlist.addToken")}
           </button>
         }
       />
@@ -67,17 +69,14 @@ function WatchlistPage() {
       {tickers.length === 0 ? (
         <IqCard className="flex flex-col items-center py-12 text-center">
           <Star className="mb-3 h-8 w-8 text-muted-foreground/50" />
-          <p className="text-sm font-medium">Your watchlist is empty.</p>
-          <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-            Add a token to get its unlocks, listings and security events surfaced on the dashboard
-            and pushed as alerts.
-          </p>
+          <p className="text-sm font-medium">{t("watchlist.emptyTitle")}</p>
+          <p className="mt-1 max-w-sm text-xs text-muted-foreground">{t("watchlist.emptyBody")}</p>
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
             className="mt-5 rounded-lg border border-info/30 bg-info/10 px-4 py-2 text-xs font-semibold text-info transition-colors hover:bg-info/20"
           >
-            Add your first token
+            {t("watchlist.addFirstToken")}
           </button>
         </IqCard>
       ) : (
@@ -89,7 +88,7 @@ function WatchlistPage() {
               <IqCard key={ticker} interactive className="relative flex flex-col gap-3">
                 <button
                   type="button"
-                  aria-label={`Remove ${ticker} from watchlist`}
+                  aria-label={t("watchlist.removeFromWatchlist", { ticker })}
                   onClick={() => toggle(ticker)}
                   className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-surface hover:text-foreground"
                 >
@@ -105,7 +104,7 @@ function WatchlistPage() {
                     <div className="leading-tight">
                       <div className="text-sm font-semibold">{ticker}</div>
                       <div className="text-[11px] text-muted-foreground">
-                        {asset?.name ?? "Not in the tracked universe"}
+                        {asset?.name ?? t("watchlist.notInUniverse")}
                       </div>
                     </div>
                   </div>
@@ -123,18 +122,18 @@ function WatchlistPage() {
                         height={36}
                       />
                       <div className="flex items-center justify-between border-t border-border pt-2 text-[11px] text-muted-foreground">
-                        <span>Score</span>
+                        <span>{t("watchlist.score")}</span>
                         <span className="num font-semibold text-foreground">{asset.score}</span>
                       </div>
                     </>
                   ) : (
                     <p className="text-xs text-muted-foreground">
-                      Outside the snapshot universe — open the token page for a live read.
+                      {t("watchlist.outsideUniverse")}
                     </p>
                   )}
                   {eventCount > 0 && (
                     <StatusBadge tone="warning">
-                      {eventCount} event{eventCount > 1 ? "s" : ""} in the last 7d
+                      {t("watchlist.eventsInLast7d", { count: eventCount })}
                     </StatusBadge>
                   )}
                 </Link>

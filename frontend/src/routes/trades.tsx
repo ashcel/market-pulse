@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Plus, Trash2, TrendingDown, TrendingUp, X, Check, DollarSign } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { AssetIcon } from "@/components/features/asset-icon";
 import { IqCard, CardEyebrow } from "@/components/features/iq-card";
@@ -41,16 +42,22 @@ export const Route = createFileRoute("/trades")({
 });
 
 type HistoryFilter = "all" | "closed" | "cancelled";
-const HISTORY_FILTERS: { label: string; value: HistoryFilter }[] = [
-  { label: "All", value: "all" },
-  { label: "Closed", value: "closed" },
-  { label: "Cancelled", value: "cancelled" },
+const HISTORY_FILTERS: { labelKey: string; value: HistoryFilter }[] = [
+  { labelKey: "historyFilterAll", value: "all" },
+  { labelKey: "historyFilterClosed", value: "closed" },
+  { labelKey: "historyFilterCancelled", value: "cancelled" },
 ];
 
 const STATUS_TONE: Record<Trade["status"], string> = {
   open: "border-info/30 bg-info-soft text-info",
   closed: "border-muted/30 bg-surface text-muted-foreground",
   cancelled: "border-muted/30 bg-surface text-muted-foreground",
+};
+
+const STATUS_LABEL_KEY: Record<Trade["status"], string> = {
+  open: "statusOpen",
+  closed: "statusClosed",
+  cancelled: "statusCancelled",
 };
 
 function formatPnl(pnl: number | null): string {
@@ -108,6 +115,7 @@ interface NewTradeFormProps {
 }
 
 function NewTradeForm({ onClose }: NewTradeFormProps) {
+  const { t } = useTranslation();
   const createTrade = useCreateTrade();
   const [form, setForm] = useState<{
     symbol: string;
@@ -136,15 +144,15 @@ function NewTradeForm({ onClose }: NewTradeFormProps) {
     const leverage = Number(form.leverage);
 
     if (!form.symbol.trim()) {
-      setError("Symbol is required.");
+      setError(t("trades.symbolRequired"));
       return;
     }
     if (!entryPrice || entryPrice <= 0) {
-      setError("Entry price must be positive.");
+      setError(t("trades.entryPricePositive"));
       return;
     }
     if (!quantity || quantity <= 0) {
-      setError("Quantity must be positive.");
+      setError(t("trades.quantityPositive"));
       return;
     }
 
@@ -170,7 +178,7 @@ function NewTradeForm({ onClose }: NewTradeFormProps) {
   return (
     <IqCard className="space-y-4">
       <div className="flex items-center justify-between">
-        <CardEyebrow>New Trade</CardEyebrow>
+        <CardEyebrow>{t("trades.newTradeTitle")}</CardEyebrow>
         <button
           onClick={onClose}
           className="text-muted-foreground hover:text-foreground transition-colors"
@@ -182,7 +190,7 @@ function NewTradeForm({ onClose }: NewTradeFormProps) {
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1">
           <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Symbol
+            {t("trades.symbol")}
           </label>
           <input
             className="border-input bg-background rounded-md border px-3 py-2 text-sm font-semibold uppercase"
@@ -194,7 +202,7 @@ function NewTradeForm({ onClose }: NewTradeFormProps) {
 
         <div className="flex flex-col gap-1">
           <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Direction
+            {t("trades.direction")}
           </label>
           <div className="flex gap-1">
             {(["long", "short"] as const).map((d) => (
@@ -210,7 +218,7 @@ function NewTradeForm({ onClose }: NewTradeFormProps) {
                     : "border-border bg-surface text-muted-foreground hover:text-foreground",
                 )}
               >
-                {d === "long" ? "Long ↑" : "Short ↓"}
+                {d === "long" ? t("trades.long") : t("trades.short")}
               </button>
             ))}
           </div>
@@ -218,7 +226,7 @@ function NewTradeForm({ onClose }: NewTradeFormProps) {
 
         <div className="flex flex-col gap-1">
           <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Entry Price
+            {t("trades.entryPrice")}
           </label>
           <input
             className="border-input bg-background rounded-md border px-3 py-2 text-sm"
@@ -232,7 +240,7 @@ function NewTradeForm({ onClose }: NewTradeFormProps) {
 
         <div className="flex flex-col gap-1">
           <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Quantity
+            {t("trades.quantity")}
           </label>
           <input
             className="border-input bg-background rounded-md border px-3 py-2 text-sm"
@@ -247,7 +255,7 @@ function NewTradeForm({ onClose }: NewTradeFormProps) {
 
         <div className="flex flex-col gap-1">
           <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Leverage
+            {t("trades.leverage")}
           </label>
           <input
             className="border-input bg-background rounded-md border px-3 py-2 text-sm"
@@ -262,7 +270,7 @@ function NewTradeForm({ onClose }: NewTradeFormProps) {
 
         <div className="flex flex-col gap-1">
           <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Strategy (optional)
+            {t("trades.strategyOptional")}
           </label>
           <input
             className="border-input bg-background rounded-md border px-3 py-2 text-sm"
@@ -275,11 +283,11 @@ function NewTradeForm({ onClose }: NewTradeFormProps) {
 
       <div className="flex flex-col gap-1">
         <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Notes (optional)
+          {t("trades.notesOptional")}
         </label>
         <textarea
           className="border-input bg-background rounded-md border px-3 py-2 text-sm resize-none"
-          placeholder="Why did you take this trade?"
+          placeholder={t("trades.notesPlaceholder")}
           rows={2}
           value={form.notes}
           onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
@@ -290,10 +298,10 @@ function NewTradeForm({ onClose }: NewTradeFormProps) {
 
       <div className="flex gap-2 pt-1">
         <Button className="flex-1" onClick={handleSubmit} disabled={createTrade.isPending}>
-          {createTrade.isPending ? "Logging…" : "Log Trade"}
+          {createTrade.isPending ? t("trades.loggingEllipsis") : t("trades.logTrade")}
         </Button>
         <Button variant="outline" onClick={onClose}>
-          Cancel
+          {t("trades.cancel")}
         </Button>
       </div>
     </IqCard>
@@ -303,6 +311,7 @@ function NewTradeForm({ onClose }: NewTradeFormProps) {
 // ── Close Trade Form ──────────────────────────────────────────────────────────
 
 function CloseTradeInline({ trade, onClose }: { trade: Trade; onClose: () => void }) {
+  const { t } = useTranslation();
   const closeTrade = useCloseTrade();
   const [exitPrice, setExitPrice] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -319,7 +328,7 @@ function CloseTradeInline({ trade, onClose }: { trade: Trade; onClose: () => voi
     setError(null);
     const price = Number(exitPrice);
     if (!price || price <= 0) {
-      setError("Enter a valid exit price.");
+      setError(t("trades.validExitPrice"));
       return;
     }
     closeTrade.mutate({ id: trade.id, exitPrice: price, trade });
@@ -330,7 +339,7 @@ function CloseTradeInline({ trade, onClose }: { trade: Trade; onClose: () => voi
     <div className="mt-2 flex items-center gap-2 flex-wrap">
       <input
         className="border-input bg-background rounded-md border px-2 py-1.5 text-sm w-32"
-        placeholder="Exit price"
+        placeholder={t("trades.exitPricePlaceholder")}
         type="number"
         min="0"
         value={exitPrice}
@@ -343,10 +352,10 @@ function CloseTradeInline({ trade, onClose }: { trade: Trade; onClose: () => voi
       )}
       <Button size="sm" onClick={handleClose} disabled={closeTrade.isPending}>
         <Check className="h-3 w-3 mr-1" />
-        Close
+        {t("trades.close")}
       </Button>
       <Button size="sm" variant="ghost" onClick={onClose}>
-        Cancel
+        {t("trades.cancel")}
       </Button>
       {error && <p className="text-destructive text-xs w-full">{error}</p>}
     </div>
@@ -356,6 +365,7 @@ function CloseTradeInline({ trade, onClose }: { trade: Trade; onClose: () => voi
 // ── Open Position Card (hero — live PnL) ──────────────────────────────────────
 
 function OpenPositionCard({ row }: { row: OpenTradePnl }) {
+  const { t } = useTranslation();
   const { trade, livePrice, unrealizedPnl, unrealizedPct } = row;
   const deleteTrade = useDeleteTrade();
   const [showClose, setShowClose] = useState(false);
@@ -395,7 +405,7 @@ function OpenPositionCard({ row }: { row: OpenTradePnl }) {
           </div>
           <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <LiveDot live={isLive} />
-            {isLive ? "Live" : "Awaiting tick…"}
+            {isLive ? t("trades.live") : t("trades.awaitingTick")}
           </div>
         </div>
 
@@ -410,9 +420,12 @@ function OpenPositionCard({ row }: { row: OpenTradePnl }) {
       </div>
 
       <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs">
-        <Metric label="Entry" value={formatMoney(trade.entry_price)} />
-        <Metric label={isLive ? "Mark" : "Mark (entry)"} value={formatMoney(markPrice)} />
-        <Metric label="Quantity" value={String(trade.quantity)} />
+        <Metric label={t("trades.entry")} value={formatMoney(trade.entry_price)} />
+        <Metric
+          label={isLive ? t("trades.mark") : t("trades.markEntry")}
+          value={formatMoney(markPrice)}
+        />
+        <Metric label={t("trades.quantity")} value={String(trade.quantity)} />
       </div>
 
       {trade.notes && (
@@ -429,7 +442,7 @@ function OpenPositionCard({ row }: { row: OpenTradePnl }) {
           className="text-xs h-7 px-2"
         >
           <DollarSign className="h-3 w-3 mr-1" />
-          Close Trade
+          {t("trades.closeTrade")}
         </Button>
         <Button
           size="icon"
@@ -437,7 +450,7 @@ function OpenPositionCard({ row }: { row: OpenTradePnl }) {
           className="h-7 w-7 ml-auto text-muted-foreground hover:text-bearish"
           onClick={() => deleteTrade.mutate(trade.id)}
           disabled={deleteTrade.isPending}
-          aria-label={`Delete ${trade.symbol} trade`}
+          aria-label={t("trades.deleteTradeAria", { symbol: trade.symbol })}
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
@@ -451,6 +464,7 @@ function OpenPositionCard({ row }: { row: OpenTradePnl }) {
 // ── Trade Row (history) ───────────────────────────────────────────────────────
 
 function TradeRow({ trade }: { trade: Trade }) {
+  const { t } = useTranslation();
   const deleteTrade = useDeleteTrade();
 
   return (
@@ -476,26 +490,30 @@ function TradeRow({ trade }: { trade: Trade }) {
             )}
           </div>
           <div className="mt-0.5 text-[11px] text-muted-foreground">
-            Opened {trade.opened_at ? new Date(trade.opened_at).toLocaleDateString() : "recently"}
+            {t("trades.opened", {
+              date: trade.opened_at
+                ? new Date(trade.opened_at).toLocaleDateString()
+                : t("trades.recently"),
+            })}
           </div>
         </div>
 
         <Badge variant="outline" className={cn("shrink-0", STATUS_TONE[trade.status])}>
-          {trade.status.charAt(0).toUpperCase() + trade.status.slice(1)}
+          {t(`trades.${STATUS_LABEL_KEY[trade.status]}`)}
         </Badge>
       </div>
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
-        <Metric label="Entry" value={formatMoney(trade.entry_price)} />
-        <Metric label="Quantity" value={String(trade.quantity)} />
+        <Metric label={t("trades.entry")} value={formatMoney(trade.entry_price)} />
+        <Metric label={t("trades.quantity")} value={String(trade.quantity)} />
         {trade.exit_price ? (
-          <Metric label="Exit" value={formatMoney(trade.exit_price)} />
+          <Metric label={t("trades.exit")} value={formatMoney(trade.exit_price)} />
         ) : (
-          <Metric label="Exit" value="Open" />
+          <Metric label={t("trades.exit")} value={t("trades.open")} />
         )}
         <div>
           <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-            PnL
+            {t("trades.pnl")}
           </div>
           <div className={cn("num font-semibold", pnlTone(trade.pnl))}>
             {formatPnl(trade.pnl)}
@@ -522,7 +540,7 @@ function TradeRow({ trade }: { trade: Trade }) {
           className="h-7 w-7 ml-auto text-muted-foreground hover:text-bearish"
           onClick={() => deleteTrade.mutate(trade.id)}
           disabled={deleteTrade.isPending}
-          aria-label={`Delete ${trade.symbol} trade`}
+          aria-label={t("trades.deleteTradeAria", { symbol: trade.symbol })}
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
@@ -555,6 +573,7 @@ function AggregateOpenPnl({
   livePriced: number;
   isLoading: boolean;
 }) {
+  const { t } = useTranslation();
   const hasPositions = count > 0;
   const tone = !hasPositions ? "neutral" : totalUnrealized >= 0 ? "bullish" : "bearish";
 
@@ -567,10 +586,12 @@ function AggregateOpenPnl({
       )}
     >
       <div className="flex items-center justify-between">
-        <CardEyebrow>Open P&amp;L</CardEyebrow>
+        <CardEyebrow>{t("trades.openPnl")}</CardEyebrow>
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <LiveDot live={hasPositions && livePriced > 0} />
-          {hasPositions ? `${livePriced}/${count} live` : "no positions"}
+          {hasPositions
+            ? t("trades.livePriced", { live: livePriced, count })
+            : t("trades.noPositions")}
         </div>
       </div>
       {isLoading ? (
@@ -586,9 +607,7 @@ function AggregateOpenPnl({
         </div>
       )}
       <p className="text-xs text-muted-foreground">
-        {hasPositions
-          ? `Across ${count} running position${count === 1 ? "" : "s"} · unrealized, display-only`
-          : "No running positions right now."}
+        {hasPositions ? t("trades.acrossPositions", { count }) : t("trades.noRunningPositions")}
       </p>
     </IqCard>
   );
@@ -597,6 +616,7 @@ function AggregateOpenPnl({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 function TradesPage() {
+  const { t } = useTranslation();
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
   const [showNewForm, setShowNewForm] = useState(false);
 
@@ -613,20 +633,20 @@ function TradesPage() {
   return (
     <div className="space-y-5 pb-20 lg:pb-6">
       <PageHeader
-        eyebrow="Live Positions & Journal"
-        title="Trades"
-        subtitle="Running positions update in real time from live market data. Closed trades are journaled below for review."
+        eyebrow={t("trades.eyebrow")}
+        title={t("trades.title")}
+        subtitle={t("trades.subtitle")}
       />
 
       {/* Auth prompt */}
       {!authenticated && (
         <IqCard className="space-y-2 text-center text-sm text-muted-foreground">
-          <p>Your trade journal lives on the server — sign in to start logging trades.</p>
+          <p>{t("trades.signInPrompt1")}</p>
           <p>
             <Link to="/login" className="font-medium text-info underline-offset-2 hover:underline">
-              Sign in
+              {t("common.signIn")}
             </Link>{" "}
-            to access your positions and trade journal.
+            {t("trades.signInPrompt2")}
           </p>
         </IqCard>
       )}
@@ -643,7 +663,7 @@ function TradesPage() {
 
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Running Positions
+              {t("trades.runningPositions")}
             </h2>
             {openPnl.count > 0 && (
               <Badge variant="outline" className="border-info/30 bg-info-soft text-info">
@@ -656,7 +676,7 @@ function TradesPage() {
               onClick={() => setShowNewForm((v) => !v)}
             >
               <Plus className="h-3.5 w-3.5" />
-              New Trade
+              {t("trades.newTradeButton")}
             </Button>
           </div>
 
@@ -664,11 +684,11 @@ function TradesPage() {
 
           {openPnl.isLoading ? (
             <IqCard className="text-center text-sm text-muted-foreground py-6">
-              Loading positions…
+              {t("trades.loadingPositions")}
             </IqCard>
           ) : openPnl.rows.length === 0 ? (
             <IqCard className="text-center text-sm text-muted-foreground py-6">
-              No running positions — click "New Trade" to open one.
+              {t("trades.noRunningClickNewTrade")}
             </IqCard>
           ) : (
             <div className="space-y-2.5">
@@ -681,14 +701,14 @@ function TradesPage() {
           {/* ── HISTORY: journal ──────────────────────────────────────────── */}
           <div className="pt-2">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Journal
+              {t("trades.journal")}
             </h2>
 
             <IqCard className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <StatTile label="Total trades" value={String(summary.total)} />
-              <StatTile label="Closed" value={String(summary.closed)} />
+              <StatTile label={t("trades.statTotalTrades")} value={String(summary.total)} />
+              <StatTile label={t("trades.statClosed")} value={String(summary.closed)} />
               <StatTile
-                label="Win rate"
+                label={t("trades.statWinRate")}
                 value={
                   summary.closed ? (summary.winRate !== null ? `${summary.winRate}%` : "—") : "—"
                 }
@@ -701,7 +721,7 @@ function TradesPage() {
                 }
               />
               <StatTile
-                label="Total realized PnL"
+                label={t("trades.statTotalRealizedPnl")}
                 value={summary.totalPnl !== null ? formatPnl(summary.totalPnl) : "—"}
                 tone={
                   summary.totalPnl !== null
@@ -725,20 +745,22 @@ function TradesPage() {
                       : "border-border bg-surface text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  {f.label}
+                  {t(`trades.${f.labelKey}`)}
                 </button>
               ))}
             </div>
 
             {historyLoading ? (
               <IqCard className="text-center text-sm text-muted-foreground py-6">
-                Loading journal…
+                {t("trades.loadingJournal")}
               </IqCard>
             ) : historyTrades.length === 0 ? (
               <IqCard className="text-center text-sm text-muted-foreground py-6">
                 {historyFilter === "all"
-                  ? "No closed trades yet — your history will appear here once you close a position."
-                  : `No ${historyFilter} trades.`}
+                  ? t("trades.noClosedTradesYet")
+                  : t(
+                      `trades.${historyFilter === "closed" ? "noClosedFilterTrades" : "noCancelledFilterTrades"}`,
+                    )}
               </IqCard>
             ) : (
               <div className="space-y-2.5">

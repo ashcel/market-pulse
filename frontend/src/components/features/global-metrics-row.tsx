@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Bitcoin, Boxes, Gauge, Layers3, Sparkle } from "lucide-react";
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 import { CardEyebrow, IqCard } from "./iq-card";
 import { MiniChart } from "./mini-chart";
@@ -82,6 +83,7 @@ function Tile({
 }
 
 export function GlobalMetricsRow() {
+  const { t } = useTranslation();
   const context = useMarketContext();
   const scan = useOpportunityScan();
   const rs = useRsScan();
@@ -115,34 +117,38 @@ export function GlobalMetricsRow() {
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
       <Tile
         icon={<Boxes className="h-3.5 w-3.5" />}
-        label="Market Cap"
+        label={t("metrics.marketCap")}
         value={latest ? compactUsd(latest.totalMcapUsd) : "—"}
         delta={<Delta value={latest?.mcapChange24hPct ?? null} />}
-        footer={latest ? `Global · ${latest.source}` : "Breadth ingest unavailable"}
+        footer={
+          latest ? t("metrics.global", { source: latest.source }) : t("metrics.breadthUnavailable")
+        }
       >
         {mcapSpark.length > 1 && <MiniChart data={mcapSpark} tone="bullish" height={28} />}
       </Tile>
 
       <Tile
         icon={<Layers3 className="h-3.5 w-3.5" />}
-        label="24h Volume"
-        title="Summed USDT turnover across every Binance USDT pair — exchange volume, not global crypto volume."
+        label={t("metrics.volume24h")}
+        title={t("metrics.volumeTooltip")}
         value={scan.data ? compactUsd(scan.data.exchangeQuoteVolume24h) : "—"}
         footer={
-          scan.data ? `Binance USDT · ${scan.data.pairsSeen} pairs` : "Exchange scan unavailable"
+          scan.data
+            ? t("metrics.binanceUsdtPairs", { pairs: scan.data.pairsSeen })
+            : t("metrics.exchangeUnavailable")
         }
         to="/discover"
       />
 
       <Tile
         icon={<Bitcoin className="h-3.5 w-3.5" />}
-        label="BTC Dominance"
+        label={t("metrics.btcDominance")}
         value={latest ? `${latest.btcDominance.toFixed(2)}%` : "—"}
         delta={<Delta value={domDelta} unit="pp" />}
         footer={
           latest?.ethDominance != null
-            ? `ETH ${latest.ethDominance.toFixed(2)}%`
-            : "Breadth ingest unavailable"
+            ? t("metrics.ethDominance", { value: latest.ethDominance.toFixed(2) })
+            : t("metrics.breadthUnavailable")
         }
       >
         {domSpark.length > 1 && (
@@ -156,17 +162,13 @@ export function GlobalMetricsRow() {
 
       <Tile
         icon={<Gauge className="h-3.5 w-3.5" />}
-        label="Fear & Greed"
-        title={
-          sentiment.data?.source === "proxy"
-            ? "The Fear & Greed API was unreachable — internal breadth/momentum estimate."
-            : undefined
-        }
+        label={t("metrics.fearGreed")}
+        title={sentiment.data?.source === "proxy" ? t("metrics.fearGreedTooltip") : undefined}
         value={sentiment.data ? sentiment.data.fearGreed : "—"}
         footer={
           sentiment.data
-            ? `${sentiment.data.label}${sentiment.data.source === "proxy" ? " · estimated" : ""}`
-            : "Sentiment unavailable"
+            ? `${sentiment.data.label}${sentiment.data.source === "proxy" ? t("metrics.estimatedSuffix") : ""}`
+            : t("metrics.sentimentUnavailable")
         }
         to="/news"
       >
@@ -175,11 +177,15 @@ export function GlobalMetricsRow() {
 
       <Tile
         icon={<Sparkle className="h-3.5 w-3.5" />}
-        label="Alt Strength"
-        title="Share of Binance's liquid USDT tier outperforming BTC over the last 24h. Not the 90-day Altcoin Season Index."
+        label={t("metrics.altStrength")}
+        title={t("metrics.altStrengthTooltip")}
         value={rs.data ? `${rs.data.altsBeatingBtcPct}` : "—"}
         delta={<span className="text-xs text-muted-foreground">/100</span>}
-        footer={rs.data ? `${rs.data.pairsRanked} pairs beating BTC (24h)` : "RS scan unavailable"}
+        footer={
+          rs.data
+            ? t("metrics.pairsBeatingBtc", { count: rs.data.pairsRanked })
+            : t("metrics.rsUnavailable")
+        }
         to="/rotation"
       >
         {rs.data && (
@@ -203,6 +209,7 @@ export function GlobalMetricsRow() {
 }
 
 function FearGreedBar({ value }: { value: number }) {
+  const { t } = useTranslation();
   return (
     <div>
       <div className="relative h-1.5 rounded-full bg-gradient-to-r from-bearish via-warning to-bullish">
@@ -212,8 +219,8 @@ function FearGreedBar({ value }: { value: number }) {
         />
       </div>
       <div className="mt-1.5 flex justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
-        <span>Fear</span>
-        <span>Greed</span>
+        <span>{t("metrics.fear")}</span>
+        <span>{t("metrics.greed")}</span>
       </div>
     </div>
   );

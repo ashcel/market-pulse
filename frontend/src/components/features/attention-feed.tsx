@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
 import { ChevronRight, Clock, ExternalLink } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { AssetIcon } from "./asset-icon";
 import { CardEyebrow, IqCard } from "./iq-card";
@@ -21,13 +22,13 @@ import type { SparkPoint } from "@/lib/types";
  * direction, and the discovery/news rows are explicitly labelled as context.
  */
 
-const FILTERS: { label: string; value: AttentionKind | "all" }[] = [
-  { label: "All", value: "all" },
-  { label: "Setups", value: "setup" },
-  { label: "Spike Vol", value: "spike" },
-  { label: "Liquidity", value: "liquidity" },
-  { label: "News", value: "news" },
-  { label: "Unlocks", value: "unlock" },
+const FILTERS: { labelKey: string; value: AttentionKind | "all" }[] = [
+  { labelKey: "all", value: "all" },
+  { labelKey: "setups", value: "setup" },
+  { labelKey: "spikeVol", value: "spike" },
+  { labelKey: "liquidity", value: "liquidity" },
+  { labelKey: "news", value: "news" },
+  { labelKey: "unlocks", value: "unlock" },
 ];
 
 const KIND_STYLE: Record<AttentionKind, { badge: string; accent: string; dot: string }> = {
@@ -65,6 +66,7 @@ const PRIORITY_STYLE = {
 } as const;
 
 export function AttentionFeed() {
+  const { t } = useTranslation();
   const { items, isLoading } = useAttention();
   const { data: assets } = useAssets();
   const [filter, setFilter] = useState<AttentionKind | "all">("all");
@@ -90,10 +92,8 @@ export function AttentionFeed() {
     <IqCard padded={false} data-tour="attention" className="flex flex-col p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <CardEyebrow>What's worth paying attention to today</CardEyebrow>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Curated opportunities and market-moving events.
-          </p>
+          <CardEyebrow>{t("attention.title")}</CardEyebrow>
+          <p className="mt-1 text-xs text-muted-foreground">{t("attention.subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-1">
           {FILTERS.map((f) => {
@@ -112,7 +112,7 @@ export function AttentionFeed() {
                   n === 0 && f.value !== "all" && "opacity-40 hover:bg-transparent",
                 )}
               >
-                {f.label}
+                {t(`attention.filters.${f.labelKey}`)}
               </button>
             );
           })}
@@ -127,10 +127,8 @@ export function AttentionFeed() {
         </div>
       ) : shown.length === 0 ? (
         <div className="mt-4 rounded-lg border border-dashed border-border/60 bg-surface/30 p-8 text-center">
-          <p className="text-sm font-medium text-foreground">Nothing is asking for attention.</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            No live setups, no spikes, no high-impact events in the window. Waiting is a position.
-          </p>
+          <p className="text-sm font-medium text-foreground">{t("attention.emptyTitle")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("attention.emptyBody")}</p>
         </div>
       ) : (
         <div className="relative mt-4">
@@ -150,7 +148,7 @@ export function AttentionFeed() {
           {shown.length > 2 && (
             <button
               type="button"
-              aria-label="Scroll for more"
+              aria-label={t("attention.scrollForMore")}
               onClick={() => scroller.current?.scrollBy({ left: 320, behavior: "smooth" })}
               className="absolute -right-2 top-1/2 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-lg transition-colors hover:text-foreground lg:flex"
             >
@@ -172,6 +170,7 @@ function AttentionCard({
   now: number;
   spark?: SparkPoint[];
 }) {
+  const { t } = useTranslation();
   const style = KIND_STYLE[item.kind];
   const priority = PRIORITY_STYLE[item.priority];
   const when = humanRelative(item.at, now);
@@ -197,7 +196,7 @@ function AttentionCard({
         <div className="flex items-center gap-2">
           {item.symbol && <AssetIcon ticker={item.symbol} className="h-5 w-5" />}
           <span className="truncate text-base font-semibold">
-            {item.symbol ?? "Market"}
+            {item.symbol ?? t("attention.market")}
             {item.symbol && <span className="text-muted-foreground"> / USDT</span>}
           </span>
         </div>

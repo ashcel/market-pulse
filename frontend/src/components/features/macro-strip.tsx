@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { MiniChart } from "@/components/features/mini-chart";
 import { Change } from "@/components/features/change";
 import { IqCard, CardEyebrow } from "@/components/features/iq-card";
@@ -6,24 +8,17 @@ import { useMacro } from "@/hooks/queries";
 import { cn } from "@/lib/utils";
 import type { CorrelationRegime, MacroInstrument } from "@/lib/engine/macro";
 
-const REGIME_COPY: Record<CorrelationRegime, { title: string; detail: string }> = {
-  coupled: {
-    title: "Trading with tech",
-    detail: "BTC is moving with the Nasdaq — expect stock-market swings to spill into crypto.",
-  },
-  decoupled: {
-    title: "Decoupled",
-    detail: "BTC is moving on its own — stock-market swings matter less for crypto right now.",
-  },
-  inverse: {
-    title: "Moving against tech",
-    detail: "BTC is moving opposite the Nasdaq — often a sign of rotation between the two.",
-  },
+/** Keys under `macro.*` in the i18n resources — see `REGIME_TITLE_KEY`. */
+const REGIME_TITLE_KEY: Record<CorrelationRegime, string> = {
+  coupled: "tradingWithTech",
+  decoupled: "decoupled",
+  inverse: "movingAgainstTech",
 };
 
 import { SkeletonCard } from "@/components/features/skeletons";
 
 export function MacroStrip() {
+  const { t } = useTranslation();
   const macro = useMacro();
   const data = macro.data;
 
@@ -38,8 +33,8 @@ export function MacroStrip() {
     <IqCard padded={false} className="p-5 flex flex-col h-full">
       <div className="flex flex-col gap-2 mb-4">
         <div className="flex items-center gap-2">
-          <CardEyebrow>Macro Context</CardEyebrow>
-          {data.source === "demo" && <StatusBadge tone="warning">Demo</StatusBadge>}
+          <CardEyebrow>{t("macro.eyebrow")}</CardEyebrow>
+          {data.source === "demo" && <StatusBadge tone="warning">{t("topBar.demo")}</StatusBadge>}
         </div>
         {regime && correlation !== null && (
           <div className="flex items-center gap-2 text-xs">
@@ -52,7 +47,7 @@ export function MacroStrip() {
               )}
             >
               BTC↔NDX {correlation > 0 ? "+" : ""}
-              {correlation} · {REGIME_COPY[regime].title}
+              {correlation} · {t(`macro.${REGIME_TITLE_KEY[regime]}`)}
             </span>
           </div>
         )}

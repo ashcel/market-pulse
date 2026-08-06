@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { useAssets } from "@/hooks/queries";
 import { RsScanCard } from "@/components/features/rs-scan-card";
 import { PageHeader } from "@/components/features/page-header";
@@ -41,39 +42,32 @@ export const Route = createFileRoute("/rankings")({
 
 type Filter = string;
 type SortKey =
-  | "score"
-  | "momentum"
-  | "strength"
-  | "volume"
-  | "technical"
-  | "confidence"
-  | "change"
-  | "rs";
+  "score" | "momentum" | "strength" | "volume" | "technical" | "confidence" | "change" | "rs";
 
-const FILTERS: { label: string; value: Filter }[] = [
-  { label: "All", value: "all" },
-  ...SECTOR_ORDER.map((s) => ({ label: s, value: s })),
-  { label: "Favorites", value: "favorites" },
-];
+// Sector names come from the engine's taxonomy (SECTOR_ORDER), left untranslated (see markets.tsx).
+const SECTOR_FILTERS = SECTOR_ORDER.map((s) => ({ label: s, value: s }));
 
 const TOUR_SEEN_KEY = "iq-rankings-tour-v1";
 
-const TOUR_STEPS: TourStep[] = [
-  {
-    target: "controls",
-    title: "Search & filters",
-    body: "Find any asset by ticker or name, narrow to a single sector, or show only the tokens you starred as Favorites.",
-  },
-  {
-    target: "table",
-    title: "The rankings table",
-    body: "Every asset scored 0–100 on momentum, strength, volume, and technical quality, plus the engine's current setup call. RS/BTC shows who is actually beating Bitcoin over 7 days (with ρ, the correlation of its hourly moves to BTC's, underneath). Click a column header to sort by it (click again to flip the order), click a row to open that token's full analysis, and use the star at the end of a row to add it to your Favorites.",
-  },
-];
+function useTourSteps(): TourStep[] {
+  const { t } = useTranslation();
+  return (["controls", "table"] as const).map((target) => ({
+    target,
+    title: t(`rankings.tour.${target}.title`),
+    body: t(`rankings.tour.${target}.body`),
+  }));
+}
 
 function RankingsPage() {
+  const { t } = useTranslation();
   const { data } = useAssets();
   const tour = useProductTour(TOUR_SEEN_KEY);
+  const tourSteps = useTourSteps();
+  const filters = [
+    { label: t("rankings.filterAll"), value: "all" },
+    ...SECTOR_FILTERS,
+    { label: t("rankings.filterFavorites"), value: "favorites" },
+  ];
   const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("score");
@@ -106,9 +100,9 @@ function RankingsPage() {
   return (
     <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
       <PageHeader
-        eyebrow="Rankings"
-        title="Asset Rankings"
-        subtitle="Momentum, strength, volume, and signal quality computed live from Binance data."
+        eyebrow={t("rankings.eyebrow")}
+        title={t("rankings.title")}
+        subtitle={t("rankings.subtitle")}
         action={<HelpButton onClick={tour.start} />}
       />
 
@@ -118,12 +112,12 @@ function RankingsPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search ticker or name"
+            placeholder={t("rankings.searchPlaceholder")}
             className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
           />
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {FILTERS.map((f) => (
+          {filters.map((f) => (
             <button
               key={f.value}
               onClick={() => setFilter(f.value)}
@@ -148,20 +142,20 @@ function RankingsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground">
-                  <Th className="pl-5">#</Th>
-                  <Th>Asset</Th>
-                  <Th>Sector</Th>
+                  <Th className="pl-5">{t("rankings.colRank")}</Th>
+                  <Th>{t("rankings.colAsset")}</Th>
+                  <Th>{t("rankings.colSector")}</Th>
                   <Th
                     align="right"
                     sortable
                     active={sortKey === "score"}
                     dir={sortDir}
                     onClick={() => cycleSort("score")}
-                    title="Heuristic checklist score, not a proven-edge probability. Independently weighted from Signal and Technical — not confirmation of the same read."
+                    title={t("rankings.colScoreTooltip")}
                   >
-                    Score
+                    {t("rankings.colScore")}
                   </Th>
-                  <Th>Setup</Th>
+                  <Th>{t("rankings.colSetup")}</Th>
                   <Th
                     align="right"
                     sortable
@@ -169,7 +163,7 @@ function RankingsPage() {
                     dir={sortDir}
                     onClick={() => cycleSort("change")}
                   >
-                    Change
+                    {t("rankings.colChange")}
                   </Th>
                   <Th
                     align="right"
@@ -178,7 +172,7 @@ function RankingsPage() {
                     dir={sortDir}
                     onClick={() => cycleSort("rs")}
                   >
-                    RS/BTC 7d
+                    {t("rankings.colRs")}
                   </Th>
                   <Th
                     align="right"
@@ -187,7 +181,7 @@ function RankingsPage() {
                     dir={sortDir}
                     onClick={() => cycleSort("momentum")}
                   >
-                    Momentum
+                    {t("rankings.colMomentum")}
                   </Th>
                   <Th
                     align="right"
@@ -196,7 +190,7 @@ function RankingsPage() {
                     dir={sortDir}
                     onClick={() => cycleSort("strength")}
                   >
-                    Strength
+                    {t("rankings.colStrength")}
                   </Th>
                   <Th
                     align="right"
@@ -205,7 +199,7 @@ function RankingsPage() {
                     dir={sortDir}
                     onClick={() => cycleSort("volume")}
                   >
-                    Volume
+                    {t("rankings.colVolume")}
                   </Th>
                   <Th
                     align="right"
@@ -213,9 +207,9 @@ function RankingsPage() {
                     active={sortKey === "technical"}
                     dir={sortDir}
                     onClick={() => cycleSort("technical")}
-                    title="Heuristic checklist score, not a proven-edge probability."
+                    title={t("rankings.colTechnicalTooltip")}
                   >
-                    Technical
+                    {t("rankings.colTechnical")}
                   </Th>
                   <Th
                     align="right"
@@ -223,12 +217,12 @@ function RankingsPage() {
                     active={sortKey === "confidence"}
                     dir={sortDir}
                     onClick={() => cycleSort("confidence")}
-                    title="Heuristic checklist score, not a proven-edge probability."
+                    title={t("rankings.colSignalTooltip")}
                   >
-                    Signal
+                    {t("rankings.colSignal")}
                   </Th>
                   <Th align="right" className="pr-5">
-                    Trend
+                    {t("rankings.colTrend")}
                   </Th>
                   <Th></Th>
                 </tr>
@@ -324,7 +318,7 @@ function RankingsPage() {
                         <button
                           onClick={() => watchlist.toggle(a.ticker)}
                           className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-surface hover:text-warning"
-                          aria-label="Toggle favorite"
+                          aria-label={t("rankings.toggleFavorite")}
                         >
                           <Star className={cn("h-4 w-4", fav && "fill-warning text-warning")} />
                         </button>
@@ -337,7 +331,7 @@ function RankingsPage() {
           </div>
           {rows.length === 0 && (
             <div className="p-10 text-center text-sm text-muted-foreground">
-              No assets match your filters.
+              {t("rankings.noMatches")}
             </div>
           )}
         </IqCard>
@@ -345,7 +339,7 @@ function RankingsPage() {
 
       <RsScanCard />
 
-      <ProductTour steps={TOUR_STEPS} open={tour.open && !!data} onClose={tour.close} />
+      <ProductTour steps={tourSteps} open={tour.open && !!data} onClose={tour.close} />
     </div>
   );
 }

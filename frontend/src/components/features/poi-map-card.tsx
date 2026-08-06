@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { CardEyebrow } from "@/components/features/iq-card";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
@@ -15,10 +16,10 @@ import { cn } from "@/lib/utils";
  */
 
 const SOURCE_BADGE: Record<PoiSource, string> = {
-  "base-zone": "Zone",
-  "order-block": "OB",
-  fvg: "FVG",
-  ifvg: "iFVG",
+  "base-zone": "sourceZone",
+  "order-block": "sourceOb",
+  fvg: "sourceFvg",
+  ifvg: "sourceIfvg",
 };
 
 const STATE_TONE: Record<UnifiedPoi["state"], string> = {
@@ -30,10 +31,12 @@ const STATE_TONE: Record<UnifiedPoi["state"], string> = {
 };
 
 function PoiRow({ poi }: { poi: UnifiedPoi }) {
+  const { t } = useTranslation();
+  const n = "components.batchC.poiMap.";
   return (
     <div className="flex items-center gap-2 text-[11px] leading-relaxed">
       <span className="w-10 shrink-0 rounded border border-border bg-card px-1 text-center text-[9px] font-semibold uppercase text-muted-foreground">
-        {SOURCE_BADGE[poi.source]}
+        {t(`${n}${SOURCE_BADGE[poi.source]}`)}
       </span>
       <span className="num min-w-0 flex-1 truncate">
         {formatMoney(poi.priceLow)}–{formatMoney(poi.priceHigh)}
@@ -57,6 +60,8 @@ function PoiRow({ poi }: { poi: UnifiedPoi }) {
 const COLLAPSED_ROWS = 3;
 
 export function PoiMapCard({ pois, timeframe }: { pois: UnifiedPoi[]; timeframe: TokenTimeframe }) {
+  const { t } = useTranslation();
+  const n = "components.batchC.poiMap.";
   // The full ledger can run long (three detectors × both sides, terminal
   // rows included) — on a phone that pushes the S/R and session cards off
   // screen, so each side collapses to its nearest few rows.
@@ -73,11 +78,13 @@ export function PoiMapCard({ pois, timeframe }: { pois: UnifiedPoi[]; timeframe:
 
   return (
     <div className="rounded-lg border border-border bg-surface p-2.5">
-      <CardEyebrow>Points of Interest · {timeframe}</CardEyebrow>
+      <CardEyebrow>{t(`${n}title`, { timeframe })}</CardEyebrow>
       <div className="mt-1.5 space-y-2">
         {supply.length > 0 && (
           <div className="space-y-1">
-            <div className="text-[10px] font-semibold uppercase text-warning">Supply above</div>
+            <div className="text-[10px] font-semibold uppercase text-warning">
+              {t(`${n}supplyAbove`)}
+            </div>
             {visible(supply).map((poi) => (
               <PoiRow key={`${poi.source}-${poi.startTime}-${poi.priceLow}`} poi={poi} />
             ))}
@@ -85,7 +92,9 @@ export function PoiMapCard({ pois, timeframe }: { pois: UnifiedPoi[]; timeframe:
         )}
         {demand.length > 0 && (
           <div className="space-y-1">
-            <div className="text-[10px] font-semibold uppercase text-success">Demand below</div>
+            <div className="text-[10px] font-semibold uppercase text-success">
+              {t(`${n}demandBelow`)}
+            </div>
             {visible(demand).map((poi) => (
               <PoiRow key={`${poi.source}-${poi.startTime}-${poi.priceLow}`} poi={poi} />
             ))}
@@ -98,12 +107,11 @@ export function PoiMapCard({ pois, timeframe }: { pois: UnifiedPoi[]; timeframe:
           onClick={() => setExpanded((v) => !v)}
           className="mt-1.5 w-full rounded-md border border-border bg-card py-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
         >
-          {expanded ? "Show fewer" : `Show all (${hiddenCount} more)`}
+          {expanded ? t(`${n}showFewer`) : t(`${n}showAll`, { count: hiddenCount })}
         </button>
       )}
       <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-        Display only — the anticipatory plan still selects from base zones (EDR 0009). OB and FVG
-        reads agreeing with a zone is confluence context, not a signal.
+        {t(`${n}disclaimer`)}
       </p>
     </div>
   );

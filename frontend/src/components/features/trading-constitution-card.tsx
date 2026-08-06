@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ShieldCheck } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { IqCard, CardEyebrow } from "@/components/features/iq-card";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ const DEFAULTS: ConstitutionInput = {
  * never mutates one in place.
  */
 export function TradingConstitutionCard() {
+  const { t } = useTranslation();
   const { constitution, isLoading, authenticated } = useConstitution();
   const save = useSaveConstitution();
   const [form, setForm] = useState<ConstitutionInput>(DEFAULTS);
@@ -117,13 +119,17 @@ export function TradingConstitutionCard() {
     };
     try {
       await save.mutateAsync(payload);
-      setMessage(`Saved as version ${(constitution?.version ?? 0) + 1}.`);
+      setMessage(
+        t("components.batchF.constitution.savedAsVersion", {
+          version: (constitution?.version ?? 0) + 1,
+        }),
+      );
     } catch (err) {
       if (err instanceof ConstitutionValidationError) {
         const byField: Record<string, string> = {};
         for (const e of err.errors) byField[e.field] = e.message;
         setFieldErrors(byField);
-        setMessage("Some values are out of the allowed band — see the highlighted fields below.");
+        setMessage(t("components.batchF.constitution.outOfBandMessage"));
       } else {
         setMessage((err as Error).message);
       }
@@ -133,9 +139,9 @@ export function TradingConstitutionCard() {
   if (!authenticated) {
     return (
       <IqCard className="flex flex-col gap-2">
-        <CardEyebrow>Trading Constitution</CardEyebrow>
+        <CardEyebrow>{t("components.batchF.constitution.title")}</CardEyebrow>
         <p className="text-xs text-muted-foreground">
-          Sign in to view or edit your Trading Constitution.
+          {t("components.batchF.constitution.signInPrompt")}
         </p>
       </IqCard>
     );
@@ -144,31 +150,33 @@ export function TradingConstitutionCard() {
   return (
     <IqCard className="flex flex-col gap-5">
       <div className="flex items-center justify-between">
-        <CardEyebrow>Trading Constitution</CardEyebrow>
+        <CardEyebrow>{t("components.batchF.constitution.title")}</CardEyebrow>
         <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
           <ShieldCheck className="h-3.5 w-3.5" />
-          {isLoading ? "Loading…" : constitution ? `v${constitution.version}` : "Not set"}
+          {isLoading
+            ? t("components.batchF.constitution.loading")
+            : constitution
+              ? `v${constitution.version}`
+              : t("components.batchF.constitution.notSet")}
         </span>
       </div>
 
       <p className="text-sm text-muted-foreground">
-        The deterministic risk rules that will gate every IQ-placed order (M9). No AI output can
-        override a hard-limit rejection here. Every saved change creates a new version and is
-        journaled — nothing is edited in place.
+        {t("components.batchF.constitution.description")}
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <NumberField
-          label="Risk per trade"
+          label={t("components.batchF.constitution.riskPerTradeLabel")}
           suffix="%"
           value={form.risk_per_trade_percent}
           onChange={(v) => setField("risk_per_trade_percent", v)}
           step={0.1}
           error={fieldErrors.risk_per_trade_percent}
-          hint="Band: 0.5%–3% of account equity per trade"
+          hint={t("components.batchF.constitution.riskPerTradeHint")}
         />
         <NumberField
-          label="Minimum reward/risk"
+          label={t("components.batchF.constitution.minRiskRewardLabel")}
           suffix="R"
           value={form.min_risk_reward}
           onChange={(v) => setField("min_risk_reward", v)}
@@ -176,7 +184,7 @@ export function TradingConstitutionCard() {
           error={fieldErrors.min_risk_reward}
         />
         <NumberField
-          label="Daily loss limit"
+          label={t("components.batchF.constitution.dailyLossLimitLabel")}
           suffix="%"
           value={form.daily_loss_limit_percent}
           onChange={(v) => setField("daily_loss_limit_percent", v)}
@@ -184,16 +192,16 @@ export function TradingConstitutionCard() {
           error={fieldErrors.daily_loss_limit_percent}
         />
         <NumberField
-          label="Weekly loss limit"
+          label={t("components.batchF.constitution.weeklyLossLimitLabel")}
           suffix="%"
           value={form.weekly_loss_limit_percent}
           onChange={(v) => setField("weekly_loss_limit_percent", v)}
           step={0.5}
           error={fieldErrors.weekly_loss_limit_percent}
-          hint="Must be ≥ the daily limit"
+          hint={t("components.batchF.constitution.weeklyLossLimitHint")}
         />
         <NumberField
-          label="Max leverage"
+          label={t("components.batchF.constitution.maxLeverageLabel")}
           suffix="x"
           value={form.max_leverage}
           onChange={(v) => setField("max_leverage", Math.round(v))}
@@ -201,25 +209,27 @@ export function TradingConstitutionCard() {
           error={fieldErrors.max_leverage}
         />
         <NumberField
-          label="Max concurrent positions"
+          label={t("components.batchF.constitution.maxConcurrentPositionsLabel")}
           value={form.max_concurrent_positions}
           onChange={(v) => setField("max_concurrent_positions", Math.round(v))}
           step={1}
           error={fieldErrors.max_concurrent_positions}
         />
         <NumberField
-          label="Max correlated exposure"
+          label={t("components.batchF.constitution.maxCorrelatedExposureLabel")}
           suffix="%"
           value={form.max_correlated_exposure_percent}
           onChange={(v) => setField("max_correlated_exposure_percent", v)}
           step={5}
           error={fieldErrors.max_correlated_exposure_percent}
-          hint="Share of the book allowed in one correlated sector bucket"
+          hint={t("components.batchF.constitution.maxCorrelatedExposureHint")}
         />
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label className="text-xs font-medium text-muted-foreground">Allowed sessions</Label>
+        <Label className="text-xs font-medium text-muted-foreground">
+          {t("components.batchF.constitution.allowedSessionsLabel")}
+        </Label>
         <div className="flex flex-wrap gap-3">
           {SESSIONS.map((s) => (
             <label key={s.value} className="flex items-center gap-2 text-sm">
@@ -238,13 +248,13 @@ export function TradingConstitutionCard() {
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="allowed-symbols" className="text-xs font-medium text-muted-foreground">
-          Allowed symbols
+          {t("components.batchF.constitution.allowedSymbolsLabel")}
         </Label>
         <Input
           id="allowed-symbols"
           value={symbolsText}
           onChange={(e) => setSymbolsText(e.currentTarget.value)}
-          placeholder="Leave blank to allow every supported symbol, or e.g. BTCUSDT, ETHUSDT"
+          placeholder={t("components.batchF.constitution.allowedSymbolsPlaceholder")}
           className="num"
         />
         {fieldErrors.allowed_symbols && (
@@ -254,11 +264,10 @@ export function TradingConstitutionCard() {
 
       <div className="flex flex-col gap-2">
         <Label className="text-xs font-medium text-muted-foreground">
-          Behavior detector cooldowns
+          {t("components.batchF.constitution.behaviorDetectorCooldownsLabel")}
         </Label>
         <p className="text-[11px] text-muted-foreground">
-          Unchecked detectors stay advisory (they flag, they don't block). Checking one makes it
-          binding: it rejects a trade permit like any hard rule.
+          {t("components.batchF.constitution.behaviorDetectorCooldownsDescription")}
         </p>
         <div className="flex flex-col gap-2">
           {BEHAVIOR_DETECTORS.map((d) => {
@@ -280,7 +289,11 @@ export function TradingConstitutionCard() {
                       binding ? "text-warning" : "text-muted-foreground",
                     )}
                   >
-                    {tracked ? (binding ? "Binding" : "Advisory") : "Not configured"}
+                    {tracked
+                    ? binding
+                      ? t("components.batchF.constitution.statusBinding")
+                      : t("components.batchF.constitution.statusAdvisory")
+                    : t("components.batchF.constitution.statusNotConfigured")}
                   </span>
                   <Checkbox
                     checked={binding}
@@ -304,7 +317,9 @@ export function TradingConstitutionCard() {
 
       <div className="flex items-center gap-2">
         <Button onClick={() => void submit()} disabled={save.isPending || isLoading}>
-          {save.isPending ? "Saving…" : "Save new version"}
+          {save.isPending
+            ? t("components.batchF.constitution.saving")
+            : t("components.batchF.constitution.saveNewVersion")}
         </Button>
       </div>
 

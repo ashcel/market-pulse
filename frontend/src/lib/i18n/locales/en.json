@@ -1,0 +1,1517 @@
+{
+  "common": {
+    "appName": "Market Pulse",
+    "tagline": "Crypto Market Intelligence",
+    "signIn": "Sign in",
+    "signedIn": "Signed in",
+    "account": "Account",
+    "settings": "Settings",
+    "goHome": "Go home",
+    "tryAgain": "Try again"
+  },
+  "nav": {
+    "groups": {
+      "overview": "Overview",
+      "analysis": "Analysis",
+      "trading": "Trading",
+      "account": "Account"
+    },
+    "items": {
+      "dashboard": "Dashboard",
+      "markets": "Markets",
+      "discover": "Discover",
+      "news": "News",
+      "events": "Events",
+      "watchlist": "Watchlist",
+      "regime": "Regime",
+      "rotation": "Rotation",
+      "rankings": "Rankings",
+      "technical": "Technical",
+      "tracker": "Tracker",
+      "review": "Trade Review",
+      "trades": "Trades",
+      "alerts": "Alerts",
+      "settings": "Settings",
+      "signIn": "Sign in"
+    }
+  },
+  "sidebar": {
+    "marketTime": "Market Time",
+    "signInTitle": "Sign in",
+    "signInBody": "Track trades, keep a watchlist, and get alerts on the tokens you follow.",
+    "proLabel": "Pro",
+    "proTitle": "Market Pulse Pro",
+    "proBody": "Unlock advanced insights, alerts, and more.",
+    "upgradeNow": "Upgrade Now"
+  },
+  "topBar": {
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "search": "Search",
+    "searchPlaceholder": "Search assets, news, or metrics...",
+    "menu": "Menu",
+    "navigation": "Navigation",
+    "spot": "Spot",
+    "perp": "Perp",
+    "spotTitle": "Binance spot",
+    "perpTitle": "Binance USDⓈ-M perpetual futures",
+    "toggleTheme": "Toggle theme",
+    "toggleAi": "Toggle AI",
+    "account": "Account",
+    "language": "Language",
+    "demo": "Demo",
+    "live": "Live",
+    "snapshotTitleLive": "Snapshot live from Binance · updated {{time}}",
+    "snapshotTitleDemo": "Snapshot using the offline demo build · updated {{time}}",
+    "snapshotTitleWaiting": "Waiting for the first snapshot"
+  },
+  "notFound": {
+    "eyebrow": "404",
+    "title": "Page not found",
+    "body": "The page you're looking for doesn't exist."
+  },
+  "errorBoundary": {
+    "title": "This page didn't load",
+    "body": "Something went wrong. Try refreshing or head back home."
+  },
+  "attention": {
+    "title": "What's worth paying attention to today",
+    "subtitle": "Curated opportunities and market-moving events.",
+    "filters": {
+      "all": "All",
+      "setups": "Setups",
+      "spikeVol": "Spike Vol",
+      "liquidity": "Liquidity",
+      "news": "News",
+      "unlocks": "Unlocks"
+    },
+    "emptyTitle": "Nothing is asking for attention.",
+    "emptyBody": "No live setups, no spikes, no high-impact events in the window. Waiting is a position.",
+    "scrollForMore": "Scroll for more",
+    "market": "Market"
+  },
+  "metrics": {
+    "marketCap": "Market Cap",
+    "volume24h": "24h Volume",
+    "volumeTooltip": "Summed USDT turnover across every Binance USDT pair — exchange volume, not global crypto volume.",
+    "btcDominance": "BTC Dominance",
+    "fearGreed": "Fear & Greed",
+    "fearGreedTooltip": "The Fear & Greed API was unreachable — internal breadth/momentum estimate.",
+    "altStrength": "Alt Strength",
+    "altStrengthTooltip": "Share of Binance's liquid USDT tier outperforming BTC over the last 24h. Not the 90-day Altcoin Season Index.",
+    "global": "Global · {{source}}",
+    "breadthUnavailable": "Breadth ingest unavailable",
+    "binanceUsdtPairs": "Binance USDT · {{pairs}} pairs",
+    "exchangeUnavailable": "Exchange scan unavailable",
+    "ethDominance": "ETH {{value}}%",
+    "estimatedSuffix": " · estimated",
+    "sentimentUnavailable": "Sentiment unavailable",
+    "pairsBeatingBtc": "{{count}} pairs beating BTC (24h)",
+    "rsUnavailable": "RS scan unavailable",
+    "fear": "Fear",
+    "greed": "Greed"
+  },
+  "macro": {
+    "eyebrow": "Macro Context",
+    "tradingWithTech": "Trading with tech",
+    "decoupled": "Decoupled",
+    "movingAgainstTech": "Moving against tech"
+  },
+  "outlook": {
+    "askAi": "Ask AI",
+    "askAiTooltip": "AI can make mistakes — verify anything it says before acting on it.",
+    "riskOn": "Risk On",
+    "riskOff": "Risk Off",
+    "neutral": "Neutral",
+    "marketOutlook": "Market Outlook",
+    "actionRiskOn": "Conditions favourable — trade your plan, normal size.",
+    "actionNeutral": "Mixed conditions. Be selective, reduce size, and skip low-conviction setups.",
+    "actionRiskOff": "Poor conditions — sit out or scalp only, tight risk.",
+    "confidence": "Confidence",
+    "confidenceTooltip": "Rule-based blend of the regime pillars, not a calibrated probability.",
+    "marketBrief": "Market Brief",
+    "ruleBased": "Rule-based",
+    "ruleBasedTooltip": "Deterministic restatement of the snapshot — not an LLM summary.",
+    "howToTradeIt": "How to trade it:"
+  },
+  "home": {
+    "greetingMorning": "Good Morning",
+    "greetingAfternoon": "Good Afternoon",
+    "greetingEvening": "Good Evening",
+    "subtitle": "Here's your market briefing for today.",
+    "statusLive": "Live · Binance",
+    "statusDemo": "Demo data",
+    "marketContext": "Market Context",
+    "heuristicNote": "Heuristic checklist score, not a proven-edge probability.",
+    "tabEdge": "Today's Edge",
+    "tabMarketInternals": "Market Internals",
+    "marketOverview": "Market Overview · Most Traded",
+    "last48h": "Last 48h · 1h bars",
+    "topAssets": "Top Assets",
+    "tableRank": "#",
+    "tableAsset": "Asset",
+    "tablePrice": "Price",
+    "table24h": "24H",
+    "tableScore": "Score",
+    "tableTrend": "Trend",
+    "viewAllRankings": "View All Rankings",
+    "capitalFlowHeatmap": "Capital Flow Heatmap",
+    "yourTrades": "Your Trades",
+    "openCount": "{{count}} open",
+    "unrealized": "unrealized",
+    "openTrades": "Open trades",
+    "overtradeWatch": "{{count}} trades in the last 2h — overtrade watch",
+    "tour": {
+      "outlook": {
+        "title": "Today's verdict",
+        "body": "The regime call and what it means for your sizing, beside a rule-based brief restating the snapshot in sentences. It answers 'should I trade today?' before you scroll."
+      },
+      "globals": {
+        "title": "Global conditions",
+        "body": "Total market cap and BTC dominance from the breadth ingest, Binance USDT turnover, the Fear & Greed index, and the share of liquid alts beating BTC over 24h."
+      },
+      "attention": {
+        "title": "What's asking for attention",
+        "body": "One ranked feed across engine setups, volatility spikes, the liquidity scan, market-moving news, and token unlocks. Filter by type. Setups are the only cards with a direction — the rest is context."
+      },
+      "context": {
+        "title": "Market context",
+        "body": "Regime, rotation, sentiment, breadth, and volatility at a glance. Tap any tile for the full page behind the number."
+      },
+      "rail": {
+        "title": "Calendar, news, watchlist",
+        "body": "What is coming (macro prints and dated token events), the latest headlines, and your watchlist — which is also what scopes your event alerts."
+      }
+    }
+  },
+  "status": {
+    "bullish": "bullish",
+    "bearish": "bearish",
+    "neutral": "neutral",
+    "warning": "warning"
+  },
+  "routes": {
+    "discover": {
+      "eyebrow": "Overview",
+      "title": "Discover",
+      "subtitle": "Exchange-wide scans — a discovery list, not a trade signal. Open a token for the engine's verdict.",
+      "pairsPassed": "{{ranked}} of {{seen}} USDT pairs passed the liquidity gates",
+      "sourceLive": "Binance live",
+      "sourceDemo": "offline demo build",
+      "sourceUpdated": "Source: {{source}} · updated {{time}}",
+      "worthScanning": "Worth Scanning"
+    },
+    "settings": {
+      "eyebrow": "Settings",
+      "title": "Settings",
+      "subtitle": "Preferences, watchlist, and notifications.",
+      "theme": "Theme",
+      "dark": "Dark",
+      "light": "Light",
+      "watchlist": "Watchlist",
+      "assetsCount": "{{count}} assets",
+      "removeAria": "Remove {{ticker}}",
+      "addFavoritesFromRankings": "Add favorites from the Rankings page.",
+      "notifications": "Notifications",
+      "notifTriggerAlert": "Verdict trigger hit (a held verdict's level breaks)",
+      "notifRegime": "Regime change alerts",
+      "notifRotation": "Capital rotation shifts",
+      "notifHighQualitySetup": "High-quality setup found",
+      "notifSpikeAlert": "Spike & rejection alerts (market-wide)",
+      "notifHighImpactNews": "High-impact news",
+      "refreshInterval": "Refresh Interval",
+      "apiStatus": "API Status",
+      "allSystemsOperational": "All systems operational",
+      "online": "Online",
+      "browserNotifEnabled": "Enabled",
+      "browserNotifEnabledHint": "This browser will show OS notifications.",
+      "browserNotifBlocked": "Blocked",
+      "browserNotifBlockedHint": "Re-enable notifications for this site in your browser settings.",
+      "browserNotifUnsupported": "Unsupported",
+      "browserNotifUnsupportedHint": "This browser doesn't support notifications.",
+      "browserNotifNotEnabled": "Not enabled",
+      "browserNotifNotEnabledHint": "Allow notifications to get alerts even when this tab isn't focused.",
+      "browserNotifications": "Browser notifications",
+      "enable": "Enable",
+      "stopSwing": "Swing",
+      "stopSwingHint": "Below the last structural low/high",
+      "stopAtr": "ATR",
+      "stopAtrHint": "Volatility-scaled distance",
+      "stopFixedPercent": "Fixed %",
+      "stopFixedPercentHint": "Flat percentage from entry",
+      "newPasswordMinLength": "New password must be at least 8 characters.",
+      "newPasswordsDontMatch": "New passwords don't match.",
+      "passwordChanged": "Password changed.",
+      "signInFirstChangePassword": "Sign in first, then change your password here.",
+      "couldNotChangePassword": "Could not change password.",
+      "networkError": "Network error.",
+      "account": "Account",
+      "changePasswordNote": "Change the password you sign in with. Sessions on other devices stay signed in.",
+      "currentPassword": "Current password",
+      "newPasswordPlaceholder": "New password (min 8 characters)",
+      "confirmNewPassword": "Confirm new password",
+      "changing": "Changing…",
+      "changePassword": "Change password",
+      "bigCaps": "Big caps",
+      "bigCapsHint": "BTC / ETH / majors",
+      "smallCaps": "Small caps",
+      "smallCapsHint": "Higher volatility",
+      "tradingFocus": "Trading Focus",
+      "tradingFocusNote": "What you mainly trade, big caps or small caps. Changing this re-applies the matching risk defaults below (max risk per trade, minimum reward/risk, leverage) — you can still hand-tune them afterwards.",
+      "riskDefaultsUpdated": "Risk defaults updated to match — see Trade Risk below.",
+      "notSetYet": "Not set yet — pick one to apply risk defaults.",
+      "tradeRisk": "Trade Risk",
+      "sizesEveryTradePlan": "Sizes every trade plan",
+      "accountSize": "Account size",
+      "orExactBalance": "Or exact balance",
+      "customBalanceAria": "Custom account balance in dollars",
+      "maxRiskPerTrade": "Max risk per trade",
+      "minimumRewardRisk": "Minimum reward/risk",
+      "stopPlacement": "Stop placement",
+      "riskSummaryPrefix": "With these settings, every plan risks at most",
+      "riskSummaryMid": "per trade and only setups offering",
+      "riskSummarySuffix": "pass the reward/risk check.",
+      "aiAnalyst": "AI Analyst",
+      "connected": "Connected",
+      "notConfigured": "Not configured",
+      "aiAnalystNote": "Bring your own key to power the AI analyst on token pages. Your key is stored only in this browser and sent directly to the provider — never to our servers. Without a key, the analyst falls back to a deterministic memo.",
+      "provider": "Provider",
+      "apiKey": "API key",
+      "getAKey": "Get a key · {{label}}",
+      "hideKey": "Hide key",
+      "showKey": "Show key",
+      "baseUrl": "Base URL",
+      "customBaseUrlAria": "Custom base URL",
+      "model": "Model",
+      "modelNameAria": "Model name",
+      "pickPresetOrType": "Pick a preset or type any model the provider supports.",
+      "binanceConnection": "Binance Connection",
+      "checking": "Checking…",
+      "notConnected": "Not connected",
+      "binanceConnectionNote": "Powers Trade Review: connect a Binance API key so the server can pull your USDT-M futures trade history. Unlike the AI key above, this key is stored server-side (encrypted at rest) and used by our backend to sync with Binance on your behalf — it is not a bring-your-own-key credential and never leaves our server. Create a read-only key (no trading/withdrawal permissions needed) in Binance's API Management.",
+      "lastSynced": "Last synced {{date}}.",
+      "binanceApiKeyLabel": "API key",
+      "binanceApiKeyPlaceholder": "Binance API key",
+      "binanceApiSecretLabel": "API secret",
+      "binanceApiSecretPlaceholder": "Binance API secret",
+      "hideSecret": "Hide secret",
+      "showSecret": "Show secret",
+      "connecting": "Connecting…",
+      "updateAndReconnect": "Update & reconnect",
+      "saveAndConnect": "Save & connect",
+      "disconnect": "Disconnect",
+      "enterKeyAndSecret": "Enter both the API key and secret.",
+      "connectedSyncHint": "Connected. Head to Trade Review to sync your history."
+    },
+    "review": {
+      "eyebrow": "Trade Review",
+      "title": "Trade Review",
+      "subtitle": "Sync your Binance history, see where your edge actually is, and get an honest per-trade AI review — generated in your browser with your own AI key.",
+      "filterAll": "All",
+      "filterLong": "Long",
+      "filterShort": "Short",
+      "loadingTrades": "Loading trades…",
+      "noTradesSynced": "No trades synced yet — connect Binance above and hit Sync now.",
+      "noSideTrades": "No {{side}} trades.",
+      "signInPrompt1": "Trade Review lives on the server — sign in to connect Binance and review your trades.",
+      "signInPrompt2": "to get started.",
+      "binanceSync": "Binance Sync",
+      "checking": "Checking…",
+      "connected": "Connected",
+      "notConnected": "Not connected",
+      "lastSynced": "Last synced {{date}}",
+      "neverSynced": "Never synced",
+      "syncing": "Syncing…",
+      "syncNow": "Sync now",
+      "connectBinanceInSettings": "Connect Binance in Settings",
+      "liveExecutions": "Live Executions · Binance testnet",
+      "liveExecutionsNote": "Order-placement records from confirmed executions — not PnL-settled trades yet.",
+      "loadingExecutions": "Loading executions…",
+      "filledOf": "{{filled}}/{{total}} filled",
+      "trackRecord": "Track Record — Forward Returns",
+      "trackRecordNote": "Ground truth measured from closed 1H bars; recomputed hourly.",
+      "colHorizon": "Horizon",
+      "colN": "n",
+      "colAvg": "Avg",
+      "colMedian": "Median",
+      "colWinPct": "Win%",
+      "colBest": "Best",
+      "colWorst": "Worst",
+      "insufficient": "insufficient",
+      "loadingAnalytics": "Loading analytics…",
+      "syncToSeeAnalytics": "Sync trades to see your RR, best/worst trades, and edge by time of day.",
+      "rr": "RR",
+      "bestTrade": "Best trade",
+      "worstTrade": "Worst trade",
+      "noData": "No data",
+      "bestHour": "Best hour",
+      "worstHour": "Worst hour",
+      "notEnoughData": "Not enough data yet",
+      "winRateN": "{{pct}} win rate · n={{n}}",
+      "sessionStrongest": "{{session}} session strongest",
+      "sessionAsia": "Asia",
+      "sessionLondon": "London",
+      "sessionNewYork": "New York",
+      "styleVerdict": "Style verdict",
+      "inconclusive": "Inconclusive",
+      "confident": "Confident",
+      "lowConfidence": "Low confidence",
+      "styleBreakdown": "Style breakdown",
+      "colStyle": "Style",
+      "colTrades": "Trades",
+      "colWinRate": "Win rate",
+      "colExpectancy": "Expectancy",
+      "recommended": "Recommended",
+      "closed": "Closed {{date}}",
+      "recently": "recently",
+      "entry": "Entry",
+      "exit": "Exit",
+      "qty": "Qty",
+      "closeTrigger": "Close trigger",
+      "checkingExistingReview": "Checking for an existing review…",
+      "generating": "Generating…",
+      "regenerateAiReview": "Regenerate AI review",
+      "generateAiReview": "Generate AI review",
+      "configureAiProviderPrefix": "Configure an AI provider in",
+      "configureAiProviderSuffix": "first.",
+      "suggestion": "Suggestion",
+      "closingQuestion": "Closing question",
+      "coachingNote": "Coaching note",
+      "chartAnnotations": "Chart annotations"
+    },
+    "tracker": {
+      "eyebrow": "Forward Test",
+      "title": "Signal Tracker",
+      "subtitle": "Every favored call the engine issues is tracked here automatically — follow one from a token's Execution Plan to forward-test your own entry alongside it.",
+      "filterAll": "All",
+      "filterOpen": "Open",
+      "filterClosed": "Closed",
+      "pagerPrev": "Prev",
+      "pagerNext": "Next",
+      "pagerPage": "Page {{page}} of {{total}}",
+      "autoTrackedEyebrow": "Signals the Engine Is Tracking",
+      "autoTrackedNote": "Auto-tracked — recorded the instant the engine favors a call and settled against real candles. No follow needed.",
+      "noFavoredVerdicts": "No favored verdicts recorded yet. Open a few tokens and the engine starts building this list automatically as verdicts fire.",
+      "noSignalsMatchFilter": "No signals match this filter.",
+      "followedEyebrow": "Signals You Followed",
+      "statFollowed": "Followed",
+      "statOpen": "Open",
+      "statWinRate": "Win rate",
+      "statAvgRClosed": "Avg R (closed)",
+      "lowSampleNote_one": "Only {{count}} closed trade so far — too few to trust win rate or average R as a real statistic yet.",
+      "lowSampleNote_other": "Only {{count}} closed trades so far — too few to trust win rate or average R as a real statistic yet.",
+      "followsServerNote": "Follows live in your server record now — they settle against real candles even with every browser closed.",
+      "signInToFollowSuffix": "to follow your own entries alongside the engine's auto-tracked calls above.",
+      "noFollowsYet": "You haven't followed any signals yet — the engine's own tracked calls are above; follow one from a token's Execution Plan to forward-test your own entry too.",
+      "autoTrackMetricsEyebrow": "Engine Auto-Track Metrics",
+      "statOpenedTrades": "Opened trades",
+      "statClosedTrades": "Closed trades",
+      "statTotalTrades": "Total trades",
+      "statCurrentRR": "Current RR",
+      "statBestTrade": "Best trade",
+      "computedNote": "Computed from every call the engine auto-tracks (not your own follows). Current RR is the mean realized R across closed auto-tracked signals.",
+      "currentBestEdgeVerdict": "Current best edge verdict",
+      "generating": "Generating…",
+      "regenerate": "Regenerate",
+      "generateVerdict": "Generate verdict",
+      "addAiKeyPrefix": "Add an AI key in",
+      "addAiKeySuffix": "to generate an on-demand edge verdict.",
+      "tapGenerateVerdict": "Tap \"Generate verdict\" for an AI read on your current edge, based on the metrics above.",
+      "verdictGenerationFailed": "Verdict generation failed.",
+      "liveRecordEyebrow": "Engine's Live Record",
+      "liveRecordNotePrefix": "Every time the assistant issues a",
+      "liveRecordNoteFavored": "favored",
+      "liveRecordNoteSuffix": "verdict it's auto-recorded here and settled against real candle highs and lows — nothing cherry-picked, no follow required. Combos with a proven losing record get demoted to half-size on the token page.",
+      "noFavoredVerdictsOwnRecord": "No favored verdicts recorded yet. Open a few tokens and the engine starts building its own track record automatically as verdicts fire.",
+      "statCallsMade": "Calls made",
+      "statStillOpen": "Still open",
+      "statAvgRSettled": "Avg R (settled)",
+      "lowSampleSettledNote_one": "Only {{count}} settled call so far — the engine needs {{minTrades}} per setup/regime combo before it trusts a record enough to demote a verdict.",
+      "lowSampleSettledNote_other": "Only {{count}} settled calls so far — the engine needs {{minTrades}} per setup/regime combo before it trusts a record enough to demote a verdict.",
+      "bySetupRegime": "By setup × regime",
+      "colSetup": "Setup",
+      "colRegime": "Regime",
+      "colSettled": "Settled",
+      "colWin": "Win",
+      "colAvgR": "Avg R",
+      "demoted": "demoted",
+      "recorded": "Recorded {{date}}",
+      "followedAt": "Followed {{date}}",
+      "settlingSuffix": " · settling",
+      "entry": "Entry",
+      "stop": "Stop",
+      "target1": "Target 1",
+      "target2": "Target 2",
+      "closedAt": "Closed at",
+      "current": "Current",
+      "result": "Result",
+      "unrealized": "Unrealized",
+      "idealZoneWas": "Ideal zone was",
+      "removeFromTracker": "Remove {{symbol}} from tracker",
+      "statusActive": "Active",
+      "statusTarget1Hit": "Target 1 hit",
+      "statusTarget2Hit": "Target 2 hit",
+      "statusStoppedOut": "Stopped out",
+      "statusExpired": "Expired"
+    },
+    "trades": {
+      "eyebrow": "Live Positions & Journal",
+      "title": "Trades",
+      "subtitle": "Running positions update in real time from live market data. Closed trades are journaled below for review.",
+      "signInPrompt1": "Your trade journal lives on the server — sign in to start logging trades.",
+      "signInPrompt2": "to access your positions and trade journal.",
+      "newTradeTitle": "New Trade",
+      "symbol": "Symbol",
+      "direction": "Direction",
+      "long": "Long ↑",
+      "short": "Short ↓",
+      "entryPrice": "Entry Price",
+      "quantity": "Quantity",
+      "leverage": "Leverage",
+      "strategyOptional": "Strategy (optional)",
+      "notesOptional": "Notes (optional)",
+      "notesPlaceholder": "Why did you take this trade?",
+      "symbolRequired": "Symbol is required.",
+      "entryPricePositive": "Entry price must be positive.",
+      "quantityPositive": "Quantity must be positive.",
+      "validExitPrice": "Enter a valid exit price.",
+      "loggingEllipsis": "Logging…",
+      "logTrade": "Log Trade",
+      "cancel": "Cancel",
+      "exitPricePlaceholder": "Exit price",
+      "close": "Close",
+      "live": "Live",
+      "awaitingTick": "Awaiting tick…",
+      "entry": "Entry",
+      "mark": "Mark",
+      "markEntry": "Mark (entry)",
+      "closeTrade": "Close Trade",
+      "deleteTradeAria": "Delete {{symbol}} trade",
+      "opened": "Opened {{date}}",
+      "recently": "recently",
+      "exit": "Exit",
+      "open": "Open",
+      "pnl": "PnL",
+      "openPnl": "Open P&L",
+      "livePriced": "{{live}}/{{count}} live",
+      "noPositions": "no positions",
+      "noRunningPositions": "No running positions right now.",
+      "acrossPositions_one": "Across {{count}} running position · unrealized, display-only",
+      "acrossPositions_other": "Across {{count}} running positions · unrealized, display-only",
+      "runningPositions": "Running Positions",
+      "newTradeButton": "New Trade",
+      "loadingPositions": "Loading positions…",
+      "noRunningClickNewTrade": "No running positions — click \"New Trade\" to open one.",
+      "journal": "Journal",
+      "statTotalTrades": "Total trades",
+      "statClosed": "Closed",
+      "statWinRate": "Win rate",
+      "statTotalRealizedPnl": "Total realized PnL",
+      "historyFilterAll": "All",
+      "historyFilterClosed": "Closed",
+      "historyFilterCancelled": "Cancelled",
+      "loadingJournal": "Loading journal…",
+      "noClosedTradesYet": "No closed trades yet — your history will appear here once you close a position.",
+      "noClosedFilterTrades": "No closed trades.",
+      "noCancelledFilterTrades": "No cancelled trades.",
+      "statusOpen": "Open",
+      "statusClosed": "Closed",
+      "statusCancelled": "Cancelled"
+    },
+    "rankings": {
+      "eyebrow": "Rankings",
+      "title": "Asset Rankings",
+      "subtitle": "Momentum, strength, volume, and signal quality computed live from Binance data.",
+      "searchPlaceholder": "Search ticker or name",
+      "filterAll": "All",
+      "filterFavorites": "Favorites",
+      "colRank": "#",
+      "colAsset": "Asset",
+      "colSector": "Sector",
+      "colScore": "Score",
+      "colScoreTooltip": "Heuristic checklist score, not a proven-edge probability. Independently weighted from Signal and Technical — not confirmation of the same read.",
+      "colSetup": "Setup",
+      "colChange": "Change",
+      "colRs": "RS/BTC 7d",
+      "colMomentum": "Momentum",
+      "colStrength": "Strength",
+      "colVolume": "Volume",
+      "colTechnical": "Technical",
+      "colTechnicalTooltip": "Heuristic checklist score, not a proven-edge probability.",
+      "colSignal": "Signal",
+      "colSignalTooltip": "Heuristic checklist score, not a proven-edge probability.",
+      "colTrend": "Trend",
+      "toggleFavorite": "Toggle favorite",
+      "noMatches": "No assets match your filters.",
+      "tour": {
+        "controls": {
+          "title": "Search & filters",
+          "body": "Find any asset by ticker or name, narrow to a single sector, or show only the tokens you starred as Favorites."
+        },
+        "table": {
+          "title": "The rankings table",
+          "body": "Every asset scored 0–100 on momentum, strength, volume, and technical quality, plus the engine's current setup call. RS/BTC shows who is actually beating Bitcoin over 7 days (with ρ, the correlation of its hourly moves to BTC's, underneath). Click a column header to sort by it (click again to flip the order), click a row to open that token's full analysis, and use the star at the end of a row to add it to your Favorites."
+        }
+      }
+    },
+    "events": {
+      "eyebrow": "Overview",
+      "title": "Events",
+      "subtitle": "Everything scheduled in the next {{days}} days, in your local time — macro prints plus dated events for the tokens you watch.",
+      "filterAll": "All",
+      "filterMacro": "Macro calendar",
+      "filterToken": "Token events",
+      "emptyTitle": "Nothing scheduled in the window.",
+      "emptyBody": "Token events are scoped to your watchlist — add tokens to see their unlocks and listings here.",
+      "highImpact": "High impact",
+      "forecast": "forecast {{value}}",
+      "previous": "previous {{value}}"
+    },
+    "login": {
+      "closedBeta": "Closed beta — invite only.",
+      "signInToAccount": "Sign in to your account.",
+      "emailPlaceholder": "Email",
+      "passwordPlaceholder": "Password",
+      "displayNamePlaceholder": "Display name",
+      "redeemInvite": "Redeem invite",
+      "signIn": "Sign in",
+      "signingIn": "Signing in…",
+      "changePasswordNote": "You can change your password afterwards in Settings → Account. Invite links keep working at this page.",
+      "signedInRedirecting": "Signed in. Redirecting…",
+      "welcomeAboardRedirecting": "Welcome aboard. Redirecting…",
+      "networkError": "Network error.",
+      "enterEmailPassword": "Enter your email and password.",
+      "invalidEmailPassword": "Invalid email or password.",
+      "loginLinkInvalid": "Login link invalid or expired.",
+      "couldNotRedeemInvite": "Could not redeem invite."
+    },
+    "regime": {
+      "eyebrow": "Regime",
+      "title": "Market Regime",
+      "subtitle": "How the market is behaving right now.",
+      "currentRegime": "Current Regime",
+      "confidence": "Confidence",
+      "confidenceNote": "Rule-based blend of the five regime pillars below, not a calibrated probability.",
+      "trendStrength": "Trend Strength · {{value}}",
+      "regimeTimeline": "Regime Timeline",
+      "last60Sessions": "Last 60 sessions",
+      "regimePillars": "Regime Pillars",
+      "tour": {
+        "current": {
+          "title": "The current regime",
+          "body": "One answer to the day's most important question: is the market rewarding risk (Risk On), punishing it (Risk Off), or undecided (Neutral)? The gauge shows how confident the model is — trade smaller when confidence is low."
+        },
+        "timeline": {
+          "title": "Regime timeline",
+          "body": "The regime score over the last 60 sessions. Above the upper dashed line is Risk On territory, below the lower one is Risk Off. A score that keeps crossing the lines means an unstable, choppy market."
+        },
+        "pillars": {
+          "title": "The five pillars",
+          "body": "What the regime verdict is built from: trend, breadth, volatility, liquidity, and macro — each scored 0–100. When pillars disagree (say, trend bullish but breadth bearish), treat the overall regime with more caution."
+        }
+      }
+    },
+    "news": {
+      "eyebrow": "News",
+      "title": "News Impact",
+      "subtitle": "Only the news that moves markets today.",
+      "upcoming": "Upcoming",
+      "soon": "soon",
+      "inHours": "in {{count}}h",
+      "inDays": "in {{count}}d",
+      "filterAll": "All",
+      "filterHigh": "High",
+      "filterMedium": "Medium",
+      "filterLow": "Low",
+      "tour": {
+        "filters": {
+          "title": "Impact filters",
+          "body": "Filter the feed by how much a story is expected to move the market. Start with High when you're short on time — those are the stories most likely to change today's picture."
+        },
+        "feed": {
+          "title": "Signal-first news",
+          "body": "Each card shows the expected direction (bullish, bearish, or neutral), the impact level, and exactly which assets the story affects — so you read for trading relevance, not just headlines."
+        }
+      }
+    },
+    "watchlist": {
+      "eyebrow": "Overview",
+      "title": "Watchlist",
+      "subtitle": "Watched tokens drive your event alerts and the dashboard's catalyst rail.",
+      "addToken": "Add token",
+      "emptyTitle": "Your watchlist is empty.",
+      "emptyBody": "Add a token to get its unlocks, listings and security events surfaced on the dashboard and pushed as alerts.",
+      "addFirstToken": "Add your first token",
+      "removeFromWatchlist": "Remove {{ticker}} from watchlist",
+      "notInUniverse": "Not in the tracked universe",
+      "score": "Score",
+      "outsideUniverse": "Outside the snapshot universe — open the token page for a live read.",
+      "eventsInLast7d_one": "{{count}} event in the last 7d",
+      "eventsInLast7d_other": "{{count}} events in the last 7d"
+    },
+    "alerts": {
+      "title": "Alerts",
+      "subtitle": "Everything the notification stream has delivered to this browser.",
+      "enableBrowserAlerts": "Enable browser alerts",
+      "all": "All",
+      "typeSetupFound": "Setup found",
+      "typeTriggerHit": "Trigger hit",
+      "typeFollowSettled": "Follow settled",
+      "typeWorkerHealth": "Worker health",
+      "typeTokenEvent": "Token event",
+      "typeSpikeAlert": "Spike alert",
+      "emptyTitle": "No alerts yet.",
+      "emptyBodyPrefix": "Alerts fire when the engine adopts a setup, a followed trigger hits, or a watched token gets a high-impact event. Add tokens to your",
+      "emptyBodySuffix": "to widen the net.",
+      "watchlist": "watchlist"
+    },
+    "technical": {
+      "eyebrow": "Technical",
+      "title": "Technical Analysis",
+      "subtitle": "Chart + smart-money signals for the selected asset.",
+      "asset": "Asset",
+      "signalStrength": "Signal Strength",
+      "overall": "Overall",
+      "analyzing": "analyzing",
+      "signalStrengthNote": "How strongly the engine's evidence points in one direction — not the probability the trade wins. Composite of trend, structure, volume, and risk on live 1H bars.",
+      "signalCards": "Signal Cards",
+      "tour": {
+        "picker": {
+          "title": "Pick an asset",
+          "body": "Everything on this page — the chart, the signal strength, and the signal cards — recalculates for the asset you select here. Your choice is remembered between visits."
+        },
+        "chart": {
+          "title": "TradingView chart",
+          "body": "A full TradingView chart for the selected asset. Use its own toolbar to change timeframes, add indicators, or draw on the chart."
+        },
+        "signal-strength": {
+          "title": "Signal strength",
+          "body": "How strongly the engine's evidence points in one direction — not a probability of success. A composite of trend, structure, volume, and risk checks on live 1H bars."
+        },
+        "signals": {
+          "title": "Signal cards",
+          "body": "The individual checks behind the score: structure, order blocks, EMAs, volume, ATR, and more. Each card shows its own reading and direction, so you can see exactly what supports — or contradicts — the overall verdict."
+        }
+      }
+    },
+    "rotation": {
+      "eyebrow": "Rotation",
+      "title": "Capital Rotation",
+      "subtitle": "Where money is moving right now.",
+      "flowStrength": "Flow Strength",
+      "signal": "Signal",
+      "persistent": "Persistent",
+      "unstable": "Unstable",
+      "rotationConfidence": "Rotation Confidence",
+      "rotationConfidenceTooltip": "Rescaled from the real 24h-vs-7d sector rank correlation (shown as ρ below) — not an independently calibrated probability.",
+      "rankAgreement": "24h vs 7d rank agreement",
+      "winningSector": "Winning Sector",
+      "losingSector": "Losing Sector",
+      "avg24h": "Avg 24h",
+      "tour": {
+        "flow": {
+          "title": "The rotation path",
+          "body": "Sectors ordered from where money is leaving to where it's arriving, based on 24-hour performance. Capital rarely exits crypto — it rotates. Riding the sector it's rotating into is usually easier than fighting the one it's leaving."
+        },
+        "metrics": {
+          "title": "Flow quality",
+          "body": "How strong the rotation is, how confident the model is that it's real (24h and 7d rankings agreeing), and the winning and losing sectors with their average 24-hour move. A high-confidence, persistent flow is far more tradeable than an unstable one."
+        },
+        "heatmap": {
+          "title": "Sector heatmap",
+          "body": "Every sector broken down into its individual assets, coloured by 24-hour performance — so you can see whether a sector's move is broad or carried by a single token."
+        }
+      }
+    },
+    "markets": {
+      "eyebrow": "Overview",
+      "title": "Markets",
+      "subtitle": "Live Binance snapshot across the tracked universe, ranked by Market Pulse score.",
+      "all": "All",
+      "tour": {
+        "filters": {
+          "title": "Sector filters",
+          "body": "Narrow the universe to one sector — Majors, Layer 1, DeFi, AI, or Meme — or view everything at once. Sectors matter because money usually rotates between them rather than lifting the whole market."
+        },
+        "grid": {
+          "title": "Market cards",
+          "body": "Every tracked asset with live price, 24-hour change, and a mini trend line, ranked by Market Pulse score (the engine's 0–100 quality rating). Click any card to open the full chart, signal, and trade plan for that token."
+        }
+      }
+    }
+  },
+  "components": {
+    "batchA": {
+      "rotationFlow": {
+        "capitalExiting": "Capital exiting",
+        "capitalEntering": "Capital entering"
+      },
+      "marketCard": {
+        "buySetup": "Buy setup",
+        "shortSetup": "Short setup"
+      },
+      "anticipatoryReadCard": {
+        "title": "If Price Pulls Back · Anticipatory",
+        "rewardRiskLabel": "~{{rewardRisk}}R from the limit"
+      }
+    },
+    "batchB": {
+      "floatingPnl": {
+        "openCount": "{{count}} open"
+      },
+      "latestNewsRail": {
+        "title": "Latest News",
+        "viewAll": "View all",
+        "empty": "No headlines in the feed right now.",
+        "highImpact": "high impact"
+      },
+      "newsImpactCard": {
+        "macro": "Macro",
+        "affects": "Affects"
+      },
+      "timeAgo": {
+        "minutes": "{{count}}m ago",
+        "hours": "{{count}}h ago",
+        "days": "{{count}}d ago"
+      },
+      "heatmap": {
+        "capitalInflow": "Capital Inflow",
+        "capitalOutflow": "Capital Outflow",
+        "strong": "Strong"
+      },
+      "notificationBell": {
+        "notifications": "Notifications",
+        "empty": "No notifications yet."
+      },
+      "tokenEvents": {
+        "title": "Token Events",
+        "description": "unlocks · security · regulatory — auto-detected from news",
+        "kind": {
+          "unlock": "Unlock",
+          "security": "Security",
+          "regulatory": "Regulatory",
+          "delisting": "Delisting",
+          "listing": "Listing",
+          "upgrade": "Upgrade"
+        }
+      },
+      "tradeActionOverlay": {
+        "entry": "Entry",
+        "long": "Long",
+        "short": "Short"
+      },
+      "capSegmentModal": {
+        "title": "What do you mainly trade?",
+        "subtitle": "This sets sane starting risk defaults — you can hand-tune them anytime in Settings.",
+        "decideLater": "Decide later",
+        "options": {
+          "bigcap": {
+            "label": "Big caps",
+            "hint": "BTC / ETH / majors",
+            "detail": "Steadier moves — allows larger size, higher leverage."
+          },
+          "smallcap": {
+            "label": "Small caps",
+            "hint": "Higher volatility",
+            "detail": "The app enforces tighter risk defaults and lower leverage."
+          }
+        }
+      }
+    },
+    "batchC": {
+      "poiMap": {
+        "title": "Points of Interest · {{timeframe}}",
+        "sourceZone": "Zone",
+        "sourceOb": "OB",
+        "sourceFvg": "FVG",
+        "sourceIfvg": "iFVG",
+        "supplyAbove": "Supply above",
+        "demandBelow": "Demand below",
+        "showFewer": "Show fewer",
+        "showAll": "Show all ({{count}} more)",
+        "disclaimer": "Display only — the anticipatory plan still selects from base zones (EDR 0009). OB and FVG reads agreeing with a zone is confluence context, not a signal."
+      },
+      "watchlist": {
+        "title": "Watchlist",
+        "signInBody": "Sign in to track tokens, get their unlocks and listings on this dashboard, and receive alerts when something happens to them.",
+        "signInCta": "Sign in to build a watchlist",
+        "viewAll": "View all",
+        "emptyBody": "Track your favourite assets — watched tokens drive your event alerts and the catalyst rail.",
+        "addFirst": "Add your first token",
+        "notTracked": "not tracked",
+        "addToken": "Add token"
+      },
+      "chartEventStrip": {
+        "eventsLabel": "Events",
+        "closeLabel": "Close",
+        "eventLabel": "Event",
+        "eventsCount": "{{count}} events"
+      },
+      "rsScan": {
+        "trendUp": "up",
+        "trendDown": "down",
+        "trendRange": "range",
+        "transitionTooltip": "Daily structure: {{from}} → {{to}}, {{status}}, {{days}}d ago",
+        "confirmed": "confirmed",
+        "chochHint": "CHoCH hint",
+        "tracked": "Tracked",
+        "volumeSuffix24h": "24h",
+        "vsBtc7d": "7d vs BTC",
+        "eyebrow": "RS vs BTC · Full Exchange",
+        "pairsRanked": "{{count}} pairs ranked",
+        "demoData": "demo data",
+        "description": "24h relative strength against BTC across every liquid USDT pair, not just the tracked universe. Badges flag recent daily trend transitions — rotation candidates among the extremes. A ranking, not a signal.",
+        "leaders": "Leaders",
+        "laggards": "Laggards",
+        "showFewer": "Show fewer",
+        "showAll": "Show all ({{count}} more)"
+      },
+      "structureAlignment": {
+        "infoHintAriaLabel": "What is this?",
+        "infoHintText": "The swing structure (higher-highs/higher-lows vs lower-highs/lower-lows) on every timeframe at once, with the last structural break on each — BOS continues the trend, CHoCH is the first crack against it. Timeframes agreeing is what makes a with-trend objective payable; the two rows marked ctx and trig are the ones behind your current objective.",
+        "eyebrow": "Structure Alignment",
+        "noBreakYet": "no break yet",
+        "trendUp": "up",
+        "trendDown": "down",
+        "trendRange": "range",
+        "awaitingConfirm": "awaiting confirm",
+        "uptrendLabel": "Uptrend",
+        "downtrendLabel": "Downtrend",
+        "rangeLabel": "Range",
+        "alignedUp": "aligned up",
+        "alignedDown": "aligned down",
+        "upCount": "{{up}}/{{total}} up",
+        "downCount": "{{down}}/{{total}} down"
+      }
+    },
+    "batchD": {
+      "upcomingEvents": {
+        "title": "Upcoming Events",
+        "viewAll": "View all",
+        "empty": "Nothing scheduled in the next {{days}} days for your watchlist or the macro calendar.",
+        "macroCategory": "{{country}} · Macro event",
+        "tokenUnlockCategory": "Token unlock",
+        "tokenEventCategory": "{{kind}} event",
+        "highImpact": "High impact",
+        "footer": "Macro calendar + dated events for watched tokens · your local time"
+      },
+      "marketOpportunities": {
+        "eyebrow": "Market Opportunities · Worth Scanning",
+        "demoData": "Demo data",
+        "scanCaption": "Activity scan · not a trade signal",
+        "tracked": "Tracked",
+        "spikeRejected": "Spike rejected",
+        "range24h": "24h range",
+        "turnover": "Turnover",
+        "liveSpikes": "Live spikes",
+        "volMultiplier": "{{mult}}× vol",
+        "footer": "Liquidity-gated scan of {{pairsSeen}} Binance USDT spot pairs — {{pairsRanked}} liquid pairs ranked by 24h range, depth, and trade flow. Open a token for the engine's actual verdict."
+      },
+      "marketContext": {
+        "regime": "Regime",
+        "rotation": "Rotation",
+        "sentiment": "Sentiment",
+        "breadth": "Breadth",
+        "volatility": "Volatility",
+        "regimeDetail": "{{confidence}}% rule confidence · trend {{trend}}",
+        "rotationDetail": "{{strength}} rotation strength",
+        "sentimentDetail": "{{score}} / 100",
+        "estimatedSuffix": " · estimated",
+        "breadthFallback": "Participation across the tracked universe",
+        "volatilityDetail": "BTC ATR (1D) {{vix}}%"
+      },
+      "fundingPlays": {
+        "title": "Funding Watch",
+        "demoData": "Demo data",
+        "notRecommended": "Not recommended.",
+        "cautionBody": "Funding-harvest carries outsized risk — rates can flip before settlement, thin order books invite squeezes, and exchange/liquidation risk applies on top of that. Shown for information only.",
+        "verdictActive": "conditions active",
+        "verdictNotYet": "not-yet",
+        "verdictSkip": "skip",
+        "longsPay": "longs pay",
+        "shortsPay": "shorts pay",
+        "sideReceives": "{{side}} receives",
+        "emptyState": "No extreme funding on the exchange right now (flag ≥0.5%/interval).",
+        "footer": "Extreme funding shown when rates are ±0.5%/interval or higher — see each token for the full risk read. Informational only; not a recommendation."
+      }
+    },
+    "batchE": {
+      "tradeTicket": {
+        "title": "Trade Ticket",
+        "live": "LIVE",
+        "testnet": "TESTNET",
+        "long": "LONG",
+        "short": "SHORT",
+        "entryLabel": "Entry",
+        "type": "Type",
+        "market": "MKT",
+        "limit": "LMT",
+        "price": "Price",
+        "marketPlaceholder": "Market",
+        "pricePlaceholder": "0.00",
+        "risk": "Risk",
+        "stop": "Stop",
+        "requiredPlaceholder": "Required",
+        "target": "Target",
+        "optionalPlaceholder": "Optional",
+        "riskPerTrade": "Risk per Trade (Global)",
+        "estRewardRisk": "Est. Reward/Risk",
+        "positionSize": "Position Size",
+        "calculatedAtSubmission": "calculated at submission",
+        "requestingPermit": "Requesting Permit...",
+        "submitLong": "Long",
+        "submitShort": "Short"
+      },
+      "productTour": {
+        "helpButtonAriaLabel": "Start page help tour",
+        "helpButtonLabel": "Help",
+        "dialogAriaLabel": "Product tour",
+        "stepCounter": "Step {{current}} of {{total}}",
+        "closeAriaLabel": "Close tour",
+        "skipTour": "Skip tour",
+        "back": "Back",
+        "next": "Next",
+        "finish": "Finish"
+      },
+      "executionPanel": {
+        "signInTitle": "Sign in to place a trade",
+        "signInBody": "Position sizing, the risk permit, and order placement are tied to your account and its Trading Constitution limits.",
+        "signInButton": "Sign in",
+        "permitIdNotFound": "Permit ID not found. Please request a new permit.",
+        "failedToParseResponse": "Failed to parse execution response",
+        "killSwitchError": "Live execution is turned off (testnet kill switch). The permit is approved but no order was placed.",
+        "serviceNotReady": "Execution service is not ready. Please try again in a moment.",
+        "permitExpired": "Permit not found or has expired. Please request a new permit.",
+        "permitAlreadyUsed": "Permit has already been used. Please request a new permit.",
+        "executeFailedFallback": "Failed to execute trade. Please try again.",
+        "unexpectedError": "An unexpected error occurred",
+        "qualityScore": "Quality Score: {{score}}",
+        "qualityScoreNotAvailable": "N/A",
+        "orderSubmittedTitle": "Order Submitted",
+        "orderSubmittedBody": "Order submitted to the exchange.",
+        "loggedAsRunningPosition": "Logged as a running position.",
+        "entryOrder": "Entry Order · {{orderId}}",
+        "viewRunningTrades": "View running trades",
+        "newTrade": "New Trade"
+      }
+    },
+    "batchF": {
+      "permit": {
+        "rejectedTitle": "Permit Rejected",
+        "rejectionReasons": "Rejection Reasons",
+        "modifyTicket": "Modify Ticket",
+        "approvedTitle": "Permit Approved",
+        "expiredTitle": "Permit Expired",
+        "expiredBadge": "Expired",
+        "secondsRemaining": "{{count}}s remaining",
+        "passedCount": "{{passed}}/{{total}} passed",
+        "direction": "Direction",
+        "quality": "Quality",
+        "estRR": "Est. R:R",
+        "risk": "Risk",
+        "scoreDisclaimer": "Evaluation, not prediction",
+        "entry": "Entry",
+        "stop": "Stop",
+        "target": "Target",
+        "atSubmission": "At submission",
+        "size": "Size",
+        "constitution": "Constitution",
+        "portfolioRisk": "Portfolio Risk",
+        "dailyBudget": "Daily Budget",
+        "requestNewPermit": "Request New Permit",
+        "back": "Back",
+        "confirming": "Confirming...",
+        "confirmTrade": "Confirm Trade",
+        "noSymbolRestriction": "No symbol restriction configured",
+        "noSessionRestriction": "No session restriction configured",
+        "checks": {
+          "riskPerTrade": "Risk per Trade",
+          "dailyLossLimit": "Daily Loss Limit",
+          "weeklyLossLimit": "Weekly Loss Limit",
+          "maxLeverage": "Max Leverage",
+          "maxConcurrentPositions": "Max Concurrent Positions",
+          "maxCorrelatedExposure": "Max Correlated Exposure",
+          "minimumRiskReward": "Minimum Risk/Reward",
+          "stopLossRequired": "Stop Loss Required",
+          "allowedSymbols": "Allowed Symbols",
+          "allowedTradingSessions": "Allowed Trading Sessions",
+          "liveAccountState": "Live Account State",
+          "behaviorCooldowns": "Behavior Cooldowns"
+        }
+      }
+    },
+    "batchG": {
+      "fundingPlayPanel": {
+        "fundingWatch": "Funding Watch",
+        "rate": "Rate",
+        "rateColon": "Rate: ",
+        "settlement": "Settlement",
+        "settlementColon": "Settlement: ",
+        "sideReceives": "{{side}} receives",
+        "intervalHours": "{{hours}}h interval",
+        "gross": "Gross",
+        "fees": "Fees",
+        "net": "Net",
+        "breakeven": "Breakeven",
+        "notional": "Notional",
+        "expectedCapture": "Expected capture",
+        "conditionToFlip": "Condition to flip verdict",
+        "hazards": "Hazards",
+        "reversalLeg": "Reversal leg",
+        "backtestButton": "Backtest this play (180d)",
+        "replayingSettlements": "Replaying past settlements — takes a few seconds",
+        "noExtremeSettlements": "No extreme-funding settlements in the last {{days}}d for this pair.",
+        "instancesOverDays": "{{count}} instances over {{days}}d",
+        "flaggedCount": "{{count}} flagged",
+        "noLiveHistory": "No live history",
+        "harvestWr": "Harvest WR",
+        "reversalWr": "Reversal WR",
+        "total": "Total",
+        "expectancy": "Expectancy",
+        "avgPnl": "Avg PnL",
+        "medianPnl": "Median PnL",
+        "maxDrawdown": "Max Drawdown",
+        "range": "Range",
+        "n": "N",
+        "wr": "WR",
+        "equityCurve": "Equity Curve",
+        "backtestCaveat": "Indicative, pessimistic-fill model: 1m closes, conservative stops, no slippage; flagged on settled rate."
+      }
+    },
+    "batchH": {},
+    "askAiSidebar": {
+      "engineCeiling": "Engine ceiling: {{maxOutcome}}"
+    }
+  },
+  "tokenPage": {
+    "notFound": {
+      "token": "Token",
+      "title": "{{ticker}} isn't listed",
+      "thisPair": "This pair",
+      "body": "{{pair}} isn't a tradable spot pair on Binance, so there's no live data to analyze.",
+      "browseMarkets": "Browse markets"
+    },
+    "tour": {
+      "overview": {
+        "title": "Token overview",
+        "body": "Live price, 24-hour change and key stats for this token. Use the timeframe buttons (15M up to 1W) to change the chart — everything on this page recalculates for the timeframe you pick. The tiny dot above each button is that timeframe's bias (green = leans long, red = leans short, grey = neutral), so you can spot when a short-term bounce is fighting the bigger trend."
+      },
+      "chart": {
+        "title": "Price chart",
+        "body": "Each candle is one period of price movement (green = closed up, red = closed down). The legend below the chart names every overlay — EMAs, support/resistance, swing points, trade-plan levels — and clicking a legend item hides or shows it (your choices are remembered). The trade-plan levels and zones always belong to your selected objective's trigger timeframe — the legend names it (e.g. 'Trade plan · 4H') — so exploring other chart timeframes never changes the plan. When your objective's verdict wants the trade, shaded zones appear: reward (green), risk (red), and the buy/sell pocket (blue). On 1H and higher timeframes the chart also marks true demand/supply bases — consolidations that launched an explosive move. Drag the chart left past the oldest candle to load more history."
+      },
+      "insight": {
+        "title": "Key insight & components",
+        "body": "The market's condition in plain words — trend, momentum, volume, volatility — plus every check the engine ran. Green passed, amber is a caution, red failed."
+      },
+      "objective": {
+        "title": "Start with your objective",
+        "body": "Tell the assistant what you're trying to do — a quick scalp, an intraday trade, a multi-day swing, or a weeks-long trend position. Each objective is judged on its own pair of timeframes (a bigger one for context, a smaller one for the trigger), so the same chart can favor a scalp while ruling out a swing. The dot is each objective's verdict at a glance, and picking one switches the chart to its trigger timeframe."
+      },
+      "decision": {
+        "title": "A verdict for YOUR objective",
+        "body": "Not one answer for everyone: the assistant answers for the objective you picked — go, go at reduced size, not yet, or stand aside — with the plan levels and the one thing standing in the way, all on one screen. 'Not yet' is not 'never': the Why tab lists every missing confirmation and the price events that would flip today's verdict."
+      },
+      "risk": {
+        "title": "Execution plan",
+        "body": "When your objective has a payable setup: entry, stop, profit targets, and a position sized from your account settings — automatically halved when the trade is counter-trend. When there's no plan, the assistant points at the objective that is payable instead."
+      }
+    },
+    "chart": {
+      "errorBoundaryTitle": "Chart encountered an issue",
+      "errorBoundaryReload": "Reload page",
+      "priceStructure": "Price Structure",
+      "infoHint": "Candlestick chart of the selected timeframe. The legend below the chart explains every overlay — click an item to hide or show it. Drag the chart past the oldest candle to load more history. The expand button opens the chart fullscreen.",
+      "binance": "Binance",
+      "synthetic": "synthetic",
+      "barsSummary": "{{count}} {{source}} bars · {{swings}} swings",
+      "equilibrium": " · {{position}} of {{range}}",
+      "lean": "{{timeframe}} lean: {{lean}}",
+      "exitFullscreen": "Exit fullscreen chart",
+      "enterFullscreen": "Fullscreen chart",
+      "loadingOlderBars": "Loading older bars…",
+      "structure": {
+        "uptrend": "HH/HL uptrend",
+        "downtrend": "LH/LL downtrend",
+        "range": "range structure"
+      }
+    },
+    "header": {
+      "perpSuffix": " · Perp",
+      "live": "Live",
+      "demo": "Demo",
+      "unwatchAria": "Unwatch {{symbol}}",
+      "watchAria": "Watch {{symbol}}",
+      "inWatchlistTitle": "In your watchlist — click to remove",
+      "addToWatchlistTitle": "Add to watchlist",
+      "high24h": "24h High",
+      "low24h": "24h Low",
+      "volume24h": "24h Volume",
+      "turnover24h": "24h Turnover"
+    },
+    "common": {
+      "whatIsThis": "What is this?"
+    },
+    "bias": {
+      "leansLong": "{{timeframe}}: engine leans long",
+      "leansShort": "{{timeframe}}: engine leans short",
+      "noBias": "{{timeframe}}: no directional bias"
+    },
+    "phase": {
+      "noEdge": "No Edge",
+      "noDirectionalEdge": "No directional edge",
+      "neitherContext": "Neither {{ctxTf}} nor {{exeTf}} leans clearly either way — nothing to react to yet.",
+      "transition": "Transition",
+      "counterTrendBounce": "Counter-trend Bounce",
+      "counterTrendPullback": "Counter-trend Pullback",
+      "counterTrendContext": "Higher timeframe remains {{htf}}. Short-term momentum has shifted {{direction}} after a {{setup}}. Expect a {{move}} into {{zone}} before trend continuation.",
+      "opportunity": "Opportunity",
+      "trendContinuation": "Trend continuation",
+      "opportunityContext": "{{ctxTf}} and {{exeTf}} agree {{direction}} — with-trend conditions, no conflicting higher-timeframe pull to fade.",
+      "standby": "Standby",
+      "waitingForTrigger": "Waiting for trigger",
+      "standbyContext": "{{ctxTf}} leans {{direction}}, but {{exeTf}} hasn't confirmed the trigger yet — same direction, not tradable at current price.",
+      "marketPhase": "Market phase:",
+      "moveLong": "bounce",
+      "moveShort": "pullback",
+      "zoneLong": "demand",
+      "zoneShort": "supply"
+    },
+    "glance": {
+      "htfTrend": "HTF trend",
+      "assessing": "assessing…",
+      "bullish": "Bullish",
+      "bearish": "Bearish",
+      "neutral": "Neutral",
+      "tfState": "{{timeframe}} state",
+      "noClearSetup": "no clear setup",
+      "structure": "Structure",
+      "hhhl": "HH / HL",
+      "lhll": "LH / LL",
+      "range": "Range",
+      "bosConfirmed": "BOS — trend confirmed",
+      "chochReversal": "CHoCH — reversal risk",
+      "lastHighLow": "last {{high}} high · {{low}} low",
+      "liquidity": "Liquidity",
+      "sslSwept": "SSL swept",
+      "bslSwept": "BSL swept",
+      "stopHuntBelow": "stop hunt below — fuel up",
+      "stopHuntAbove": "stop hunt above — fuel down",
+      "noneMapped": "None mapped",
+      "intactPools": "intact pools — price magnets",
+      "noEqualHighLows": "no equal highs/lows",
+      "entryLocation": "Entry location",
+      "mtfConfluence": "MTF zone confluence",
+      "zoneBacked": "zone-backed",
+      "pctOfRange": "{{pct}}% of S→R range",
+      "noDirectionalRead": "no directional read"
+    },
+    "footer": {
+      "lastUpdated": "Last updated:",
+      "dataSource": "Data source:",
+      "syntheticSource": "Synthetic (Binance unreachable)",
+      "autoRefresh": "Auto-refresh:",
+      "on": "On"
+    },
+    "assistant": {
+      "title": "Decision Assistant",
+      "infoHint": "One chart, many valid answers. Pick your objective and the assistant tells you whether this market pays it right now, what confirmation is still missing, and which price events would change today's answer.",
+      "assessing": "{{label}}: assessing…"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "why": "Why",
+      "plan": "Plan",
+      "evidence": "Evidence",
+      "details": "Details"
+    },
+    "overview": {
+      "contextLine": "{{ctxTf}} context · {{exeTf}} trigger · holds {{horizon}}"
+    },
+    "plan": {
+      "entry": "Entry",
+      "stopLoss": "Stop loss",
+      "target1": "Target 1",
+      "target2": "Target 2",
+      "rr": "R / R",
+      "position": "Position",
+      "maxLoss": "Max loss",
+      "gainAtT1": "Gain @ T1",
+      "entryZone": "Entry zone",
+      "stop": "Stop",
+      "rrCompact": "R/R",
+      "gainT1T2": "Gain @ T1 / T2",
+      "executionTitle": "Execution Plan · {{timeframe}}",
+      "executionInfoHint": "A complete plan for your objective, sized to your account: entry, stop, two targets, position size, and worst-case loss. Counter-trend verdicts are automatically halved. Change account size and risk in Settings.",
+      "setupInvalid": "Setup no longer valid at current price.",
+      "placeTrade": "Place Trade — Get Permit",
+      "followingSignal": "Following this signal",
+      "followSignal": "Follow this signal",
+      "emptyExtendedWithPlan": "No {{direction}} at current price — price is extended into structure. If it {{reaction}} to {{low}}–{{high}}, a {{direction}} becomes viable (see the conditional setup below).",
+      "emptyExtended": "No {{direction}} at current price — price is extended into structure. Wait for a pullback.",
+      "emptyWait": "No entry yet — the plan appears the moment the trigger confirms.",
+      "emptyAvoid": "This market doesn't pay your objective right now.",
+      "emptyAlt": " If you want action today, the {{objective}} objective has a {{size}}{{direction}} setup on the {{timeframe}}.",
+      "emptyAltReduced": "reduced-size ",
+      "emptyNoAlt": " No other objective has a payable setup either — flat is a position.",
+      "pullsBack": "pulls back",
+      "rallies": "rallies",
+      "sizedFor": "Sized for a ${{accountSize}} account risking {{riskPercent}}% per trade ({{stopMethod}} stop).",
+      "halfSizeNote": "Shown at half size — counter-trend for this objective.",
+      "adjust": "Adjust →"
+    },
+    "why": {
+      "verdictTitle": "Verdict · {{label}}",
+      "verdictInfoHint": "'Not yet', 'reduced size', 'wrong direction', and 'unsuitable market' are all different answers. The Overview names the one that applies; this text explains why in plain words.",
+      "checklistTitle": "Checklist · {{done}}/{{total}}",
+      "checklistInfoHint": "Everything this objective needs before a full-size entry. The unchecked items are what 'not yet' means, concretely. Hover an item for the detail.",
+      "whatChangesTitle": "What Changes This Answer",
+      "whatChangesInfoHint": "Concrete price events that would upgrade, downgrade, or flip today's verdict — so you know what to watch for instead of re-reading the chart all day.",
+      "marketOutlookTitle": "Market Outlook",
+      "marketOutlookInfoHint": "The current market story for this token, told before any recommendation: the big picture, the near-term tape, and what that combination rewards. Every verdict is this narrative applied to one objective."
+    },
+    "hold": {
+      "held": "Verdict held {{heldFor}} — it stands until a trigger below fires, so it won't flicker between refreshes.",
+      "updated": "Updated: {{reason}}",
+      "justNow": "just now",
+      "min": "{{count}}m",
+      "hour": "{{count}}h",
+      "day": "{{count}}d"
+    },
+    "verdict": {
+      "notYet": "NOT YET",
+      "standAside": "STAND ASIDE",
+      "halfSize": "½ size",
+      "counterTrend": "counter-trend"
+    },
+    "gauge": {
+      "readStrength": "Read strength",
+      "meaningFavored": "Here the read and the entry conditions agree — the setup is confirmed.",
+      "meaningCaution": "The read is tradable but fights the higher timeframe — hence reduced size.",
+      "meaningWait": "A strong number beside 'not yet' is not a contradiction: the engine is confident about the direction while the entry conditions are still unsatisfied — the checklist shows exactly what's missing.",
+      "meaningAvoid": "Whatever its strength, this market doesn't pay your objective — stand aside.",
+      "tooltipPrefix": "How strongly the engine's evidence points in one direction — signal strength, not a win probability. The verdict word is the action."
+    },
+    "edge": {
+      "rrToT1": "R:R to T1",
+      "target1VsStop": "target 1 vs. stop",
+      "rrToT2": "R:R to T2",
+      "target2VsStop": "target 2 vs. stop",
+      "riskLevel": "Risk level",
+      "na": "n/a",
+      "counterTrend": "counter-trend",
+      "noAtrRead": "no ATR read"
+    },
+    "decision": {
+      "setupConfirmed": "Setup confirmed — {{done}}/{{total}} checks in",
+      "open": "Open: {{label}}",
+      "counterTrendHalf": "Counter-trend — tradable at ½ size",
+      "tradableHalf": "Tradable at ½ size",
+      "checksOpen_one": "{{count}} check open — next: {{label}}",
+      "checksOpen_other": "{{count}} checks open — next: {{label}}",
+      "noEntryExtended": "No entry at current price — {{missing}} of {{total}} confirmations missing",
+      "notYetConfirmations": "Not yet — {{missing}} of {{total}} confirmations missing",
+      "next": "Next: {{label}}",
+      "planWhenZone": " · plan appears once price returns to the zone",
+      "planWhenTrigger": " · plan appears once the trigger confirms",
+      "doesntPay": "Doesn't pay this objective",
+      "altSetup": "{{label}} has a {{direction}} setup on the {{timeframe}}",
+      "flatIsPosition": "No other objective is payable — flat is a position",
+      "held": "held {{heldFor}}"
+    },
+    "leverage": {
+      "title": "Leverage",
+      "infoHint": "Leverage doesn't change the risk-sized position — the same units and max loss hold. It only sets the margin you post and where you'd be liquidated. Keep leverage at or below 'Max safe' so your stop triggers before liquidation. Liquidation is an estimate; it excludes fees and funding.",
+      "ariaLabel": "Leverage",
+      "margin": "Margin",
+      "notional": "Notional",
+      "estLiquidation": "Est. liquidation",
+      "maxSafe": "Max safe"
+    },
+    "liquidation": {
+      "title": "Liquidation vs invalidation",
+      "danger": "At {{leverage}}× liquidation ({{liq}}) triggers <strong>before</strong> your stop ({{stop}}) — you'd be liquidated before the idea is even invalidated. Drop to {{maxSafe}}× or lower so your stop does its job.",
+      "thin": "Liquidation ({{liq}}) sits only {{buffer}}% past your stop ({{stop}}) — a stop-run wick could liquidate you before the trade is invalidated. Consider {{maxSafe}}× or lower for more cushion.",
+      "safe": "Your stop ({{stop}}) triggers first; liquidation ({{liq}}) sits {{buffer}}% further out — a {{stops}}× stop-distance cushion. Invalidation stays in your control."
+    },
+    "location": {
+      "title": "Entry Location",
+      "infoHint": "Where price sits between support and resistance for this trade's direction. A long is best entered near support, a short near resistance — 'favored' is reserved for well-located setups, and an extended price becomes 'wait for a pullback' even when the direction is right.",
+      "mtfConfluence": "MTF confluence",
+      "zoneBacked": "Zone-backed",
+      "support": "S",
+      "resistance": "R"
+    },
+    "session": {
+      "title": "Session Levels",
+      "infoHint": "The high and low each trading region (Asia, London, New York) printed in its most recent completed session. Yesterday's session extremes are the intraday levels traders lean on — reclaiming a session high or holding a session low is a structure event. The level price is nearest is highlighted; the verdict's entry-location read counts a session level you're holding as structure."
+    },
+    "sr": {
+      "title": "Support & Resistance · {{timeframe}}",
+      "infoHint": "Support is where buyers stepped in before (price floor); resistance is where sellers did (price ceiling). A long is best entered near support, a short near resistance.",
+      "support": "Support",
+      "resistance": "Resistance"
+    },
+    "details": {
+      "marketRead": "Market Read",
+      "marketReadInfoHint": "What the two timeframes behind your objective are doing. When they disagree it doesn't mean 'no trade' — it changes which objectives are payable and which should wait.",
+      "contextLabel": "{{timeframe}} context",
+      "triggerLabel": "{{timeframe}} trigger",
+      "conditionsTitle": "Conditions · {{timeframe}}",
+      "conditionsInfoHint": "The market's current condition in plain words — trend, momentum, volume, volatility, and the swing structure (higher or lower highs and lows) the engine reads from the chart — with the exact ATR and volume readings below. Bigger ATR means wilder swings.",
+      "atr14": "ATR (14)",
+      "volVs20": "Vol vs 20-bar",
+      "na": "n/a",
+      "engineChecks": "Engine Checks · {{timeframe}}",
+      "engineChecksInfoHint": "Every check the engine ran with its score contribution. Hover a check to read what it found. Green passed, amber is a caution, red failed."
+    },
+    "insights": {
+      "trend": "Trend",
+      "momentum": "Momentum",
+      "volume": "Volume",
+      "volatilityAtr": "Volatility (ATR)",
+      "structure": "Structure",
+      "uptrend": "Uptrend",
+      "downtrend": "Downtrend",
+      "sideways": "Sideways",
+      "positive": "Positive",
+      "weak": "Weak",
+      "aboveAvg": "Above avg",
+      "belowAvg": "Below avg",
+      "average": "Average",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "hhhl": "Higher highs & higher lows",
+      "lhll": "Lower highs & lower lows",
+      "rangeStruct": "Range — {{high}} high / {{low}} low",
+      "bosNote": " · BOS",
+      "chochNote": " · CHoCH"
+    },
+    "evidence": {
+      "engineRecord": "Engine's live record",
+      "anticipatoryTitle": "Anticipatory limit record (all symbols)",
+      "anticipatoryFills": "{{fillRate}}% of resting limits filled ({{filled}} of {{decided}} decided{{pending}}).",
+      "anticipatoryPending": ", {{count}} still resting",
+      "anticipatorySettled": " Filled positions: {{winRate}}% wins, {{avgR}}R avg over {{settled}} settled{{lowSample}}.",
+      "anticipatoryLowSample": " — small sample, treat as anecdote",
+      "anticipatoryNoneSettled": " No filled position has settled yet."
+    },
+    "follow": {
+      "title": "Follow {{symbol}}",
+      "description": "Confirm the price you actually entered at — the engine's ideal zone was {{zone}}.",
+      "yourEntryPrice": "Your entry price",
+      "cancel": "Cancel",
+      "confirm": "Confirm and track"
+    },
+    "toast": {
+      "signInToWatch": "Sign in to watch tokens and get their event alerts.",
+      "signIn": "Sign in",
+      "removedFromWatchlist": "Removed {{symbol}} from watchlist",
+      "watching": "Watching {{symbol}}",
+      "setupNoLongerValid": "This setup is no longer valid.",
+      "enterValidEntryPrice": "Enter a valid entry price.",
+      "signInToFollow": "Sign in to follow signals — follows live in your server record now.",
+      "couldNotSaveFollow": "Couldn't save the follow — check your connection and try again.",
+      "nowTracking": "Now tracking {{symbol}}",
+      "trackingDescription": "{{label}} {{direction}} signal added to the tracker at {{price}}.",
+      "view": "View"
+    },
+    "perp": {
+      "title": "Perp Positioning",
+      "infoHint": "Funding + open interest — what perp traders check first. Positive funding means longs are paying to hold (crowded long, flush risk); negative means shorts are paying (crowded short, squeeze risk). Rising open interest means fresh money is behind the move; falling means positions are being closed. The verdict trims size when funding is extreme with the crowd already on your side.",
+      "longsCrowded": "Longs crowded",
+      "shortsCrowded": "Shorts crowded",
+      "balanced": "Balanced",
+      "funding8h": "Funding · 8h",
+      "annualized": "{{apr}} annualized",
+      "openInterest": "Open interest",
+      "change24h": "{{change}} · 24h"
+    },
+    "drawer": {
+      "title": "{{symbol}} Trade",
+      "infoHint": "Requests a constitution-gated permit using this token's current execution plan. The backend rechecks account state and derives executable quantity from the persisted permit snapshot.",
+      "planEcho": "Entry {{entry}} · Stop {{stop}} · T1 {{target1}}",
+      "setupAnalysis": "Setup Analysis",
+      "generating": "Generating AI Analysis..."
+    },
+    "memo": {
+      "title": "### Quant memo: {{headline}}",
+      "objective": "- **Your objective ({{label}}):** {{summary}}",
+      "heldCall": "- **Held call:** this verdict was adopted {{heldFor}} ago and stands until its own trigger fires — the setup below is live and may have already moved on without releasing it.",
+      "setup": "- **Setup:** {{value}}",
+      "regime": "- **Regime:** {{value}}",
+      "signalStrength": "- **Signal strength:** {{value}}/100 (heuristic checklist score, not a win probability)",
+      "riskPlan": "- **Risk plan:** entry zone `{{entryLow}}–{{entryHigh}}`, stop `{{stop}}`, target 1 `{{target1}}`, target 2 `{{target2}}`",
+      "position": "- **Position:** {{units}} units, max loss `{{maxLoss}}`, target 1 reward `{{rewardRisk}}R`",
+      "primaryBlocker": "- **Primary blocker:** {{value}}",
+      "action": "- **Action:** {{value}}",
+      "bestEvidence": "- **Best evidence:** {{name}} - {{explanation}}",
+      "riskEvidence": "- **Risk evidence:** {{name}} - {{explanation}}",
+      "prompt": "\n### Prompt\n- {{question}}"
+    },
+    "legend": {
+      "candles": "Candles",
+      "candlesHint": "One bar of price movement — green closed up, red closed down. The wicks show the high and low reached within the bar.",
+      "clickToShow": " Click to show.",
+      "clickToHide": " Click to hide.",
+      "volume": {
+        "label": "Volume",
+        "hint": "Traded volume per bar along the bottom — green when the candle closed up, red when it closed down. Rising volume confirms a move; falling volume questions it."
+      },
+      "emaFast": {
+        "label": "EMA {{length}}",
+        "hint": "Exponential moving average of the last 13 closes — the fast momentum curve. Price above it with EMA 13 on top of EMA 21 favors buyers."
+      },
+      "emaSlow": {
+        "label": "EMA {{length}}",
+        "hint": "Exponential moving average of the last 21 closes — the slower trend curve the fast EMA is measured against."
+      },
+      "support": {
+        "label": "Support",
+        "hint": "Dashed green trend line through recent swing lows — the floor buyers have been defending."
+      },
+      "resistance": {
+        "label": "Resistance",
+        "hint": "Dashed amber trend line through recent swing highs — the ceiling sellers have been defending."
+      },
+      "pivots": {
+        "label": "Swing structure",
+        "hint": "Arrows mark the confirmed swing legs (amber ▼ highs, green ▲ lows), each labeled against the prior swing of its kind: HH/HL = higher high/low, LH/LL = lower high/low. BOS tags a break that extends the trend; CHoCH a break against it — the first structural hint of a reversal. EQH/EQL mark equal highs/lows — matching swing levels where stop-loss liquidity tends to rest. Trend lines and setups are built from these."
+      },
+      "liquidity": {
+        "label": "Liquidity",
+        "hint": "Dashed horizontal lines at intact liquidity pools: purple BSL (buy-side) at equal highs — stop orders resting above a double/triple top — and cyan SSL (sell-side) at equal lows. The label is the pool's strength tier — Strong/Moderate/Weak, from touches, tightness, and freshness — an ordinal ranking, not a probability. Price is often drawn toward these levels before reversing. Circles mark liquidity sweeps: a wick ran the pool's stops but the candle closed back inside — a stop hunt, and often the start of the move the raid funded."
+      },
+      "plan": {
+        "label": "Trade plan",
+        "hint": "Your objective's plan levels: entry (blue), stop (rose), target 1 (solid green), target 2 (dashed green). These come from the objective's trigger timeframe (named on the label) and stay the same while you explore other chart timeframes — one trade story per page. Shown only while the objective has a directional plan."
+      },
+      "zones": {
+        "label": "Trade zones",
+        "hint": "Shaded bands drawn only while your objective's verdict wants the trade: green = reward to target 1, red = risk to the stop, blue = the buy/sell pocket around entry. Like the trade plan, they belong to the objective's trigger timeframe (named on the label), whatever timeframe the chart shows."
+      },
+      "sdZones": {
+        "label": "Demand/Supply",
+        "hint": "True demand/supply bases: a tight consolidation followed by an explosive move away. Green = demand (buyers launched from here), amber = supply (sellers did). Bright = fresh and untested; faded = already retested once. Zones price closed through are dropped. Detected on 1H, 4H, 1D and 1W charts, where bases are meaningful."
+      },
+      "sessions": {
+        "label": "Session H/L",
+        "hint": "The high and low of the most recent completed Asia (pink), London (teal) and New York (orange) session, drawn as dotted levels. Yesterday's session extremes are the intraday levels traders lean on. Shown on 15M–4H charts, where they're in range."
+      },
+      "events": {
+        "label": "News & events",
+        "hint": "Token news (past) and calendar catalysts (upcoming, ⧗) plotted on the bar they land on — coloured red/grey/green by likely impact (security, delisting, regulatory and unlocks read red; listings and upgrades green). Circles below a bar are past news; squares above the last bar are scheduled events. Click a marker for details and its source, or use the strip under the chart."
+      }
+    },
+    "chartLabels": {
+      "buyZone": "BUY ZONE",
+      "sellZone": "SELL ZONE",
+      "demand": "DEMAND",
+      "supply": "SUPPLY",
+      "tested": " · TESTED",
+      "bslSweep": "BSL sweep",
+      "sslSweep": "SSL sweep"
+    }
+  }
+}

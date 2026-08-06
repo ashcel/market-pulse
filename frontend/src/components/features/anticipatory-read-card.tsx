@@ -2,6 +2,7 @@ import { CardEyebrow } from "@/components/features/iq-card";
 import type { AnticipatoryPlan } from "@/lib/engine/poi";
 import type { TokenTimeframe } from "@/lib/engine/mock-candles";
 import { formatMoney } from "@/lib/utils/format";
+import { useTranslation } from "react-i18next";
 
 /**
  * Passive "if price pulls back" context next to the execution plan: the
@@ -20,6 +21,7 @@ export function AnticipatoryReadCard({
   plan: AnticipatoryPlan;
   timeframe: TokenTimeframe;
 }) {
+  const { t } = useTranslation();
   const zoneWord = `${plan.zone.freshness} ${timeframe} ${plan.zone.kind}`;
   const strengthWord =
     plan.objective.strength === "weak"
@@ -29,9 +31,9 @@ export function AnticipatoryReadCard({
   return (
     <div className="rounded-lg border border-border bg-surface p-2.5">
       <div className="flex items-center justify-between gap-2">
-        <CardEyebrow>If Price Pulls Back · Anticipatory</CardEyebrow>
+        <CardEyebrow>{t("components.batchA.anticipatoryReadCard.title")}</CardEyebrow>
         <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">
-          ~{plan.rewardRisk.toFixed(1)}R from the limit
+          {t("components.batchA.anticipatoryReadCard.rewardRiskLabel", { rewardRisk: plan.rewardRisk.toFixed(1) })}
         </span>
       </div>
       <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
