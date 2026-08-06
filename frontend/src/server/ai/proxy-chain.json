@@ -55,7 +55,7 @@
       "label": "Google Gemini",
       "kind": "openai",
       "url": "https://generativelanguage.googleapis.com/v1beta/openai",
-      "model": "gemini-2.0-flash",
+      "model": "gemini-2.5-flash",
       "keyEnv": "AI_PROXY_GEMINI_KEY",
       "enabled": true
     },
