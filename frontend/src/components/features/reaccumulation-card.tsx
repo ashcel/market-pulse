@@ -1,42 +1,13 @@
 import { useTranslation } from "react-i18next";
 
 import { CardEyebrow } from "@/components/features/iq-card";
+import { PATTERN_EVIDENCE_ORDER, PatternEvidenceRow } from "@/components/features/pattern-evidence";
 import { StatusBadge } from "@/components/features/status-badge";
-import { useReaccumulation, type ReaccumulationEvidenceItem } from "@/hooks/useReaccumulation";
+import { useReaccumulation } from "@/hooks/useReaccumulation";
 import { cn } from "@/lib/utils";
 
 interface ReaccumulationCardProps {
   symbol: string;
-}
-
-const EVIDENCE_ORDER = [
-  "previousImpulse",
-  "retracementQuality",
-  "baseQuality",
-  "oiReset",
-  "oiRebuild",
-  "currentExpansion",
-] as const;
-
-function EvidenceRow({ label, item }: { label: string; item: ReaccumulationEvidenceItem }) {
-  const pct = Math.round(item.score * 100);
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between gap-2 text-[10px]">
-        <span className="font-semibold uppercase tracking-wider text-muted-foreground">
-          {label}
-        </span>
-        <span className="num font-semibold text-foreground">{pct}%</span>
-      </div>
-      <div className="h-1 w-full overflow-hidden rounded-full bg-muted/40">
-        <div
-          className={cn("h-full rounded-full", pct >= 60 ? "bg-bullish" : "bg-muted-foreground/50")}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <p className="text-[10px] leading-relaxed text-muted-foreground">{item.detail}</p>
-    </div>
-  );
 }
 
 /**
@@ -88,8 +59,8 @@ export function ReaccumulationCard({ symbol }: ReaccumulationCardProps) {
       </div>
 
       <div className="mb-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-        {EVIDENCE_ORDER.map((key) => (
-          <EvidenceRow
+        {PATTERN_EVIDENCE_ORDER.map((key) => (
+          <PatternEvidenceRow
             key={key}
             label={t(`components.reaccumulation.evidence.${key}`)}
             item={data.evidence[key]}

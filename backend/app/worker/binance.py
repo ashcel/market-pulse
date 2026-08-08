@@ -15,6 +15,7 @@ import time
 from dataclasses import replace
 
 import httpx
+from smc.discovery import Ticker24h, parse_ticker24h_all
 from smc.mock_candles import TokenTimeframe
 from smc.perp import PerpMetrics, PerpRead, interpret_perp
 from smc.reaccumulation import OiPoint
@@ -68,6 +69,23 @@ def resolve_exchange_symbol(raw_ticker: str, market: MarketType) -> tuple[str, f
         if override is not None:
             return f"{override[0]}USDT", override[1]
     return f"{ticker}USDT", 1
+
+
+# Reverse of `_FUTURES_BASE_OVERRIDES`: exchange-facing base -> canonical
+# ticker (`1000PEPE` -> `PEPE`). Used to normalize the full perp `/ticker/24hr`
+# sweep (which reports the exchange's own renamed bases) back to the tickers
+# `resolve_exchange_symbol`/the rest of the app expect, so a dynamically
+# discovered candidate never produces a second, differently-named row for a
+# token already covered by `WORKER_UNIVERSE`.
+_FUTURES_BASE_OVERRIDES_REVERSE: dict[str, str] = {
+    exchange_base: ticker for ticker, (exchange_base, _mult) in _FUTURES_BASE_OVERRIDES.items()
+}
+
+
+def canonical_perp_ticker(exchange_base: str) -> str:
+    """Reverses the futures-only base rename. Bases with no override (the
+    overwhelming majority) pass through unchanged."""
+    return _FUTURES_BASE_OVERRIDES_REVERSE.get(exchange_base, exchange_base)
 
 
 def drop_unclosed_candle(candles: list[Candle]) -> list[Candle]:
@@ -271,6 +289,35 @@ async def fetch_oi_history(
         return points
     except httpx.HTTPError:
         return None
+
+
+# Binance's published weight for GET /fapi/v1/ticker/24hr with no `symbol`
+# param (the full-array form) — one call covers every USDS-M perp.
+FUTURES_TICKER_24H_ALL_WEIGHT = 40
+
+
+async def fetch_perp_ticker_24h_all() -> list[Ticker24h]:
+    """One-call 24h ticker snapshot of every USDS-M perp — the dynamic-scan-
+    universe source for the hourly patterns pass (spec: derive the REACCUMULATION
+    scan set from the full perp market, not just `WORKER_UNIVERSE`).
+
+    Reuses `smc.discovery.parse_ticker24h_all` (same row shape the spot
+    discovery scan already parses; Binance's `/ticker/24hr` payload is
+    field-identical on spot and USDS-M). Bases are normalized back through
+    `canonical_perp_ticker` so a renamed futures-only base (`1000PEPE`) reports
+    under the same ticker (`PEPE`) the rest of the app uses, rather than
+    producing a second, duplicate candidate for a token already tracked.
+    Best-effort like every other fetcher here: any failure returns `[]`.
+    """
+    try:
+        await _limiter.acquire(FUTURES_TICKER_24H_ALL_WEIGHT)
+        response = await http_client().get(f"{_FAPI_BASE}/fapi/v1/ticker/24hr")
+        if response.status_code != 200:
+            return []
+        rows = parse_ticker24h_all(response.json())
+        return [replace(row, ticker=canonical_perp_ticker(row.ticker)) for row in rows]
+    except httpx.HTTPError:
+        return []
 
 
 async def fetch_perp_context(symbol: str) -> PerpRead | None:

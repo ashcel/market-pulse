@@ -9,7 +9,8 @@ import { createFileRoute } from "@tanstack/react-router";
  * with no session check and no X-Internal-* headers; the FastAPI router it
  * hits carries no auth dependency either.
  *
- *   GET  /api/patterns/reaccumulation?symbol=&limit=  → recent persisted detections
+ *   GET  /api/patterns/reaccumulation?symbol=&limit=&latest_per_symbol=&sort=&state=
+ *        → recent (default) or screening (one row per symbol, score-ranked) persisted detections
  *   POST /api/patterns/reaccumulation  { symbol }      → live evaluate for one symbol
  */
 const BACKEND_BASE = process.env.BACKEND_URL ?? "http://localhost:8002";
@@ -22,8 +23,14 @@ export const Route = createFileRoute("/api/patterns/reaccumulation")({
         const params = new URLSearchParams();
         const symbol = url.searchParams.get("symbol");
         const limit = url.searchParams.get("limit");
+        const latestPerSymbol = url.searchParams.get("latest_per_symbol");
+        const sort = url.searchParams.get("sort");
+        const state = url.searchParams.get("state");
         if (symbol) params.set("symbol", symbol);
         if (limit) params.set("limit", limit);
+        if (latestPerSymbol) params.set("latest_per_symbol", latestPerSymbol);
+        if (sort) params.set("sort", sort);
+        if (state) params.set("state", state);
 
         const res = await fetch(
           `${BACKEND_BASE}/api/v1/patterns/reaccumulation?${params.toString()}`,

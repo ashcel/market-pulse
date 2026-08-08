@@ -95,3 +95,97 @@ async def test_list_signals_filters_by_symbol(db: AsyncSession) -> None:
     rows = await list_signals(db, source="reaccumulation", symbol="ethusdt")
     assert len(rows) == 1
     assert rows[0].symbol == "ETHUSDT"
+
+
+async def test_list_signals_latest_per_symbol_keeps_only_the_newest_row(db: AsyncSession) -> None:
+    # Same symbol, two states on the same day — the extended `|{state}` dedup
+    # key lets both land, and `latest_per_symbol` must keep only the newer one.
+    await insert_signal(
+        db,
+        **_values(
+            id="11111111-1111-1111-1111-111111111111",
+            detected_at=datetime(2026, 8, 1, 10, tzinfo=UTC),
+            features={"score": 50.0, "state": "ACCUMULATING"},
+            dedup_key="reaccumulation|BTCUSDT|long|swing|2026-08-01|reaccumulation|ACCUMULATING",
+        ),
+    )
+    await insert_signal(
+        db,
+        **_values(
+            id="22222222-2222-2222-2222-222222222222",
+            detected_at=datetime(2026, 8, 1, 14, tzinfo=UTC),
+            features={"score": 78.0, "state": "SECOND_EXPANSION"},
+            dedup_key="reaccumulation|BTCUSDT|long|swing|2026-08-01|reaccumulation|SECOND_EXPANSION",
+        ),
+    )
+    await insert_signal(
+        db,
+        **_values(
+            id="33333333-3333-3333-3333-333333333333",
+            symbol="ETHUSDT",
+            detected_at=datetime(2026, 8, 1, 9, tzinfo=UTC),
+            features={"score": 65.0, "state": "ACCUMULATING"},
+            dedup_key="reaccumulation|ETHUSDT|long|swing|2026-08-01|reaccumulation|ACCUMULATING",
+        ),
+    )
+
+    rows = await list_signals(db, source="reaccumulation", latest_per_symbol=True)
+    assert len(rows) == 2
+    by_symbol = {r.symbol: r for r in rows}
+    assert by_symbol["BTCUSDT"].id == "22222222-2222-2222-2222-222222222222"
+    assert by_symbol["ETHUSDT"].id == "33333333-3333-3333-3333-333333333333"
+
+
+async def test_list_signals_sort_score_orders_by_features_score_desc(db: AsyncSession) -> None:
+    await insert_signal(
+        db,
+        **_values(
+            id="11111111-1111-1111-1111-111111111111",
+            features={"score": 45.0, "state": "ACCUMULATING"},
+        ),
+    )
+    await insert_signal(
+        db,
+        **_values(
+            id="22222222-2222-2222-2222-222222222222",
+            symbol="ETHUSDT",
+            features={"score": 91.0, "state": "SECOND_EXPANSION"},
+            dedup_key="reaccumulation|ETHUSDT|long|swing|2026-08-01|reaccumulation",
+        ),
+    )
+    await insert_signal(
+        db,
+        **_values(
+            id="33333333-3333-3333-3333-333333333333",
+            symbol="SOLUSDT",
+            features={"score": 63.0, "state": "SECOND_EXPANSION"},
+            dedup_key="reaccumulation|SOLUSDT|long|swing|2026-08-01|reaccumulation",
+        ),
+    )
+
+    rows = await list_signals(db, source="reaccumulation", sort="score")
+    assert [r.symbol for r in rows] == ["ETHUSDT", "SOLUSDT", "BTCUSDT"]
+
+
+async def test_list_signals_state_filter_narrows_to_matching_rows(db: AsyncSession) -> None:
+    await insert_signal(
+        db,
+        **_values(
+            id="11111111-1111-1111-1111-111111111111",
+            features={"score": 45.0, "state": "ACCUMULATING"},
+            dedup_key="reaccumulation|BTCUSDT|long|swing|2026-08-01|reaccumulation|ACCUMULATING",
+        ),
+    )
+    await insert_signal(
+        db,
+        **_values(
+            id="22222222-2222-2222-2222-222222222222",
+            symbol="ETHUSDT",
+            features={"score": 91.0, "state": "SECOND_EXPANSION"},
+            dedup_key="reaccumulation|ETHUSDT|long|swing|2026-08-01|reaccumulation|SECOND_EXPANSION",
+        ),
+    )
+
+    rows = await list_signals(db, source="reaccumulation", state="SECOND_EXPANSION")
+    assert len(rows) == 1
+    assert rows[0].symbol == "ETHUSDT"

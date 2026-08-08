@@ -5,6 +5,7 @@ import { FundingPlaysCard } from "@/components/features/funding-plays-card";
 import { CardEyebrow } from "@/components/features/iq-card";
 import { MarketOpportunitiesCard } from "@/components/features/market-opportunities-card";
 import { PageHeader } from "@/components/features/page-header";
+import { ReaccumulationScanCard } from "@/components/features/reaccumulation-scan-card";
 import { RsScanCard } from "@/components/features/rs-scan-card";
 import { useOpportunityScan } from "@/hooks/queries";
 
@@ -70,6 +71,8 @@ function DiscoverPage() {
       </div>
 
       <RsScanCard />
+
+      <ReaccumulationScanCard />
 
       <FundingPlaysCard />
     </div>

@@ -66,7 +66,10 @@ class SignalEvent(Base):
     features: Mapped[dict[str, Any]] = mapped_column(
         FeaturesJSON, nullable=False, server_default=sa.text("'{}'"), default=dict
     )
-    # '{source}|{symbol}|{side}|{horizon}|{YYYY-MM-DD}|{kind}'
+    # '{source}|{symbol}|{side}|{horizon}|{YYYY-MM-DD}|{kind}', optionally with
+    # a trailing '|{state}' for stateful patterns (e.g. reaccumulation's
+    # ACCUMULATING/SECOND_EXPANSION) so a same-day state transition writes a
+    # new row instead of colliding with the day's earlier read.
     dedup_key: Mapped[str] = mapped_column(String(255), nullable=False)
     # 'shadow' | 'live' (Sprint 5). Recorded either way; only 'live' rows are
     # eligible to surface. Existing rows were backfilled to 'live' by the

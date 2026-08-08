@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class ReaccumulationEvaluateRequest(BaseModel):
@@ -39,7 +39,14 @@ class ReaccumulationEvaluateEnvelope(BaseModel):
 
 
 class ReaccumulationEventResponse(BaseModel):
-    """One persisted `signal_events` row from the hourly worker pass."""
+    """One persisted `signal_events` row from the hourly worker pass.
+
+    `state`/`score` are convenience top-level mirrors of
+    `features["state"]`/`features["score"]` — the screening card's primary
+    sort/display fields — populated from `features` when not supplied
+    directly, so callers don't have to drill into the untyped payload for the
+    two fields every row is guaranteed to carry.
+    """
 
     id: str
     symbol: str
@@ -51,6 +58,17 @@ class ReaccumulationEventResponse(BaseModel):
     source_version: str
     status: str
     features: dict[str, Any]
+    state: str | None = None
+    score: float | None = None
+
+    @model_validator(mode="after")
+    def _fill_convenience_fields(self) -> "ReaccumulationEventResponse":
+        if self.state is None:
+            self.state = self.features.get("state")
+        if self.score is None:
+            score = self.features.get("score")
+            self.score = float(score) if isinstance(score, int | float) else None
+        return self
 
 
 class ReaccumulationListEnvelope(BaseModel):

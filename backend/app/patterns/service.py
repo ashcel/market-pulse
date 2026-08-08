@@ -31,6 +31,23 @@ async def evaluate_reaccumulation_live(symbol: str) -> ReaccumulationRead | None
 
 
 async def list_recent_reaccumulations(
-    db: AsyncSession, *, symbol: str | None = None, limit: int = 20
+    db: AsyncSession,
+    *,
+    symbol: str | None = None,
+    limit: int = 20,
+    latest_per_symbol: bool = False,
+    sort: str = "recent",
+    state: str | None = None,
 ) -> list[SignalEvent]:
-    return await list_signals(db, source=SOURCE, symbol=symbol, limit=limit)
+    """Recent (default) or screening (`latest_per_symbol`/`sort="score"`)
+    read for the /patterns/reaccumulation list endpoint — the discover-page
+    screening card is the `latest_per_symbol=True, sort="score"` caller."""
+    return await list_signals(
+        db,
+        source=SOURCE,
+        symbol=symbol,
+        limit=limit,
+        latest_per_symbol=latest_per_symbol,
+        sort=sort,
+        state=state,
+    )

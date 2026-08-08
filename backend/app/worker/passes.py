@@ -307,8 +307,8 @@ async def run_once() -> str:
             if time.time() - _last_patterns_pass_at >= _PATTERNS_PASS_S:
                 _last_patterns_pass_at = time.time()
                 try:
-                    fired, pat_evaluated = await run_patterns_pass(db)
-                    patterns = f" reaccumulation+={fired}/{pat_evaluated}"
+                    fired, pat_evaluated, pat_universe = await run_patterns_pass(db)
+                    patterns = f" reaccumulation+={fired}/{pat_evaluated} universe={pat_universe}"
                 except Exception:
                     await db.rollback()
                     logger.exception("[patterns] pass failed")

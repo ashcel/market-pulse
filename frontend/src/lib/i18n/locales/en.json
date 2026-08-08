@@ -1138,6 +1138,13 @@
         "oiRebuild": "OI rebuild",
         "currentExpansion": "Current expansion"
       }
+    },
+    "reaccumulationScan": {
+      "title": "Reaccumulation Screen",
+      "description": "Every current SECOND EXPANSION / ACCUMULATING candidate across the liquid perp market, ranked by score. Hourly scan, research hypotheses — not trade signals.",
+      "emptyState": "No REACCUMULATION candidates right now",
+      "emptyStateNote": "Hourly scan over the liquid perp market (top ~120 pairs by volume + the tracked universe) — research hypotheses, not trade signals.",
+      "footer": "Research hypotheses — not trade signals, no win-rate claim"
     }
   },
   "tokenPage": {

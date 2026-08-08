@@ -79,3 +79,68 @@ export function useReaccumulation(symbol: string) {
     },
   });
 }
+
+/** One ranked row of the discover-page REACCUMULATION screening card. */
+export interface ReaccumulationScanRow {
+  symbol: string;
+  state: "SECOND_EXPANSION" | "ACCUMULATING";
+  score: number;
+  direction: "long" | "short";
+  evidence: ReaccumulationRead["evidence"];
+  explanation: string;
+  detectedAt: string;
+  oiAvailable: boolean;
+}
+
+interface RawListResponse {
+  data: Array<{
+    symbol: string;
+    side: string;
+    detected_at: string;
+    state: string | null;
+    score: number | null;
+    features: {
+      state?: string;
+      score?: number;
+      evidence?: Record<string, ReaccumulationEvidenceItem>;
+      explanation?: string;
+      oiAvailable?: boolean;
+    };
+  }>;
+}
+
+const SCAN_LIMIT = 15;
+
+/**
+ * Persisted REACCUMULATION screening feed for the discover page — one row
+ * per symbol (its latest read), ranked by score. Reads only what the hourly
+ * worker pass (`backend/app/worker/patterns_pass.py`) has already written;
+ * never evaluates the universe live on page load.
+ */
+export function useReaccumulationScan() {
+  return useQuery<ReaccumulationScanRow[]>({
+    queryKey: ["reaccumulation-scan"],
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        limit: String(SCAN_LIMIT),
+        latest_per_symbol: "true",
+        sort: "score",
+      });
+      const res = await fetch(`/api/patterns/reaccumulation?${params.toString()}`);
+      if (!res.ok) return [];
+      const body = (await res.json()) as RawListResponse;
+      return (body.data ?? []).map((row) => ({
+        symbol: row.symbol,
+        state: (row.state ?? row.features.state ?? "ACCUMULATING") as ReaccumulationScanRow["state"],
+        score: row.score ?? row.features.score ?? 0,
+        direction: row.side as ReaccumulationScanRow["direction"],
+        evidence: (row.features.evidence ?? {}) as ReaccumulationRead["evidence"],
+        explanation: row.features.explanation ?? "",
+        detectedAt: row.detected_at,
+        oiAvailable: Boolean(row.features.oiAvailable),
+      }));
+    },
+  });
+}

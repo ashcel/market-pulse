@@ -1138,6 +1138,13 @@
         "oiRebuild": "OI bangun ulang",
         "currentExpansion": "Ekspansi sekarang"
       }
+    },
+    "reaccumulationScan": {
+      "title": "Screening Reaccumulation",
+      "description": "Semua kandidat SECOND EXPANSION / ACCUMULATING yang lagi aktif di seluruh pasar perp likuid, diurutin dari skor tertinggi. Scan tiap jam, hipotesis riset — bukan sinyal trading.",
+      "emptyState": "Belum ada kandidat REACCUMULATION saat ini",
+      "emptyStateNote": "Scan tiap jam di pasar perp likuid (top ~120 pair berdasar volume + universe yang dipantau) — hipotesis riset, bukan sinyal trading.",
+      "footer": "Hipotesis riset — bukan sinyal trading, gak ada klaim win-rate"
     }
   },
   "tokenPage": {

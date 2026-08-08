@@ -28,8 +28,20 @@ async def get_recent_reaccumulations(
     db: DbSession,
     limit: int = Query(20, ge=1, le=100),
     symbol: str | None = Query(None),
+    latest_per_symbol: bool = Query(
+        False, description="One row per symbol (its most recent, optionally state-filtered) instead of a raw recent feed."
+    ),
+    sort: str = Query("recent", pattern="^(recent|score)$"),
+    state: str | None = Query(None, pattern="^(SECOND_EXPANSION|ACCUMULATING)$"),
 ) -> ReaccumulationListEnvelope:
-    rows = await list_recent_reaccumulations(db, symbol=symbol, limit=limit)
+    rows = await list_recent_reaccumulations(
+        db,
+        symbol=symbol,
+        limit=limit,
+        latest_per_symbol=latest_per_symbol,
+        sort=sort,
+        state=state,
+    )
     return ReaccumulationListEnvelope(
         data=[ReaccumulationEventResponse.model_validate(r, from_attributes=True) for r in rows],
         meta={"count": len(rows)},
