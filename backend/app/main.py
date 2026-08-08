@@ -17,6 +17,7 @@ from app.execution.executions_read_router import router as executions_read_route
 from app.execution.permits_router import router as permits_router
 from app.execution.router import router as execution_router
 from app.market.router import router as market_router
+from app.patterns.router import router as patterns_router
 from app.review.router import router as review_router
 from app.trades.router import router as trades_router
 
@@ -78,6 +79,7 @@ async def health() -> HealthResponse:
 
 v1_router.include_router(auth_router)
 v1_router.include_router(market_router)
+v1_router.include_router(patterns_router)
 v1_router.include_router(trades_router)
 v1_router.include_router(binance_review_router)
 v1_router.include_router(review_router)

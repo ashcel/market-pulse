@@ -42,6 +42,7 @@ import { Route as ApiAuthRouteImport } from './routes/api/auth'
 import { Route as ApiTradesIdRouteImport } from './routes/api/trades.$id'
 import { Route as ApiReviewAnalyticsRouteImport } from './routes/api/review.analytics'
 import { Route as ApiReviewIdRouteImport } from './routes/api/review.$id'
+import { Route as ApiPatternsReaccumulationRouteImport } from './routes/api/patterns.reaccumulation'
 import { Route as ApiExecutionPermitRouteImport } from './routes/api/execution.permit'
 import { Route as ApiExecutionExecutionsRouteImport } from './routes/api/execution.executions'
 import { Route as ApiExecutionExecuteRouteImport } from './routes/api/execution.execute'
@@ -217,6 +218,12 @@ const ApiReviewIdRoute = ApiReviewIdRouteImport.update({
   path: '/api/review/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPatternsReaccumulationRoute =
+  ApiPatternsReaccumulationRouteImport.update({
+    id: '/api/patterns/reaccumulation',
+    path: '/api/patterns/reaccumulation',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiExecutionPermitRoute = ApiExecutionPermitRouteImport.update({
   id: '/api/execution/permit',
   path: '/api/execution/permit',
@@ -302,6 +309,7 @@ export interface FileRoutesByFullPath {
   '/api/execution/execute': typeof ApiExecutionExecuteRoute
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
+  '/api/patterns/reaccumulation': typeof ApiPatternsReaccumulationRoute
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
@@ -346,6 +354,7 @@ export interface FileRoutesByTo {
   '/api/execution/execute': typeof ApiExecutionExecuteRoute
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
+  '/api/patterns/reaccumulation': typeof ApiPatternsReaccumulationRoute
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
@@ -391,6 +400,7 @@ export interface FileRoutesById {
   '/api/execution/execute': typeof ApiExecutionExecuteRoute
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
+  '/api/patterns/reaccumulation': typeof ApiPatternsReaccumulationRoute
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
@@ -437,6 +447,7 @@ export interface FileRouteTypes {
     | '/api/execution/execute'
     | '/api/execution/executions'
     | '/api/execution/permit'
+    | '/api/patterns/reaccumulation'
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
@@ -481,6 +492,7 @@ export interface FileRouteTypes {
     | '/api/execution/execute'
     | '/api/execution/executions'
     | '/api/execution/permit'
+    | '/api/patterns/reaccumulation'
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
@@ -525,6 +537,7 @@ export interface FileRouteTypes {
     | '/api/execution/execute'
     | '/api/execution/executions'
     | '/api/execution/permit'
+    | '/api/patterns/reaccumulation'
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
@@ -570,6 +583,7 @@ export interface RootRouteChildren {
   ApiExecutionExecuteRoute: typeof ApiExecutionExecuteRoute
   ApiExecutionExecutionsRoute: typeof ApiExecutionExecutionsRoute
   ApiExecutionPermitRoute: typeof ApiExecutionPermitRouteWithChildren
+  ApiPatternsReaccumulationRoute: typeof ApiPatternsReaccumulationRoute
   ApiReviewIdRoute: typeof ApiReviewIdRoute
   ApiReviewAnalyticsRoute: typeof ApiReviewAnalyticsRoute
   ApiAiChatCompletionsRoute: typeof ApiAiChatCompletionsRoute
@@ -808,6 +822,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiReviewIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/patterns/reaccumulation': {
+      id: '/api/patterns/reaccumulation'
+      path: '/api/patterns/reaccumulation'
+      fullPath: '/api/patterns/reaccumulation'
+      preLoaderRoute: typeof ApiPatternsReaccumulationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/execution/permit': {
       id: '/api/execution/permit'
       path: '/api/execution/permit'
@@ -935,6 +956,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiExecutionExecuteRoute: ApiExecutionExecuteRoute,
   ApiExecutionExecutionsRoute: ApiExecutionExecutionsRoute,
   ApiExecutionPermitRoute: ApiExecutionPermitRouteWithChildren,
+  ApiPatternsReaccumulationRoute: ApiPatternsReaccumulationRoute,
   ApiReviewIdRoute: ApiReviewIdRoute,
   ApiReviewAnalyticsRoute: ApiReviewAnalyticsRoute,
   ApiAiChatCompletionsRoute: ApiAiChatCompletionsRoute,

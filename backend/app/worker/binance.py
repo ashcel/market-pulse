@@ -17,6 +17,7 @@ from dataclasses import replace
 import httpx
 from smc.mock_candles import TokenTimeframe
 from smc.perp import PerpMetrics, PerpRead, interpret_perp
+from smc.reaccumulation import OiPoint
 from smc.types import Candle, MarketType
 
 BINANCE_INTERVALS: dict[TokenTimeframe, str] = {
@@ -231,6 +232,45 @@ def _num(value: object) -> float:
         return float(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return math.nan
+
+
+OPEN_INTEREST_HIST_WEIGHT = 1
+
+
+async def fetch_oi_history(
+    symbol: str, period: str = "1h", limit: int = 168
+) -> list[OiPoint] | None:
+    """Open-interest-value history for the reaccumulation detector, on the
+    same futures endpoint `fetch_perp_context` already reads (period=1h here
+    matches the 1H candles it gets aligned against). Best-effort like every
+    other fetcher in this module: any failure returns None so a caller can
+    degrade to the price-only read rather than crash."""
+    pair, _price_scale = resolve_exchange_symbol(symbol, "perp")
+    if pair == "USDT":
+        return None
+    try:
+        await _limiter.acquire(OPEN_INTEREST_HIST_WEIGHT)
+        response = await http_client().get(
+            f"{_FAPI_BASE}/futures/data/openInterestHist",
+            params={"symbol": pair, "period": period, "limit": str(min(500, max(1, limit)))},
+        )
+        if response.status_code != 200:
+            return None
+        payload = response.json()
+        if not isinstance(payload, list):
+            return None
+        points: list[OiPoint] = []
+        for row in payload:
+            if not isinstance(row, dict):
+                continue
+            value = _num(row.get("sumOpenInterestValue"))
+            timestamp = _num(row.get("timestamp"))
+            if math.isfinite(value) and math.isfinite(timestamp):
+                points.append(OiPoint(time=int(timestamp // 1000), value=value))
+        points.sort(key=lambda p: p.time)
+        return points
+    except httpx.HTTPError:
+        return None
 
 
 async def fetch_perp_context(symbol: str) -> PerpRead | None:

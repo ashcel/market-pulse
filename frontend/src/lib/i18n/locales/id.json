@@ -1121,6 +1121,23 @@
     "batchH": {},
     "askAiSidebar": {
       "engineCeiling": "Batas atas mesin: {{maxOutcome}}"
+    },
+    "reaccumulation": {
+      "stateSecondExpansion": "Ekspansi Kedua",
+      "stateAccumulating": "Lagi Akumulasi",
+      "score": "Skor",
+      "long": "Long",
+      "short": "Short",
+      "oiUnavailable": "Open interest gak tersedia — baca dari harga doang",
+      "footer": "Hipotesis riset — bukan sinyal trading, gak ada klaim win-rate",
+      "evidence": {
+        "previousImpulse": "Impuls sebelumnya",
+        "retracementQuality": "Kualitas retracement",
+        "baseQuality": "Kualitas base",
+        "oiReset": "Reset OI",
+        "oiRebuild": "OI bangun ulang",
+        "currentExpansion": "Ekspansi sekarang"
+      }
     }
   },
   "tokenPage": {
@@ -1552,6 +1569,9 @@
       "tested": " · TERUJI",
       "bslSweep": "Sapuan BSL",
       "sslSweep": "Sapuan SSL"
+    },
+    "reaccumulation": {
+      "title": "Pantauan Reaccumulation"
     }
   }
 }

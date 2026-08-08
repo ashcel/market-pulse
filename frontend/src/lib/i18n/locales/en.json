@@ -1121,6 +1121,23 @@
     "batchH": {},
     "askAiSidebar": {
       "engineCeiling": "Engine ceiling: {{maxOutcome}}"
+    },
+    "reaccumulation": {
+      "stateSecondExpansion": "Second Expansion",
+      "stateAccumulating": "Accumulating",
+      "score": "Score",
+      "long": "Long",
+      "short": "Short",
+      "oiUnavailable": "Open interest unavailable — price-only read",
+      "footer": "Research hypothesis — not a trade signal, no win-rate claim",
+      "evidence": {
+        "previousImpulse": "Previous impulse",
+        "retracementQuality": "Retracement quality",
+        "baseQuality": "Base quality",
+        "oiReset": "OI reset",
+        "oiRebuild": "OI rebuild",
+        "currentExpansion": "Current expansion"
+      }
     }
   },
   "tokenPage": {
@@ -1552,6 +1569,9 @@
       "tested": " · TESTED",
       "bslSweep": "BSL sweep",
       "sslSweep": "SSL sweep"
+    },
+    "reaccumulation": {
+      "title": "Reaccumulation Watch"
     }
   }
 }

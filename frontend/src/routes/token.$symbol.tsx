@@ -70,6 +70,7 @@ import { Link } from "@tanstack/react-router";
 import { AnticipatoryReadCard } from "@/components/features/anticipatory-read-card";
 import { FundingPlayPanel } from "@/components/features/funding-play-panel";
 import { PoiMapCard } from "@/components/features/poi-map-card";
+import { ReaccumulationCard } from "@/components/features/reaccumulation-card";
 import { summarizeAnticipatoryRecord } from "@/lib/engine/anticipatory";
 import { useAnticipatorySignalsStore } from "@/stores/anticipatory-signals";
 import { AssetIcon } from "@/components/features/asset-icon";
@@ -3143,6 +3144,8 @@ function AssistantPanel({
               {perp && <PerpContextCard perp={perp} />}
 
               <FundingPlayPanel symbol={symbol} market={marketType} />
+
+              <ReaccumulationCard symbol={symbol} />
 
               <div data-tour="insight" className="space-y-1.5">
                 <div className="flex items-center gap-1.5">

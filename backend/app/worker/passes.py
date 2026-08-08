@@ -33,6 +33,7 @@ from .context_pass import run_context_pass
 from .econ_pass import run_econ_pass
 from .event_pass import run_event_pass
 from .inputs import assemble_evaluate_inputs
+from .patterns_pass import run_patterns_pass
 
 logger = logging.getLogger("worker")
 
@@ -44,9 +45,13 @@ _CONTEXT_PASS_S = 15 * 60
 # The macro calendar shifts on the order of days; a slow outer gate plus the
 # econ pass's own ~2h in-process TTL keeps the ForexFactory pull cheap.
 _ECON_PASS_S = 2 * 60 * 60
+# The reaccumulation pattern is judged off 1H bars — re-running inside the
+# same hour would just re-derive the same read, so this gate matches the bar.
+_PATTERNS_PASS_S = 60 * 60
 _last_event_pass_at = 0.0
 _last_context_pass_at = 0.0
 _last_econ_pass_at = 0.0
+_last_patterns_pass_at = 0.0
 
 
 def _flatten_assessment(assessment: DisplayIntentAssessment) -> dict[str, Any]:
@@ -246,7 +251,7 @@ async def run_once() -> str:
     same loop on a slower cadence (a feed failure is logged inside its pass
     and must never fail the forward-test tick). The one-line summary it
     returns/logs is the heartbeat the legacy health view reports on."""
-    global _last_event_pass_at, _last_context_pass_at, _last_econ_pass_at
+    global _last_event_pass_at, _last_context_pass_at, _last_econ_pass_at, _last_patterns_pass_at
     prov = current_provenance()
     started = time.monotonic()
     async with SessionFactory() as db:
@@ -298,6 +303,16 @@ async def run_once() -> str:
                     await db.rollback()
                     logger.exception("[econ] pass failed")
 
+            patterns = ""
+            if time.time() - _last_patterns_pass_at >= _PATTERNS_PASS_S:
+                _last_patterns_pass_at = time.time()
+                try:
+                    fired, pat_evaluated = await run_patterns_pass(db)
+                    patterns = f" reaccumulation+={fired}/{pat_evaluated}"
+                except Exception:
+                    await db.rollback()
+                    logger.exception("[patterns] pass failed")
+
             open_counts = await repo.count_open_records(db)
 
             note = (
@@ -312,7 +327,7 @@ async def run_once() -> str:
                 f"evaluated={spot.evaluated}spot+{perp.evaluated}perp "
                 f"shadow+={spot.shadow_opened + perp.shadow_opened} "
                 f"anticipatory+={spot.anticipatory_opened + perp.anticipatory_opened} "
-                f"settled={settled}{events}{ctx}{econ} "
+                f"settled={settled}{events}{ctx}{econ}{patterns} "
                 f"open(shadow={open_counts['shadow']} "
                 f"anticipatory={open_counts['anticipatory']} "
                 f"tracked={open_counts['tracked']}) "
