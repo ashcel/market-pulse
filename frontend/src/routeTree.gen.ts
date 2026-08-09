@@ -42,6 +42,7 @@ import { Route as ApiAuthRouteImport } from './routes/api/auth'
 import { Route as ApiTradesIdRouteImport } from './routes/api/trades.$id'
 import { Route as ApiReviewAnalyticsRouteImport } from './routes/api/review.analytics'
 import { Route as ApiReviewIdRouteImport } from './routes/api/review.$id'
+import { Route as ApiRallyWatcherScanRouteImport } from './routes/api/rally-watcher.scan'
 import { Route as ApiPatternsReaccumulationRouteImport } from './routes/api/patterns.reaccumulation'
 import { Route as ApiExecutionPermitRouteImport } from './routes/api/execution.permit'
 import { Route as ApiExecutionExecutionsRouteImport } from './routes/api/execution.executions'
@@ -218,6 +219,11 @@ const ApiReviewIdRoute = ApiReviewIdRouteImport.update({
   path: '/api/review/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRallyWatcherScanRoute = ApiRallyWatcherScanRouteImport.update({
+  id: '/api/rally-watcher/scan',
+  path: '/api/rally-watcher/scan',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPatternsReaccumulationRoute =
   ApiPatternsReaccumulationRouteImport.update({
     id: '/api/patterns/reaccumulation',
@@ -310,6 +316,7 @@ export interface FileRoutesByFullPath {
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
   '/api/patterns/reaccumulation': typeof ApiPatternsReaccumulationRoute
+  '/api/rally-watcher/scan': typeof ApiRallyWatcherScanRoute
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
@@ -355,6 +362,7 @@ export interface FileRoutesByTo {
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
   '/api/patterns/reaccumulation': typeof ApiPatternsReaccumulationRoute
+  '/api/rally-watcher/scan': typeof ApiRallyWatcherScanRoute
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
@@ -401,6 +409,7 @@ export interface FileRoutesById {
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
   '/api/patterns/reaccumulation': typeof ApiPatternsReaccumulationRoute
+  '/api/rally-watcher/scan': typeof ApiRallyWatcherScanRoute
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
@@ -448,6 +457,7 @@ export interface FileRouteTypes {
     | '/api/execution/executions'
     | '/api/execution/permit'
     | '/api/patterns/reaccumulation'
+    | '/api/rally-watcher/scan'
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
@@ -493,6 +503,7 @@ export interface FileRouteTypes {
     | '/api/execution/executions'
     | '/api/execution/permit'
     | '/api/patterns/reaccumulation'
+    | '/api/rally-watcher/scan'
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
@@ -538,6 +549,7 @@ export interface FileRouteTypes {
     | '/api/execution/executions'
     | '/api/execution/permit'
     | '/api/patterns/reaccumulation'
+    | '/api/rally-watcher/scan'
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
@@ -584,6 +596,7 @@ export interface RootRouteChildren {
   ApiExecutionExecutionsRoute: typeof ApiExecutionExecutionsRoute
   ApiExecutionPermitRoute: typeof ApiExecutionPermitRouteWithChildren
   ApiPatternsReaccumulationRoute: typeof ApiPatternsReaccumulationRoute
+  ApiRallyWatcherScanRoute: typeof ApiRallyWatcherScanRoute
   ApiReviewIdRoute: typeof ApiReviewIdRoute
   ApiReviewAnalyticsRoute: typeof ApiReviewAnalyticsRoute
   ApiAiChatCompletionsRoute: typeof ApiAiChatCompletionsRoute
@@ -822,6 +835,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiReviewIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/rally-watcher/scan': {
+      id: '/api/rally-watcher/scan'
+      path: '/api/rally-watcher/scan'
+      fullPath: '/api/rally-watcher/scan'
+      preLoaderRoute: typeof ApiRallyWatcherScanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/patterns/reaccumulation': {
       id: '/api/patterns/reaccumulation'
       path: '/api/patterns/reaccumulation'
@@ -957,6 +977,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiExecutionExecutionsRoute: ApiExecutionExecutionsRoute,
   ApiExecutionPermitRoute: ApiExecutionPermitRouteWithChildren,
   ApiPatternsReaccumulationRoute: ApiPatternsReaccumulationRoute,
+  ApiRallyWatcherScanRoute: ApiRallyWatcherScanRoute,
   ApiReviewIdRoute: ApiReviewIdRoute,
   ApiReviewAnalyticsRoute: ApiReviewAnalyticsRoute,
   ApiAiChatCompletionsRoute: ApiAiChatCompletionsRoute,

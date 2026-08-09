@@ -20,7 +20,6 @@ import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from smc.market import WORKER_UNIVERSE
 from smc.reaccumulation import (
     REACCUMULATION_VERSION,
     conviction_for_score,
@@ -28,9 +27,10 @@ from smc.reaccumulation import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.patterns.universe import scan_universe
 from app.signals.repo import insert_signal
 
-from .binance import drop_unclosed_candle, fetch_klines, fetch_oi_history, fetch_perp_ticker_24h_all
+from .binance import drop_unclosed_candle, fetch_klines, fetch_oi_history
 
 logger = logging.getLogger("worker")
 
@@ -48,36 +48,12 @@ KIND = "reaccumulation"
 # The pass must not be limited to the curated ~50-symbol WORKER_UNIVERSE: a
 # reaccumulation candidate is exactly the kind of token that isn't on anyone's
 # curated list yet. Gates mirror the spirit of `smc.discovery`'s liquidity/
-# activity floors (perp, not spot), then rank survivors by 24h turnover and
-# cap at SCAN_TOP_N to keep the ~2x fetch-call cost per pass bounded.
-SCAN_MIN_QUOTE_VOLUME = 5_000_000
-SCAN_MIN_TRADES = 10_000
-SCAN_TOP_N = 120
-
-
-async def _scan_universe() -> list[str]:
-    """Fixed `WORKER_UNIVERSE` tickers (guaranteed baseline) unioned with the
-    `SCAN_TOP_N` most liquid/active perp pairs from one full-market ticker
-    sweep. Never persisted — re-derived fresh every pass, fixed-first so the
-    curated set is never at the mercy of a bad ticker fetch (an empty/failed
-    sweep just degrades to the fixed baseline, never an empty universe)."""
-    fixed = [asset.ticker for asset in WORKER_UNIVERSE]
-    tickers = await fetch_perp_ticker_24h_all()
-    candidates = [
-        row
-        for row in tickers
-        if row.quote_volume24h >= SCAN_MIN_QUOTE_VOLUME and row.trades24h >= SCAN_MIN_TRADES
-    ]
-    candidates.sort(key=lambda row: row.quote_volume24h, reverse=True)
-    top = [row.ticker for row in candidates[:SCAN_TOP_N]]
-
-    seen = set(fixed)
-    universe = list(fixed)
-    for ticker in top:
-        if ticker not in seen:
-            seen.add(ticker)
-            universe.append(ticker)
-    return universe
+# activity floors (perp, not spot), rank survivors by 24h turnover and cap at
+# SCAN_TOP_N to keep the ~2x fetch-call cost per pass bounded. Derivation
+# itself now lives in `app.patterns.universe` (shared with RALLY WATCHER) —
+# `_scan_universe` here is kept as a thin alias so this pass's call site and
+# behavior are unchanged.
+_scan_universe = scan_universe
 
 
 def _dedup_key(symbol: str, side: str, detected_at: datetime, state: str) -> str:

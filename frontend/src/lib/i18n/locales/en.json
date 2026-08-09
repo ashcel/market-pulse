@@ -1145,6 +1145,27 @@
       "emptyState": "No REACCUMULATION candidates right now",
       "emptyStateNote": "Hourly scan over the liquid perp market (top ~120 pairs by volume + the tracked universe) — research hypotheses, not trade signals.",
       "footer": "Research hypotheses — not trade signals, no win-rate claim"
+    },
+    "rallyWatcher": {
+      "title": "Rally Watcher",
+      "subtitle": "15m Rallies",
+      "description": "Assets rallying right now over the last ~15 minutes on confirming volume — with a target and what liquidity sits above/below. Live scan, research tool — not a signal.",
+      "emptyState": "No strong rallies right now",
+      "emptyStateNote": "Live scan over the liquid perp market, refreshed about once a minute — a research tool, not a signal.",
+      "scanning": "Scanning the market — this can take a couple minutes on a cold start.",
+      "footer": "Live watch, not a trade signal — momentum can fade as fast as it built",
+      "gain": "Gain",
+      "volume": "Volume",
+      "extended": "extended",
+      "extendedNote": "Already extended — this is chasing risk, not a fresh entry.",
+      "updated": "updated {{time}}",
+      "refresh": "Refresh",
+      "targets": {
+        "smcPool": "BSL",
+        "resistance": "Res",
+        "liquidation": "Liq10x"
+      },
+      "oiUnavailable": "Open interest unavailable — liquidation estimate uses documented defaults"
     }
   },
   "tokenPage": {

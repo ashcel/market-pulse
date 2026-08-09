@@ -22,6 +22,7 @@ from smc.reaccumulation import OiPoint
 from smc.types import Candle, MarketType
 
 BINANCE_INTERVALS: dict[TokenTimeframe, str] = {
+    "5M": "5m",
     "15M": "15m",
     "30M": "30m",
     "1H": "1h",
@@ -250,6 +251,30 @@ def _num(value: object) -> float:
         return float(value)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return math.nan
+
+
+PREMIUM_INDEX_WEIGHT = 1
+
+
+async def fetch_funding_rate(symbol: str) -> float | None:
+    """Current funding rate only (no OI, no candles) — the light-weight read
+    RALLY WATCHER's single-symbol live-evaluate uses for context. The bulk
+    scan path deliberately skips this per symbol to keep sweep weight down;
+    funding never gates or scores the rally read, it's explanation text only."""
+    pair, _price_scale = resolve_exchange_symbol(symbol, "perp")
+    if pair == "USDT":
+        return None
+    try:
+        await _limiter.acquire(PREMIUM_INDEX_WEIGHT)
+        response = await http_client().get(
+            f"{_FAPI_BASE}/fapi/v1/premiumIndex", params={"symbol": pair}
+        )
+        if response.status_code != 200:
+            return None
+        rate = _num(response.json().get("lastFundingRate"))
+        return rate if math.isfinite(rate) else None
+    except httpx.HTTPError:
+        return None
 
 
 OPEN_INTEREST_HIST_WEIGHT = 1

@@ -18,6 +18,8 @@ from app.execution.permits_router import router as permits_router
 from app.execution.router import router as execution_router
 from app.market.router import router as market_router
 from app.patterns.router import router as patterns_router
+from app.rally_watcher.router import router as rally_watcher_router
+from app.rally_watcher.service import start_rally_watcher_cold_start, stop_rally_watcher_cold_start
 from app.review.router import router as review_router
 from app.trades.router import router as trades_router
 
@@ -26,7 +28,12 @@ SHOW_DOCS_IN = {"local", "staging"}
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    # Cold-start the RALLY WATCHER's all-market scan in the background so the
+    # first /discover request doesn't block on a 2-5 min full-perp sweep —
+    # see `app.rally_watcher.service` for the cache/refresh mechanics.
+    await start_rally_watcher_cold_start()
     yield
+    await stop_rally_watcher_cold_start()
     await engine.dispose()
 
 
@@ -80,6 +87,7 @@ async def health() -> HealthResponse:
 v1_router.include_router(auth_router)
 v1_router.include_router(market_router)
 v1_router.include_router(patterns_router)
+v1_router.include_router(rally_watcher_router)
 v1_router.include_router(trades_router)
 v1_router.include_router(binance_review_router)
 v1_router.include_router(review_router)

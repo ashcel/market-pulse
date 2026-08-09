@@ -1145,6 +1145,27 @@
       "emptyState": "Belum ada kandidat REACCUMULATION saat ini",
       "emptyStateNote": "Scan tiap jam di pasar perp likuid (top ~120 pair berdasar volume + universe yang dipantau) — hipotesis riset, bukan sinyal trading.",
       "footer": "Hipotesis riset — bukan sinyal trading, gak ada klaim win-rate"
+    },
+    "rallyWatcher": {
+      "title": "Rally Watcher",
+      "subtitle": "Rally 15m",
+      "description": "Aset yang lagi rally sekarang dalam ~15 menit terakhir dengan volume yang konfirmasi — lengkap sama target dan liquidity yang ada di atas/bawah. Scan live, alat riset — bukan sinyal.",
+      "emptyState": "Belum ada rally kuat sekarang",
+      "emptyStateNote": "Scan live di pasar perp likuid, refresh tiap ~1 menit — alat riset, bukan sinyal.",
+      "scanning": "Lagi scan pasar — bisa makan waktu beberapa menit pas cold start.",
+      "footer": "Live watch, bukan sinyal trading — momentum bisa fade secepat dia kebentuk",
+      "gain": "Gain",
+      "volume": "Volume",
+      "extended": "extended",
+      "extendedNote": "Udah extended — ini chasing risk, bukan entry segar.",
+      "updated": "update {{time}}",
+      "refresh": "Refresh",
+      "targets": {
+        "smcPool": "BSL",
+        "resistance": "Res",
+        "liquidation": "Liq10x"
+      },
+      "oiUnavailable": "Open interest gak available — estimasi liquidation pakai default yang udah didokumentasiin"
     }
   },
   "tokenPage": {

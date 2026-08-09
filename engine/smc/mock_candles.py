@@ -12,7 +12,11 @@ from typing import Literal
 
 from smc.types import Candle
 
-TokenTimeframe = Literal["15M", "30M", "1H", "4H", "1D", "1W"]
+TokenTimeframe = Literal["5M", "15M", "30M", "1H", "4H", "1D", "1W"]
+# "5M" is Binance-fetch-only (RALLY WATCHER's live scan, `fetch_klines`
+# below) — deliberately excluded from TOKEN_TIMEFRAMES/STEP_SECONDS/
+# _TIMEFRAME_VOLATILITY so the token-page timeframe UI and demo-candle
+# generator, which iterate that tuple, are untouched.
 
 TOKEN_TIMEFRAMES: tuple[TokenTimeframe, ...] = ("15M", "30M", "1H", "4H", "1D", "1W")
 
