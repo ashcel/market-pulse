@@ -58,9 +58,13 @@ from smc.structure import compute_market_structure
 from smc.types import Candle
 
 Direction = Literal["long"]
+Verdict = Literal["greenlight", "watch", "skip"]
 
 # Provenance stamp — this module's own version, not ENGINE_VERSION.
-RALLY_WATCHER_VERSION = "1.0.0"
+# 1.0.1: added the human-language verdict/verdict_reason fields — a display
+# classification of the already-computed read, not a new gate on `evaluate_rally`
+# firing, but still a behavior change to the shape emitted, hence the bump.
+RALLY_WATCHER_VERSION = "1.0.1"
 
 # ── window sizing ────────────────────────────────────────────────────────────
 # 5-minute bars; 8h of context is enough for pivots/structure without reaching
@@ -104,6 +108,34 @@ WEIGHT_LIQUIDITY_BONUS = 0.20
 # ── liquidation-estimate model ──────────────────────────────────────────────
 AVG_LEVERAGE = 10.0
 MMR = 0.005
+
+# ── verdict thresholds ───────────────────────────────────────────────────────
+# `verdict` is a pure, deterministic classification of an already-fired read —
+# it never gates `evaluate_rally` itself (a skip verdict still returns a full
+# RallyRead, chips and all; it just tells Dee not to chase it). Rules, in
+# priority order:
+#
+#   SKIP       — extended (already blew out, chasing risk) OR volume_mult
+#                below VERDICT_MIN_VOLUME_MULT (rally without real
+#                participation, likelier to fade).
+#   GREENLIGHT — not skip AND momentum_score >= VERDICT_GREENLIGHT_SCORE_MIN
+#                AND the nearest actionable target (targets.smcPool if
+#                present, else targets.resistance) is within
+#                VERDICT_TARGET_MAX_PCT distance_pct.
+#   WATCH      — everything else that fired: momentum without a close-enough
+#                target, or a target without enough momentum/confirmation.
+#
+# A rally's own RALLY_VOLUME_MULT gate (1.3x) already requires *some* excess
+# volume to fire at all; VERDICT_MIN_VOLUME_MULT (1.5x) is deliberately a
+# notch higher — a rally can clear the firing gate but still read as
+# volume-light for a greenlight.
+VERDICT_MIN_VOLUME_MULT = 1.5
+VERDICT_GREENLIGHT_SCORE_MIN = 45.0
+VERDICT_TARGET_MAX_PCT = 2.5
+
+VERDICT_SKIP: Verdict = "skip"
+VERDICT_WATCH: Verdict = "watch"
+VERDICT_GREENLIGHT: Verdict = "greenlight"
 
 
 def _clip(value: float, lo: float = 0.0, hi: float = 1.0) -> float:
@@ -153,6 +185,11 @@ class RallyRead:
     explanation: str
     evaluated_at: int
     oi_available: bool
+    # Human-language greenlight/watch/skip classification — see the "verdict
+    # thresholds" section above for the deterministic rules. `verdict_reason`
+    # is a short English phrase the UI shows verbatim next to the pill.
+    verdict: Verdict
+    verdict_reason: str
     version: str = field(default=RALLY_WATCHER_VERSION)
 
 
@@ -219,6 +256,49 @@ def _liquidation_targets(
         ),
     )
     return short_target, long_target
+
+
+def _classify_verdict(
+    *,
+    extended: bool,
+    volume_mult: float,
+    momentum_score: float,
+    nearest_target_distance_pct: float | None,
+) -> tuple[Verdict, str]:
+    """Pure classification of an already-fired read — see the "verdict
+    thresholds" module-level comment for the rules. `nearest_target_distance_pct`
+    is `targets.smcPool`'s `distance_pct` if present, else `targets.resistance`'s
+    (always present when a read fires) — passed as a plain float so this stays
+    testable without constructing full `RallyTarget` dicts."""
+    reasons: list[str] = []
+    if extended:
+        reasons.append("already extended — chasing risk, not a fresh entry")
+    if volume_mult < VERDICT_MIN_VOLUME_MULT:
+        reasons.append("volume light relative to the move")
+    if reasons:
+        return VERDICT_SKIP, "; ".join(reasons)
+
+    target_close = (
+        nearest_target_distance_pct is not None and nearest_target_distance_pct <= VERDICT_TARGET_MAX_PCT
+    )
+    if momentum_score >= VERDICT_GREENLIGHT_SCORE_MIN and target_close:
+        return (
+            VERDICT_GREENLIGHT,
+            f"strong momentum ({momentum_score:.0f}/100) with target only "
+            f"{nearest_target_distance_pct:.1f}% away",
+        )
+
+    if momentum_score < VERDICT_GREENLIGHT_SCORE_MIN:
+        return (
+            VERDICT_WATCH,
+            f"momentum score {momentum_score:.0f} below the {VERDICT_GREENLIGHT_SCORE_MIN:.0f} greenlight bar",
+        )
+    return (
+        VERDICT_WATCH,
+        f"nearest target still {nearest_target_distance_pct:.1f}% away"
+        if nearest_target_distance_pct is not None
+        else "no actionable target in range",
+    )
 
 
 def evaluate_rally(
@@ -358,11 +438,22 @@ def evaluate_rally(
 
     name = symbol or "This asset"
     primary_target = nearest_bsl.price if nearest_bsl is not None else nearest_resistance[0]
+    nearest_target_distance_pct: float = (
+        targets["smcPool"]["distance_pct"] if "smcPool" in targets else targets["resistance"]["distance_pct"]
+    )
     explanation = (
-        f"{name} rallied +{gain_pct:.1f}% in 15m on {volume_mult:.1f}x volume, targeting "
+        f"{name} rallied +{gain_pct:.1f}% in 15m on {volume_mult:.1f}x volume — nearest target "
         f"{'the BSL pool' if nearest_bsl is not None else nearest_resistance[1].lower()} at "
-        f"{primary_target:.6g} (est. {AVG_LEVERAGE:g}x short-liq zone {short_liq_target.price:.6g})."
+        f"{primary_target:.6g} ({nearest_target_distance_pct:+.1f}%), est. short-liq at "
+        f"{short_liq_target.price:.6g}."
         + (" Already extended — chasing risk, not an entry." if extended else "")
+    )
+
+    verdict, verdict_reason = _classify_verdict(
+        extended=extended,
+        volume_mult=volume_mult,
+        momentum_score=momentum_score,
+        nearest_target_distance_pct=nearest_target_distance_pct,
     )
 
     return RallyRead(
@@ -375,6 +466,8 @@ def evaluate_rally(
         targets=targets,
         liquidity=liquidity,
         explanation=explanation,
+        verdict=verdict,
+        verdict_reason=verdict_reason,
         evaluated_at=evaluated_time,
         oi_available=oi_available,
     )

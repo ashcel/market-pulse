@@ -51,9 +51,22 @@ function TargetChip({
   );
 }
 
+const VERDICT_TONE: Record<RallyRead["verdict"], "bullish" | "warning" | "bearish"> = {
+  greenlight: "bullish",
+  watch: "warning",
+  skip: "bearish",
+};
+
+const VERDICT_EMOJI: Record<RallyRead["verdict"], string> = {
+  greenlight: "🟢",
+  watch: "🟡",
+  skip: "⛔",
+};
+
 function RallyRow({ rally }: { rally: RallyRead }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [showTargets, setShowTargets] = useState(false);
 
   const chips: Array<{ key: string; labelKey: string; target: RallyTarget }> = [
     ...(rally.targets.smcPool
@@ -88,33 +101,52 @@ function RallyRow({ rally }: { rally: RallyRead }) {
         )}
       </div>
 
-      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+      <div className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="num text-base font-bold text-bullish">+{rally.gainPct.toFixed(1)}%</span>
         <span className="text-[10px] text-muted-foreground">
           <span className="num">{rally.volumeMult.toFixed(1)}×</span> {t(`${N}volume`)}
         </span>
+        <span className="text-[10px] text-muted-foreground num">{rally.momentumScore.toFixed(0)}</span>
         <span className="text-[10px] text-muted-foreground">
           · {humanRelative(rally.evaluatedAt * 1000)}
         </span>
       </div>
 
-      <div className="mb-2 flex flex-wrap gap-1.5">
-        {chips.map((chip) => (
-          <TargetChip
-            key={chip.key}
-            labelKey={chip.labelKey}
-            target={chip.target}
-            expanded={expanded === chip.key}
-            onToggle={() => setExpanded((cur) => (cur === chip.key ? null : chip.key))}
-          />
-        ))}
+      <div className="mb-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+        <StatusBadge tone={VERDICT_TONE[rally.verdict]}>
+          {VERDICT_EMOJI[rally.verdict]} {t(`${N}verdict${rally.verdict[0].toUpperCase()}${rally.verdict.slice(1)}`)}
+        </StatusBadge>
+        <span className="text-[10px] text-muted-foreground">· {rally.verdictReason}</span>
       </div>
 
-      {expandedDetail && (
-        <p className="mb-2 text-[10px] leading-relaxed text-muted-foreground">{expandedDetail}</p>
-      )}
+      <p className="mb-1.5 text-[11px] leading-relaxed text-foreground">{rally.explanation}</p>
 
-      <p className="text-[11px] leading-relaxed text-foreground">{rally.explanation}</p>
+      <button
+        type="button"
+        onClick={() => setShowTargets((cur) => !cur)}
+        className="mb-1.5 text-[10px] font-medium text-muted-foreground underline decoration-dotted hover:text-foreground"
+      >
+        {t(`${N}${showTargets ? "hideTargets" : "showTargets"}`)}
+      </button>
+
+      {showTargets && (
+        <>
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {chips.map((chip) => (
+              <TargetChip
+                key={chip.key}
+                labelKey={chip.labelKey}
+                target={chip.target}
+                expanded={expanded === chip.key}
+                onToggle={() => setExpanded((cur) => (cur === chip.key ? null : chip.key))}
+              />
+            ))}
+          </div>
+          {expandedDetail && (
+            <p className="mb-2 text-[10px] leading-relaxed text-muted-foreground">{expandedDetail}</p>
+          )}
+        </>
+      )}
 
       {rally.extended && (
         <p className="mt-1 text-[10px] italic text-warning">{t(`${N}extendedNote`)}</p>
@@ -128,12 +160,15 @@ function RallyRow({ rally }: { rally: RallyRead }) {
 
 /**
  * RALLY WATCHER — live "what's rallying right now" scan (last ~15 minutes,
- * confirming volume) over the dynamic perp universe. Answers "where is the
- * move heading and what's above/below" with three targets: the nearest SMC
- * buy-side-liquidity pool, technical resistance, and an ESTIMATED
- * average-leverage short-liquidation cluster. Live watch, no persistence, no
- * win-rate claim — mounted before the REACCUMULATION scan card as the
- * "what's moving right now" view.
+ * confirming volume) over the dynamic perp universe. Each row leads with a
+ * human-language verdict pill (🟢 greenlight / 🟡 watch / ⛔ skip, computed
+ * deterministically by `smc.rally_watcher._classify_verdict` — never
+ * random/LLM) and a plain-language explanation sentence; the raw targets —
+ * nearest SMC buy-side-liquidity pool, technical resistance, and an
+ * ESTIMATED average-leverage short-liquidation cluster — sit collapsed
+ * behind a "show targets" toggle. Live watch, no persistence, no win-rate
+ * claim — mounted before the REACCUMULATION scan card as the "what's moving
+ * right now" view.
  */
 export function RallyWatcherCard() {
   const { t } = useTranslation();

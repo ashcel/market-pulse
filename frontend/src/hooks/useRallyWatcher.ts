@@ -29,6 +29,11 @@ export interface RallyRead {
   explanation: string;
   evaluatedAt: number;
   oiAvailable: boolean;
+  /** Human-language greenlight/watch/skip classification — deterministic,
+   * computed by the detector (`smc.rally_watcher._classify_verdict`), never
+   * random/LLM. */
+  verdict: "greenlight" | "watch" | "skip";
+  verdictReason: string;
   version: string;
 }
 
@@ -44,6 +49,8 @@ interface RawRallyRead {
   explanation: string;
   evaluated_at: number;
   oi_available: boolean;
+  verdict: string;
+  verdict_reason: string;
   version: string;
 }
 
@@ -86,6 +93,8 @@ function fromRaw(row: RawRallyRead): RallyRead {
     explanation: row.explanation,
     evaluatedAt: row.evaluated_at,
     oiAvailable: row.oi_available,
+    verdict: row.verdict as "greenlight" | "watch" | "skip",
+    verdictReason: row.verdict_reason,
     version: row.version,
   };
 }

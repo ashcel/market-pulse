@@ -1165,7 +1165,12 @@
         "resistance": "Res",
         "liquidation": "Liq10x"
       },
-      "oiUnavailable": "Open interest unavailable — liquidation estimate uses documented defaults"
+      "oiUnavailable": "Open interest unavailable — liquidation estimate uses documented defaults",
+      "verdictGreenlight": "Gas",
+      "verdictWatch": "Pantau",
+      "verdictSkip": "Skip",
+      "showTargets": "Show targets",
+      "hideTargets": "Hide targets"
     }
   },
   "tokenPage": {

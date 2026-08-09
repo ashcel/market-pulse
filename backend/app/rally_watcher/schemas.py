@@ -25,6 +25,8 @@ class RallyReadResponse(BaseModel):
     explanation: str
     evaluated_at: int
     oi_available: bool
+    verdict: str
+    verdict_reason: str
     version: str
 
 

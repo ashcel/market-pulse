@@ -25,6 +25,8 @@ def _to_response(read) -> RallyReadResponse:  # noqa: ANN001 — smc.rally_watch
         explanation=read.explanation,
         evaluated_at=read.evaluated_at,
         oi_available=read.oi_available,
+        verdict=read.verdict,
+        verdict_reason=read.verdict_reason,
         version=read.version,
     )
 

@@ -13,8 +13,13 @@ from smc.rally_watcher import (
     RALLY_MIN_GAIN_PCT,
     RALLY_TARGET_BONUS_PCT,
     RALLY_VOLUME_MULT,
+    RALLY_WATCHER_VERSION,
     RALLY_WINDOW_BARS,
+    VERDICT_GREENLIGHT_SCORE_MIN,
+    VERDICT_MIN_VOLUME_MULT,
+    VERDICT_TARGET_MAX_PCT,
     VOLUME_TRAILING_BARS,
+    _classify_verdict,
     _liquidation_targets,
     _select_resistance,
     evaluate_rally,
@@ -298,3 +303,114 @@ def test_rally_target_bonus_pct_documented_constant_used():
     # Sanity: constant is exported and positive, as the momentum-score docstring promises.
     assert RALLY_TARGET_BONUS_PCT > 0
     assert ENTRY_VWAP_BARS > 0
+
+
+# ── verdict: pure classification ─────────────────────────────────────────────
+
+
+def test_version_bumped_for_verdict_fields():
+    assert RALLY_WATCHER_VERSION == "1.0.1"
+
+
+def test_classify_verdict_greenlight_strong_score_close_target():
+    verdict, reason = _classify_verdict(
+        extended=False,
+        volume_mult=VERDICT_MIN_VOLUME_MULT + 1.0,
+        momentum_score=VERDICT_GREENLIGHT_SCORE_MIN + 10,
+        nearest_target_distance_pct=VERDICT_TARGET_MAX_PCT - 1.0,
+    )
+    assert verdict == "greenlight"
+    assert reason
+
+
+def test_classify_verdict_skip_when_extended():
+    verdict, reason = _classify_verdict(
+        extended=True,
+        volume_mult=10.0,
+        momentum_score=90.0,
+        nearest_target_distance_pct=0.1,
+    )
+    assert verdict == "skip"
+    assert "extend" in reason.lower()
+
+
+def test_classify_verdict_skip_when_volume_below_min():
+    verdict, reason = _classify_verdict(
+        extended=False,
+        volume_mult=VERDICT_MIN_VOLUME_MULT - 0.1,
+        momentum_score=90.0,
+        nearest_target_distance_pct=0.1,
+    )
+    assert verdict == "skip"
+    assert "volume" in reason.lower()
+
+
+def test_classify_verdict_watch_when_target_too_far():
+    verdict, reason = _classify_verdict(
+        extended=False,
+        volume_mult=VERDICT_MIN_VOLUME_MULT + 1.0,
+        momentum_score=VERDICT_GREENLIGHT_SCORE_MIN + 10,
+        nearest_target_distance_pct=VERDICT_TARGET_MAX_PCT + 5.0,
+    )
+    assert verdict == "watch"
+    assert reason
+
+
+def test_classify_verdict_watch_when_score_too_low():
+    verdict, reason = _classify_verdict(
+        extended=False,
+        volume_mult=VERDICT_MIN_VOLUME_MULT + 1.0,
+        momentum_score=VERDICT_GREENLIGHT_SCORE_MIN - 5,
+        nearest_target_distance_pct=VERDICT_TARGET_MAX_PCT - 1.0,
+    )
+    assert verdict == "watch"
+    assert reason
+
+
+# ── verdict: wired through evaluate_rally ────────────────────────────────────
+
+
+def test_evaluate_rally_greenlight_case():
+    # Close BSL pool (~1% away) + strong volume + not extended -> greenlight.
+    candles = _rally_scenario(peak_height=103.0)
+    read = evaluate_rally(candles, None, None, symbol="GAS")
+    assert read is not None
+    assert read.extended is False
+    assert read.targets["smcPool"]["distance_pct"] <= VERDICT_TARGET_MAX_PCT
+    assert read.verdict == "greenlight"
+    assert read.verdict_reason
+
+
+def test_evaluate_rally_skip_case_extended():
+    candles = _rally_scenario(gain_pct=RALLY_EXTENDED_PCT + 2)
+    read = evaluate_rally(candles, None, None, symbol="MOON")
+    assert read is not None
+    assert read.extended is True
+    assert read.verdict == "skip"
+    assert read.verdict_reason
+
+
+def test_evaluate_rally_skip_case_low_volume():
+    # Clears the firing gate (RALLY_VOLUME_MULT=1.3) but stays below the
+    # verdict's stricter VERDICT_MIN_VOLUME_MULT=1.5.
+    candles = _rally_scenario(rally_volume=68.0, trailing_volume=50.0)
+    read = evaluate_rally(candles, None, None, symbol="THIN")
+    assert read is not None
+    assert read.volume_mult >= RALLY_VOLUME_MULT
+    assert read.volume_mult < VERDICT_MIN_VOLUME_MULT
+    assert read.verdict == "skip"
+    assert read.verdict_reason
+
+
+def test_evaluate_rally_watch_case_far_target():
+    # Default fixture: fires cleanly, not extended, volume well above the
+    # verdict floor, but the BSL pool at peak_height=110 sits ~7.8% away —
+    # too far for a greenlight.
+    candles = _rally_scenario()
+    read = evaluate_rally(candles, None, None, symbol="WATCH")
+    assert read is not None
+    assert read.extended is False
+    assert read.volume_mult >= VERDICT_MIN_VOLUME_MULT
+    assert read.targets["smcPool"]["distance_pct"] > VERDICT_TARGET_MAX_PCT
+    assert read.verdict == "watch"
+    assert read.verdict_reason
