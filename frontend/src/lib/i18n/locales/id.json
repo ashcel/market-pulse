@@ -194,12 +194,7 @@
     "discover": {
       "eyebrow": "Ringkasan",
       "title": "Jelajahi",
-      "subtitle": "Scan seluruh exchange — daftar penjelajahan, bukan sinyal trade. Buka token untuk vonis engine.",
-      "pairsPassed": "{{ranked}} dari {{seen}} pasangan USDT lolos gerbang likuiditas",
-      "sourceLive": "Binance live",
-      "sourceDemo": "build demo offline",
-      "sourceUpdated": "Sumber: {{source}} · diperbarui {{time}}",
-      "worthScanning": "Layak Discan"
+      "subtitle": "Rally Watcher, screening reaccumulation, dan relative strength vs BTC — daftar penjelajahan, bukan sinyal trade. Buka token untuk vonis engine."
     },
     "settings": {
       "eyebrow": "Pengaturan",
@@ -894,18 +889,6 @@
         "tokenEventCategory": "Acara {{kind}}",
         "highImpact": "Dampak tinggi",
         "footer": "Kalender makro + acara token yang kamu pantau · waktu lokal kamu"
-      },
-      "marketOpportunities": {
-        "eyebrow": "Peluang Pasar · Layak Dipantau",
-        "demoData": "Data demo",
-        "scanCaption": "Scan aktivitas · bukan sinyal trading",
-        "tracked": "Dipantau",
-        "spikeRejected": "Spike ditolak",
-        "range24h": "Range 24j",
-        "turnover": "Turnover",
-        "liveSpikes": "Spike langsung",
-        "volMultiplier": "{{mult}}× volume",
-        "footer": "Scan tersaring likuiditas dari {{pairsSeen}} pair spot USDT Binance — {{pairsRanked}} pair likuid diperingkat berdasarkan range 24 jam, depth, dan arus transaksi. Buka satu token untuk lihat verdict asli dari engine."
       },
       "marketContext": {
         "regime": "Regime",

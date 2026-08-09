@@ -194,12 +194,7 @@
     "discover": {
       "eyebrow": "Overview",
       "title": "Discover",
-      "subtitle": "Exchange-wide scans — a discovery list, not a trade signal. Open a token for the engine's verdict.",
-      "pairsPassed": "{{ranked}} of {{seen}} USDT pairs passed the liquidity gates",
-      "sourceLive": "Binance live",
-      "sourceDemo": "offline demo build",
-      "sourceUpdated": "Source: {{source}} · updated {{time}}",
-      "worthScanning": "Worth Scanning"
+      "subtitle": "Rally Watcher, reaccumulation screening, and relative strength vs BTC — a discovery list, not a trade signal. Open a token for the engine's verdict."
     },
     "settings": {
       "eyebrow": "Settings",
@@ -894,18 +889,6 @@
         "tokenEventCategory": "{{kind}} event",
         "highImpact": "High impact",
         "footer": "Macro calendar + dated events for watched tokens · your local time"
-      },
-      "marketOpportunities": {
-        "eyebrow": "Market Opportunities · Worth Scanning",
-        "demoData": "Demo data",
-        "scanCaption": "Activity scan · not a trade signal",
-        "tracked": "Tracked",
-        "spikeRejected": "Spike rejected",
-        "range24h": "24h range",
-        "turnover": "Turnover",
-        "liveSpikes": "Live spikes",
-        "volMultiplier": "{{mult}}× vol",
-        "footer": "Liquidity-gated scan of {{pairsSeen}} Binance USDT spot pairs — {{pairsRanked}} liquid pairs ranked by 24h range, depth, and trade flow. Open a token for the engine's actual verdict."
       },
       "marketContext": {
         "regime": "Regime",
