@@ -443,12 +443,12 @@ async def test_scan_endpoint_returns_the_envelope(client: AsyncClient) -> None:
 
 @pytest.mark.anyio
 async def test_scan_endpoint_serves_each_mode(client: AsyncClient) -> None:
-    for mode in ("SCALP", "INTRADAY"):
+    for mode in ("SCALP", "INTRADAY", "SWING"):
         response = await client.get(f"/api/v1/momentum/scan?mode={mode}")
         assert response.status_code == 200
         assert response.json()["data"]["mode"] == mode
     # An unknown mode degrades rather than erroring.
-    fallback = await client.get("/api/v1/momentum/scan?mode=swing")
+    fallback = await client.get("/api/v1/momentum/scan?mode=nonsense")
     assert fallback.json()["data"]["mode"] == "SCALP"
 
 
@@ -461,6 +461,10 @@ async def test_modes_endpoint_describes_each_horizon(client: AsyncClient) -> Non
     assert rows["INTRADAY"]["events"] == ["5m", "15m"]
     assert "4H" in rows["INTRADAY"]["context"]
     assert "4H" not in rows["SCALP"]["context"]
+    # Swing shares the trigger windows (the tick store cannot go slower) and
+    # differs by context.
+    assert rows["SWING"]["events"] == ["5m", "15m"]
+    assert "1D" in rows["SWING"]["context"]
 
 
 @pytest.mark.anyio

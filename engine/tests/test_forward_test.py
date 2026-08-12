@@ -23,6 +23,9 @@ from smc.forward_test import (
     SetupSnapshot,
     advance_position,
     compute_stats,
+    cost_in_r,
+    default_variants,
+    outcome_for,
     entry_zone,
     is_finite_plan,
     open_position,
@@ -317,7 +320,11 @@ def test_bullish_and_bearish_are_exact_mirrors() -> None:
     bull_position, bull_events = run(bull, [(t, mirrored(p)) for t, p in path])
 
     assert bear_position.status == bull_position.status == "TARGET_HIT"
-    assert bear_position.realized_r == pytest.approx(bull_position.realized_r)
+    # Gross R mirrors exactly; net R only to within the cost of the price
+    # difference, because a fee is a share of price and mirroring around 100
+    # fills the two sides at 100.4 and 99.6.
+    assert bear_position.gross_r == pytest.approx(bull_position.gross_r)
+    assert bear_position.realized_r == pytest.approx(bull_position.realized_r, rel=1e-3)
     assert bear_position.mfe_r == pytest.approx(bull_position.mfe_r)
     assert [e.type for e in bear_events] == [e.type for e in bull_events]
 
@@ -327,7 +334,8 @@ def test_mirrored_losses_match_too() -> None:
     bear, _ = run(snapshot("bearish"), path)
     bull, _ = run(snapshot("bullish"), [(t, mirrored(p)) for t, p in path])
     assert bear.status == bull.status == "INVALIDATED"
-    assert bear.realized_r == pytest.approx(bull.realized_r)
+    assert bear.gross_r == pytest.approx(bull.gross_r)
+    assert bear.realized_r == pytest.approx(bull.realized_r, rel=1e-3)
 
 
 # ── determinism ──────────────────────────────────────────────────────────────
@@ -420,3 +428,110 @@ def test_the_outcome_view_reports_the_timings() -> None:
     assert outcome.time_in_trade == pytest.approx(90.0)
     assert outcome.time_to_settle == pytest.approx(120.0)
     assert outcome.target_reached is True
+
+
+# ── costs ────────────────────────────────────────────────────────────────────
+
+
+def test_costs_are_deducted_from_the_realized_result() -> None:
+    setup = snapshot()
+    position, _ = run(setup, [(30, 100.4), (60, 94.0)])
+    assert position.status == "TARGET_HIT"
+    assert position.gross_r > position.realized_r
+    assert position.cost_r > 0
+    assert position.realized_r == pytest.approx(position.gross_r - position.cost_r, abs=1e-4)
+
+
+def test_a_tighter_stop_pays_a_larger_share_of_its_risk_in_costs() -> None:
+    """The whole reason a scalp and a swing cannot be compared on gross R: the
+    same fee is a much bigger fraction of a narrow stop."""
+    tight = snapshot(initial_invalidation=100.5)  # 0.5% stop
+    wide = snapshot(initial_invalidation=105.0)  # 5% stop
+    assert cost_in_r(tight, 100.0, CFG) > 5 * cost_in_r(wide, 100.0, CFG)
+
+
+def test_costs_can_turn_a_marginal_winner_into_a_loser() -> None:
+    cheap = replace(CFG, taker_fee_pct=0.0, slippage_pct=0.0)
+    expensive = replace(CFG, taker_fee_pct=0.4, slippage_pct=0.2)
+    setup = snapshot()
+    # Runs to 1.5R, then trails out just under half an R of gross profit.
+    path = [(30, 100.0), (60, 97.0), (90, 99.05)]
+    free, _ = run(setup, path, cheap)
+    costly, _ = run(setup, path, expensive)
+    assert free.realized_r > 0
+    assert costly.realized_r < 0
+    assert free.gross_r == pytest.approx(costly.gross_r)
+
+
+def test_a_no_fill_pays_nothing() -> None:
+    setup = snapshot()
+    position, _ = run(setup, [(30, 96.0), (CFG.entry_window_seconds + 60, 95.0)])
+    assert position.status == "NO_FILL"
+    assert position.cost_r == 0.0
+    assert position.realized_r == 0.0
+
+
+def test_zero_cost_reproduces_the_gross_result() -> None:
+    free = replace(CFG, taker_fee_pct=0.0, slippage_pct=0.0)
+    position, _ = run(snapshot(), [(30, 100.4), (60, 94.0)], free)
+    assert position.realized_r == pytest.approx(position.gross_r)
+
+
+def test_negative_costs_are_rejected() -> None:
+    with pytest.raises(ValueError, match="costs cannot be negative"):
+        ForwardTestConfig(taker_fee_pct=-0.1)
+
+
+# ── exit-rule variants ───────────────────────────────────────────────────────
+
+
+def test_variants_run_on_the_same_setup_and_the_same_prices() -> None:
+    """The controlled experiment: identical detection and entry, different
+    exit rules, settled forward together."""
+    setup = snapshot()
+    path = [(30, 100.0), (60, 97.0), (90, 99.05), (120, 94.0)]
+    primary, _ = run(setup, path, CFG)
+    results = {}
+    for variant in default_variants(CFG):
+        position, _ = run(setup, path, variant.config)
+        results[variant.name] = position
+
+    # The primary trails out early; holding the structural stop reaches target.
+    assert primary.status == "INVALIDATED"
+    assert primary.exit_reason == "trailing_stop"
+    assert results["no_trail"].status == "TARGET_HIT"
+    assert results["no_trail"].realized_r > primary.realized_r
+
+
+def test_a_looser_trail_survives_a_retracement_the_tight_one_does_not() -> None:
+    setup = snapshot()
+    path = [(30, 100.0), (60, 97.0), (90, 99.05)]
+    tight, _ = run(setup, path, CFG)
+    wide, _ = run(setup, path, default_variants(CFG)[1].config)
+    assert tight.status == "INVALIDATED"
+    assert wide.status == "ACTIVE"
+
+
+def test_a_variant_that_gives_back_more_is_recorded_as_such() -> None:
+    """Loosening is not free — the same rule that saves a winner also holds a
+    reversal longer. Both directions have to be measurable."""
+    setup = snapshot()
+    # Runs to 1.2R, retraces past the *trailed* stop but not the structural
+    # one, then reverses through it. The tight rule banks a scratch; the loose
+    # one is still in the trade and takes the full loss.
+    path = [(30, 100.0), (60, 97.6), (90, 99.7), (120, 102.5)]
+    tight, _ = run(setup, path, CFG)
+    loose, _ = run(setup, path, default_variants(CFG)[0].config)
+    assert tight.realized_r > loose.realized_r
+    assert loose.exit_reason == "invalidation"
+
+
+def test_the_variant_outcome_is_flat_and_complete() -> None:
+    setup = snapshot()
+    position, _ = run(setup, [(30, 100.4), (60, 94.0)])
+    outcome = outcome_for("no_trail", position)
+    assert outcome.name == "no_trail"
+    assert outcome.status == "TARGET_HIT"
+    assert outcome.is_settled is True
+    assert outcome.gross_r > outcome.realized_r
+    assert outcome.settled_at is not None

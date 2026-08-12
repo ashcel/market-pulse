@@ -445,7 +445,8 @@ def test_scalp_demands_a_more_asymmetric_path_than_intraday() -> None:
 def test_an_unknown_mode_degrades_to_scalp() -> None:
     assert profile_for("nonsense").mode == "SCALP"
     assert profile_for("intraday").mode == "INTRADAY"
-    assert set(MODES) == {"SCALP", "INTRADAY"}
+    assert profile_for("swing").mode == "SWING"
+    assert set(MODES) == {"SCALP", "INTRADAY", "SWING"}
 
 
 def test_the_same_tape_is_a_different_situation_at_each_horizon() -> None:
@@ -666,3 +667,75 @@ def test_scalp_decays_faster_than_intraday() -> None:
 def test_both_modes_demand_at_least_medium_evidence() -> None:
     assert SCALP.situation.min_tier == "MEDIUM"
     assert INTRADAY.situation.min_tier == "MEDIUM"
+
+
+# ── the swing horizon ────────────────────────────────────────────────────────
+
+
+def test_swing_is_led_by_the_daily_and_ignores_the_15m() -> None:
+    """A swing thesis that turns on a 15-minute structure read is not a swing
+    thesis."""
+    from smc.scan_profiles import SWING
+
+    assert SWING.context.weight_1d > SWING.context.weight_4h > SWING.context.weight_1h
+    assert SWING.context.weight_15m == 0.0
+    assert SCALP.context.weight_1d == 0.0
+    assert INTRADAY.context.weight_1d == 0.0
+
+
+def test_swing_demands_a_far_larger_move_than_scalp() -> None:
+    from smc.scan_profiles import SWING
+
+    assert SWING.events.displacement_fire_pct > INTRADAY.events.displacement_fire_pct
+    assert INTRADAY.events.displacement_fire_pct > SCALP.events.displacement_fire_pct
+
+
+def test_swing_triggers_on_the_same_windows_as_intraday() -> None:
+    """Honest about the constraint: the tick store holds 30 minutes, so 15m is
+    the slowest event window this plane can compute. Swing differs by context,
+    patience and geometry — not by a slower trigger."""
+    from smc.scan_profiles import SWING
+
+    assert (SWING.events.fast_window, SWING.events.primary_window) == (
+        INTRADAY.events.fast_window,
+        INTRADAY.events.primary_window,
+    )
+    assert SWING.structure_timeframes == ("4H", "1H")
+
+
+def test_each_horizon_gets_its_own_patience_and_stop_width() -> None:
+    from smc.scan_profiles import SWING
+
+    windows = [p.forward_test.entry_window_seconds for p in (SCALP, INTRADAY, SWING)]
+    holds = [p.forward_test.max_holding_seconds for p in (SCALP, INTRADAY, SWING)]
+    stops = [p.path.min_risk_pct for p in (SCALP, INTRADAY, SWING)]
+    assert windows == sorted(windows)
+    assert holds == sorted(holds)
+    assert stops == sorted(stops)
+
+
+def test_a_wider_stop_pays_a_smaller_share_of_risk_in_costs() -> None:
+    """The mechanism behind the whole scalp-versus-swing question, made
+    explicit: identical fees, very different bites out of R."""
+    from smc.forward_test import SetupSnapshot, cost_in_r
+    from smc.scan_profiles import SWING
+
+    def plan(stop_pct: float) -> SetupSnapshot:
+        return SetupSnapshot(
+            symbol="TST", market="perp", mode="X", direction="bearish", detected_at=T0,
+            state="PULLBACK_COMPLETION", tier="HIGH", combo="", families=(), score=70.0,
+            entry_low=100.0, entry_high=100.0, reference_entry=100.0,
+            initial_invalidation=100.0 * (1 + stop_pct / 100.0), target=90.0,
+            target_kind="", potential_rr=3.0, htf_bias="bearish", htf_agreement=1.0,
+            alignment="aligned", alignment_level="HIGH", structure_trend="downtrend",
+            headline_event="", event_age_seconds=0.0, rvol=None, change_1m_pct=None,
+            change_3m_pct=None, change_5m_pct=None, change_15m_pct=None, retrace_frac=None,
+            pullback_volume_ratio=None, completion_evidence=(), micro_choch=False,
+            liquidity_target=False, engine_version="2.0.0", momentum_version="1.0.0",
+            events_version="1.1.0", context_version="1.0.0", forward_test_version="1.0.0",
+            config_hash="x", git_sha="y",
+        )
+
+    scalp_cost = cost_in_r(plan(SCALP.path.min_risk_pct), 100.0, SCALP.forward_test)
+    swing_cost = cost_in_r(plan(SWING.path.min_risk_pct), 100.0, SWING.forward_test)
+    assert scalp_cost > 3 * swing_cost

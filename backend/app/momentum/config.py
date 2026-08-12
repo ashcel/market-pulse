@@ -152,6 +152,8 @@ CONTEXT_TICK_SECONDS = _env_float("MOMENTUM_CONTEXT_TICK_SECONDS", 15.0)
 # Per-timeframe refresh cadence. A 4H bar closes every four hours — refreshing
 # it every 15 minutes is already far more often than it can change.
 CONTEXT_REFRESH_SECONDS: dict[ContextTimeframe, float] = {
+    # A daily bar closes once a day; refreshing hourly is already generous.
+    "1D": _env_float("MOMENTUM_CONTEXT_REFRESH_1D", 3_600.0),
     "4H": _env_float("MOMENTUM_CONTEXT_REFRESH_4H", 900.0),
     "1H": _env_float("MOMENTUM_CONTEXT_REFRESH_1H", 300.0),
     "15M": _env_float("MOMENTUM_CONTEXT_REFRESH_15M", 120.0),

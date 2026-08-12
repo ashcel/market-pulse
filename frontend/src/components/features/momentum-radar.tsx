@@ -28,10 +28,11 @@ import { cn } from "@/lib/utils";
  * instead of leaving the user wondering whether the feed broke.
  *
  * Modes are horizons, not filters: scalp reads 1m/3m events under 1H/15m
- * context, intraday reads 5m/15m under 4H/1H. Switching re-subscribes.
+ * context, intraday 5m/15m under 4H/1H, swing the same trigger windows under a
+ * daily-led context with far larger thresholds. Switching re-subscribes.
  */
 
-const MODES: ScanMode[] = ["SCALP", "INTRADAY"];
+const MODES: ScanMode[] = ["SCALP", "INTRADAY", "SWING"];
 
 const SECTIONS: RadarState[] = [
   "PULLBACK_COMPLETION",

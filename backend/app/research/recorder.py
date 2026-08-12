@@ -57,9 +57,11 @@ from smc.forward_test import (
     PaperPosition,
     SetupSnapshot,
     advance_position,
+    default_variants,
     entry_zone,
     is_finite_plan,
     open_position,
+    outcome_for,
 )
 from smc.market_context import MARKET_CONTEXT_VERSION
 from smc.momentum import MOMENTUM_VERSION
@@ -80,11 +82,13 @@ logger = logging.getLogger("research.recorder")
 #: always be traced to both.
 STRATEGY_VERSION = f"discover-forward-test/{FORWARD_TEST_VERSION}"
 
-#: Detector generation. Bumped when a change alters what the geometry *means*
-#: rather than merely how it is recorded — the volatility-floored stop
-#: (2026-08-12) is generation 2. Old rows keep generation 1 and are never
-#: pooled with new ones; that is the whole point of versioned forward testing.
-DETECTOR_GENERATION = 2
+#: Detector generation. Bumped when a change alters what a recorded result
+#: *means*, so cohorts are never pooled:
+#:
+#:   1 — original geometry (stops inside the noise band)
+#:   2 — volatility-floored stops
+#:   3 — costs deducted from realized R, per-horizon patience, SWING added
+DETECTOR_GENERATION = 3
 
 
 def setup_key(situation: Situation) -> str:
@@ -273,9 +277,35 @@ def setup_values(snapshot: SetupSnapshot, position: PaperPosition, key: str) -> 
     }
 
 
-def lifecycle_values(position: PaperPosition, event_count: int) -> dict[str, object]:
+def _variant_config(primary: ForwardTestConfig, name: str) -> ForwardTestConfig:
+    for variant in default_variants(primary):
+        if variant.name == name:
+            return variant.config
+    return primary
+
+
+def lifecycle_values(
+    position: PaperPosition,
+    event_count: int,
+    variants: dict[str, PaperPosition] | None = None,
+) -> dict[str, object]:
     """The update payload — lifecycle and outcome only."""
     return {
+        "gross_r": position.gross_r,
+        "cost_r": position.cost_r,
+        "variants": {
+            name: {
+                "status": outcome_for(name, alt).status,
+                "realized_r": alt.realized_r,
+                "gross_r": alt.gross_r,
+                "cost_r": alt.cost_r,
+                "mfe_r": alt.mfe_r,
+                "mae_r": alt.mae_r,
+                "exit_reason": alt.exit_reason,
+            }
+            for name, alt in (variants or {}).items()
+        }
+        or None,
         "status": position.status,
         "zone_touched_at": repo.to_utc(position.zone_touched_at),
         "entered_at": repo.to_utc(position.entered_at),
@@ -411,9 +441,13 @@ class ForwardTestRecorder:
         config: ForwardTestConfig | None = None,
     ) -> None:
         self._scanner = scanner
+        # Fallback only: each capture uses its own profile's forward-test
+        # config, because patience is part of the hypothesis.
         self.config = config if config is not None else DEFAULT_FORWARD_TEST_CONFIG
         # Live hypotheses, keyed by setup identity.
         self._open: dict[str, tuple[str, SetupSnapshot, PaperPosition, int]] = {}
+        # Alternative exit rules running on those same hypotheses.
+        self._variants: dict[str, dict[str, PaperPosition]] = {}
         # Keys whose hypothesis has already been settled. A settled record is
         # terminal: without this, a symbol that stays confirmed after its stop
         # was hit would be re-adopted on the next capture pass and start a
@@ -504,11 +538,20 @@ class ForwardTestRecorder:
             key = setup_key(situation)
             if key in self._open or key in self._closed:
                 continue
-            frozen = snapshot_from(situation, now, self.config)
+            frozen = snapshot_from(situation, now, profile_for(situation.mode).forward_test)
             if frozen is None:
                 continue
+            profile = profile_for(situation.mode)
+            config = profile.forward_test
             frozen = with_flow(frozen, entry.metrics, entry.structural)
-            position, events = open_position(frozen, now, entry.metrics.price, self.config)
+            position, events = open_position(frozen, now, entry.metrics.price, config)
+            # The same hypothesis under alternative exit rules. Identical
+            # detection, identical entry, identical price stream — the only
+            # honest way to compare exits.
+            variants = {
+                variant.name: open_position(frozen, now, entry.metrics.price, variant.config)[0]
+                for variant in default_variants(config)
+            }
 
             async with SessionFactory() as db:
                 setup_id = await repo.insert_setup(db, setup_values(frozen, position, key))
@@ -531,6 +574,7 @@ class ForwardTestRecorder:
                     continue
                 await repo.insert_events(db, [event_values(setup_id, e) for e in events])
             self._open[key] = (setup_id, frozen, position, len(events))
+            self._variants[key] = variants
             self.captured += 1
             writes += 1
             logger.info(
@@ -550,7 +594,19 @@ class ForwardTestRecorder:
             price = self._price_for(snapshot.symbol)
             if price is None:
                 continue
-            advanced, events = advance_position(snapshot, position, price, now, self.config)
+            config = profile_for(snapshot.mode).forward_test
+            advanced, events = advance_position(snapshot, position, price, now, config)
+            # Alternatives settle on the same observation, always.
+            alternatives = self._variants.get(key, {})
+            for name, variant_position in list(alternatives.items()):
+                moved, _ = advance_position(
+                    snapshot,
+                    variant_position,
+                    price,
+                    now,
+                    _variant_config(config, name),
+                )
+                alternatives[name] = moved
             if advanced == position and not events:
                 continue
 
@@ -561,13 +617,18 @@ class ForwardTestRecorder:
             # another name.
             if events or advanced.is_settled:
                 async with SessionFactory() as db:
-                    await repo.update_lifecycle(db, setup_id, lifecycle_values(advanced, total))
+                    await repo.update_lifecycle(
+                        db,
+                        setup_id,
+                        lifecycle_values(advanced, total, alternatives),
+                    )
                     await repo.insert_events(
                         db, [event_values(setup_id, event) for event in events]
                     )
                 writes += 1
             if advanced.is_settled:
                 del self._open[key]
+                self._variants.pop(key, None)
                 self._closed.add(key)
                 self.settled += 1
                 logger.info(

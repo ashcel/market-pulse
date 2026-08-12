@@ -130,6 +130,12 @@ class ForwardTestSetup(Base):
     exit_price: Mapped[float | None] = mapped_column(Double, nullable=True)
     exit_reason: Mapped[str] = mapped_column(Text, nullable=False, default="")
     realized_r: Mapped[float] = mapped_column(Double, nullable=False, default=0.0)
+    # Before costs, and what the round trip took — kept apart so a different
+    # cost assumption can be re-derived without replaying the tape.
+    gross_r: Mapped[float] = mapped_column(Double, nullable=False, default=0.0)
+    cost_r: Mapped[float] = mapped_column(Double, nullable=False, default=0.0)
+    # What alternative exit rules would have produced on this same setup.
+    variants: Mapped[dict[str, Any] | None] = mapped_column(ResearchJSON, nullable=True)
     mfe_pct: Mapped[float] = mapped_column(Double, nullable=False, default=0.0)
     mae_pct: Mapped[float] = mapped_column(Double, nullable=False, default=0.0)
     mfe_r: Mapped[float] = mapped_column(Double, nullable=False, default=0.0)

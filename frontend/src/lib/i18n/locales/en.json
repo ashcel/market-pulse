@@ -788,6 +788,12 @@
         "profitFactor": "Profit factor",
         "drawdown": "max drawdown {{value}}R",
         "best": "Best setup"
+      },
+      "variants": {
+        "title": "Exit rules compared, over {{count}} settled setups",
+        "primary": "Current (trail 1R)",
+        "won": "won",
+        "note": "Same detections, same entries, same prices — only the exit rule differs. Net of costs."
       }
     }
   },
@@ -1335,7 +1341,9 @@
         "SCALP": "Scalp",
         "INTRADAY": "Intraday",
         "SCALPHint": "1m/3m events under 1H/15m context",
-        "INTRADAYHint": "5m/15m events under 4H/1H context"
+        "INTRADAYHint": "5m/15m events under 4H/1H context",
+        "SWING": "Swing",
+        "SWINGHint": "15m trigger under 1D/4H context, held for days"
       },
       "funnel": {
         "universe": "markets",

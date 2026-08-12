@@ -52,10 +52,11 @@ Bias = Literal["bullish", "bearish", "neutral"]
 #: different situation from timeframes that are all quiet.
 ContextBias = Literal["bullish", "bearish", "neutral", "mixed"]
 
-ContextTimeframe = Literal["4H", "1H", "15M", "5M"]
+ContextTimeframe = Literal["1D", "4H", "1H", "15M", "5M"]
 
-#: Slowest first — the order the UI lists them in.
-CONTEXT_TIMEFRAMES: tuple[ContextTimeframe, ...] = ("4H", "1H", "15M", "5M")
+#: Slowest first — the order the UI lists them in. 1D exists for the swing
+#: horizon; the faster modes give it no weight.
+CONTEXT_TIMEFRAMES: tuple[ContextTimeframe, ...] = ("1D", "4H", "1H", "15M", "5M")
 
 _EPS = 1e-9
 
@@ -70,6 +71,7 @@ class ContextConfig:
     tracking the fast lane, which is exactly what this layer exists to avoid.
     """
 
+    weight_1d: float = 0.0
     weight_4h: float = 3.0
     weight_1h: float = 2.0
     weight_15m: float = 1.0
@@ -94,6 +96,7 @@ class ContextConfig:
 
     def weight(self, timeframe: str) -> float:
         return {
+            "1D": self.weight_1d,
             "4H": self.weight_4h,
             "1H": self.weight_1h,
             "15M": self.weight_15m,

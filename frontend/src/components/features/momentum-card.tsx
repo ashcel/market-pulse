@@ -193,6 +193,7 @@ export function MomentumCard({
   // The move that goes with the event: the primary window normally, the fast
   // one when the headline is a fast structural read.
   const fastHeadline = headline?.type === "CHOCH" || headline?.type === "CONTINUATION";
+  // Scalp reads the 1m/3m windows; the slower horizons both work off 5m/15m.
   const scalp = entry.mode === "SCALP";
   const movePct = fastHeadline
     ? scalp

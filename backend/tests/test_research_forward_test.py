@@ -667,3 +667,83 @@ async def test_only_open_rows_are_reloaded(db: AsyncSession) -> None:
 
     reloaded = await repo.open_setups(db)
     assert sorted(row.status for row in reloaded) == ["ACTIVE", "PENDING_ENTRY"]
+
+
+# ── costs, variants and per-horizon patience ─────────────────────────────────
+
+
+def test_each_horizon_records_with_its_own_patience() -> None:
+    """A scalp given four hours to fill is not a scalp; a swing given fifteen
+    minutes is not a swing."""
+    from smc.scan_profiles import INTRADAY, SCALP, SWING
+
+    assert SCALP.forward_test.entry_window_seconds < INTRADAY.forward_test.entry_window_seconds
+    assert INTRADAY.forward_test.entry_window_seconds < SWING.forward_test.entry_window_seconds
+    assert SWING.forward_test.max_holding_seconds > 24 * 3600
+
+
+@pytest.mark.anyio
+async def test_variant_outcomes_are_persisted_alongside_the_primary(db: AsyncSession) -> None:
+    from smc.forward_test import advance_position, default_variants
+
+    snapshot = snapshot_from(situation(), T0, CFG)
+    assert snapshot is not None
+    position, _ = open_position(snapshot, T0, 100.0, CFG)
+    key = setup_key(situation())
+    setup_id = await repo.insert_setup(db, setup_values(snapshot, position, key))
+    assert setup_id is not None
+
+    # Fill, then run to target on every rule.
+    alternatives = {
+        variant.name: open_position(snapshot, T0, 100.0, variant.config)[0]
+        for variant in default_variants(CFG)
+    }
+    # 100.3 is inside the entry zone (100.0-100.385); 100.4 would miss it.
+    for offset, price in ((30, 100.3), (120, 93.0)):
+        position, _ = advance_position(snapshot, position, price, T0 + offset, CFG)
+        for name, alt in list(alternatives.items()):
+            alternatives[name], _ = advance_position(
+                snapshot, alt, price, T0 + offset, CFG
+            )
+    assert position.status == "TARGET_HIT"
+
+    await repo.update_lifecycle(db, setup_id, lifecycle_values(position, 4, alternatives))
+    row = await db.get(ForwardTestSetup, setup_id)
+    assert row is not None
+    assert row.variants is not None
+    assert set(row.variants) == {"no_trail", "wide_trail"}
+    assert row.variants["no_trail"]["status"] == "TARGET_HIT"
+    # Costs are split out, not folded silently into the headline number.
+    assert row.gross_r > row.realized_r
+    assert row.cost_r > 0
+
+
+@pytest.mark.anyio
+async def test_costs_reach_the_database(db: AsyncSession) -> None:
+    from smc.forward_test import advance_position
+
+    snapshot = snapshot_from(situation(), T0, CFG)
+    assert snapshot is not None
+    position, _ = open_position(snapshot, T0, 100.0, CFG)
+    setup_id = await repo.insert_setup(db, setup_values(snapshot, position, setup_key(situation())))
+    assert setup_id is not None
+    for offset, price in ((30, 100.3), (120, 93.0)):
+        position, _ = advance_position(snapshot, position, price, T0 + offset, CFG)
+    # Guard against a vacuous pass: an unfilled setup would satisfy the
+    # arithmetic below with three zeros.
+    assert position.status == "TARGET_HIT"
+    assert position.cost_r > 0
+
+    await repo.update_lifecycle(db, setup_id, lifecycle_values(position, 3))
+    row = await db.get(ForwardTestSetup, setup_id)
+    assert row is not None
+    assert row.realized_r == pytest.approx(row.gross_r - row.cost_r, abs=1e-4)
+    assert row.gross_r > row.realized_r
+
+
+def test_the_generation_moved_for_the_cost_change() -> None:
+    """Costs change what a recorded result means, so generation-2 rows must
+    never be averaged with generation-3 ones."""
+    from app.research.recorder import DETECTOR_GENERATION
+
+    assert DETECTOR_GENERATION == 3

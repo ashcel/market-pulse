@@ -788,6 +788,12 @@
         "profitFactor": "Profit factor",
         "drawdown": "drawdown maks {{value}}R",
         "best": "Setup terbaik"
+      },
+      "variants": {
+        "title": "Perbandingan aturan exit, dari {{count}} setup yang selesai",
+        "primary": "Saat ini (trail 1R)",
+        "won": "menang",
+        "note": "Deteksi sama, entry sama, harga sama — hanya aturan exit yang beda. Sudah dipotong biaya."
       }
     }
   },
@@ -1335,7 +1341,9 @@
         "SCALP": "Scalp",
         "INTRADAY": "Intraday",
         "SCALPHint": "Kejadian 1m/3m di bawah konteks 1H/15m",
-        "INTRADAYHint": "Kejadian 5m/15m di bawah konteks 4H/1H"
+        "INTRADAYHint": "Kejadian 5m/15m di bawah konteks 4H/1H",
+        "SWING": "Swing",
+        "SWINGHint": "Trigger 15m di bawah konteks 1D/4H, ditahan berhari-hari"
       },
       "funnel": {
         "universe": "pasar",

@@ -78,11 +78,12 @@ async def test_a_tracked_symbol_gets_a_context() -> None:
     cache.track(["TST"], T0)
     updated = await cache.refresh_once(T0)
 
-    assert updated == 4  # one read per context timeframe
+    # One read per context timeframe, 1D included for the swing horizon.
+    assert updated == 5
     context = cache.get("TST")
     assert context is not None
     assert context.bias == "bullish"
-    assert {read.timeframe for read in context.reads} == {"4H", "1H", "15M", "5M"}
+    assert {read.timeframe for read in context.reads} == {"1D", "4H", "1H", "15M", "5M"}
 
 
 @pytest.mark.anyio

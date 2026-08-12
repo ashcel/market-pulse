@@ -21,7 +21,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * "aligned" or "counter-trend" classification is a description, not advice.
  */
 
-export type ScanMode = "SCALP" | "INTRADAY";
+export type ScanMode = "SCALP" | "INTRADAY" | "SWING";
 
 /** The situation lifecycle the UI groups by. Server-side these are monotone,
  * dwell-gated and hysteretic — they do not move on relative-volume noise. */

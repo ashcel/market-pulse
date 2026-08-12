@@ -55,6 +55,11 @@ class ForwardTestSetupResponse(BaseModel):
     exit_price: float | None = None
     exit_reason: str = ""
     realized_r: float = 0.0
+    # Before costs, and the round trip's bite out of R.
+    gross_r: float = 0.0
+    cost_r: float = 0.0
+    # What alternative exit rules would have produced on this same setup.
+    variants: dict[str, Any] = Field(default_factory=dict)
     mfe_pct: float = 0.0
     mae_pct: float = 0.0
     mfe_r: float = 0.0

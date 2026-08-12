@@ -55,6 +55,9 @@ export interface ForwardTestSetup {
   exitPrice: number | null;
   exitReason: string;
   realizedR: number;
+  grossR: number;
+  costR: number;
+  variants: Record<string, { status: string; realized_r: number; exit_reason: string }>;
   mfePct: number;
   maePct: number;
   mfeR: number;
@@ -146,6 +149,9 @@ interface RawSetup {
   exit_price: number | null;
   exit_reason: string;
   realized_r: number;
+  gross_r: number;
+  cost_r: number;
+  variants: Record<string, { status: string; realized_r: number; exit_reason: string }>;
   mfe_pct: number;
   mae_pct: number;
   mfe_r: number;
@@ -197,6 +203,9 @@ function fromRawSetup(row: RawSetup): ForwardTestSetup {
     exitPrice: row.exit_price,
     exitReason: row.exit_reason ?? "",
     realizedR: row.realized_r,
+    grossR: row.gross_r ?? 0,
+    costR: row.cost_r ?? 0,
+    variants: row.variants ?? {},
     mfePct: row.mfe_pct,
     maePct: row.mae_pct,
     mfeR: row.mfe_r,

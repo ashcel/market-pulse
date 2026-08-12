@@ -7,11 +7,21 @@ forming for the other. Running both off one threshold set would produce a
 scanner that is wrong for everybody, so every mode-dependent number lives here,
 in one bundle per mode.
 
-    SCALP      context 1H/15m · structure 5m/3m · events 1m/3m
-    INTRADAY   context 4H/1H  · structure 15m/5m · events 5m/15m
+    SCALP      context 1H/15m  · structure 15m/5m · events 1m/3m
+    INTRADAY   context 4H/1H   · structure 1H/15m · events 5m/15m
+    SWING      context 1D/4H   · structure 4H/1H  · events 5m/15m
 
-Swing deliberately absent: it belongs to the slower, separate architecture
-around 4H/1H/daily structure, not to a realtime radar.
+## What SWING is, and what it is not
+
+The tick store holds 30 minutes of history, so 15m is the slowest *event*
+window this plane can compute — SWING therefore triggers on the same windows
+as INTRADAY. What differs is everything around the trigger: a daily-led
+context, 4H/1H structure for its targets, far larger displacement thresholds,
+and a forward test that waits hours for an entry and holds for days.
+
+That is a real strategy (a 15m trigger inside a daily trend), but it is not a
+kline-driven swing engine, and it should not be mistaken for one. A detector
+that reasons in 4H bars belongs in the slower architecture, not here.
 
 What differs between the two is only *configuration* — the detectors, the state
 machine and the aggregator are shared code reading different windows and
@@ -28,14 +38,15 @@ from typing import Literal
 from smc.market_context import DEFAULT_CONTEXT_CONFIG, ContextConfig
 from smc.momentum import DEFAULT_CONFIG as DEFAULT_FLOW_CONFIG
 from smc.momentum import MomentumConfig
+from smc.forward_test import DEFAULT_FORWARD_TEST_CONFIG, ForwardTestConfig
 from smc.momentum_events import DEFAULT_EVENT_CONFIG, EventConfig
 from smc.pullback import DEFAULT_PULLBACK_CONFIG, PullbackConfig
 from smc.pullback_completion import DEFAULT_COMPLETION_CONFIG, CompletionConfig
 from smc.structural_path import DEFAULT_PATH_CONFIG, PathConfig
 
-Mode = Literal["SCALP", "INTRADAY"]
+Mode = Literal["SCALP", "INTRADAY", "SWING"]
 
-MODES: tuple[Mode, ...] = ("SCALP", "INTRADAY")
+MODES: tuple[Mode, ...] = ("SCALP", "INTRADAY", "SWING")
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +105,11 @@ class ScanProfile:
     completion: CompletionConfig
     path: PathConfig
     situation: SituationConfig = field(default_factory=SituationConfig)
+    # How the forward test treats this horizon: how long it waits for an
+    # entry, how long it holds, and what the round trip costs it. A scalp that
+    # waits four hours for a fill is not a scalp; a swing given fifteen
+    # minutes is not a swing.
+    forward_test: ForwardTestConfig = field(default_factory=lambda: DEFAULT_FORWARD_TEST_CONFIG)
 
 
 # ── SCALP ────────────────────────────────────────────────────────────────────
@@ -174,6 +190,11 @@ SCALP = ScanProfile(
         min_tier="MEDIUM",
         max_surfaced=8,
         min_state_seconds=20.0,
+    ),
+    forward_test=replace(
+        DEFAULT_FORWARD_TEST_CONFIG,
+        entry_window_seconds=900.0,
+        max_holding_seconds=7_200.0,
     ),
 )
 
@@ -263,10 +284,116 @@ INTRADAY = ScanProfile(
         max_surfaced=8,
         min_state_seconds=45.0,
     ),
+    forward_test=replace(
+        DEFAULT_FORWARD_TEST_CONFIG,
+        entry_window_seconds=3_600.0,
+        max_holding_seconds=28_800.0,
+    ),
 )
 
 
-PROFILES: dict[Mode, ScanProfile] = {"SCALP": SCALP, "INTRADAY": INTRADAY}
+# ── SWING ────────────────────────────────────────────────────────────────────
+# A 15m trigger inside a daily trend. Same event windows as intraday — the
+# tick store cannot go slower — but a much larger move is required, the daily
+# leads the context, targets come from 4H/1H structure, and the forward test
+# waits hours for a fill and holds for days.
+
+SWING = ScanProfile(
+    mode="SWING",
+    context_timeframes=("1D", "4H", "1H"),
+    structure_timeframes=("4H", "1H"),
+    micro_source="5M",
+    flow=replace(
+        DEFAULT_FLOW_CONFIG,
+        fast_window="5m",
+        slow_window="15m",
+        trend_window="15m",
+        min_displacement_fast_pct=1.60,
+        min_displacement_slow_pct=2.80,
+        min_rvol=2.0,
+        displacement_scale_pct=8.0,
+        stale_seconds=1_800.0,
+        invalid_ttl_seconds=1_800.0,
+    ),
+    events=replace(
+        DEFAULT_EVENT_CONFIG,
+        fast_window="5m",
+        primary_window="15m",
+        volume_anomaly_fire_rvol=3.0,
+        volume_anomaly_clear_rvol=1.8,
+        volume_anomaly_scale_rvol=7.0,
+        displacement_fire_pct=2.50,
+        displacement_clear_pct=1.20,
+        displacement_scale_pct=6.00,
+        invalidation_opposing_pct=2.50,
+        event_active_seconds=180.0,
+        event_ttl_seconds=1_800.0,
+        min_state_seconds=120.0,
+        new_window_seconds=900.0,
+        tracker_grace_seconds=900.0,
+        faded_ttl_seconds=1_800.0,
+    ),
+    # The daily leads; 15m gets no vote at all. A swing thesis that turns on a
+    # 15-minute structure read is not a swing thesis.
+    context=replace(
+        DEFAULT_CONTEXT_CONFIG,
+        weight_1d=3.0,
+        weight_4h=2.0,
+        weight_1h=1.0,
+        weight_15m=0.0,
+        weight_5m=0.0,
+        read_ttl_seconds=14_400.0,
+    ),
+    pullback=replace(
+        DEFAULT_PULLBACK_CONFIG,
+        min_retrace_frac=0.30,
+        healthy_retrace_frac=0.62,
+        max_retrace_frac=0.72,
+        cooling_rvol=1.20,
+        opposing_move_pct=2.50,
+        poi_proximity_pct=1.20,
+    ),
+    completion=replace(
+        DEFAULT_COMPLETION_CONFIG,
+        cooling_rvol=1.20,
+        exhausted_opposing_pct=0.60,
+        renewed_displacement_pct=1.00,
+        reexpansion_rvol=1.40,
+        likely_min=5,
+    ),
+    path=replace(
+        DEFAULT_PATH_CONFIG,
+        min_rr=1.5,
+        good_rr=2.5,
+        invalidation_buffer_frac=0.20,
+        # A multi-day hold has to sit outside far more noise than a scalp.
+        min_risk_volatility_mult=4.0,
+        min_risk_pct=1.50,
+    ),
+    situation=SituationConfig(
+        freshness_seconds=1_800.0,
+        developing_max_age_seconds=7_200.0,
+        structural_extension_seconds=3_600.0,
+        stale_seconds=7_200.0,
+        min_score=50.0,
+        min_tier="MEDIUM",
+        max_surfaced=6,
+        min_state_seconds=120.0,
+    ),
+    forward_test=replace(
+        DEFAULT_FORWARD_TEST_CONFIG,
+        # Hours for a fill, days for the trade.
+        entry_window_seconds=14_400.0,
+        max_holding_seconds=259_200.0,
+        # A wider stop means the same fee is a far smaller share of risk —
+        # the asymmetry that makes this comparison worth running.
+        trailing_activation_r=1.5,
+        trailing_distance_r=1.5,
+    ),
+)
+
+
+PROFILES: dict[Mode, ScanProfile] = {"SCALP": SCALP, "INTRADAY": INTRADAY, "SWING": SWING}
 
 
 def profile_for(mode: str) -> ScanProfile:

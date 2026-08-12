@@ -113,6 +113,15 @@ class ForwardTestConfig:
     # How long a filled setup may run before it is closed at the market.
     max_holding_seconds: float = 7_200.0
 
+    # ── costs ───────────────────────────────────────────────────────────────
+    # Gross R flatters a short-horizon strategy badly, because cost is a fixed
+    # percentage of *price* while R is measured against the stop. A 0.1% round
+    # trip is ~10% of a 1% scalp stop and ~2% of a 5% swing stop, so omitting
+    # it does not merely shift results — it shifts them differently per
+    # horizon, which is exactly the comparison this dataset exists to make.
+    taker_fee_pct: float = 0.05
+    slippage_pct: float = 0.02
+
     # Trailing. NONE keeps the structural stop for the whole trade.
     trailing_mode: TrailingMode = "R_MULTIPLE"
     # Move to breakeven once the trade is this many R in favour…
@@ -127,6 +136,13 @@ class ForwardTestConfig:
             raise ValueError("windows must be positive")
         if self.trailing_distance_r <= 0:
             raise ValueError("trailing_distance_r must be positive")
+        if self.taker_fee_pct < 0 or self.slippage_pct < 0:
+            raise ValueError("costs cannot be negative")
+
+    @property
+    def round_trip_cost_pct(self) -> float:
+        """Entry + exit, fee + slippage, as a percentage of price."""
+        return 2.0 * (self.taker_fee_pct + self.slippage_pct)
 
 
 DEFAULT_FORWARD_TEST_CONFIG = ForwardTestConfig()
@@ -288,6 +304,11 @@ class PaperPosition:
     mae_pct: float = 0.0
     mfe_r: float = 0.0
     mae_r: float = 0.0
+    # Realized R before costs, and what the round trip took out of it. Kept
+    # separately so a later cost assumption can be re-derived without
+    # re-running the tape.
+    gross_r: float = 0.0
+    cost_r: float = 0.0
     # …and while still waiting, measured from the reference entry.
     pending_mfe_pct: float = 0.0
     pending_mae_pct: float = 0.0
@@ -361,12 +382,26 @@ def _signed_move(direction: Direction, reference: float, price: float) -> float:
 
 
 def _r_multiple(snapshot: SetupSnapshot, entry: float, price: float) -> float:
-    """How many R the trade is worth at `price`, from the actual fill."""
+    """How many R the trade is worth at `price`, from the actual fill. Gross —
+    costs are applied once, at settlement."""
     risk = abs(entry - snapshot.initial_invalidation)
     if risk <= _EPS:
         return 0.0
     move = (price - entry) if snapshot.direction == "bullish" else (entry - price)
     return move / risk
+
+
+def cost_in_r(snapshot: SetupSnapshot, entry: float, config: ForwardTestConfig) -> float:
+    """The round trip expressed in R for this particular trade.
+
+    Cost is a share of price; R is a share of the stop distance. The narrower
+    the stop, the larger the same fee looms — which is precisely why a scalp
+    and a swing cannot be compared on gross R.
+    """
+    risk = abs(entry - snapshot.initial_invalidation)
+    if risk <= _EPS or entry <= _EPS:
+        return 0.0
+    return (entry * config.round_trip_cost_pct / 100.0) / risk
 
 
 def _in_zone(snapshot: SetupSnapshot, price: float) -> bool:
@@ -558,8 +593,12 @@ def advance_position(
     # Target first, then the stop in force, then the clock. A single price
     # cannot be on both sides of the entry, so this order never has to break a
     # tie — see the module docstring.
+    cost_r = cost_in_r(snapshot, entry, config)
+
     if _beyond_target(snapshot, price):
-        events.append(LifecycleEvent(type="TARGET_HIT", ts=now, price=price))
+        events.append(
+            LifecycleEvent(type="TARGET_HIT", ts=now, price=price, detail={"cost_r": cost_r})
+        )
         return (
             replace(
                 working,
@@ -567,7 +606,9 @@ def advance_position(
                 settled_at=now,
                 exit_price=price,
                 exit_reason="target",
-                realized_r=round(r_now, 4),
+                gross_r=round(r_now, 4),
+                cost_r=round(cost_r, 4),
+                realized_r=round(r_now - cost_r, 4),
             ),
             events,
         )
@@ -589,7 +630,9 @@ def advance_position(
                 settled_at=now,
                 exit_price=price,
                 exit_reason="trailing_stop" if trailed_out else "invalidation",
-                realized_r=round(r_now, 4),
+                gross_r=round(r_now, 4),
+                cost_r=round(cost_r, 4),
+                realized_r=round(r_now - cost_r, 4),
             ),
             events,
         )
@@ -605,12 +648,87 @@ def advance_position(
                 settled_at=now,
                 exit_price=price,
                 exit_reason="timeout",
-                realized_r=round(r_now, 4),
+                gross_r=round(r_now, 4),
+                cost_r=round(cost_r, 4),
+                realized_r=round(r_now - cost_r, 4),
             ),
             events,
         )
 
     return working, events
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Exit-rule variants
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True, slots=True)
+class Variant:
+    """One alternative exit rule, run on the *same* setup as the primary.
+
+    This is how an exit question gets answered without hindsight: identical
+    detections, identical entries, identical price stream, different rules,
+    all settled forward in the same instant. Comparing them is then a
+    controlled experiment rather than a story about one symbol that would have
+    done better.
+    """
+
+    name: str
+    config: ForwardTestConfig
+
+
+#: The rules under test. `primary` is the one whose result is the record's
+#: headline; the rest ride alongside as evidence about the exit rule itself.
+def default_variants(primary: ForwardTestConfig) -> tuple[Variant, ...]:
+    """Alternatives worth measuring against `primary`.
+
+    * `no_trail` — hold the structural stop to target. The "just let it run"
+      hypothesis, stated precisely enough to be settled.
+    * `wide_trail` — engage later and follow further back, so a normal
+      retracement does not scratch a trade that reached 1R.
+    """
+    return (
+        Variant("no_trail", replace(primary, trailing_mode="NONE")),
+        Variant(
+            "wide_trail",
+            replace(primary, trailing_activation_r=1.5, trailing_distance_r=1.5),
+        ),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class VariantOutcome:
+    """What one alternative rule would have produced. Flat by design — it is
+    written to a JSON column and read as a unit."""
+
+    name: str
+    status: Status
+    realized_r: float
+    gross_r: float
+    cost_r: float
+    mfe_r: float
+    mae_r: float
+    exit_reason: str
+    settled_at: float | None
+
+    @property
+    def is_settled(self) -> bool:
+        return self.status in SETTLED_STATUSES
+
+
+def outcome_for(name: str, position: PaperPosition) -> VariantOutcome:
+    return VariantOutcome(
+        name=name,
+        status=position.status,
+        realized_r=position.realized_r,
+        gross_r=position.gross_r,
+        cost_r=position.cost_r,
+        mfe_r=position.mfe_r,
+        mae_r=position.mae_r,
+        exit_reason=position.exit_reason,
+        settled_at=position.settled_at,
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────

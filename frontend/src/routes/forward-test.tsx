@@ -54,7 +54,7 @@ const STATUS_CLASS: Record<string, string> = {
   NO_FILL: "text-muted-foreground",
 };
 
-const MODES: (string | null)[] = [null, "SCALP", "INTRADAY"];
+const MODES: (string | null)[] = [null, "SCALP", "INTRADAY", "SWING"];
 
 function price(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "—";
@@ -158,6 +158,12 @@ function Row({ setup }: { setup: ForwardTestSetup }) {
       </td>
       <td className={cn("num px-2 py-1.5 text-[11px] font-semibold", rTone(setup.realizedR))}>
         {settled ? `${setup.realizedR.toFixed(2)}R` : "—"}
+        {/* Gross, so the cost of the round trip is never hidden. */}
+        {settled && setup.costR > 0 && (
+          <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+            ({setup.grossR.toFixed(2)} − {setup.costR.toFixed(2)})
+          </span>
+        )}
       </td>
       <td className="num px-2 py-1.5 text-[11px] text-bullish">{setup.mfeR.toFixed(2)}R</td>
       <td className="num px-2 py-1.5 text-[11px] text-bearish">{setup.maeR.toFixed(2)}R</td>
@@ -165,6 +171,54 @@ function Row({ setup }: { setup: ForwardTestSetup }) {
         {duration(setup.timeInTrade ?? setup.timeToEntry)}
       </td>
     </tr>
+  );
+}
+
+/** What the alternative exit rules would have produced on the same setups.
+ * A controlled comparison — identical detections and entries, different exits
+ * — rather than a story about one trade that would have done better. */
+function Variants({ setups }: { setups: ForwardTestSetup[] }) {
+  const { t } = useTranslation();
+  const n = "routes.forwardTest.";
+  const settled = setups.filter((s) => s.settledAt !== null);
+  if (settled.length === 0) return null;
+
+  const names = Array.from(new Set(settled.flatMap((s) => Object.keys(s.variants))));
+  if (names.length === 0) return null;
+
+  const rows = [
+    {
+      name: t(`${n}variants.primary`),
+      total: settled.reduce((sum, s) => sum + s.realizedR, 0),
+      wins: settled.filter((s) => s.realizedR > 0).length,
+    },
+    ...names.map((name) => ({
+      name,
+      total: settled.reduce((sum, s) => sum + (s.variants[name]?.realized_r ?? 0), 0),
+      wins: settled.filter((s) => (s.variants[name]?.realized_r ?? 0) > 0).length,
+    })),
+  ];
+
+  return (
+    <div className="rounded-lg border border-border p-3">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        {t(`${n}variants.title`, { count: settled.length })}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-4">
+        {rows.map((row) => (
+          <div key={row.name}>
+            <div className="text-[11px] text-muted-foreground">{row.name}</div>
+            <div className={cn("num text-sm font-bold", rTone(row.total))}>
+              {row.total.toFixed(2)}R
+            </div>
+            <div className="num text-[10px] text-muted-foreground">
+              {row.wins}/{settled.length} {t(`${n}variants.won`)}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-[10px] text-muted-foreground">{t(`${n}variants.note`)}</p>
+    </div>
   );
 }
 
@@ -295,6 +349,8 @@ function ForwardTestPage() {
           />
         ))}
       </div>
+
+      {data !== null && <Variants setups={data.setups} />}
 
       {loading && data === null && (
         <p className="text-xs text-muted-foreground">{t(`${n}loading`)}</p>
