@@ -1372,6 +1372,11 @@
         "displacement+participation": "Perpindahan harga dengan partisipasi nyata",
         "anomaly+response": "Aktivitas abnormal dengan respons harga",
         "structure+activity": "Struktur tertembus dengan aktivitas yang cocok"
+      },
+      "structuralBacking": "Dukungan struktural:",
+      "structural": {
+        "ACCUMULATING": "Basis reakumulasi",
+        "SECOND_EXPANSION": "Ekspansi kedua"
       }
     }
   },

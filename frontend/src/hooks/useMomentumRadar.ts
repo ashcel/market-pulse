@@ -171,6 +171,15 @@ export interface StructuralPath {
   verdict: string;
 }
 
+/** Slow structural context (reaccumulation) at the time of the read.
+ * Display + forward-test evidence only — it gates nothing. */
+export interface StructuralBacking {
+  state: string;
+  score: number;
+  side: string;
+  detectedAt: number;
+}
+
 /** Mirrors `app.momentum.schemas.RadarEntryResponse`. */
 export interface RadarEntry {
   symbol: string;
@@ -186,6 +195,7 @@ export interface RadarEntry {
   tier: QualityTier;
   combo: string;
   families: string[];
+  structural: StructuralBacking | null;
   telemetry: RadarTelemetry;
   context: RadarContext | null;
   alignment: RadarAlignment;
@@ -270,6 +280,7 @@ interface RawEntry {
   tier: string;
   combo: string;
   families: string[];
+  structural: { state: string; score: number; side: string; detected_at: number } | null;
   telemetry: Record<string, number | string | null>;
   context: RawContext | null;
   alignment: {
@@ -412,6 +423,14 @@ function fromRawEntry(row: RawEntry): RadarEntry {
     tier: (row.tier ?? "NONE") as QualityTier,
     combo: row.combo ?? "",
     families: row.families ?? [],
+    structural: row.structural
+      ? {
+          state: row.structural.state,
+          score: row.structural.score,
+          side: row.structural.side,
+          detectedAt: row.structural.detected_at,
+        }
+      : null,
     events: (row.events ?? []).map(fromRawEvent),
     timeline: (row.timeline ?? []).map(fromRawEvent),
     telemetry: {

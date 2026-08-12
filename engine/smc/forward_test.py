@@ -201,6 +201,13 @@ class SetupSnapshot:
     config_hash: str
     git_sha: str
 
+    # Slow structural context at detection (reaccumulation state + score), or
+    # "" / 0.0 when the symbol had none. Recorded so outcomes can later be
+    # segmented by whether a fast event had slow backing — deliberately *not*
+    # a filter, because nothing yet says it earns one.
+    structural_state: str = ""
+    structural_score: float = 0.0
+
     @property
     def risk(self) -> float:
         """Distance from the reference entry to the structural invalidation."""

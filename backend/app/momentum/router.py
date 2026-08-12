@@ -51,6 +51,7 @@ from app.momentum.schemas import (
     RadarData,
     RadarEntryResponse,
     RadarEnvelope,
+    StructuralBackingResponse,
     TargetResponse,
     TelemetryResponse,
     TimeframeReadResponse,
@@ -215,6 +216,16 @@ def _to_response(entry: RadarEntry, now: float) -> RadarEntryResponse:
         tier=situation.tier,
         combo=situation.combo,
         families=list(situation.families),
+        structural=(
+            StructuralBackingResponse(
+                state=entry.structural.state,
+                score=entry.structural.score,
+                side=entry.structural.side,
+                detected_at=entry.structural.detected_at,
+            )
+            if entry.structural is not None
+            else None
+        ),
         context=_to_context(situation.context),
         alignment=_to_alignment(situation.alignment),
         pullback=_to_pullback(situation.pullback),

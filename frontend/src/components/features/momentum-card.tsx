@@ -345,6 +345,25 @@ export function MomentumCard({
       {completing && <Evidence entry={entry} />}
       {(completing || developing) && <Path entry={entry} />}
 
+      {/* Slow structural backing, when the reaccumulation screen has any.
+          Shown as context, never as a reason the card qualified — the engine
+          does not read it. */}
+      {entry.structural !== null && (
+        <div className="mt-2 text-[11px]">
+          <span className="text-muted-foreground">{t(`${n}structuralBacking`)} </span>
+          <span className="font-medium text-info">
+            {t(`${n}structural.${entry.structural.state}`, {
+              defaultValue: entry.structural.state,
+            })}
+          </span>
+          {entry.structural.score > 0 && (
+            <span className="num ml-1 text-muted-foreground">
+              {Math.round(entry.structural.score)}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Secondary telemetry: real, useful, and deliberately not the headline. */}
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
         <span className="num">{formatVolume(entry.telemetry.quoteVolume24h)} / 24h</span>

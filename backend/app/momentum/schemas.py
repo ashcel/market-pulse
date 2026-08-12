@@ -186,6 +186,16 @@ class PathResponse(BaseModel):
     verdict: str
 
 
+class StructuralBackingResponse(BaseModel):
+    """Slow structural context (reaccumulation), carried for display and for
+    the forward-test record. It gates nothing — see `structural_cache`."""
+
+    state: str
+    score: float
+    side: str
+    detected_at: float
+
+
 class RadarEntryResponse(BaseModel):
     symbol: str
     # NEW | DEVELOPING | PULLBACK | PULLBACK_COMPLETION |
@@ -207,6 +217,7 @@ class RadarEntryResponse(BaseModel):
     tier: str = "NONE"
     combo: str = ""
     families: list[str] = Field(default_factory=list)
+    structural: StructuralBackingResponse | None = None
 
     telemetry: TelemetryResponse
     context: ContextResponse | None = None

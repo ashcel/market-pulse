@@ -1372,6 +1372,11 @@
         "displacement+participation": "Displacement with real participation",
         "anomaly+response": "Abnormal activity with a price response",
         "structure+activity": "Structural break with matching activity"
+      },
+      "structuralBacking": "Structural backing:",
+      "structural": {
+        "ACCUMULATING": "Reaccumulation base",
+        "SECOND_EXPANSION": "Second expansion"
       }
     }
   },

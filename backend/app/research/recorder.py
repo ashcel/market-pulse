@@ -185,8 +185,11 @@ def snapshot_from(
     )
 
 
-def with_flow(snapshot: SetupSnapshot, telemetry: object) -> SetupSnapshot:
-    """Attaches the price/volume windows read at the same instant.
+def with_flow(
+    snapshot: SetupSnapshot, telemetry: object, structural: object = None
+) -> SetupSnapshot:
+    """Attaches the price/volume windows and slow structural backing read at
+    the same instant.
 
     Called exactly once, before the snapshot is ever stored — this is part of
     *building* the hypothesis, not revising it. It exists separately only
@@ -195,6 +198,8 @@ def with_flow(snapshot: SetupSnapshot, telemetry: object) -> SetupSnapshot:
     """
     return replace(
         snapshot,
+        structural_state=str(getattr(structural, "state", "") or ""),
+        structural_score=float(getattr(structural, "score", 0.0) or 0.0),
         rvol=getattr(telemetry, "rvol_3m", None) or getattr(telemetry, "rvol_1m", None),
         change_1m_pct=getattr(telemetry, "change_1m_pct", None),
         change_3m_pct=getattr(telemetry, "change_3m_pct", None),
@@ -244,6 +249,9 @@ def setup_values(snapshot: SetupSnapshot, position: PaperPosition, key: str) -> 
             "completion_evidence": list(snapshot.completion_evidence),
             "micro_choch": snapshot.micro_choch,
             "liquidity_target": snapshot.liquidity_target,
+            # Slow structural backing, for later segmentation. Never a gate.
+            "structural_state": snapshot.structural_state,
+            "structural_score": snapshot.structural_score,
         },
         "strategy_version": STRATEGY_VERSION,
         # The exact detector configuration, so revisions never pool.
@@ -337,6 +345,8 @@ def snapshot_from_row(row: object) -> SetupSnapshot:
         completion_evidence=tuple(evidence.get("completion_evidence") or []),
         micro_choch=bool(evidence.get("micro_choch")),
         liquidity_target=bool(evidence.get("liquidity_target")),
+        structural_state=str(evidence.get("structural_state") or ""),
+        structural_score=float(evidence.get("structural_score") or 0.0),
         engine_version=row.engine_version,  # type: ignore[attr-defined]
         momentum_version=str(versions.get("momentum", "")),
         events_version=str(versions.get("events", "")),
@@ -497,7 +507,7 @@ class ForwardTestRecorder:
             frozen = snapshot_from(situation, now, self.config)
             if frozen is None:
                 continue
-            frozen = with_flow(frozen, entry.metrics)
+            frozen = with_flow(frozen, entry.metrics, entry.structural)
             position, events = open_position(frozen, now, entry.metrics.price, self.config)
 
             async with SessionFactory() as db:

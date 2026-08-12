@@ -73,6 +73,12 @@ from app.momentum import config as cfg
 from app.momentum.context_cache import ContextCache
 from app.momentum.ingestor import MomentumIngestor
 from app.momentum.state import MarketStateStore, WindowMetrics
+from app.momentum.structural_cache import (
+    StructuralBacking,
+    get_structural_cache,
+    start_structural_cache,
+    stop_structural_cache,
+)
 
 logger = logging.getLogger("momentum.scanner")
 
@@ -118,6 +124,11 @@ class RadarEntry:
     metrics: WindowMetrics
     headline: MarketEvent | None
     pressure: str
+    # Slow structural context (reaccumulation). Deliberately on the *view
+    # model* and not on `Situation`: the aggregator that decides state and
+    # `worth_watching` cannot see it, so it can never become an unmeasured
+    # filter. Display and forward-test evidence only.
+    structural: StructuralBacking | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -424,7 +435,7 @@ class MomentumScanner:
 
     # ── snapshot ────────────────────────────────────────────────────────────
 
-    def _entry(self, situation: Situation) -> RadarEntry | None:
+    def _entry(self, situation: Situation, now: float = 0.0) -> RadarEntry | None:
         metrics = self._metrics.get(situation.symbol)
         if metrics is None:
             return None
@@ -432,6 +443,7 @@ class MomentumScanner:
             situation=situation,
             metrics=metrics,
             headline=situation.headline,
+            structural=get_structural_cache().get(situation.symbol, now),
             pressure=pressure_label(
                 self.modes[situation.mode].candidates[situation.symbol]
             )
@@ -484,8 +496,8 @@ class MomentumScanner:
             # working windows — a few fresh listings must not pin the radar.
             warming_up=tracked == 0 or warming > tracked / 2,
             funnel=funnel,
-            situations=[e for e in (self._entry(s) for s in shown) if e is not None],
-            closed=[e for e in (self._entry(s) for s in closed) if e is not None],
+            situations=[e for e in (self._entry(s, now) for s in shown) if e is not None],
+            closed=[e for e in (self._entry(s, now) for s in closed) if e is not None],
             counts=counts,
         )
 
@@ -560,6 +572,9 @@ async def start_momentum_radar() -> None:
     _scanner.start()
     if cfg.CONTEXT_ENABLED:
         _context_cache.start()
+    # Slow structural backing (reaccumulation), for display and for the
+    # forward-test record — never for detection.
+    await start_structural_cache()
     logger.info(
         "[momentum] radar started (flow %s, events %s, context %s, journal %s)",
         MOMENTUM_VERSION,
@@ -570,6 +585,7 @@ async def start_momentum_radar() -> None:
 
 
 async def stop_momentum_radar() -> None:
+    await stop_structural_cache()
     await _scanner.stop()
     await _context_cache.stop()
     await _ingestor.stop()
