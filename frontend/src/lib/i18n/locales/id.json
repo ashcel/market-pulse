@@ -32,7 +32,8 @@
       "trades": "Transaksi",
       "alerts": "Notifikasi",
       "settings": "Pengaturan",
-      "signIn": "Masuk"
+      "signIn": "Masuk",
+      "forwardTest": "Forward test"
     }
   },
   "sidebar": {
@@ -192,9 +193,10 @@
   },
   "routes": {
     "discover": {
-      "eyebrow": "Ringkasan",
-      "title": "Jelajahi",
-      "subtitle": "Rally Watcher, screening reaccumulation, dan relative strength vs BTC — daftar penjelajahan, bukan sinyal trade. Buka token untuk vonis engine."
+      "eyebrow": "Radar",
+      "title": "Discover",
+      "subtitle": "Mesin kompresi, bukan feed sinyal: semua perpetual Binance yang likuid diawasi, dan hanya sedikit situasi yang lolos deteksi kejadian, konteks timeframe tinggi, struktur, dan jalur yang masuk akal yang dimunculkan. Horizon scalp dan intraday, murni observasi.",
+      "structuralScreens": "Screening struktural — reakumulasi & kekuatan relatif"
     },
     "settings": {
       "eyebrow": "Pengaturan",
@@ -733,6 +735,60 @@
           "body": "Setiap aset yang dipantau lengkap dengan harga live, perubahan 24 jam, dan mini trend line, diperingkat berdasarkan skor Market Pulse (rating kualitas 0–100 dari engine). Klik kartu mana pun untuk buka chart lengkap, sinyal, dan rencana trade untuk token itu."
         }
       }
+    },
+    "forwardTest": {
+      "eyebrow": "Riset",
+      "title": "Forward test",
+      "subtitle": "Semua setup Discover yang terkonfirmasi, rencananya dibekukan saat terdeteksi, dan apa yang terjadi setelahnya. Tanpa hindsight, tanpa kurasi, tanpa order — yang rugi ikut tercatat, karena data yang bisa dipangkas bukan bukti.",
+      "allModes": "Semua",
+      "allStatuses": "Semua",
+      "loading": "Memuat setup tercatat…",
+      "empty": "Belum ada setup tercatat. Scanner hanya mencatat saat situasi mencapai keadaan terkonfirmasi dengan jalur struktural yang layak — di pasar sepi bisa berjam-jam sekali.",
+      "disclaimer": "Hasil hipotetis dari observasi tercatat. Tidak ada yang ditradingkan, tidak ada order yang pernah dikirim.",
+      "direction": {
+        "bullish": "Long",
+        "bearish": "Short"
+      },
+      "status": {
+        "PENDING_ENTRY": "Menunggu entry",
+        "ACTIVE": "Aktif",
+        "TARGET_HIT": "Target kena",
+        "INVALIDATED": "Batal",
+        "EXPIRED": "Kedaluwarsa",
+        "NO_FILL": "Tidak terisi"
+      },
+      "columns": {
+        "symbol": "Simbol",
+        "direction": "Arah",
+        "detected": "Terdeteksi",
+        "entry": "Entry",
+        "stop": "Stop",
+        "target": "Target",
+        "rr": "Potensi",
+        "status": "Status",
+        "realized": "Realisasi",
+        "mfe": "MFE",
+        "mae": "MAE",
+        "duration": "Durasi"
+      },
+      "cards": {
+        "daysRunning": "Hari berjalan",
+        "recorded": "Setup tercatat",
+        "recordedHint": "dari {{universe}} pasar dipindai",
+        "open": "Masih terbuka",
+        "openHint": "menunggu entry atau aktif",
+        "fillRate": "Tingkat terisi",
+        "fillRateHint": "{{count}} tidak pernah terisi",
+        "winRate": "Win rate",
+        "winRateHint": "dari {{filled}} yang terisi",
+        "totalR": "Total R",
+        "totalRHint": "rata-rata {{avg}}R per fill",
+        "expectancy": "Ekspektansi",
+        "expectancyHint": "per setup tercatat",
+        "profitFactor": "Profit factor",
+        "drawdown": "drawdown maks {{value}}R",
+        "best": "Setup terbaik"
+      }
     }
   },
   "components": {
@@ -1154,6 +1210,169 @@
       "verdictSkip": "Skip",
       "showTargets": "Lihat target",
       "hideTargets": "Sembunyiin target"
+    },
+    "momentum": {
+      "perp": "Perp",
+      "rvol": "RVOL",
+      "move": "Gerak",
+      "relativeVolume": "Volume relatif",
+      "tradeRate": "laju transaksi",
+      "htf": "HTF:",
+      "viewStructure": "Lihat struktur",
+      "showTimeline": "Linimasa",
+      "hideTimeline": "Sembunyikan linimasa",
+      "timelineLoading": "Memuat urutan kejadian…",
+      "timelineEmpty": "Belum ada kejadian tercatat untuk simbol ini.",
+      "detected": "Terdeteksi {{ago}} lalu",
+      "noEvent": "Tidak ada kejadian aktif.",
+      "cooling": "kondisinya sudah normal lagi",
+      "scoreTooltip": "Skor kejadian 0-100: tingkat keparahan kejadian terkuat yang masih hidup, naik bila jenis kejadian lain ikut menguatkan. Dihaluskan, jadi bergerak perlahan, bukan melompat.",
+      "liveFeed": "Live",
+      "pollingFeed": "Polling",
+      "tracking": "· {{count}} pasangan",
+      "connecting": "Menyambung ke feed live…",
+      "warmingUp": "Sedang pemanasan — radar butuh beberapa menit tape sebelum jendela 1m/3m-nya berarti.",
+      "quietTape": "Tidak ada yang abnormal saat ini. Radar tetap mengawasi.",
+      "event": {
+        "VOLUME_ANOMALY": "Anomali volume",
+        "PRICE_DISPLACEMENT": "Perpindahan harga",
+        "VOLATILITY_EXPANSION": "Ekspansi volatilitas",
+        "TRADE_RATE_EXPANSION": "Ekspansi laju transaksi",
+        "CHOCH": "Perubahan karakter 1m",
+        "STRUCTURE_BREAK": "Struktur tertembus",
+        "PULLBACK": "Pullback",
+        "CONTINUATION": "Kelanjutan",
+        "VOLUME_COOLING": "Volume mendingin",
+        "INVALIDATION": "Batal",
+        "NONE": "Tidak ada kejadian"
+      },
+      "classification": {
+        "bullish": "Kejadian bullish",
+        "bearish": "Kejadian bearish",
+        "undirected": "Kejadian momentum"
+      },
+      "context": {
+        "bullish": "Bullish",
+        "bearish": "Bearish",
+        "neutral": "Netral",
+        "mixed": "Campuran",
+        "pending": "—"
+      },
+      "alignment": {
+        "label": "Keselarasan:",
+        "HIGH": "Tinggi",
+        "MODERATE": "Sedang",
+        "COUNTER_TREND": "Lawan tren",
+        "MIXED": "Konteks campuran",
+        "UNKNOWN": "—"
+      },
+      "state": {
+        "NEW": "Baru",
+        "DEVELOPING": "Berkembang",
+        "CONFIRMED": "Terkonfirmasi",
+        "FADED": "Memudar",
+        "PULLBACK": "Pullback",
+        "PULLBACK_COMPLETION": "Pullback selesai",
+        "CONTINUATION_CANDIDATE": "Kandidat kelanjutan",
+        "INVALID": "Batal",
+        "STALE": "Basi"
+      },
+      "section": {
+        "NEW": {
+          "title": "Kejadian baru",
+          "hint": "Ada yang abnormal baru saja terjadi",
+          "empty": "Belum ada yang abnormal."
+        },
+        "DEVELOPING": {
+          "title": "Berkembang",
+          "hint": "Beberapa observasi membentuk satu situasi",
+          "empty": "Belum ada yang berkembang."
+        },
+        "CONFIRMED": {
+          "title": "Terkonfirmasi",
+          "hint": "Kejadiannya menghasilkan konfirmasi struktural",
+          "empty": "Belum ada yang terkonfirmasi."
+        },
+        "FADED": {
+          "title": "Baru memudar",
+          "hint": "Kejadian yang habis atau dibatalkan",
+          "empty": "Belum ada yang memudar."
+        },
+        "PULLBACK": {
+          "title": "Pullback",
+          "hint": "Impuls yang berarti sedang retrace",
+          "empty": "Belum ada yang retrace."
+        },
+        "PULLBACK_COMPLETION": {
+          "title": "Pullback selesai",
+          "hint": "Bukti menunjukkan retrace-nya mau habis",
+          "empty": "Belum ada bukti penyelesaian."
+        },
+        "CONTINUATION_CANDIDATE": {
+          "title": "Kandidat kelanjutan",
+          "hint": "Gerakan awalnya tampak berlanjut",
+          "empty": "Belum ada yang berlanjut."
+        },
+        "CLOSED": {
+          "title": "Baru ditutup",
+          "hint": "Batal atau sudah sepi",
+          "empty": "Belum ada yang ditutup."
+        }
+      },
+      "streamingTooltip": "Halaman ini menerima stream langsung dari server.",
+      "pollingTooltip": "Stream langsung tidak tersedia; halaman melakukan polling snapshot.",
+      "retracement": "Retracement",
+      "pullbackVolume": "Volume pullback",
+      "structure": "Struktur:",
+      "intact": "utuh",
+      "broken": "rusak",
+      "potentialPath": "Potensi jalur",
+      "entryZone": "Entry",
+      "invalidation": "Invalidasi",
+      "target": "Target",
+      "nothingSignificant": "Tidak ada kejadian signifikan. Radar mengawasi semua perpetual likuid dan hanya memunculkan situasi kalau memang layak dibuka.",
+      "mode": {
+        "SCALP": "Scalp",
+        "INTRADAY": "Intraday",
+        "SCALPHint": "Kejadian 1m/3m di bawah konteks 1H/15m",
+        "INTRADAYHint": "Kejadian 5m/15m di bawah konteks 4H/1H"
+      },
+      "funnel": {
+        "universe": "pasar",
+        "events": "kejadian",
+        "structural": "struktural",
+        "developing": "berkembang",
+        "surfaced": "layak dipantau",
+        "qualified": "lolos syarat"
+      },
+      "level": {
+        "swing_high": "swing high",
+        "swing_low": "swing low",
+        "equal_highs": "equal highs",
+        "equal_lows": "equal lows"
+      },
+      "evidence": {
+        "VOLUME_COOLED": "Volume pullback mendingin",
+        "RETRACEMENT_CONTROLLED": "Retracement terkendali",
+        "STRUCTURAL_LEVEL": "Sampai level struktural",
+        "LIQUIDITY_SWEPT": "Likuiditas tersapu",
+        "MICRO_CHOCH": "Perubahan karakter mikro",
+        "OPPOSING_MOMENTUM_EXHAUSTED": "Momentum lawan habis",
+        "RENEWED_DISPLACEMENT": "Perpindahan harga baru",
+        "VOLUME_REEXPANDING": "Volume mengembang lagi"
+      },
+      "tierTooltip": "Kualitas bukti dari famili independen ({{families}}). Skor {{score}}/100 dihitung dari famili itu, bukan dari satu pembacaan saja.",
+      "tier": {
+        "HIGH": "Tinggi",
+        "MEDIUM": "Sedang",
+        "LOW": "Rendah",
+        "NONE": "Lemah"
+      },
+      "combo": {
+        "displacement+participation": "Perpindahan harga dengan partisipasi nyata",
+        "anomaly+response": "Aktivitas abnormal dengan respons harga",
+        "structure+activity": "Struktur tertembus dengan aktivitas yang cocok"
+      }
     }
   },
   "tokenPage": {

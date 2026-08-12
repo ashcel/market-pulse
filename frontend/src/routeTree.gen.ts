@@ -21,6 +21,7 @@ import { Route as RankingsRouteImport } from './routes/rankings'
 import { Route as NewsRouteImport } from './routes/news'
 import { Route as MarketsRouteImport } from './routes/markets'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ForwardTestRouteImport } from './routes/forward-test'
 import { Route as EventsRouteImport } from './routes/events'
 import { Route as DiscoverRouteImport } from './routes/discover'
 import { Route as AlertsRouteImport } from './routes/alerts'
@@ -42,8 +43,11 @@ import { Route as ApiAuthRouteImport } from './routes/api/auth'
 import { Route as ApiTradesIdRouteImport } from './routes/api/trades.$id'
 import { Route as ApiReviewAnalyticsRouteImport } from './routes/api/review.analytics'
 import { Route as ApiReviewIdRouteImport } from './routes/api/review.$id'
+import { Route as ApiResearchForwardTestRouteImport } from './routes/api/research.forward-test'
 import { Route as ApiRallyWatcherScanRouteImport } from './routes/api/rally-watcher.scan'
 import { Route as ApiPatternsReaccumulationRouteImport } from './routes/api/patterns.reaccumulation'
+import { Route as ApiMomentumStreamRouteImport } from './routes/api/momentum.stream'
+import { Route as ApiMomentumScanRouteImport } from './routes/api/momentum.scan'
 import { Route as ApiExecutionPermitRouteImport } from './routes/api/execution.permit'
 import { Route as ApiExecutionExecutionsRouteImport } from './routes/api/execution.executions'
 import { Route as ApiExecutionExecuteRouteImport } from './routes/api/execution.execute'
@@ -51,6 +55,7 @@ import { Route as ApiExecutionConstitutionRouteImport } from './routes/api/execu
 import { Route as ApiBinanceReviewTradesRouteImport } from './routes/api/binance-review.trades'
 import { Route as ApiBinanceReviewSyncRouteImport } from './routes/api/binance-review.sync'
 import { Route as ApiBinanceReviewApiKeyRouteImport } from './routes/api/binance-review.api-key'
+import { Route as ApiMomentumTimelineSymbolRouteImport } from './routes/api/momentum.timeline.$symbol'
 import { Route as ApiExecutionPermitIdRouteImport } from './routes/api/execution.permit.$id'
 import { Route as ApiAiChatCompletionsRouteImport } from './routes/api/ai.chat.completions'
 
@@ -112,6 +117,11 @@ const MarketsRoute = MarketsRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForwardTestRoute = ForwardTestRouteImport.update({
+  id: '/forward-test',
+  path: '/forward-test',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EventsRoute = EventsRouteImport.update({
@@ -219,6 +229,11 @@ const ApiReviewIdRoute = ApiReviewIdRouteImport.update({
   path: '/api/review/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiResearchForwardTestRoute = ApiResearchForwardTestRouteImport.update({
+  id: '/api/research/forward-test',
+  path: '/api/research/forward-test',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRallyWatcherScanRoute = ApiRallyWatcherScanRouteImport.update({
   id: '/api/rally-watcher/scan',
   path: '/api/rally-watcher/scan',
@@ -230,6 +245,16 @@ const ApiPatternsReaccumulationRoute =
     path: '/api/patterns/reaccumulation',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiMomentumStreamRoute = ApiMomentumStreamRouteImport.update({
+  id: '/api/momentum/stream',
+  path: '/api/momentum/stream',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMomentumScanRoute = ApiMomentumScanRouteImport.update({
+  id: '/api/momentum/scan',
+  path: '/api/momentum/scan',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiExecutionPermitRoute = ApiExecutionPermitRouteImport.update({
   id: '/api/execution/permit',
   path: '/api/execution/permit',
@@ -266,6 +291,12 @@ const ApiBinanceReviewApiKeyRoute = ApiBinanceReviewApiKeyRouteImport.update({
   path: '/api/binance-review/api-key',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMomentumTimelineSymbolRoute =
+  ApiMomentumTimelineSymbolRouteImport.update({
+    id: '/api/momentum/timeline/$symbol',
+    path: '/api/momentum/timeline/$symbol',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiExecutionPermitIdRoute = ApiExecutionPermitIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -282,6 +313,7 @@ export interface FileRoutesByFullPath {
   '/alerts': typeof AlertsRoute
   '/discover': typeof DiscoverRoute
   '/events': typeof EventsRoute
+  '/forward-test': typeof ForwardTestRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
   '/news': typeof NewsRoute
@@ -315,19 +347,24 @@ export interface FileRoutesByFullPath {
   '/api/execution/execute': typeof ApiExecutionExecuteRoute
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
+  '/api/momentum/scan': typeof ApiMomentumScanRoute
+  '/api/momentum/stream': typeof ApiMomentumStreamRoute
   '/api/patterns/reaccumulation': typeof ApiPatternsReaccumulationRoute
   '/api/rally-watcher/scan': typeof ApiRallyWatcherScanRoute
+  '/api/research/forward-test': typeof ApiResearchForwardTestRoute
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
   '/api/ai/chat/completions': typeof ApiAiChatCompletionsRoute
   '/api/execution/permit/$id': typeof ApiExecutionPermitIdRoute
+  '/api/momentum/timeline/$symbol': typeof ApiMomentumTimelineSymbolRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/alerts': typeof AlertsRoute
   '/discover': typeof DiscoverRoute
   '/events': typeof EventsRoute
+  '/forward-test': typeof ForwardTestRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
   '/news': typeof NewsRoute
@@ -361,13 +398,17 @@ export interface FileRoutesByTo {
   '/api/execution/execute': typeof ApiExecutionExecuteRoute
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
+  '/api/momentum/scan': typeof ApiMomentumScanRoute
+  '/api/momentum/stream': typeof ApiMomentumStreamRoute
   '/api/patterns/reaccumulation': typeof ApiPatternsReaccumulationRoute
   '/api/rally-watcher/scan': typeof ApiRallyWatcherScanRoute
+  '/api/research/forward-test': typeof ApiResearchForwardTestRoute
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
   '/api/ai/chat/completions': typeof ApiAiChatCompletionsRoute
   '/api/execution/permit/$id': typeof ApiExecutionPermitIdRoute
+  '/api/momentum/timeline/$symbol': typeof ApiMomentumTimelineSymbolRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -375,6 +416,7 @@ export interface FileRoutesById {
   '/alerts': typeof AlertsRoute
   '/discover': typeof DiscoverRoute
   '/events': typeof EventsRoute
+  '/forward-test': typeof ForwardTestRoute
   '/login': typeof LoginRoute
   '/markets': typeof MarketsRoute
   '/news': typeof NewsRoute
@@ -408,13 +450,17 @@ export interface FileRoutesById {
   '/api/execution/execute': typeof ApiExecutionExecuteRoute
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
+  '/api/momentum/scan': typeof ApiMomentumScanRoute
+  '/api/momentum/stream': typeof ApiMomentumStreamRoute
   '/api/patterns/reaccumulation': typeof ApiPatternsReaccumulationRoute
   '/api/rally-watcher/scan': typeof ApiRallyWatcherScanRoute
+  '/api/research/forward-test': typeof ApiResearchForwardTestRoute
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
   '/api/ai/chat/completions': typeof ApiAiChatCompletionsRoute
   '/api/execution/permit/$id': typeof ApiExecutionPermitIdRoute
+  '/api/momentum/timeline/$symbol': typeof ApiMomentumTimelineSymbolRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -423,6 +469,7 @@ export interface FileRouteTypes {
     | '/alerts'
     | '/discover'
     | '/events'
+    | '/forward-test'
     | '/login'
     | '/markets'
     | '/news'
@@ -456,19 +503,24 @@ export interface FileRouteTypes {
     | '/api/execution/execute'
     | '/api/execution/executions'
     | '/api/execution/permit'
+    | '/api/momentum/scan'
+    | '/api/momentum/stream'
     | '/api/patterns/reaccumulation'
     | '/api/rally-watcher/scan'
+    | '/api/research/forward-test'
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
     | '/api/ai/chat/completions'
     | '/api/execution/permit/$id'
+    | '/api/momentum/timeline/$symbol'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/alerts'
     | '/discover'
     | '/events'
+    | '/forward-test'
     | '/login'
     | '/markets'
     | '/news'
@@ -502,19 +554,24 @@ export interface FileRouteTypes {
     | '/api/execution/execute'
     | '/api/execution/executions'
     | '/api/execution/permit'
+    | '/api/momentum/scan'
+    | '/api/momentum/stream'
     | '/api/patterns/reaccumulation'
     | '/api/rally-watcher/scan'
+    | '/api/research/forward-test'
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
     | '/api/ai/chat/completions'
     | '/api/execution/permit/$id'
+    | '/api/momentum/timeline/$symbol'
   id:
     | '__root__'
     | '/'
     | '/alerts'
     | '/discover'
     | '/events'
+    | '/forward-test'
     | '/login'
     | '/markets'
     | '/news'
@@ -548,13 +605,17 @@ export interface FileRouteTypes {
     | '/api/execution/execute'
     | '/api/execution/executions'
     | '/api/execution/permit'
+    | '/api/momentum/scan'
+    | '/api/momentum/stream'
     | '/api/patterns/reaccumulation'
     | '/api/rally-watcher/scan'
+    | '/api/research/forward-test'
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
     | '/api/ai/chat/completions'
     | '/api/execution/permit/$id'
+    | '/api/momentum/timeline/$symbol'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -562,6 +623,7 @@ export interface RootRouteChildren {
   AlertsRoute: typeof AlertsRoute
   DiscoverRoute: typeof DiscoverRoute
   EventsRoute: typeof EventsRoute
+  ForwardTestRoute: typeof ForwardTestRoute
   LoginRoute: typeof LoginRoute
   MarketsRoute: typeof MarketsRoute
   NewsRoute: typeof NewsRoute
@@ -595,11 +657,15 @@ export interface RootRouteChildren {
   ApiExecutionExecuteRoute: typeof ApiExecutionExecuteRoute
   ApiExecutionExecutionsRoute: typeof ApiExecutionExecutionsRoute
   ApiExecutionPermitRoute: typeof ApiExecutionPermitRouteWithChildren
+  ApiMomentumScanRoute: typeof ApiMomentumScanRoute
+  ApiMomentumStreamRoute: typeof ApiMomentumStreamRoute
   ApiPatternsReaccumulationRoute: typeof ApiPatternsReaccumulationRoute
   ApiRallyWatcherScanRoute: typeof ApiRallyWatcherScanRoute
+  ApiResearchForwardTestRoute: typeof ApiResearchForwardTestRoute
   ApiReviewIdRoute: typeof ApiReviewIdRoute
   ApiReviewAnalyticsRoute: typeof ApiReviewAnalyticsRoute
   ApiAiChatCompletionsRoute: typeof ApiAiChatCompletionsRoute
+  ApiMomentumTimelineSymbolRoute: typeof ApiMomentumTimelineSymbolRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -686,6 +752,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forward-test': {
+      id: '/forward-test'
+      path: '/forward-test'
+      fullPath: '/forward-test'
+      preLoaderRoute: typeof ForwardTestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/events': {
@@ -835,6 +908,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiReviewIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/research/forward-test': {
+      id: '/api/research/forward-test'
+      path: '/api/research/forward-test'
+      fullPath: '/api/research/forward-test'
+      preLoaderRoute: typeof ApiResearchForwardTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/rally-watcher/scan': {
       id: '/api/rally-watcher/scan'
       path: '/api/rally-watcher/scan'
@@ -847,6 +927,20 @@ declare module '@tanstack/react-router' {
       path: '/api/patterns/reaccumulation'
       fullPath: '/api/patterns/reaccumulation'
       preLoaderRoute: typeof ApiPatternsReaccumulationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/momentum/stream': {
+      id: '/api/momentum/stream'
+      path: '/api/momentum/stream'
+      fullPath: '/api/momentum/stream'
+      preLoaderRoute: typeof ApiMomentumStreamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/momentum/scan': {
+      id: '/api/momentum/scan'
+      path: '/api/momentum/scan'
+      fullPath: '/api/momentum/scan'
+      preLoaderRoute: typeof ApiMomentumScanRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/execution/permit': {
@@ -898,6 +992,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiBinanceReviewApiKeyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/momentum/timeline/$symbol': {
+      id: '/api/momentum/timeline/$symbol'
+      path: '/api/momentum/timeline/$symbol'
+      fullPath: '/api/momentum/timeline/$symbol'
+      preLoaderRoute: typeof ApiMomentumTimelineSymbolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/execution/permit/$id': {
       id: '/api/execution/permit/$id'
       path: '/$id'
@@ -943,6 +1044,7 @@ const rootRouteChildren: RootRouteChildren = {
   AlertsRoute: AlertsRoute,
   DiscoverRoute: DiscoverRoute,
   EventsRoute: EventsRoute,
+  ForwardTestRoute: ForwardTestRoute,
   LoginRoute: LoginRoute,
   MarketsRoute: MarketsRoute,
   NewsRoute: NewsRoute,
@@ -976,11 +1078,15 @@ const rootRouteChildren: RootRouteChildren = {
   ApiExecutionExecuteRoute: ApiExecutionExecuteRoute,
   ApiExecutionExecutionsRoute: ApiExecutionExecutionsRoute,
   ApiExecutionPermitRoute: ApiExecutionPermitRouteWithChildren,
+  ApiMomentumScanRoute: ApiMomentumScanRoute,
+  ApiMomentumStreamRoute: ApiMomentumStreamRoute,
   ApiPatternsReaccumulationRoute: ApiPatternsReaccumulationRoute,
   ApiRallyWatcherScanRoute: ApiRallyWatcherScanRoute,
+  ApiResearchForwardTestRoute: ApiResearchForwardTestRoute,
   ApiReviewIdRoute: ApiReviewIdRoute,
   ApiReviewAnalyticsRoute: ApiReviewAnalyticsRoute,
   ApiAiChatCompletionsRoute: ApiAiChatCompletionsRoute,
+  ApiMomentumTimelineSymbolRoute: ApiMomentumTimelineSymbolRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

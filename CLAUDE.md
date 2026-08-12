@@ -108,6 +108,59 @@ testnet-first; withdrawal-scoped keys are still rejected outright. Three planes:
 - `auth/` — invite-only sessions (opaque httpOnly cookies, no passwords).
 - `forward-test/service.ts` — stats/health read models; `health-watch.ts` pushes worker-staleness alerts into the SSE notification stream (`/api/notifications`).
 
+### 4. Market-event radar (realtime discovery plane — an information compressor)
+
+`backend/app/momentum/` + a stack of small, deliberately independent
+`engine/smc/` modules power `/discover`. The objective is **not** signal count:
+~600 perpetuals in, a handful of situations worth opening out.
+
+    ~600 markets → rolling metrics → durable events → structurally relevant
+      → developing (pullback → completion) → surfaced (capped, often empty)
+
+**Fast lane (2s tick, in-memory only).** One all-market feed (`!ticker@arr`,
+else a 5s whole-market `/fapi/v1/ticker/24hr` poll — **this VPS cannot receive
+Binance futures websocket frames**, so the ingestor probes and falls back
+automatically) fills an in-memory store; each tick derives 1m/3m/5m/15m windows
+and runs the `MOMENTUM → PULLBACK → CONTINUATION | INVALID` machine. That
+machine is **internal**: it supplies the impulse leg and its transitions become
+events. `momentum_events.py` mints durable `MarketEvent`s (fire/clear
+hysteresis + TTL) from flow, those transitions, and the micro CHoCH read
+(`micro_structure.py`, 1m candles folded from the tick buffer).
+
+**Slow lane (own timers, cached).** `context_cache.py` fetches 4H/1H/15m/5m
+klines for tracked symbols only, per-timeframe cadences, per-pass budget;
+`market_context.py` derives bias (flip-confirmed, so the badge is sticky) and
+`structure_map.py` reduces the same structure to swings + equal-level liquidity
+that the fast lane reads by dict lookup.
+
+**Composition.** Each detector is ignorant of the others — the volume detector
+knows nothing about CHoCH, `pullback.py` knows nothing about bias,
+`liquidity_targets.py`/`structural_path.py` know nothing about volume.
+`context_alignment.py` and `situation.py` are the only combiners.
+`situation.py` walks `NEW → DEVELOPING → PULLBACK → PULLBACK_COMPLETION →
+CONTINUATION_CANDIDATE (→ INVALID | STALE)` with dwell + hysteresis, and its
+`worth_watching` is a *rejection* function (stale event, no context, no
+structure, `path_too_short`) whose reasons ship to the UI alongside a funnel
+count. Completion is an **evidence list**, never a magic score;
+`structural_path.py` R is a **filter**, never a recommendation.
+
+**Modes, not forks.** `scan_profiles.py` holds every mode-dependent number:
+SCALP (1m/3m events, 1H/15m context, tighter path) and INTRADAY (5m/15m events,
+4H/1H context). One pipeline, two threshold sets. Swing stays out — it belongs
+to the slower 4H/1H/daily architecture.
+
+**Postgres is never in either path and nothing is persisted** — a restart just
+re-warms. `situation_journal.py` keeps a bounded in-memory record (context,
+path, MFE/MAE, target/invalidation outcome) so the detector can later be
+measured; it is a research artifact, not a system of record, and not a trade
+log. Own versions (`MOMENTUM_VERSION` / `MOMENTUM_EVENTS_VERSION` /
+`MARKET_CONTEXT_VERSION` / `JOURNAL_VERSION`), no `ENGINE_VERSION` bump, and
+never a trade signal (no BUY/SELL, no sizing, no orders). Served at
+`/api/v1/momentum/{scan,stream,timeline/{symbol},journal,modes}` (SSE), proxied
+by `routes/api/momentum.*.ts`; `?mode=SCALP|INTRADAY` selects the horizon.
+Thresholds are env-overridable per field with `MOMENTUM_*`, `MOMENTUM_EVENT_*`
+and `MOMENTUM_CONTEXT_*`.
+
 Other structure:
 
 - `src/components/ui/` — shadcn/ui primitives; `src/components/iq/` — app components.

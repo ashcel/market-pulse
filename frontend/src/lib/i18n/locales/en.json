@@ -32,7 +32,8 @@
       "trades": "Trades",
       "alerts": "Alerts",
       "settings": "Settings",
-      "signIn": "Sign in"
+      "signIn": "Sign in",
+      "forwardTest": "Forward test"
     }
   },
   "sidebar": {
@@ -192,9 +193,10 @@
   },
   "routes": {
     "discover": {
-      "eyebrow": "Overview",
+      "eyebrow": "Radar",
       "title": "Discover",
-      "subtitle": "Rally Watcher, reaccumulation screening, and relative strength vs BTC — a discovery list, not a trade signal. Open a token for the engine's verdict."
+      "subtitle": "A compression engine, not a signal feed: every liquid Binance perpetual is watched, and only the few situations that survive event detection, higher-timeframe context, structure and a workable path are surfaced. Scalp and intraday horizons, observation only.",
+      "structuralScreens": "Structural screens — reaccumulation & relative strength"
     },
     "settings": {
       "eyebrow": "Settings",
@@ -733,6 +735,60 @@
           "body": "Every tracked asset with live price, 24-hour change, and a mini trend line, ranked by Market Pulse score (the engine's 0–100 quality rating). Click any card to open the full chart, signal, and trade plan for that token."
         }
       }
+    },
+    "forwardTest": {
+      "eyebrow": "Research",
+      "title": "Forward test",
+      "subtitle": "Every confirmed Discover setup, the plan frozen at the moment it was detected, and what price did next. No hindsight, no curation, no orders — losers included, because a dataset you can prune is not evidence.",
+      "allModes": "All",
+      "allStatuses": "All",
+      "loading": "Loading recorded setups…",
+      "empty": "No setups recorded yet. The scanner records one only when a situation reaches a confirmed state with a workable structural path — on a quiet tape that can be hours apart.",
+      "disclaimer": "Hypothetical results from recorded observations. Nothing here was traded, and no order was ever placed.",
+      "direction": {
+        "bullish": "Long",
+        "bearish": "Short"
+      },
+      "status": {
+        "PENDING_ENTRY": "Pending entry",
+        "ACTIVE": "Active",
+        "TARGET_HIT": "Target hit",
+        "INVALIDATED": "Invalidated",
+        "EXPIRED": "Expired",
+        "NO_FILL": "No fill"
+      },
+      "columns": {
+        "symbol": "Symbol",
+        "direction": "Dir",
+        "detected": "Detected",
+        "entry": "Entry",
+        "stop": "Stop",
+        "target": "Target",
+        "rr": "Potential",
+        "status": "Status",
+        "realized": "Realized",
+        "mfe": "MFE",
+        "mae": "MAE",
+        "duration": "Duration"
+      },
+      "cards": {
+        "daysRunning": "Days running",
+        "recorded": "Setups recorded",
+        "recordedHint": "from {{universe}} markets scanned",
+        "open": "Still open",
+        "openHint": "pending entry or active",
+        "fillRate": "Fill rate",
+        "fillRateHint": "{{count}} never filled",
+        "winRate": "Win rate",
+        "winRateHint": "of {{filled}} filled",
+        "totalR": "Total R",
+        "totalRHint": "{{avg}}R average per fill",
+        "expectancy": "Expectancy",
+        "expectancyHint": "per recorded setup",
+        "profitFactor": "Profit factor",
+        "drawdown": "max drawdown {{value}}R",
+        "best": "Best setup"
+      }
     }
   },
   "components": {
@@ -1154,6 +1210,169 @@
       "verdictSkip": "Skip",
       "showTargets": "Show targets",
       "hideTargets": "Hide targets"
+    },
+    "momentum": {
+      "perp": "Perp",
+      "rvol": "RVOL",
+      "move": "Move",
+      "relativeVolume": "Rel. volume",
+      "tradeRate": "trade rate",
+      "htf": "HTF:",
+      "viewStructure": "View structure",
+      "showTimeline": "Timeline",
+      "hideTimeline": "Hide timeline",
+      "timelineLoading": "Loading the sequence…",
+      "timelineEmpty": "No events recorded for this symbol yet.",
+      "detected": "Detected {{ago}} ago",
+      "noEvent": "No live event.",
+      "cooling": "condition has normalized",
+      "scoreTooltip": "Event score 0-100: the strongest live event's severity, lifted when other kinds of event corroborate it. Smoothed, so it drifts rather than jumping.",
+      "liveFeed": "Live",
+      "pollingFeed": "Polling",
+      "tracking": "· {{count}} pairs",
+      "connecting": "Connecting to the live feed…",
+      "warmingUp": "Warming up — the radar needs a few minutes of tape before its 1m/3m windows mean anything.",
+      "quietTape": "Nothing abnormal is happening right now. The radar is watching.",
+      "event": {
+        "VOLUME_ANOMALY": "Volume anomaly",
+        "PRICE_DISPLACEMENT": "Price displacement",
+        "VOLATILITY_EXPANSION": "Volatility expansion",
+        "TRADE_RATE_EXPANSION": "Trade-rate expansion",
+        "CHOCH": "1m change of character",
+        "STRUCTURE_BREAK": "Structure break",
+        "PULLBACK": "Pullback",
+        "CONTINUATION": "Continuation",
+        "VOLUME_COOLING": "Volume cooling",
+        "INVALIDATION": "Invalidated",
+        "NONE": "No live event"
+      },
+      "classification": {
+        "bullish": "Bullish event",
+        "bearish": "Bearish event",
+        "undirected": "Momentum event"
+      },
+      "context": {
+        "bullish": "Bullish",
+        "bearish": "Bearish",
+        "neutral": "Neutral",
+        "mixed": "Mixed",
+        "pending": "—"
+      },
+      "alignment": {
+        "label": "Alignment:",
+        "HIGH": "High",
+        "MODERATE": "Moderate",
+        "COUNTER_TREND": "Counter-trend",
+        "MIXED": "Mixed context",
+        "UNKNOWN": "—"
+      },
+      "state": {
+        "NEW": "New",
+        "DEVELOPING": "Developing",
+        "CONFIRMED": "Confirmed",
+        "FADED": "Faded",
+        "PULLBACK": "Pullback",
+        "PULLBACK_COMPLETION": "Pullback completion",
+        "CONTINUATION_CANDIDATE": "Continuation candidate",
+        "INVALID": "Invalid",
+        "STALE": "Stale"
+      },
+      "section": {
+        "NEW": {
+          "title": "New events",
+          "hint": "Something abnormal just happened",
+          "empty": "Nothing abnormal right now."
+        },
+        "DEVELOPING": {
+          "title": "Developing",
+          "hint": "Several observations forming a situation",
+          "empty": "Nothing developing right now."
+        },
+        "CONFIRMED": {
+          "title": "Confirmed",
+          "hint": "The event produced structural confirmation",
+          "empty": "Nothing confirmed yet."
+        },
+        "FADED": {
+          "title": "Recently faded",
+          "hint": "Events that ran out or were invalidated",
+          "empty": "Nothing faded recently."
+        },
+        "PULLBACK": {
+          "title": "Pullback",
+          "hint": "A meaningful impulse is retracing",
+          "empty": "Nothing retracing right now."
+        },
+        "PULLBACK_COMPLETION": {
+          "title": "Pullback completion",
+          "hint": "Evidence suggests the retracement is ending",
+          "empty": "No completion evidence yet."
+        },
+        "CONTINUATION_CANDIDATE": {
+          "title": "Continuation candidate",
+          "hint": "The original move appears to be resuming",
+          "empty": "Nothing resuming yet."
+        },
+        "CLOSED": {
+          "title": "Recently closed",
+          "hint": "Invalidated or gone quiet",
+          "empty": "Nothing closed recently."
+        }
+      },
+      "streamingTooltip": "The page is receiving a live server-sent stream.",
+      "pollingTooltip": "The live stream is unavailable; the page is polling for snapshots.",
+      "retracement": "Retracement",
+      "pullbackVolume": "Pullback volume",
+      "structure": "Structure:",
+      "intact": "intact",
+      "broken": "broken",
+      "potentialPath": "Potential path",
+      "entryZone": "Entry",
+      "invalidation": "Invalidation",
+      "target": "Target",
+      "nothingSignificant": "No significant events detected. The radar is watching every liquid perpetual and will surface a situation when one is actually worth opening.",
+      "mode": {
+        "SCALP": "Scalp",
+        "INTRADAY": "Intraday",
+        "SCALPHint": "1m/3m events under 1H/15m context",
+        "INTRADAYHint": "5m/15m events under 4H/1H context"
+      },
+      "funnel": {
+        "universe": "markets",
+        "events": "events",
+        "structural": "structural",
+        "developing": "developing",
+        "surfaced": "worth watching",
+        "qualified": "qualified"
+      },
+      "level": {
+        "swing_high": "swing high",
+        "swing_low": "swing low",
+        "equal_highs": "equal highs",
+        "equal_lows": "equal lows"
+      },
+      "evidence": {
+        "VOLUME_COOLED": "Pullback volume cooled",
+        "RETRACEMENT_CONTROLLED": "Retracement controlled",
+        "STRUCTURAL_LEVEL": "Reached structural level",
+        "LIQUIDITY_SWEPT": "Liquidity swept",
+        "MICRO_CHOCH": "Micro change of character",
+        "OPPOSING_MOMENTUM_EXHAUSTED": "Opposing momentum exhausted",
+        "RENEWED_DISPLACEMENT": "Renewed displacement",
+        "VOLUME_REEXPANDING": "Volume re-expanding"
+      },
+      "tierTooltip": "Evidence quality from independent families ({{families}}). Score {{score}}/100 is derived from those families, not from any single reading.",
+      "tier": {
+        "HIGH": "High",
+        "MEDIUM": "Medium",
+        "LOW": "Low",
+        "NONE": "Weak"
+      },
+      "combo": {
+        "displacement+participation": "Displacement with real participation",
+        "anomaly+response": "Abnormal activity with a price response",
+        "structure+activity": "Structural break with matching activity"
+      }
     }
   },
   "tokenPage": {

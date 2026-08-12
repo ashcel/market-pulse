@@ -16,6 +16,7 @@ import {
   Newspaper,
   Settings,
   Star,
+  FlaskConical,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
@@ -57,6 +58,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/rotation", labelKey: "rotation", icon: ArrowLeftRight },
       { to: "/rankings", labelKey: "rankings", icon: BarChart3 },
       { to: "/technical", labelKey: "technical", icon: LineChart },
+      { to: "/forward-test", labelKey: "forwardTest", icon: FlaskConical },
     ],
   },
   {

@@ -28,6 +28,7 @@ from app.forward_test.models import (  # noqa: F401
     VerdictHold,
 )
 from app.market.models import Signal, Token  # noqa: F401
+from app.research.models import ForwardTestEvent, ForwardTestSetup  # noqa: F401
 from app.review.models import TradeReview  # noqa: F401
 from app.trades.models import Trade  # noqa: F401
 
