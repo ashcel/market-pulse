@@ -45,15 +45,43 @@ document, not something this module can paper over.
 `initial_invalidation` is immutable for the life of the record. Trailing moves
 `active_stop` only, only in the favourable direction, and every move is
 appended to `trailing_updates`, so the whole stop history survives settlement.
+
+## Fill model
+
+A settled exit fills at **the resting order's own price** — the stop for an
+invalidation, the target for a target hit — not at the observation that
+revealed the level had been crossed. The observation decides *whether*, never
+*where*.
+
+This matters more than it sounds. Observations arrive on a poll, so the first
+price seen past a level is already some distance beyond it, and that distance
+is **signed against the position on both sides**: a stop is discovered below
+where it sat, a target above. Settling at the observed price therefore charges
+the stop with slippage it never had and credits the target with an overshoot no
+limit order would have received. Generation 4 paid a mean 0.174R past its stops
+— 13.9R across 80 trades, against a modelled slippage of 0.02% — while its four
+target hits collected 2.97R of overshoot in the other direction. Neither number
+is a property of the strategy; both are properties of the sampling rate.
+
+The cost of actually crossing the spread is modelled once, explicitly, in
+`taker_fee_pct` + `slippage_pct`. Charging it a second time through the
+observation price is not conservatism, it is a bias whose size is set by how
+often the recorder happens to look.
+
+The assumption this makes is stated plainly: the stop and target rest on the
+book and fill at their level. A true gap through a resting stop would fill
+worse, and this model will not show that. Prices come from the radar's ~1s
+tick stream, so the window in which a gap can hide is that tick.
 """
 
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field, replace
-from typing import Literal
+from collections.abc import Mapping
+from dataclasses import dataclass, field, fields, replace
+from typing import Any, Literal
 
-FORWARD_TEST_VERSION = "1.0.0"
+FORWARD_TEST_VERSION = "1.2.0"
 
 Direction = Literal["bullish", "bearish"]
 
@@ -69,9 +97,7 @@ Status = Literal[
 #: Statuses that are still being observed.
 OPEN_STATUSES: frozenset[str] = frozenset({"PENDING_ENTRY", "ACTIVE"})
 #: …and the ones that will never change again.
-SETTLED_STATUSES: frozenset[str] = frozenset(
-    {"TARGET_HIT", "INVALIDATED", "EXPIRED", "NO_FILL"}
-)
+SETTLED_STATUSES: frozenset[str] = frozenset({"TARGET_HIT", "INVALIDATED", "EXPIRED", "NO_FILL"})
 
 EventType = Literal[
     "SETUP_CONFIRMED",
@@ -391,6 +417,24 @@ def _r_multiple(snapshot: SetupSnapshot, entry: float, price: float) -> float:
     return move / risk
 
 
+def unrealized_r(
+    snapshot: SetupSnapshot,
+    position: PaperPosition,
+    config: ForwardTestConfig = DEFAULT_FORWARD_TEST_CONFIG,
+) -> float:
+    """What an open position is worth right now, net of the round trip.
+
+    Marked at the last observed price and charged the full cost, so a floating
+    number is never flattered relative to the settled one it will become. Zero
+    before a fill: there is nothing to mark.
+    """
+    if position.entry_price is None or position.is_settled:
+        return 0.0
+    entry = position.entry_price
+    gross = _r_multiple(snapshot, entry, position.last_price or entry)
+    return round(gross - cost_in_r(snapshot, entry, config), 4)
+
+
 def cost_in_r(snapshot: SetupSnapshot, entry: float, config: ForwardTestConfig) -> float:
     """The round trip expressed in R for this particular trade.
 
@@ -493,9 +537,7 @@ def advance_position(
         if _in_zone(snapshot, price):
             if working.zone_touched_at is None:
                 working = replace(working, zone_touched_at=now)
-                events.append(
-                    LifecycleEvent(type="ENTRY_ZONE_TOUCHED", ts=now, price=price)
-                )
+                events.append(LifecycleEvent(type="ENTRY_ZONE_TOUCHED", ts=now, price=price))
             working = replace(
                 working,
                 status="ACTIVE",
@@ -596,31 +638,46 @@ def advance_position(
     cost_r = cost_in_r(snapshot, entry, config)
 
     if _beyond_target(snapshot, price):
+        # Fills at the target, not at the observation that revealed it.
+        fill = snapshot.target
+        gross = _r_multiple(snapshot, entry, fill)
         events.append(
-            LifecycleEvent(type="TARGET_HIT", ts=now, price=price, detail={"cost_r": cost_r})
+            LifecycleEvent(
+                type="TARGET_HIT",
+                ts=now,
+                price=price,
+                detail={"cost_r": cost_r, "fill": fill, "observed": price},
+            )
         )
         return (
             replace(
                 working,
                 status="TARGET_HIT",
                 settled_at=now,
-                exit_price=price,
+                exit_price=fill,
                 exit_reason="target",
-                gross_r=round(r_now, 4),
+                gross_r=round(gross, 4),
                 cost_r=round(cost_r, 4),
-                realized_r=round(r_now - cost_r, 4),
+                realized_r=round(gross - cost_r, 4),
             ),
             events,
         )
 
     if _beyond_stop(snapshot, working.active_stop, price):
         trailed_out = working.trailing_active
+        fill = working.active_stop
+        gross = _r_multiple(snapshot, entry, fill)
         events.append(
             LifecycleEvent(
                 type="INVALIDATED",
                 ts=now,
                 price=price,
-                detail={"stop": working.active_stop, "trailed": trailed_out},
+                detail={
+                    "stop": working.active_stop,
+                    "trailed": trailed_out,
+                    "fill": fill,
+                    "observed": price,
+                },
             )
         )
         return (
@@ -628,11 +685,11 @@ def advance_position(
                 working,
                 status="INVALIDATED",
                 settled_at=now,
-                exit_price=price,
+                exit_price=fill,
                 exit_reason="trailing_stop" if trailed_out else "invalidation",
-                gross_r=round(r_now, 4),
+                gross_r=round(gross, 4),
                 cost_r=round(cost_r, 4),
-                realized_r=round(r_now - cost_r, 4),
+                realized_r=round(gross - cost_r, 4),
             ),
             events,
         )
@@ -715,6 +772,33 @@ class VariantOutcome:
     @property
     def is_settled(self) -> bool:
         return self.status in SETTLED_STATUSES
+
+
+#: Every lifecycle field of a paper position, in declaration order.
+_POSITION_FIELDS = tuple(f.name for f in fields(PaperPosition))
+
+
+def position_state(position: PaperPosition) -> dict[str, Any]:
+    """The full lifecycle state of one position, JSON-safe.
+
+    Written alongside a variant's outcome so an alternative rule that is still
+    running when the process restarts can be *resumed* rather than silently
+    frozen at whatever it happened to be. A summary (status, R) is not enough
+    for that: resuming needs the stops, the excursions and the extremes.
+    """
+    state: dict[str, Any] = {name: getattr(position, name) for name in _POSITION_FIELDS}
+    state["trailing_updates"] = [[ts, stop] for ts, stop in position.trailing_updates]
+    return state
+
+
+def position_from_state(state: Mapping[str, Any]) -> PaperPosition:
+    """Rebuilds a position from `position_state`. Unknown keys are ignored and
+    missing ones fall back to the field default, so a blob written by an older
+    version still loads instead of taking down the recorder."""
+    values = {name: state[name] for name in _POSITION_FIELDS if name in state}
+    updates = values.get("trailing_updates") or ()
+    values["trailing_updates"] = tuple((float(ts), float(stop)) for ts, stop in updates)
+    return PaperPosition(**values)
 
 
 def outcome_for(name: str, position: PaperPosition) -> VariantOutcome:
@@ -882,12 +966,8 @@ def compute_stats(rows: list[tuple[str, float, float, float]]) -> ForwardTestSta
         profit_factor=round(gross_win / gross_loss, 4) if gross_loss > _EPS else 0.0,
         max_drawdown_r=round(drawdown, 4),
         total_r=round(sum(returns), 4),
-        average_mfe_r=round(
-            (sum(row[2] for row in settled) / len(settled)) if settled else 0.0, 4
-        ),
-        average_mae_r=round(
-            (sum(row[3] for row in settled) / len(settled)) if settled else 0.0, 4
-        ),
+        average_mfe_r=round((sum(row[2] for row in settled) / len(settled)) if settled else 0.0, 4),
+        average_mae_r=round((sum(row[3] for row in settled) / len(settled)) if settled else 0.0, 4),
     )
 
 

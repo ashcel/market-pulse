@@ -88,7 +88,26 @@ STRATEGY_VERSION = f"discover-forward-test/{FORWARD_TEST_VERSION}"
 #:   1 — original geometry (stops inside the noise band)
 #:   2 — volatility-floored stops
 #:   3 — costs deducted from realized R, per-horizon patience, SWING added
-DETECTOR_GENERATION = 3
+#:   4 — one live hypothesis per symbol: a second setup on a symbol already
+#:       being observed is no longer recorded while the first is open (same
+#:       mode at all, any mode when the direction is opposite). Generation 3
+#:       recorded them, so its rows contain overlapping and sometimes
+#:       contradictory positions on one move — they are not an independent
+#:       sample and must not be pooled with these.
+#:   5 — two measurement fixes and one geometry fix, none of them tuned on an
+#:       outcome:
+#:         * exits fill at the resting order's price (stop or target) instead
+#:           of at the observation that revealed the crossing. Generation 4
+#:           charged its stops a mean 0.174R of sampling-rate slippage and
+#:           credited its targets 2.97R of overshoot — a bias whose size was
+#:           set by how often the recorder looked, not by the strategy.
+#:         * the stop's floor is enforced against the entry rather than the
+#:           pullback extreme, so risk can no longer land under the mode's own
+#:           floor (11 of 90 generation-4 rows did).
+#:         * a cost floor: the round trip may eat at most `max_cost_r` of risk.
+#:           Generation 4's gross edge was +17.2R and its fee bill 21.4R.
+#:       Its R is therefore not comparable with generation 4's on either side.
+DETECTOR_GENERATION = 5
 
 
 def setup_key(situation: Situation) -> str:
@@ -408,7 +427,8 @@ def position_from_row(row: object) -> PaperPosition:
         trailing_mode=row.trailing_mode,  # type: ignore[attr-defined]
         trailing_activated_at=seconds(row.trailing_activated_at),  # type: ignore[attr-defined]
         trailing_updates=tuple(
-            (float(ts), float(stop)) for ts, stop in (row.trailing_updates or [])  # type: ignore[attr-defined]
+            (float(ts), float(stop))
+            for ts, stop in (row.trailing_updates or [])  # type: ignore[attr-defined]
         ),
         mfe_pct=row.mfe_pct,  # type: ignore[attr-defined]
         mae_pct=row.mae_pct,  # type: ignore[attr-defined]
@@ -448,16 +468,31 @@ class ForwardTestRecorder:
         self._open: dict[str, tuple[str, SetupSnapshot, PaperPosition, int]] = {}
         # Alternative exit rules running on those same hypotheses.
         self._variants: dict[str, dict[str, PaperPosition]] = {}
+        # …and the frozen hypothesis each *plan-varying* alternative runs
+        # against. Absent for exit-rule-only variants, which share the
+        # primary's plan by definition.
+        self._plans: dict[str, dict[str, SetupSnapshot]] = {}
+        # Alternatives whose primary has already settled. `no_trail` outlives a
+        # trailed exit by construction — dropping it there would freeze the
+        # variant at the primary's exit and silently score the comparison in
+        # the primary's favour, which is the opposite of what it measures.
+        self._variant_only: dict[
+            str, tuple[str, SetupSnapshot, dict[str, PaperPosition], dict[str, SetupSnapshot]]
+        ] = {}
         # Keys whose hypothesis has already been settled. A settled record is
         # terminal: without this, a symbol that stays confirmed after its stop
         # was hit would be re-adopted on the next capture pass and start a
         # second lifecycle on the same row.
         self._closed: set[str] = set()
+        # Situations a conflict kept out, so the block is counted once each.
+        self._skipped: set[str] = set()
         self._task: asyncio.Task[None] | None = None
         self._stopping = False
         self.captured = 0
         self.settled = 0
         self.ticks = 0
+        # Setups a live position on the same symbol kept out of the dataset.
+        self.skipped_conflicts = 0
 
     @property
     def scanner(self) -> MomentumScanner:
@@ -656,6 +691,32 @@ class ForwardTestRecorder:
 
     def open_keys(self) -> list[str]:
         return list(self._open)
+
+    def live_marks(self) -> dict[str, dict[str, float | None]]:
+        """The current mark for every open hypothesis, keyed by setup id.
+
+        The database only ever sees a transition — persisting the excursion
+        fields every tick would be a tick log by another name — so the row an
+        API read returns is correct as of the last *event*, which can be an
+        hour ago on a quiet position. This is the missing half: the same
+        numbers as of the last observation, straight out of memory, free to
+        read and never written anywhere.
+        """
+        marks: dict[str, dict[str, float | None]] = {}
+        for setup_id, snapshot, position, _ in self._open.values():
+            config = profile_for(snapshot.mode).forward_test
+            marks[setup_id] = {
+                "last_price": position.last_price,
+                "updated_at": position.updated_at,
+                "active_stop": position.active_stop,
+                "mfe_r": position.mfe_r,
+                "mae_r": position.mae_r,
+                "mfe_pct": position.mfe_pct,
+                "mae_pct": position.mae_pct,
+                "pending_mfe_pct": position.pending_mfe_pct,
+                "unrealized_r": unrealized_r(snapshot, position, config),
+            }
+        return marks
 
 
 #: How often the recorder settles. Slower than the 2s scan on purpose: it is

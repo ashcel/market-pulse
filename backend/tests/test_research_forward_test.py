@@ -15,7 +15,12 @@ from dataclasses import replace
 import pytest
 from httpx import ASGITransport, AsyncClient
 from smc.context_alignment import Alignment
-from smc.forward_test import DEFAULT_FORWARD_TEST_CONFIG, open_position
+from smc.forward_test import (
+    DEFAULT_FORWARD_TEST_CONFIG,
+    advance_position,
+    default_variants,
+    open_position,
+)
 from smc.market_context import MarketContext, TimeframeRead
 from smc.momentum_events import Qualification
 from smc.situation import Situation
@@ -487,9 +492,7 @@ async def test_the_research_endpoint_filters_by_mode(api: AsyncClient) -> None:
 
 @pytest.mark.anyio
 async def test_an_unknown_setup_id_is_a_404(api: AsyncClient) -> None:
-    response = await api.get(
-        "/api/v1/research/forward-test/00000000-0000-0000-0000-000000000000"
-    )
+    response = await api.get("/api/v1/research/forward-test/00000000-0000-0000-0000-000000000000")
     assert response.status_code == 404
 
 
@@ -702,9 +705,7 @@ async def test_variant_outcomes_are_persisted_alongside_the_primary(db: AsyncSes
     for offset, price in ((30, 100.3), (120, 93.0)):
         position, _ = advance_position(snapshot, position, price, T0 + offset, CFG)
         for name, alt in list(alternatives.items()):
-            alternatives[name], _ = advance_position(
-                snapshot, alt, price, T0 + offset, CFG
-            )
+            alternatives[name], _ = advance_position(snapshot, alt, price, T0 + offset, CFG)
     assert position.status == "TARGET_HIT"
 
     await repo.update_lifecycle(db, setup_id, lifecycle_values(position, 4, alternatives))
@@ -741,9 +742,251 @@ async def test_costs_reach_the_database(db: AsyncSession) -> None:
     assert row.gross_r > row.realized_r
 
 
-def test_the_generation_moved_for_the_cost_change() -> None:
-    """Costs change what a recorded result means, so generation-2 rows must
-    never be averaged with generation-3 ones."""
+def test_the_generation_moved_for_the_capture_rule() -> None:
+    """Costs (3), one-position-per-symbol (4) and the fill/floor corrections
+    (5) each change what a recorded result means, so the cohorts must never be
+    averaged together."""
     from app.research.recorder import DETECTOR_GENERATION
 
-    assert DETECTOR_GENERATION == 3
+    assert DETECTOR_GENERATION == 5
+
+
+# ── one live hypothesis per symbol ───────────────────────────────────────────
+
+
+def _recorder_holding(*positions: tuple[str, str, str]) -> object:
+    """A recorder with the given `(symbol, mode, direction)` setups open."""
+    from app.research.recorder import ForwardTestRecorder
+
+    recorder = ForwardTestRecorder()
+    for index, (symbol, mode, direction) in enumerate(positions):
+        snapshot = snapshot_from(situation(symbol=symbol, mode=mode, direction=direction), T0, CFG)
+        assert snapshot is not None
+        position, _ = open_position(snapshot, T0, 100.0, CFG)
+        recorder._open[f"{mode}:{symbol}:{index}"] = (str(index), snapshot, position, 0)
+    return recorder
+
+
+def test_a_second_setup_in_the_same_mode_is_blocked_while_the_first_is_open() -> None:
+    """Two situations on one symbol are one price series counted twice, not two
+    independent samples."""
+    recorder = _recorder_holding(("TST", "SCALP", "bearish"))
+    assert recorder.conflict_for("TST", "SCALP", "bearish") == "same_mode_open"
+
+
+def test_an_opposite_direction_setup_is_blocked_in_any_mode() -> None:
+    """A long recorded while a short on the same symbol is still open is a pair
+    that cannot both be right — and nothing a person could act on."""
+    recorder = _recorder_holding(("TST", "SWING", "bullish"))
+    assert recorder.conflict_for("TST", "SCALP", "bearish") == "opposite_direction_open"
+
+
+def test_another_mode_in_the_same_direction_is_blocked_too() -> None:
+    """One live hypothesis per symbol, whatever the horizon: a second record on
+    a symbol already running is the same price series counted twice."""
+    recorder = _recorder_holding(("TST", "SCALP", "bearish"))
+    assert recorder.conflict_for("TST", "INTRADAY", "bearish") == "symbol_already_open"
+
+
+def test_the_symbol_is_free_again_once_the_position_settles() -> None:
+    """The block is held by the *position*, not by the detector — nothing about
+    a symbol is banned once its record is closed."""
+    from app.research.recorder import ForwardTestRecorder
+
+    recorder = ForwardTestRecorder()
+    assert isinstance(recorder, ForwardTestRecorder)
+    assert recorder.conflict_for("TST", "SCALP", "bearish") is None
+
+
+def test_a_different_symbol_is_never_blocked() -> None:
+    recorder = _recorder_holding(("TST", "SCALP", "bearish"))
+    assert recorder.conflict_for("OTHER", "SCALP", "bullish") is None
+
+
+# ── alternative exit rules ───────────────────────────────────────────────────
+
+
+def test_a_position_survives_a_state_round_trip() -> None:
+    """What a variant needs to resume after a restart: the stops, the
+    excursions and the extremes, not a summary of them."""
+    from smc.forward_test import position_from_state, position_state
+
+    snapshot = snapshot_from(situation(), T0, CFG)
+    assert snapshot is not None
+    position, _ = open_position(snapshot, T0, 100.0, CFG)
+    advanced, _ = advance_position(snapshot, position, 99.0, T0 + 30, CFG)
+    assert position_from_state(position_state(advanced)) == advanced
+
+
+def test_a_variant_blob_carries_its_lifecycle_state() -> None:
+    from app.research.recorder import variant_values
+
+    snapshot = snapshot_from(situation(), T0, CFG)
+    assert snapshot is not None
+    position, _ = open_position(snapshot, T0, 100.0, CFG)
+    blob = variant_values({"no_trail": position})
+    assert blob is not None
+    assert blob["no_trail"]["state"]["status"] == position.status
+
+
+def test_an_empty_variant_set_never_erases_the_stored_one() -> None:
+    """A pass with no alternatives in memory — every resumed row before this
+    change — must not null the column it cannot rebuild."""
+    snapshot = snapshot_from(situation(), T0, CFG)
+    assert snapshot is not None
+    position, _ = open_position(snapshot, T0, 100.0, CFG)
+    assert "variants" not in lifecycle_values(position, 1)
+    assert "variants" in lifecycle_values(position, 1, {"no_trail": position})
+
+
+@pytest.mark.anyio
+async def test_alternatives_keep_running_after_the_primary_exits(
+    db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`no_trail` holds to the target and outlives a trailed exit by design.
+    Freezing it when the primary settles would score the comparison in the
+    primary's favour — which is exactly what it exists to measure."""
+    import contextlib
+
+    from app.research import recorder as recorder_module
+    from app.research.recorder import ForwardTestRecorder
+
+    @contextlib.asynccontextmanager
+    async def session() -> AsyncIterator[AsyncSession]:
+        yield db
+
+    monkeypatch.setattr(recorder_module, "SessionFactory", session)
+
+    snapshot = snapshot_from(situation(), T0, CFG)
+    assert snapshot is not None
+    position, _ = open_position(snapshot, T0, 100.0, CFG)
+    key = setup_key(situation())
+    setup_id = await repo.insert_setup(db, setup_values(snapshot, position, key))
+    assert setup_id is not None
+
+    recorder = ForwardTestRecorder()
+    recorder._open[key] = (setup_id, snapshot, position, 0)
+    recorder._variants[key] = {
+        name: open_position(snapshot, T0, 100.0, variant.config)[0]
+        for name, variant in {v.name: v for v in default_variants(CFG)}.items()
+    }
+    # Fill in the zone, run to +1.6R so the trail engages, then retrace enough
+    # for the trailed primary to be stopped out while the others hold.
+    monkeypatch.setattr(recorder, "_price_for", lambda _symbol: 100.2)
+    await recorder._settle(T0 + 10)
+    monkeypatch.setattr(recorder, "_price_for", lambda _symbol: 98.4)
+    await recorder._settle(T0 + 20)
+    monkeypatch.setattr(recorder, "_price_for", lambda _symbol: 99.6)
+    await recorder._settle(T0 + 30)
+
+    assert key not in recorder._open
+    assert key in recorder._variant_only, "the alternatives were dropped with the primary"
+
+    # …and they settle on their own terms, at the target the primary never saw.
+    monkeypatch.setattr(recorder, "_price_for", lambda _symbol: 93.9)
+    await recorder._settle_variants(T0 + 60)
+
+    row = await db.get(ForwardTestSetup, setup_id)
+    assert row is not None
+    assert row.variants is not None
+    assert row.variants["no_trail"]["status"] == "TARGET_HIT"
+    assert row.variants["no_trail"]["realized_r"] > 0
+    assert row.status == "INVALIDATED", "the primary's own outcome is untouched"
+
+
+@pytest.mark.anyio
+async def test_a_trailing_variant_set_is_reloaded_after_a_restart(db: AsyncSession) -> None:
+    from app.research.recorder import variant_values
+
+    snapshot = snapshot_from(situation(), T0, CFG)
+    assert snapshot is not None
+    position, _ = open_position(snapshot, T0, 100.0, CFG)
+    key = setup_key(situation())
+    setup_id = await repo.insert_setup(db, setup_values(snapshot, position, key))
+    assert setup_id is not None
+    settled = replace(
+        position,
+        status="INVALIDATED",
+        entered_at=T0 + 10,
+        entry_price=100.0,
+        settled_at=T0 + 60,
+        exit_price=101.0,
+        exit_reason="trailing_stop",
+        realized_r=0.4,
+    )
+    values = lifecycle_values(settled, 2, {"no_trail": replace(position, status="ACTIVE")})
+    await repo.update_lifecycle(db, setup_id, values)
+
+    rows = await repo.settled_with_open_variants(db)
+    assert [row.setup_key for row in rows] == [key]
+    assert variant_values({"no_trail": position}) is not None
+
+
+# ── an open position is marked live, not left at its last transition ─────────
+
+
+def test_floating_r_is_net_of_the_round_trip() -> None:
+    """An open number that omits costs is not comparable with the settled one
+    it becomes."""
+    from smc.forward_test import unrealized_r
+
+    snapshot = snapshot_from(situation(), T0, CFG)
+    assert snapshot is not None
+    position, _ = open_position(snapshot, T0, 100.0, CFG)
+    filled, _ = advance_position(snapshot, position, 100.0, T0 + 10, CFG)
+    assert filled.status == "ACTIVE"
+    marked, _ = advance_position(snapshot, filled, 99.0, T0 + 20, CFG)
+    floating = unrealized_r(snapshot, marked, CFG)
+    assert 0 < floating < marked.mfe_r
+
+
+def test_a_settled_position_has_no_floating_r() -> None:
+    from smc.forward_test import unrealized_r
+
+    snapshot = snapshot_from(situation(), T0, CFG)
+    assert snapshot is not None
+    position, _ = open_position(snapshot, T0, 100.0, CFG)
+    settled = replace(position, status="TARGET_HIT", settled_at=T0 + 60, realized_r=3.0)
+    assert unrealized_r(snapshot, settled, CFG) == 0.0
+
+
+@pytest.mark.anyio
+async def test_an_open_row_is_served_with_a_live_mark_and_a_running_clock(
+    db: AsyncSession, api: AsyncClient
+) -> None:
+    """The bug this fixes: the recorder only writes on a transition, so a quiet
+    open position was served with an hour-old price and a frozen timer."""
+    import time
+
+    from app.research.recorder import get_recorder
+
+    now = time.time()
+    snapshot = snapshot_from(situation(), now - 600, CFG)
+    assert snapshot is not None
+    position, _ = open_position(snapshot, now - 600, 100.0, CFG)
+    filled = replace(
+        position,
+        status="ACTIVE",
+        entered_at=now - 540,
+        entry_price=100.0,
+        last_price=100.0,
+        updated_at=now - 540,
+    )
+    key = setup_key(situation())
+    setup_id = await repo.insert_setup(db, setup_values(snapshot, filled, key))
+    assert setup_id is not None
+    await repo.update_lifecycle(db, setup_id, lifecycle_values(filled, 1))
+
+    recorder = get_recorder()
+    live = replace(filled, last_price=99.0, mfe_r=1.1, updated_at=now)
+    recorder._open[key] = (setup_id, snapshot, live, 1)
+    try:
+        response = await api.get("/api/v1/research/forward-test?generation=0")
+        row = next(s for s in response.json()["data"]["setups"] if s["id"] == setup_id)
+    finally:
+        recorder._open.pop(key, None)
+
+    assert row["last_price"] == 99.0
+    assert row["mfe_r"] == 1.1
+    assert row["unrealized_r"] > 0
+    assert row["time_in_trade"] is not None and row["time_in_trade"] > 500

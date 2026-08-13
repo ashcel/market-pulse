@@ -17,7 +17,13 @@ import math
 import pytest
 
 from smc.liquidity_targets import DEFAULT_TARGET_CONFIG, detect_sweep, select_targets
-from smc.structural_path import DEFAULT_PATH_CONFIG, build_path, invalidation_price
+from smc.structural_path import (
+    DEFAULT_PATH_CONFIG,
+    PathConfig,
+    build_path,
+    invalidation_price,
+    risk_floor_pct,
+)
 from smc.structure_map import StructuralLevel, StructureMap, build_structure_map
 from smc.types import Candle
 
@@ -331,10 +337,17 @@ def test_the_volatility_floor_is_symmetric() -> None:
     assert bearish - 100.0 == pytest.approx(100.0 - bullish)
 
 
-def test_a_missing_volatility_read_falls_back_to_the_absolute_floor() -> None:
-    """No read is not a licence for a zero-width stop."""
+def test_a_missing_volatility_read_falls_back_to_the_standing_floor() -> None:
+    """No read is not a licence for a zero-width stop.
+
+    With no volatility to clear, the binding floor is whichever of the two
+    standing ones is wider — for the default config that is the cost floor,
+    since a 0.35% stop would hand 40% of its risk to the round trip.
+    """
     stop = invalidation_price("bearish", 100.0, leg_size=0.01, config=PATH, volatility_pct=None)
-    assert stop == pytest.approx(100.0 * (1 + PATH.min_risk_pct / 100.0))
+    assert stop == pytest.approx(100.0 * (1 + risk_floor_pct(PATH) / 100.0))
+    assert risk_floor_pct(PATH) == pytest.approx(PATH.cost_floor_pct)
+    assert risk_floor_pct(PATH) > PATH.min_risk_pct
 
 
 def test_intraday_demands_a_wider_stop_than_scalp() -> None:
@@ -342,3 +355,79 @@ def test_intraday_demands_a_wider_stop_than_scalp() -> None:
 
     assert INTRADAY.path.min_risk_volatility_mult > SCALP.path.min_risk_volatility_mult
     assert INTRADAY.path.min_risk_pct > SCALP.path.min_risk_pct
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Generation 5: the floor is a claim about risk, and cost is one of its reasons
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_risk_floor_is_measured_from_entry_not_the_pullback_extreme() -> None:
+    """The generation-4 leak: entry sitting inside the buffer collapsed risk.
+
+    Entry sits *past* the pullback extreme — price already traded through the
+    retracement low before the setup was taken. The buffer beyond the extreme
+    is then partly behind the entry, so bounding the buffer bounds only one leg
+    of the risk and the rest is free to collapse. Bounding risk cannot.
+    """
+    path = build_path(
+        "bullish",
+        entry=100.0,
+        pullback_extreme=100.3,
+        leg_size=1.0,
+        target=110.0,
+        config=PATH,
+        volatility_pct=None,
+    )
+    assert path is not None
+    # Buffer alone would have left ~0.26% of risk against a 0.56% floor.
+    assert path.risk_pct >= risk_floor_pct(PATH) - 1e-9
+
+
+def test_a_stop_under_the_floor_is_widened_not_rejected() -> None:
+    """Widening is the conservative repair: it can only lower `rr`."""
+    path = build_path(
+        "bullish",
+        entry=100.0,
+        pullback_extreme=100.3,
+        leg_size=1.0,
+        target=110.0,
+        config=PATH,
+        volatility_pct=None,
+    )
+    assert path is not None
+    assert path.invalidation == pytest.approx(100.0 * (1 - risk_floor_pct(PATH) / 100.0))
+    # …and the ratio fell to what the honest stop supports, rather than the
+    # ~38R the collapsed one would have advertised.
+    assert path.rr == pytest.approx(10.0 / (100.0 * risk_floor_pct(PATH) / 100.0), rel=1e-3)
+    assert path.rr < 20.0
+
+
+def test_the_cost_floor_keeps_fees_inside_their_budget() -> None:
+    """Cost as a fraction of R is `round_trip / risk_pct`; the floor caps it."""
+    path = build_path(
+        "bearish",
+        entry=100.0,
+        pullback_extreme=100.001,
+        leg_size=0.001,
+        target=90.0,
+        config=PATH,
+        volatility_pct=None,
+    )
+    assert path is not None
+    cost_r = PATH.round_trip_cost_pct / path.risk_pct
+    assert cost_r <= PATH.max_cost_r + 1e-9
+
+
+def test_a_volatility_read_can_still_outrank_the_cost_floor() -> None:
+    """Cost is a floor, not a ceiling — noise still wins when it is wider."""
+    loud = risk_floor_pct(PATH, volatility_pct=4.0)
+    assert loud > PATH.cost_floor_pct
+    assert loud == pytest.approx(4.0 * PATH.min_risk_volatility_mult)
+
+
+def test_cost_budget_is_validated() -> None:
+    with pytest.raises(ValueError):
+        PathConfig(max_cost_r=0.0)
+    with pytest.raises(ValueError):
+        PathConfig(round_trip_cost_pct=-0.1)

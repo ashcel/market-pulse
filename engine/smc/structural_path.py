@@ -33,6 +33,32 @@ The floor breaks that loop. Risk must be at least `min_risk_volatility_mult`
 times the symbol's baseline 1m range (and at least `min_risk_pct` outright), so
 a wider stop *lowers* the ratio instead of raising it, and the RR gate stops
 rewarding degenerate geometry.
+
+## …and why it has to be measured from the entry
+
+The floor is a statement about **risk**, so it has to constrain the distance
+from *entry* to invalidation. Applying it to the buffer beyond the pullback
+extreme — which is what this module did through generation 4 — only bounds one
+leg of that distance, and leaves it free to shrink whenever entry sits between
+the extreme and the invalidation. It did: 11 of 90 generation-4 records came in
+under their own mode's floor, one INTRADAY setup at 0.175% against a 0.60%
+floor, and the thinnest stops still carried the highest advertised ratios
+(0.350% risk at 11.6R). The loop the floor was written to break was still
+running, one level down.
+
+## The second floor: cost
+
+Noise is not the only thing that can be wider than a stop. A round trip costs
+`round_trip_cost_pct` of *price* while risk is measured against the stop, so
+cost as a fraction of R is `round_trip_cost_pct / risk_pct` — and it explodes
+exactly where the geometry is thinnest. Generation 4 paid a median 0.225R and a
+maximum 0.802R in fees, 21.4R over 85 trades, against a gross edge of 17.2R.
+The trade was directionally right slightly more often than not and still lost,
+because the stop was never wide enough to be worth crossing the spread for.
+
+`max_cost_r` states the budget — cost may consume at most this fraction of risk
+— and the floor derives the minimum stop from it. This is arithmetic known at
+detection, not an outcome filter: no record has to settle for it to be true.
 """
 
 from __future__ import annotations
@@ -62,6 +88,13 @@ class PathConfig:
     min_risk_volatility_mult: float = 1.5
     # An absolute floor for symbols whose volatility read is missing.
     min_risk_pct: float = 0.35
+    # …and a *cost* floor. A round trip costs this much of price, and it may
+    # eat at most `max_cost_r` of the risk — which sets a minimum stop width of
+    # `round_trip_cost_pct / max_cost_r` outright. Keep the cost in step with
+    # `ForwardTestConfig`: it is the same round trip, stated where the geometry
+    # is decided rather than where it is settled.
+    round_trip_cost_pct: float = 0.14
+    max_cost_r: float = 0.25
     # Below this the path is not worth the risk; between the two it is thin.
     min_rr: float = 1.8
     good_rr: float = 3.0
@@ -69,9 +102,36 @@ class PathConfig:
     def __post_init__(self) -> None:
         if self.min_rr > self.good_rr:
             raise ValueError("min_rr must not exceed good_rr")
+        if not 0.0 < self.max_cost_r <= 1.0:
+            raise ValueError("max_cost_r must be in (0, 1]")
+        if self.round_trip_cost_pct < 0.0:
+            raise ValueError("round_trip_cost_pct cannot be negative")
+
+    @property
+    def cost_floor_pct(self) -> float:
+        """Minimum stop width at which cost stays inside its budget."""
+        return self.round_trip_cost_pct / self.max_cost_r
 
 
 DEFAULT_PATH_CONFIG = PathConfig()
+
+
+def risk_floor_pct(
+    config: PathConfig = DEFAULT_PATH_CONFIG,
+    volatility_pct: float | None = None,
+) -> float:
+    """The narrowest stop this mode will accept, as a percentage of price.
+
+    Three independent reasons a stop can be too tight, and the binding one
+    wins: it sits inside the symbol's own noise, it is below the absolute
+    floor, or cost would eat more of it than the budget allows.
+    """
+    return max(
+        config.min_invalidation_pct,
+        config.min_risk_pct,
+        config.cost_floor_pct,
+        (volatility_pct or 0.0) * config.min_risk_volatility_mult,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,11 +169,9 @@ def invalidation_price(
     **up**, so its invalidation sits above the retracement high; a bullish leg
     retraces down, so its invalidation sits below the retracement low.
     """
-    noise = (volatility_pct or 0.0) * config.min_risk_volatility_mult
-    floor_pct = max(config.min_invalidation_pct, config.min_risk_pct, noise)
     buffer = max(
         leg_size * config.invalidation_buffer_frac,
-        abs(pullback_extreme) * floor_pct / 100.0,
+        abs(pullback_extreme) * risk_floor_pct(config, volatility_pct) / 100.0,
     )
     return pullback_extreme - buffer if direction == "bullish" else pullback_extreme + buffer
 
@@ -137,9 +195,16 @@ def build_path(
     """
     if entry <= _EPS:
         return None
-    invalidation = invalidation_price(
-        direction, pullback_extreme, leg_size, config, volatility_pct
-    )
+    invalidation = invalidation_price(direction, pullback_extreme, leg_size, config, volatility_pct)
+
+    # The floor is a claim about *risk*, so it is enforced here, against the
+    # entry — placing the invalidation beyond the pullback extreme bounds only
+    # one leg of that distance and leaves the rest free to collapse whenever
+    # entry sits inside the buffer. Widening here can only lower `rr`, which is
+    # the direction that keeps the `min_rr` gate honest.
+    min_risk = entry * risk_floor_pct(config, volatility_pct) / 100.0
+    if abs(invalidation - entry) < min_risk:
+        invalidation = entry - min_risk if direction == "bullish" else entry + min_risk
 
     risk = abs(invalidation - entry)
     reward = abs(target - entry)

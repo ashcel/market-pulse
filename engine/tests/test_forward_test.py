@@ -25,10 +25,10 @@ from smc.forward_test import (
     compute_stats,
     cost_in_r,
     default_variants,
-    outcome_for,
     entry_zone,
     is_finite_plan,
     open_position,
+    outcome_for,
     outcome_of,
 )
 
@@ -535,3 +535,71 @@ def test_the_variant_outcome_is_flat_and_complete() -> None:
     assert outcome.is_settled is True
     assert outcome.gross_r > outcome.realized_r
     assert outcome.settled_at is not None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The fill model: the observation decides whether, the order decides where
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_a_stop_exit_fills_at_the_stop_not_at_the_price_that_revealed_it() -> None:
+    """Generation 4's dominant leak: 13.9R of sampling-rate slippage.
+
+    Entry 100, stop 102, so risk is 2. The poll that discovers the breach
+    prints 104 — a full extra R past the stop. A resting stop order was hit at
+    102 and the trade is worth -1R gross, not -2R.
+    """
+    setup = snapshot()
+    position, _ = run(setup, [(30, 100.0), (60, 104.0)])
+    assert position.status == "INVALIDATED"
+    assert position.exit_price == pytest.approx(102.0)
+    assert position.gross_r == pytest.approx(-1.0)
+
+
+def test_a_target_exit_fills_at_the_target_not_beyond_it() -> None:
+    """The same correction, and it costs us — which is how we know it is not
+    an outcome tune. Generation 4 collected 2.97R of favourable overshoot."""
+    setup = snapshot()
+    position, _ = run(setup, [(30, 100.0), (60, 90.0)])
+    assert position.status == "TARGET_HIT"
+    assert position.exit_price == pytest.approx(94.0)
+    assert position.gross_r == pytest.approx(3.0)
+
+
+def test_the_observed_price_is_still_recorded_on_the_event() -> None:
+    """Correcting the fill must not hide what was actually seen."""
+    setup = snapshot()
+    _, events = run(setup, [(30, 100.0), (60, 104.0)])
+    invalidated = [e for e in events if e.type == "INVALIDATED"][-1]
+    assert invalidated.price == pytest.approx(104.0)
+    assert invalidated.detail["observed"] == pytest.approx(104.0)
+    assert invalidated.detail["fill"] == pytest.approx(102.0)
+
+
+def test_a_trailed_exit_fills_at_the_trailed_stop() -> None:
+    """The stop in force is the one that fills, not the initial one."""
+    setup = snapshot()
+    position, _ = run(setup, [(30, 100.0), (60, 98.0), (90, 101.0)])
+    assert position.status == "INVALIDATED"
+    assert position.exit_reason == "trailing_stop"
+    assert position.exit_price == pytest.approx(position.active_stop)
+    # Reaching exactly 1R trails to breakeven (activation 1R, distance 1R), so
+    # the scratch is gross-flat and loses only the round trip.
+    assert position.gross_r == pytest.approx(0.0)
+    assert position.active_stop == pytest.approx(100.0)
+    assert position.realized_r < 0
+
+
+def test_the_timeout_still_fills_at_the_market() -> None:
+    """A hold that runs out has no resting order to fill against — it is
+    closed at whatever is there, and that price is genuine."""
+    setup = snapshot()
+    position, _ = run(setup, [(30, 100.0), (CFG.max_holding_seconds + 120, 99.3)])
+    assert position.status == "EXPIRED"
+    assert position.exit_price == pytest.approx(99.3)
+
+
+def test_fills_are_mirrored() -> None:
+    bear, _ = run(snapshot("bearish"), [(30, 100.0), (60, 104.0)])
+    bull, _ = run(snapshot("bullish"), [(30, 100.0), (60, 96.0)])
+    assert bear.gross_r == pytest.approx(bull.gross_r)
