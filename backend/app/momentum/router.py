@@ -26,6 +26,7 @@ from fastapi.responses import StreamingResponse
 from smc.context_alignment import Alignment
 from smc.liquidity_targets import Target
 from smc.market_context import MarketContext
+from smc.market_regime import regime_payload
 from smc.momentum_events import MarketEvent
 from smc.pullback import PullbackRead
 from smc.pullback_completion import CompletionRead
@@ -51,6 +52,7 @@ from app.momentum.schemas import (
     RadarData,
     RadarEntryResponse,
     RadarEnvelope,
+    RegimeResponse,
     StructuralBackingResponse,
     TargetResponse,
     TelemetryResponse,
@@ -255,6 +257,7 @@ def _to_data(snapshot: RadarSnapshot) -> RadarData:
         connected=snapshot.connected,
         feed=snapshot.feed,
         warming_up=snapshot.warming_up,
+        regime=RegimeResponse(**regime_payload(snapshot.regime)),
         funnel=FunnelResponse(
             universe=funnel.universe,
             tracked=funnel.tracked,

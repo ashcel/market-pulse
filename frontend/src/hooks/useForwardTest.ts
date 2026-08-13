@@ -39,6 +39,9 @@ export interface ForwardTestSetup {
   htfBias: string;
   alignment: string;
   alignmentLevel: string;
+  /** The whole tape at detection: bullish | bearish | choppy | unknown, or ""
+   * on rows written before regime was recorded at all. */
+  regime: string;
   evidence: Record<string, unknown>;
 
   /** The lifecycle. `activeStop` may have trailed; `initialInvalidation` never moves. */
@@ -58,11 +61,16 @@ export interface ForwardTestSetup {
   grossR: number;
   costR: number;
   variants: Record<string, { status: string; realized_r: number; exit_reason: string }>;
+  /** The tape at settlement. Different from `regime` = the trade outlived the
+   * conditions it was taken in. */
+  exitRegime: string;
   mfePct: number;
   maePct: number;
   mfeR: number;
   maeR: number;
   pendingMfePct: number;
+  /** Floating R while open, already net of the round trip. Zero once settled. */
+  unrealizedR: number;
   touchedZone: boolean;
   timeToEntry: number | null;
   timeInTrade: number | null;
@@ -112,6 +120,10 @@ export interface ForwardTestData {
   mode: string | null;
   summary: ForwardTestSummary;
   stats: ForwardTestStats;
+  /** The same statistics cut by the tape each setup was detected in. A rule
+   * that only works in one regime is not a rule that works, and a single
+   * aggregate cannot show that. */
+  byRegime: Record<string, ForwardTestStats>;
   setups: ForwardTestSetup[];
 }
 
@@ -137,6 +149,7 @@ interface RawSetup {
   htf_bias: string;
   alignment: string;
   alignment_level: string;
+  regime: string;
   evidence: Record<string, unknown>;
   active_stop: number;
   trailing_mode: string;
@@ -152,11 +165,13 @@ interface RawSetup {
   gross_r: number;
   cost_r: number;
   variants: Record<string, { status: string; realized_r: number; exit_reason: string }>;
+  exit_regime: string;
   mfe_pct: number;
   mae_pct: number;
   mfe_r: number;
   mae_r: number;
   pending_mfe_pct: number;
+  unrealized_r: number;
   touched_zone: boolean;
   time_to_entry: number | null;
   time_in_trade: number | null;
@@ -191,6 +206,7 @@ function fromRawSetup(row: RawSetup): ForwardTestSetup {
     htfBias: row.htf_bias,
     alignment: row.alignment,
     alignmentLevel: row.alignment_level,
+    regime: row.regime ?? "",
     evidence: row.evidence ?? {},
     activeStop: row.active_stop,
     trailingMode: row.trailing_mode,
@@ -206,11 +222,13 @@ function fromRawSetup(row: RawSetup): ForwardTestSetup {
     grossR: row.gross_r ?? 0,
     costR: row.cost_r ?? 0,
     variants: row.variants ?? {},
+    exitRegime: row.exit_regime ?? "",
     mfePct: row.mfe_pct,
     maePct: row.mae_pct,
     mfeR: row.mfe_r,
     maeR: row.mae_r,
     pendingMfePct: row.pending_mfe_pct,
+    unrealizedR: row.unrealized_r ?? 0,
     touchedZone: row.touched_zone,
     timeToEntry: row.time_to_entry,
     timeInTrade: row.time_in_trade,
@@ -223,12 +241,40 @@ function fromRawSetup(row: RawSetup): ForwardTestSetup {
   };
 }
 
+function fromRawStats(stats: Record<string, number>): ForwardTestStats {
+  return {
+    total: stats.total ?? 0,
+    open: stats.open ?? 0,
+    filled: stats.filled ?? 0,
+    noFill: stats.no_fill ?? 0,
+    targetHit: stats.target_hit ?? 0,
+    invalidated: stats.invalidated ?? 0,
+    expired: stats.expired ?? 0,
+    fillRate: stats.fill_rate ?? 0,
+    winRate: stats.win_rate ?? 0,
+    noFillRate: stats.no_fill_rate ?? 0,
+    averageR: stats.average_r ?? 0,
+    medianR: stats.median_r ?? 0,
+    expectancy: stats.expectancy ?? 0,
+    profitFactor: stats.profit_factor ?? 0,
+    maxDrawdownR: stats.max_drawdown_r ?? 0,
+    totalR: stats.total_r ?? 0,
+    averageMfeR: stats.average_mfe_r ?? 0,
+    averageMaeR: stats.average_mae_r ?? 0,
+  };
+}
+
 /** Transitions are minutes apart; polling this often is already generous. */
 const POLL_MS = 20_000;
+
+/** …but an open position is *marked* every recorder tick (5s), and a floating
+ * number that updates every 20s reads as a stuck one. */
+const LIVE_POLL_MS = 5_000;
 
 export function useForwardTest(
   mode: string | null,
   status: string | null,
+  generation: number | null = null,
 ): { data: ForwardTestData | null; loading: boolean } {
   const [data, setData] = useState<ForwardTestData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -239,6 +285,7 @@ export function useForwardTest(
         const params = new URLSearchParams();
         if (mode !== null) params.set("mode", mode);
         if (status !== null) params.set("status", status);
+        if (generation !== null) params.set("generation", String(generation));
         const res = await fetch(`/api/research/forward-test?${params.toString()}`, { signal });
         if (!res.ok) return;
         const body = (await res.json()) as {
@@ -246,6 +293,7 @@ export function useForwardTest(
             mode: string | null;
             summary: Record<string, unknown> & { best_setup: RawSetup | null };
             stats: Record<string, number>;
+            by_regime: Record<string, Record<string, number>>;
             setups: RawSetup[];
           };
         };
@@ -265,26 +313,13 @@ export function useForwardTest(
             gitSha: String(summary.git_sha ?? ""),
             bestSetup: summary.best_setup ? fromRawSetup(summary.best_setup) : null,
           },
-          stats: {
-            total: stats.total ?? 0,
-            open: stats.open ?? 0,
-            filled: stats.filled ?? 0,
-            noFill: stats.no_fill ?? 0,
-            targetHit: stats.target_hit ?? 0,
-            invalidated: stats.invalidated ?? 0,
-            expired: stats.expired ?? 0,
-            fillRate: stats.fill_rate ?? 0,
-            winRate: stats.win_rate ?? 0,
-            noFillRate: stats.no_fill_rate ?? 0,
-            averageR: stats.average_r ?? 0,
-            medianR: stats.median_r ?? 0,
-            expectancy: stats.expectancy ?? 0,
-            profitFactor: stats.profit_factor ?? 0,
-            maxDrawdownR: stats.max_drawdown_r ?? 0,
-            totalR: stats.total_r ?? 0,
-            averageMfeR: stats.average_mfe_r ?? 0,
-            averageMaeR: stats.average_mae_r ?? 0,
-          },
+          stats: fromRawStats(stats),
+          byRegime: Object.fromEntries(
+            Object.entries(body.data.by_regime ?? {}).map(([regime, raw]) => [
+              regime,
+              fromRawStats(raw),
+            ]),
+          ),
           setups: (body.data.setups ?? []).map(fromRawSetup),
         });
       } catch {
@@ -293,18 +328,20 @@ export function useForwardTest(
         if (!signal.aborted) setLoading(false);
       }
     },
-    [mode, status],
+    [mode, status, generation],
   );
+
+  const hasOpen = data?.setups.some((setup) => setup.settledAt === null) ?? false;
 
   useEffect(() => {
     const controller = new AbortController();
     void load(controller.signal);
-    const id = setInterval(() => void load(controller.signal), POLL_MS);
+    const id = setInterval(() => void load(controller.signal), hasOpen ? LIVE_POLL_MS : POLL_MS);
     return () => {
       controller.abort();
       clearInterval(id);
     };
-  }, [load]);
+  }, [load, hasOpen]);
 
   return { data, loading };
 }

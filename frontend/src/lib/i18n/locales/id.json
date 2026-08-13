@@ -794,6 +794,39 @@
         "primary": "Saat ini (trail 1R)",
         "won": "menang",
         "note": "Deteksi sama, entry sama, harga sama — hanya aturan exit yang beda. Sudah dipotong biaya."
+      },
+      "floatingHint": "R berjalan di harga terakhir, sudah bersih dari biaya bolak-balik.",
+      "cohort": {
+        "current": "Kohort saat ini",
+        "all": "Semua kohort",
+        "warning": "Menampilkan semua generasi detektor. Baris yang direkam dengan geometri, biaya, atau aturan perekaman berbeda adalah eksperimen berbeda — baca per baris, jangan dirata-ratakan jadi satu."
+      },
+      "sim": {
+        "title": "Dampaknya ke sebuah akun",
+        "capital": "Modal ($)",
+        "risk": "Risiko per trade (%)",
+        "ending": "Akhir",
+        "change": "Perubahan",
+        "drawdown": "Drawdown maks",
+        "extremes": "Trade terbaik / terburuk",
+        "note": "Risiko proporsional tetap atas {{trades}} setup yang sudah selesai, urut waktu penyelesaian, majemuk terhadap ekuitas. R sudah bersih dari fee dan slippage. Sampel eksperimen yang masih sangat kecil — bukan proyeksi.",
+        "overlapNote": "{{count}} di antaranya simbol berulang; akun sungguhan yang memegangnya bersamaan akan merasakan drawdown lebih dalam daripada yang tampil di sini.",
+        "emptyNote": "Belum ada setup yang selesai di kohort ini — angkanya muncul begitu ada yang tutup. Generasi 4 dimulai dari nol; baris lama ada di “Semua kohort”.",
+        "lede": "Risiko proporsional tetap, urut waktu penyelesaian",
+        "curveLabel": "Ekuitas akun sepanjang setup yang sudah selesai",
+        "tradeOf": "Trade ke-{{index}} dari {{total}}"
+      },
+      "regime": {
+        "bullish": "pasar naik",
+        "bearish": "pasar turun",
+        "choppy": "pasar sideways",
+        "unknown": "pasar belum terbaca",
+        "unrecorded": "pasar tak tercatat"
+      },
+      "byRegime": {
+        "title": "Berdasarkan kondisi pasar saat itu",
+        "detail": "{{count}} selesai · {{win}}% menang · rata-rata {{avg}}R",
+        "note": "Bacaan pasar menyeluruh saat setup terdeteksi — sebaran seluruh perpetual likuid, bukan bias koin ini sendiri. Aturan yang cuma jalan di satu kondisi belum bisa disebut aturan."
       }
     }
   },

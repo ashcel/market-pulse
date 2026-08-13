@@ -49,10 +49,36 @@ def _epoch(value: datetime | None) -> float | None:
     return repo.from_utc(value)
 
 
-def _to_setup(row: ForwardTestSetup) -> ForwardTestSetupResponse:
+def _stats_by_regime(
+    rows: list[tuple[str, str, float, float, float]],
+) -> dict[str, ForwardTestStatsResponse]:
+    """The population statistics, one bucket per tape.
+
+    Buckets are whatever the rows actually contain — nothing is pre-seeded, so
+    an empty bucket never appears as a zero-sample result that looks measured.
+    Detection order is preserved inside each bucket, which is what keeps the
+    per-regime drawdown curve chronological.
+    """
+    grouped: dict[str, list[tuple[str, float, float, float]]] = {}
+    for regime, status, realized, mfe, mae in rows:
+        grouped.setdefault(regime, []).append((status, realized, mfe, mae))
+    return {
+        regime: ForwardTestStatsResponse(**asdict(compute_stats(bucket)))
+        for regime, bucket in grouped.items()
+    }
+
+
+def _to_setup(
+    row: ForwardTestSetup, marks: dict[str, dict[str, float | None]] | None = None
+) -> ForwardTestSetupResponse:
     detected = _epoch(row.detected_at) or 0.0
     entered = _epoch(row.entered_at)
     settled = _epoch(row.settled_at)
+    # An open row is only current as of its last transition; the live mark is
+    # the same position as of the last observation. Read-only, in-memory, and
+    # applied to open rows alone — nothing here can touch a settled outcome.
+    mark = (marks or {}).get(str(row.id)) or {}
+    now = datetime.now(tz=UTC).timestamp()
     return ForwardTestSetupResponse(
         id=str(row.id),
         symbol=row.symbol,
@@ -75,8 +101,9 @@ def _to_setup(row: ForwardTestSetup) -> ForwardTestSetupResponse:
         htf_bias=row.htf_bias,
         alignment=row.alignment,
         alignment_level=row.alignment_level,
+        regime=row.regime or "",
         evidence=row.evidence or {},
-        active_stop=row.active_stop,
+        active_stop=float(mark.get("active_stop") or row.active_stop),
         trailing_mode=row.trailing_mode,
         trailing_activated_at=_epoch(row.trailing_activated_at),
         trailing_updates=[list(update) for update in (row.trailing_updates or [])],
@@ -90,20 +117,33 @@ def _to_setup(row: ForwardTestSetup) -> ForwardTestSetupResponse:
         gross_r=row.gross_r,
         cost_r=row.cost_r,
         variants=row.variants or {},
-        mfe_pct=row.mfe_pct,
-        mae_pct=row.mae_pct,
-        mfe_r=row.mfe_r,
-        mae_r=row.mae_r,
-        pending_mfe_pct=row.pending_mfe_pct,
+        exit_regime=row.exit_regime or "",
+        mfe_pct=float(mark.get("mfe_pct") if mark.get("mfe_pct") is not None else row.mfe_pct),
+        mae_pct=float(mark.get("mae_pct") if mark.get("mae_pct") is not None else row.mae_pct),
+        mfe_r=float(mark.get("mfe_r") if mark.get("mfe_r") is not None else row.mfe_r),
+        mae_r=float(mark.get("mae_r") if mark.get("mae_r") is not None else row.mae_r),
+        pending_mfe_pct=float(
+            mark.get("pending_mfe_pct")
+            if mark.get("pending_mfe_pct") is not None
+            else row.pending_mfe_pct
+        ),
+        # Floating R, marked at the last observed price and already charged the
+        # full round trip — an open number that flatters itself by omitting
+        # costs is not comparable with the settled one it becomes. Zero once
+        # settled, where `realized_r` is the answer.
+        unrealized_r=float(mark.get("unrealized_r") or 0.0),
         touched_zone=row.touched_zone,
         # Derived on read rather than stored: they are pure functions of
-        # timestamps already on the row.
+        # timestamps already on the row. An open position is measured to *now*,
+        # which is why this clock moves without a write.
         time_to_entry=round(entered - detected, 2) if entered is not None else None,
         time_in_trade=(
-            round(settled - entered, 2) if settled is not None and entered is not None else None
+            round((settled if settled is not None else now) - entered, 2)
+            if entered is not None
+            else None
         ),
-        last_price=row.last_price,
-        updated_at=_epoch(row.updated_at) or 0.0,
+        last_price=float(mark.get("last_price") or row.last_price),
+        updated_at=float(mark.get("updated_at") or 0.0) or (_epoch(row.updated_at) or 0.0),
         strategy_version=row.strategy_version,
         engine_version=row.engine_version,
         config_hash=row.config_hash,
@@ -142,9 +182,13 @@ async def get_forward_test(
         offset=max(0, offset),
     )
     stats = compute_stats(await repo.outcome_rows(db, mode=normalized, generation=cohort))
+    by_regime = _stats_by_regime(
+        await repo.regime_outcome_rows(db, mode=normalized, generation=cohort)
+    )
     first = await repo.first_detection(db, mode=normalized, generation=cohort)
     best = await repo.best_setup(db, mode=normalized, generation=cohort)
     recorder = get_recorder()
+    marks = recorder.live_marks()
 
     started = _epoch(first)
     days = (
@@ -166,11 +210,12 @@ async def get_forward_test(
                 strategy_version=STRATEGY_VERSION,
                 config_hash=best.config_hash if best is not None else "",
                 git_sha=best.git_sha if best is not None else "",
-                best_setup=_to_setup(best) if best is not None else None,
+                best_setup=_to_setup(best, marks) if best is not None else None,
             ),
             # `asdict`, not `__dict__`: the stats dataclass uses slots.
             stats=ForwardTestStatsResponse(**asdict(stats)),
-            setups=[_to_setup(row) for row in rows],
+            by_regime=by_regime,
+            setups=[_to_setup(row, marks) for row in rows],
         )
     )
 
@@ -189,7 +234,7 @@ async def get_forward_test_setup(
     events = await repo.events_for(db, setup_id)
     return ForwardTestDetailEnvelope(
         data=ForwardTestDetailData(
-            setup=_to_setup(row),
+            setup=_to_setup(row, get_recorder().live_marks()),
             events=[
                 ForwardTestEventResponse(
                     type=event.type,

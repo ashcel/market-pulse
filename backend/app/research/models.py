@@ -64,6 +64,8 @@ class ForwardTestSetup(Base):
         Index("forward_test_setups_strategy_idx", "strategy_version", "config_hash"),
         # The read model's default query: newest first within a mode/status.
         Index("forward_test_setups_feed_idx", "mode", "status", "detected_at"),
+        # Segmenting outcomes by the tape they happened in.
+        Index("forward_test_setups_regime_idx", "regime", "mode"),
     )
 
     id: Mapped[str] = mapped_column(ResearchUUID, primary_key=True, default=_new_id)
@@ -99,6 +101,12 @@ class ForwardTestSetup(Base):
     alignment: Mapped[str] = mapped_column(Text, nullable=False)
     alignment_level: Mapped[str] = mapped_column(Text, nullable=False)
     structure_trend: Mapped[str] = mapped_column(Text, nullable=False)
+    # What the whole market was doing at detection — bullish / bearish / choppy
+    # / unknown. A column rather than a key in `evidence` because every stats
+    # cut will want to segment by it; the numbers behind the label stay in
+    # `evidence`. Rows written before this shipped are NULL, which is not the
+    # same claim as "unknown".
+    regime: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Everything else observed at detection: windows, rvol, retracement,
     # completion evidence. One JSONB blob because it is read as a unit and
     # never queried field-by-field.
@@ -136,6 +144,10 @@ class ForwardTestSetup(Base):
     cost_r: Mapped[float] = mapped_column(Double, nullable=False, default=0.0)
     # What alternative exit rules would have produced on this same setup.
     variants: Mapped[dict[str, Any] | None] = mapped_column(ResearchJSON, nullable=True)
+    # The tape at settlement. Separate from `regime` because the interesting
+    # case is the trade that opened in a trend and closed in chop — one field
+    # could never show it.
+    exit_regime: Mapped[str | None] = mapped_column(Text, nullable=True)
     mfe_pct: Mapped[float] = mapped_column(Double, nullable=False, default=0.0)
     mae_pct: Mapped[float] = mapped_column(Double, nullable=False, default=0.0)
     mfe_r: Mapped[float] = mapped_column(Double, nullable=False, default=0.0)

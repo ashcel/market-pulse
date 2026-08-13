@@ -42,6 +42,10 @@ LIFECYCLE_COLUMNS = frozenset(
         "gross_r",
         "cost_r",
         "variants",
+        # Written once, on the settling pass. `regime` (detection) is not here
+        # and must never be: it is a detection-time column, and the allowlist is
+        # what makes that structural rather than a convention.
+        "exit_regime",
         "mfe_pct",
         "mae_pct",
         "mfe_r",
@@ -209,6 +213,39 @@ async def outcome_rows(
     return [(str(row[0]), float(row[1]), float(row[2]), float(row[3])) for row in result.all()]
 
 
+async def regime_outcome_rows(
+    db: AsyncSession, *, mode: str | None = None, generation: int | None = None
+) -> list[tuple[str, str, float, float, float]]:
+    """The same outcome tuples, tagged with the tape they were detected in.
+
+    Rows written before regime was recorded come back as `"unrecorded"` rather
+    than being folded into `unknown`: one means the read said nothing, the other
+    means there was no read at all, and pooling them would put pre-regime
+    history inside a regime bucket.
+    """
+    statement = select(
+        ForwardTestSetup.regime,
+        ForwardTestSetup.status,
+        ForwardTestSetup.realized_r,
+        ForwardTestSetup.mfe_r,
+        ForwardTestSetup.mae_r,
+    ).order_by(ForwardTestSetup.detected_at.asc())
+    if mode:
+        statement = statement.where(ForwardTestSetup.mode == mode)
+    statement = _generation(statement, generation)
+    result = await db.execute(statement)
+    return [
+        (
+            str(row[0]) if row[0] else "unrecorded",
+            str(row[1]),
+            float(row[2]),
+            float(row[3]),
+            float(row[4]),
+        )
+        for row in result.all()
+    ]
+
+
 async def best_setup(
     db: AsyncSession, *, mode: str | None = None, generation: int | None = None
 ) -> ForwardTestSetup | None:
@@ -244,6 +281,35 @@ async def events_for(db: AsyncSession, setup_id: str) -> list[ForwardTestEvent]:
         .order_by(ForwardTestEvent.ts.asc())
     )
     return list(result.scalars().all())
+
+
+async def settled_with_open_variants(
+    db: AsyncSession, limit: int = 200
+) -> list[ForwardTestSetup]:
+    """Settled rows whose alternative exit rules are still running.
+
+    `no_trail` holds to the target and routinely outlives a trailed primary, so
+    these have to be reloaded after a restart too — otherwise the variant is
+    frozen at the primary's exit and the exit-rule comparison quietly reports
+    whatever the primary did. Filtered in Python rather than through a JSONB
+    predicate so the sqlite tests exercise this path unchanged.
+    """
+    result = await db.execute(
+        select(ForwardTestSetup)
+        .where(ForwardTestSetup.settled_at.isnot(None))
+        .where(ForwardTestSetup.variants.isnot(None))
+        .order_by(ForwardTestSetup.settled_at.desc())
+        .limit(limit)
+    )
+    rows = list(result.scalars().all())
+    return [
+        row
+        for row in rows
+        if any(
+            isinstance(blob, dict) and blob.get("status") in ("PENDING_ENTRY", "ACTIVE")
+            for blob in (row.variants or {}).values()
+        )
+    ]
 
 
 async def open_setups(db: AsyncSession) -> list[ForwardTestSetup]:

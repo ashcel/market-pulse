@@ -62,12 +62,17 @@ from smc.forward_test import (
     is_finite_plan,
     open_position,
     outcome_for,
+    position_from_state,
+    position_state,
+    unrealized_r,
 )
 from smc.market_context import MARKET_CONTEXT_VERSION
+from smc.market_regime import MarketRegime
 from smc.momentum import MOMENTUM_VERSION
 from smc.momentum_events import MOMENTUM_EVENTS_VERSION
 from smc.scan_profiles import profile_for, profile_hash
 from smc.situation import PATH_GATED, Situation
+from smc.swing_plan import swing_plan
 from smc.version import ENGINE_VERSION, config_hash, git_sha
 
 from app.database import SessionFactory
@@ -209,10 +214,13 @@ def snapshot_from(
 
 
 def with_flow(
-    snapshot: SetupSnapshot, telemetry: object, structural: object = None
+    snapshot: SetupSnapshot,
+    telemetry: object,
+    structural: object = None,
+    regime: MarketRegime | None = None,
 ) -> SetupSnapshot:
-    """Attaches the price/volume windows and slow structural backing read at
-    the same instant.
+    """Attaches the price/volume windows, the slow structural backing, and the
+    whole-market regime read at the same instant.
 
     Called exactly once, before the snapshot is ever stored — this is part of
     *building* the hypothesis, not revising it. It exists separately only
@@ -223,6 +231,10 @@ def with_flow(
         snapshot,
         structural_state=str(getattr(structural, "state", "") or ""),
         structural_score=float(getattr(structural, "score", 0.0) or 0.0),
+        regime=regime.state if regime is not None else "unknown",
+        regime_breadth=regime.breadth if regime is not None else 0.0,
+        regime_energy_pct=regime.energy_pct if regime is not None else 0.0,
+        regime_sample=regime.sample if regime is not None else 0,
         rvol=getattr(telemetry, "rvol_3m", None) or getattr(telemetry, "rvol_1m", None),
         change_1m_pct=getattr(telemetry, "change_1m_pct", None),
         change_3m_pct=getattr(telemetry, "change_3m_pct", None),
@@ -259,6 +271,7 @@ def setup_values(snapshot: SetupSnapshot, position: PaperPosition, key: str) -> 
         "alignment": snapshot.alignment,
         "alignment_level": snapshot.alignment_level,
         "structure_trend": snapshot.structure_trend,
+        "regime": snapshot.regime,
         "evidence": {
             "headline_event": snapshot.headline_event,
             "event_age_seconds": snapshot.event_age_seconds,
@@ -275,6 +288,11 @@ def setup_values(snapshot: SetupSnapshot, position: PaperPosition, key: str) -> 
             # Slow structural backing, for later segmentation. Never a gate.
             "structural_state": snapshot.structural_state,
             "structural_score": snapshot.structural_score,
+            # The numbers the `regime` column's label came from, so a later
+            # analysis can re-cut the threshold without replaying the tape.
+            "regime_breadth": snapshot.regime_breadth,
+            "regime_energy_pct": snapshot.regime_energy_pct,
+            "regime_sample": snapshot.regime_sample,
         },
         "strategy_version": STRATEGY_VERSION,
         # The exact detector configuration, so revisions never pool.
@@ -347,6 +365,11 @@ def lifecycle_values(
         "last_price": position.last_price,
         "updated_at": repo.to_utc(position.updated_at),
     }
+    if alternatives is not None:
+        values["variants"] = alternatives
+    if position.is_settled and regime is not None:
+        values["exit_regime"] = regime.state
+    return values
 
 
 def snapshot_from_row(row: object) -> SetupSnapshot:
@@ -396,6 +419,10 @@ def snapshot_from_row(row: object) -> SetupSnapshot:
         liquidity_target=bool(evidence.get("liquidity_target")),
         structural_state=str(evidence.get("structural_state") or ""),
         structural_score=float(evidence.get("structural_score") or 0.0),
+        regime=str(getattr(row, "regime", None) or "unknown"),
+        regime_breadth=float(evidence.get("regime_breadth") or 0.0),
+        regime_energy_pct=float(evidence.get("regime_energy_pct") or 0.0),
+        regime_sample=int(evidence.get("regime_sample") or 0),
         engine_version=row.engine_version,  # type: ignore[attr-defined]
         momentum_version=str(versions.get("momentum", "")),
         events_version=str(versions.get("events", "")),
@@ -655,7 +682,7 @@ class ForwardTestRecorder:
                     await repo.update_lifecycle(
                         db,
                         setup_id,
-                        lifecycle_values(advanced, total, alternatives),
+                        lifecycle_values(advanced, total, alternatives, self.scanner.regime, plans),
                     )
                     await repo.insert_events(
                         db, [event_values(setup_id, event) for event in events]

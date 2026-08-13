@@ -990,3 +990,176 @@ async def test_an_open_row_is_served_with_a_live_mark_and_a_running_clock(
     assert row["mfe_r"] == 1.1
     assert row["unrealized_r"] > 0
     assert row["time_in_trade"] is not None and row["time_in_trade"] > 500
+
+
+# ── the tape a record happened in ────────────────────────────────────────────
+
+
+def test_the_regime_is_frozen_onto_the_hypothesis_at_detection() -> None:
+    """Without this the record cannot tell a trending afternoon from overnight
+    chop, and two cohorts run through different tape look like two detectors."""
+    from smc.market_regime import read_regime
+
+    from app.research.recorder import with_flow
+
+    class Metrics:
+        rvol_3m = 2.0
+        change_1m_pct = 0.4
+        change_3m_pct = 0.9
+        change_5m_pct = 1.2
+        change_15m_pct = 2.0
+
+    class Tape:
+        def __init__(self, symbol: str, change: float) -> None:
+            self.symbol = symbol
+            self.change_15m_pct = change
+            self.quote_volume_24h = 50_000_000.0
+
+    regime = read_regime([Tape(f"S{i}", 1.0) for i in range(60)])
+    assert regime.state == "bullish"
+
+    snapshot = snapshot_from(situation(), T0, CFG)
+    assert snapshot is not None
+    frozen = with_flow(snapshot, Metrics(), None, regime)
+
+    assert frozen.regime == "bullish"
+    assert frozen.regime_breadth == 1.0
+    assert frozen.regime_sample == 60
+
+
+def test_a_snapshot_built_without_a_regime_reads_unknown_not_a_direction() -> None:
+    from app.research.recorder import with_flow
+
+    class Metrics:
+        rvol_3m = None
+        change_1m_pct = None
+        change_3m_pct = None
+        change_5m_pct = None
+        change_15m_pct = None
+
+    snapshot = snapshot_from(situation(), T0, CFG)
+    assert snapshot is not None
+    assert with_flow(snapshot, Metrics(), None, None).regime == "unknown"
+
+
+@pytest.mark.anyio
+async def test_the_detection_regime_persists_and_survives_a_restart(db: AsyncSession) -> None:
+    from app.research.recorder import snapshot_from_row
+
+    snapshot = snapshot_from(situation(), T0, CFG)
+    assert snapshot is not None
+    frozen = replace(
+        snapshot,
+        regime="bearish",
+        regime_breadth=-0.62,
+        regime_energy_pct=0.84,
+        regime_sample=180,
+    )
+    position, _ = open_position(frozen, T0, 100.0, CFG)
+    key = setup_key(situation())
+    setup_id = await repo.insert_setup(db, setup_values(frozen, position, key))
+    assert setup_id is not None
+
+    row = await repo.find_row(db, key)
+    assert row is not None
+    assert row.regime == "bearish"
+    # The label is a column; the numbers behind it stay in evidence so the
+    # threshold can be re-cut later without replaying the tape.
+    assert row.evidence["regime_breadth"] == pytest.approx(-0.62)
+    assert row.evidence["regime_sample"] == 180
+
+    restored = snapshot_from_row(row)
+    assert restored.regime == "bearish"
+    assert restored.regime_breadth == pytest.approx(-0.62)
+    assert restored.regime_energy_pct == pytest.approx(0.84)
+
+
+@pytest.mark.anyio
+async def test_the_exit_regime_is_written_only_when_the_position_settles(
+    db: AsyncSession,
+) -> None:
+    """A mid-flight update must not stamp an exit tape: the row would then
+    claim a settlement condition for a position that is still open."""
+    from smc.market_regime import read_regime
+
+    class Tape:
+        def __init__(self, change: float) -> None:
+            self.symbol = "S"
+            self.change_15m_pct = change
+            self.quote_volume_24h = 50_000_000.0
+
+    choppy = read_regime([Tape(1.0 if i % 2 else -1.0) for i in range(80)])
+    assert choppy.state == "choppy"
+
+    snapshot = snapshot_from(situation(), T0, CFG)
+    assert snapshot is not None
+    position, _ = open_position(snapshot, T0, 100.0, CFG)
+    key = setup_key(situation())
+    setup_id = await repo.insert_setup(db, setup_values(snapshot, position, key))
+    assert setup_id is not None
+
+    active = replace(position, status="ACTIVE", entered_at=T0 + 10, entry_price=100.2)
+    await repo.update_lifecycle(db, setup_id, lifecycle_values(active, 2, None, choppy))
+    row = await repo.find_row(db, key)
+    assert row is not None and row.exit_regime is None
+
+    settled = replace(active, status="INVALIDATED", settled_at=T0 + 90, realized_r=-1.0)
+    await repo.update_lifecycle(db, setup_id, lifecycle_values(settled, 3, None, choppy))
+    row = await repo.find_row(db, key)
+    assert row is not None and row.exit_regime == "choppy"
+    # …and the detection-time regime was never touched by a lifecycle write.
+    assert row.regime == snapshot.regime
+
+
+@pytest.mark.anyio
+async def test_the_detection_regime_cannot_be_rewritten_through_a_lifecycle_update(
+    db: AsyncSession,
+) -> None:
+    """The allowlist is the no-lookahead guarantee; `regime` is detection-time
+    and must be outside it."""
+    snapshot = snapshot_from(situation(), T0, CFG)
+    assert snapshot is not None
+    frozen = replace(snapshot, regime="bullish")
+    position, _ = open_position(frozen, T0, 100.0, CFG)
+    key = setup_key(situation())
+    setup_id = await repo.insert_setup(db, setup_values(frozen, position, key))
+    assert setup_id is not None
+
+    await repo.update_lifecycle(db, setup_id, {"regime": "bearish", "last_price": 99.0})
+    row = await repo.find_row(db, key)
+    assert row is not None
+    assert row.regime == "bullish"
+    assert row.last_price == 99.0
+
+
+@pytest.mark.anyio
+async def test_statistics_segment_by_the_tape_and_never_pool_pre_regime_rows(
+    db: AsyncSession,
+) -> None:
+    from app.research.router import _stats_by_regime
+
+    snapshot = snapshot_from(situation(), T0, CFG)
+    assert snapshot is not None
+    position, _ = open_position(snapshot, T0, 100.0, CFG)
+    plan = [("bullish", 2.0), ("bullish", 1.0), ("choppy", -1.0), (None, 3.0)]
+    for index, (regime, realized) in enumerate(plan):
+        values = setup_values(
+            replace(snapshot, regime=regime or "unknown"),
+            position,
+            f"SCALP:TST:{index}",
+        )
+        values["regime"] = regime
+        values["status"] = "TARGET_HIT" if realized > 0 else "INVALIDATED"
+        values["realized_r"] = realized
+        values["settled_at"] = repo.to_utc(T0 + 100 + index)
+        values["detected_at"] = repo.to_utc(T0 + index)
+        await repo.insert_setup(db, values)
+
+    buckets = _stats_by_regime(await repo.regime_outcome_rows(db))
+
+    assert buckets["bullish"].total == 2
+    assert buckets["bullish"].total_r == pytest.approx(3.0)
+    assert buckets["choppy"].total_r == pytest.approx(-1.0)
+    # A row from before regime was recorded is not a regime observation.
+    assert buckets["unrecorded"].total == 1
+    assert "bearish" not in buckets

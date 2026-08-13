@@ -794,6 +794,39 @@
         "primary": "Current (trail 1R)",
         "won": "won",
         "note": "Same detections, same entries, same prices — only the exit rule differs. Net of costs."
+      },
+      "floatingHint": "Floating R at the last observed price, already net of the round trip.",
+      "cohort": {
+        "current": "Current cohort",
+        "all": "All cohorts",
+        "warning": "Showing every detector generation. Rows recorded under different geometry, costs or capture rules are different experiments — read them per row, never as one average."
+      },
+      "sim": {
+        "title": "What this would have done to an account",
+        "capital": "Capital ($)",
+        "risk": "Risk per trade (%)",
+        "ending": "Ending",
+        "change": "Change",
+        "drawdown": "Max drawdown",
+        "extremes": "Best / worst trade",
+        "note": "Fixed fractional risk over {{trades}} settled setups, in settlement order, compounding on equity. R is already net of fees and slippage. A tiny sample of a live experiment — not a projection.",
+        "overlapNote": "{{count}} of them are repeat symbols; a real account holding them at once would have felt a deeper drawdown than the one shown.",
+        "emptyNote": "No settled setups in this cohort yet — the numbers appear as soon as one closes. Generation 4 started fresh; earlier rows are under “All cohorts”.",
+        "lede": "Fixed fractional risk, in settlement order",
+        "curveLabel": "Account equity across settled setups",
+        "tradeOf": "Trade {{index}} of {{total}}"
+      },
+      "regime": {
+        "bullish": "bullish tape",
+        "bearish": "bearish tape",
+        "choppy": "chop",
+        "unknown": "tape unread",
+        "unrecorded": "tape unrecorded"
+      },
+      "byRegime": {
+        "title": "By the tape it happened in",
+        "detail": "{{count}} settled · {{win}}% won · {{avg}}R avg",
+        "note": "The market-wide read at detection — breadth across every liquid perpetual, not this symbol's own bias. A rule that only works in one of these is not a rule yet."
       }
     }
   },

@@ -250,6 +250,15 @@ class SetupSnapshot:
     structural_state: str = ""
     structural_score: float = 0.0
 
+    # What the whole tape was doing at detection (`smc.market_regime`), and the
+    # numbers the label came from. Recorded, never consulted: a cohort run
+    # through a trending afternoon and one run through overnight chop are not
+    # comparable, and without this the record cannot tell them apart.
+    regime: str = "unknown"
+    regime_breadth: float = 0.0
+    regime_energy_pct: float = 0.0
+    regime_sample: int = 0
+
     @property
     def risk(self) -> float:
         """Distance from the reference entry to the structural invalidation."""

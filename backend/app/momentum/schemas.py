@@ -254,6 +254,28 @@ class FunnelResponse(BaseModel):
     surfaced: int
 
 
+class RegimeResponse(BaseModel):
+    """The whole-market read at this tick (`smc.market_regime`).
+
+    Context for the situations below it, never a filter on them: no card is
+    shown, hidden or ranked by this. `unknown` means too few liquid symbols had
+    the window yet — the honest answer during a cold start, and not the same
+    claim as `choppy`.
+    """
+
+    # bullish | bearish | choppy | unknown.
+    state: str = "unknown"
+    # Advancing minus declining share, -1.0 … +1.0.
+    breadth: float = 0.0
+    # Median absolute move across voting symbols — separates a dead range from
+    # a violent two-sided tape, which share the `choppy` label.
+    energy_pct: float = 0.0
+    # How many symbols voted, out of how many were seen.
+    sample: int = 0
+    universe: int = 0
+    version: str = ""
+
+
 class RadarData(BaseModel):
     updated_at: float
     # SCALP | INTRADAY — which profile produced this snapshot.
@@ -272,6 +294,7 @@ class RadarData(BaseModel):
     # "ws" | "rest" | "starting" — the transport feeding the in-memory store.
     feed: str
     warming_up: bool
+    regime: RegimeResponse = Field(default_factory=RegimeResponse)
     funnel: FunnelResponse
     # The surfaced situations, ranked. Often short, sometimes empty — that is
     # the design, not a failure.

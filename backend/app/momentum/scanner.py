@@ -43,6 +43,7 @@ import time
 from dataclasses import dataclass, field
 
 from smc.market_context import MARKET_CONTEXT_VERSION
+from smc.market_regime import UNKNOWN_REGIME, MarketRegime, read_regime
 from smc.micro_structure import MicroStructureRead, is_new_break, read_micro_structure
 from smc.momentum import (
     MOMENTUM_VERSION,
@@ -146,6 +147,10 @@ class RadarSnapshot:
     feed: str
     # True until the store has enough history for the working windows.
     warming_up: bool
+    # The whole tape at this instant. Observation only — no stage of the
+    # pipeline reads it; it rides along so the UI and the forward-test record
+    # describe the same market at the same moment.
+    regime: MarketRegime
     funnel: FunnelCounts
     # The surfaced situations, ranked. Deliberately short — often empty.
     situations: list[RadarEntry] = field(default_factory=list)
@@ -196,6 +201,9 @@ class MomentumScanner:
         self._task: asyncio.Task[None] | None = None
         self._stopping = False
         self._revision = 0
+        # Whole-market read from the last tick. Observation only — no stage of
+        # the pipeline consults it; it is here to be recorded alongside outcomes.
+        self._regime: MarketRegime = UNKNOWN_REGIME
 
     # ── lifecycle ───────────────────────────────────────────────────────────
 
@@ -234,6 +242,9 @@ class MomentumScanner:
         metrics_list = self.store.snapshot_metrics(now)
         self._metrics = {m.symbol: m for m in metrics_list}
         warming = sum(1 for m in metrics_list if m.warming_up)
+        # One pass over the list already in hand, before any mode runs, so both
+        # modes and the recorder see the same tape read for this instant.
+        self._regime = read_regime(metrics_list)
 
         # Micro structure is mode-independent and expensive, so it is read once
         # per symbol per sub-cadence and shared by both modes.
@@ -495,6 +506,7 @@ class MomentumScanner:
             # Warming up only while a majority of the universe still lacks the
             # working windows — a few fresh listings must not pin the radar.
             warming_up=tracked == 0 or warming > tracked / 2,
+            regime=self._regime,
             funnel=funnel,
             situations=[e for e in (self._entry(s, now) for s in shown) if e is not None],
             closed=[e for e in (self._entry(s, now) for s in closed) if e is not None],
@@ -509,6 +521,11 @@ class MomentumScanner:
     @property
     def revision(self) -> int:
         return self._revision
+
+    @property
+    def regime(self) -> MarketRegime:
+        """The tape as of the last tick. `unknown` before the first one."""
+        return self._regime
 
     def state_for(self, mode: str = "SCALP") -> ModeState:
         return self.modes[profile_for(mode).mode]
@@ -539,6 +556,7 @@ def _empty_snapshot(mode: str) -> RadarSnapshot:
         connected=False,
         feed="starting",
         warming_up=True,
+        regime=UNKNOWN_REGIME,
         funnel=FunnelCounts(0, 0, 0, 0, 0, 0, 0, 0),
     )
 

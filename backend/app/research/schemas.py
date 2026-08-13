@@ -38,6 +38,9 @@ class ForwardTestSetupResponse(BaseModel):
     htf_bias: str
     alignment: str
     alignment_level: str
+    # The whole tape at detection: bullish | bearish | choppy | unknown, or ""
+    # for rows written before regime was recorded at all.
+    regime: str = ""
     evidence: dict[str, Any] = Field(default_factory=dict)
 
     # The lifecycle. `active_stop` may differ from `initial_invalidation`; the
@@ -60,13 +63,21 @@ class ForwardTestSetupResponse(BaseModel):
     cost_r: float = 0.0
     # What alternative exit rules would have produced on this same setup.
     variants: dict[str, Any] = Field(default_factory=dict)
+    # The tape at settlement, when it differs from the tape at detection this
+    # is the trade that outlived its conditions.
+    exit_regime: str = ""
     mfe_pct: float = 0.0
     mae_pct: float = 0.0
     mfe_r: float = 0.0
     mae_r: float = 0.0
     pending_mfe_pct: float = 0.0
+    # Floating R for an open position, marked at the last observed price and
+    # net of the round trip. Zero once settled — `realized_r` is the answer
+    # there, and two fields claiming to be the outcome would be one too many.
+    unrealized_r: float = 0.0
     touched_zone: bool = False
-    # Seconds from detection to entry, and from entry to settlement.
+    # Seconds from detection to entry, and from entry to settlement (to *now*
+    # while the position is still open).
     time_to_entry: float | None = None
     time_in_trade: float | None = None
     last_price: float = 0.0
@@ -135,6 +146,11 @@ class ForwardTestData(BaseModel):
     mode: str | None = None
     summary: ForwardTestSummaryResponse
     stats: ForwardTestStatsResponse
+    # The same statistics cut by the tape each setup was detected in, keyed
+    # bullish | bearish | choppy | unknown | unrecorded. A rule that only works
+    # in one of these is not a rule that works, and one number over all of them
+    # cannot show that.
+    by_regime: dict[str, ForwardTestStatsResponse] = Field(default_factory=dict)
     setups: list[ForwardTestSetupResponse] = Field(default_factory=list)
 
 
