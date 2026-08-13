@@ -742,6 +742,15 @@ class Variant:
 
     name: str
     config: ForwardTestConfig
+    #: True when the variant tests a different *plan* — its own stop and
+    #: target — rather than only a different exit rule.
+    #:
+    #: Settlement is unchanged either way: a plan-varying alternative is
+    #: advanced against **its own frozen snapshot**, built once at detection by
+    #: the recorder, never by transforming the primary's. The invariant at the
+    #: top of this module still holds — no snapshot is ever revised, there are
+    #: simply two of them, each frozen at the same instant.
+    varies_plan: bool = False
 
 
 #: The rules under test. `primary` is the one whose result is the record's
@@ -753,12 +762,23 @@ def default_variants(primary: ForwardTestConfig) -> tuple[Variant, ...]:
       hypothesis, stated precisely enough to be settled.
     * `wide_trail` — engage later and follow further back, so a normal
       retracement does not scratch a trade that reached 1R.
+    * `structural_swing` — the same detection re-planned against slow 4H/1H
+      structure (`smc.swing_plan`) and given days rather than hours to
+      resolve. The question it settles: is the fast lane better used as a
+      *trigger* for a structural hold than as a trade in its own right? Cost
+      is `round_trip_pct / risk_pct`, so a structurally wider stop starts with
+      an arithmetic advantage and has to earn the rest.
     """
     return (
         Variant("no_trail", replace(primary, trailing_mode="NONE")),
         Variant(
             "wide_trail",
             replace(primary, trailing_activation_r=1.5, trailing_distance_r=1.5),
+        ),
+        Variant(
+            "structural_swing",
+            replace(primary, entry_window_seconds=14_400.0, max_holding_seconds=259_200.0),
+            varies_plan=True,
         ),
     )
 

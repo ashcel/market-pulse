@@ -11,6 +11,7 @@ no update can reach, and lifecycle history that is only ever appended.
 
 from collections.abc import AsyncIterator
 from dataclasses import replace
+from types import SimpleNamespace
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -712,7 +713,7 @@ async def test_variant_outcomes_are_persisted_alongside_the_primary(db: AsyncSes
     row = await db.get(ForwardTestSetup, setup_id)
     assert row is not None
     assert row.variants is not None
-    assert set(row.variants) == {"no_trail", "wide_trail"}
+    assert set(row.variants) == {"no_trail", "wide_trail", "structural_swing"}
     assert row.variants["no_trail"]["status"] == "TARGET_HIT"
     # Costs are split out, not folded silently into the headline number.
     assert row.gross_r > row.realized_r
@@ -1163,3 +1164,91 @@ async def test_statistics_segment_by_the_tape_and_never_pool_pre_regime_rows(
     # A row from before regime was recorded is not a regime observation.
     assert buckets["unrecorded"].total == 1
     assert "bearish" not in buckets
+
+
+# ── plan-varying alternatives ────────────────────────────────────────────────
+
+
+def test_only_the_swing_variant_varies_the_plan() -> None:
+    """Exit-rule variants must keep the primary's geometry, or the comparison
+    stops being about exits."""
+    from smc.forward_test import default_variants
+
+    varying = {v.name for v in default_variants(CFG) if v.varies_plan}
+    assert varying == {"structural_swing"}
+
+
+def test_a_plan_varying_alternative_persists_its_own_plan() -> None:
+    """Without the plan on the row, a resumed swing variant would be settled
+    against the *fast* stop — answering a different question, silently."""
+    from dataclasses import replace as dc_replace
+
+    from app.research.recorder import plan_values, variant_values
+
+    snapshot = snapshot_from(situation(), T0, CFG)
+    assert snapshot is not None
+    swing = dc_replace(
+        snapshot,
+        initial_invalidation=108.0,
+        target=80.0,
+        potential_rr=2.5,
+        target_kind="equal_lows",
+    )
+    position, _ = open_position(snapshot, T0, 100.0, CFG)
+    blob = variant_values(
+        {"no_trail": position, "structural_swing": position},
+        {"structural_swing": swing},
+    )
+    assert blob is not None
+    assert "plan" not in blob["no_trail"]
+    assert blob["structural_swing"]["plan"] == plan_values(swing)
+    assert blob["structural_swing"]["plan"]["initial_invalidation"] == 108.0
+
+
+def test_a_stored_plan_is_restored_not_recomputed() -> None:
+    from dataclasses import replace as dc_replace
+
+    from app.research.recorder import variant_plans_from_row, variant_values
+
+    snapshot = snapshot_from(situation(), T0, CFG)
+    assert snapshot is not None
+    swing = dc_replace(snapshot, initial_invalidation=108.0, target=80.0, potential_rr=2.5)
+    position, _ = open_position(snapshot, T0, 100.0, CFG)
+
+    row = SimpleNamespace(
+        variants=variant_values(
+            {"no_trail": position, "structural_swing": position},
+            {"structural_swing": swing},
+        )
+    )
+
+    restored = variant_plans_from_row(row, snapshot)
+    # Exit-rule variants have no plan of their own and must not gain one.
+    assert set(restored) == {"structural_swing"}
+    assert restored["structural_swing"].initial_invalidation == 108.0
+    assert restored["structural_swing"].target == 80.0
+    # …and everything that is not the plan still comes from the primary.
+    assert restored["structural_swing"].symbol == snapshot.symbol
+    assert restored["structural_swing"].detected_at == snapshot.detected_at
+    assert restored["structural_swing"].regime == snapshot.regime
+
+
+def test_an_unreadable_plan_is_dropped_rather_than_guessed() -> None:
+    from app.research.recorder import variant_plans_from_row
+
+    snapshot = snapshot_from(situation(), T0, CFG)
+    assert snapshot is not None
+
+    row = SimpleNamespace(variants={"structural_swing": {"state": {}, "plan": {"target": 80.0}}})
+
+    assert variant_plans_from_row(row, snapshot) == {}
+
+
+def test_the_swing_variant_gets_days_not_hours() -> None:
+    """A structural hold that inherited the scalp's 2h timeout would expire
+    before its thesis resolved, and the comparison would measure the clock."""
+    from smc.forward_test import default_variants
+
+    swing = next(v for v in default_variants(CFG) if v.name == "structural_swing")
+    assert swing.config.max_holding_seconds > CFG.max_holding_seconds * 10
+    assert swing.config.entry_window_seconds > CFG.entry_window_seconds

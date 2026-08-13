@@ -82,6 +82,12 @@ from app.research import repo
 
 logger = logging.getLogger("research.recorder")
 
+#: The slow lane the `structural_swing` variant re-plans against. Taken from
+#: the SWING profile so its geometry and patience come from one place, whatever
+#: mode did the detecting.
+_SWING_PROFILE = profile_for("SWING")
+_SWING_TIMEFRAMES = _SWING_PROFILE.structure_timeframes
+
 #: Bumped when the *recording rules* change (entry model, settlement,
 #: trailing) — separately from the detector's own versions, so a dataset can
 #: always be traced to both.
@@ -321,28 +327,120 @@ def _variant_config(primary: ForwardTestConfig, name: str) -> ForwardTestConfig:
     return primary
 
 
+#: The detection-time plan fields a plan-varying alternative overrides. Only
+#: these: an alternative is the *same* observation of the *same* symbol at the
+#: *same* instant, differing solely in the geometry laid over it.
+_PLAN_FIELDS = (
+    "entry_low",
+    "entry_high",
+    "reference_entry",
+    "initial_invalidation",
+    "target",
+    "target_kind",
+    "potential_rr",
+)
+
+
+def plan_values(snapshot: SetupSnapshot) -> dict[str, object]:
+    """The overridden plan, JSON-safe, for the `variants` column."""
+    return {name: getattr(snapshot, name) for name in _PLAN_FIELDS}
+
+
+def variant_values(
+    variants: dict[str, PaperPosition],
+    plans: dict[str, SetupSnapshot] | None = None,
+) -> dict[str, object] | None:
+    """The `variants` column: one outcome per alternative rule, each carrying
+    its full lifecycle state so an alternative still running after a restart
+    resumes instead of freezing at whatever it last happened to be.
+
+    A plan-varying alternative also carries the plan itself. Without it a
+    resumed swing variant would be settled against the *fast* stop and target,
+    which would not merely be inaccurate — it would silently answer a
+    different question than the one the column exists to ask.
+    """
+    if not variants:
+        return None
+    plans = plans or {}
+    blobs: dict[str, object] = {}
+    for name, alt in variants.items():
+        blob: dict[str, object] = {
+            "status": outcome_for(name, alt).status,
+            "realized_r": alt.realized_r,
+            "gross_r": alt.gross_r,
+            "cost_r": alt.cost_r,
+            "mfe_r": alt.mfe_r,
+            "mae_r": alt.mae_r,
+            "exit_reason": alt.exit_reason,
+            "settled_at": alt.settled_at,
+            "state": position_state(alt),
+        }
+        if name in plans:
+            blob["plan"] = plan_values(plans[name])
+        blobs[name] = blob
+    return blobs
+
+
+def variants_from_row(row: object) -> dict[str, PaperPosition]:
+    """Rebuilds the alternative positions from the stored column. A blob
+    written before variant state was persisted has no `state` and is dropped
+    rather than resumed from a summary — a wrong resume would corrupt the
+    comparison the column exists for."""
+    stored = getattr(row, "variants", None) or {}
+    rebuilt: dict[str, PaperPosition] = {}
+    for name, blob in stored.items():
+        state = blob.get("state") if isinstance(blob, dict) else None
+        if not state:
+            continue
+        try:
+            rebuilt[name] = position_from_state(state)
+        except (TypeError, ValueError):
+            logger.warning("[forward-test] unreadable variant state for %s", name)
+    return rebuilt
+
+
+def variant_plans_from_row(row: object, primary: SetupSnapshot) -> dict[str, SetupSnapshot]:
+    """Rebuilds each plan-varying alternative's frozen hypothesis.
+
+    A restore, not a revision: every value here was written at detection and is
+    read straight back. Alternatives without a stored plan are absent, and the
+    caller then settles them against the primary — which is correct, because
+    those are the ones that only ever varied the exit rule.
+    """
+    stored = getattr(row, "variants", None) or {}
+    rebuilt: dict[str, SetupSnapshot] = {}
+    for name, blob in stored.items():
+        plan = blob.get("plan") if isinstance(blob, dict) else None
+        if not plan:
+            continue
+        try:
+            rebuilt[name] = replace(primary, **{k: plan[k] for k in _PLAN_FIELDS})
+        except (KeyError, TypeError, ValueError):
+            logger.warning("[forward-test] unreadable variant plan for %s", name)
+    return rebuilt
+
+
 def lifecycle_values(
     position: PaperPosition,
     event_count: int,
     variants: dict[str, PaperPosition] | None = None,
+    regime: MarketRegime | None = None,
+    plans: dict[str, SetupSnapshot] | None = None,
 ) -> dict[str, object]:
-    """The update payload — lifecycle and outcome only."""
-    return {
+    """The update payload — lifecycle and outcome only.
+
+    `variants` is omitted rather than nulled when there is nothing to write, so
+    a pass that has no alternatives in memory cannot erase the ones already on
+    the row.
+
+    `exit_regime` is written only on the pass that settles the position. Writing
+    it on every update would leave the last mark before settlement, which is the
+    same value nine times out of ten and a lie the tenth.
+    """
+    alternatives = variant_values(variants or {}, plans or {})
+    values: dict[str, object] = {
         "gross_r": position.gross_r,
         "cost_r": position.cost_r,
-        "variants": {
-            name: {
-                "status": outcome_for(name, alt).status,
-                "realized_r": alt.realized_r,
-                "gross_r": alt.gross_r,
-                "cost_r": alt.cost_r,
-                "mfe_r": alt.mfe_r,
-                "mae_r": alt.mae_r,
-                "exit_reason": alt.exit_reason,
-            }
-            for name, alt in (variants or {}).items()
-        }
-        or None,
         "status": position.status,
         "zone_touched_at": repo.to_utc(position.zone_touched_at),
         "entered_at": repo.to_utc(position.entered_at),
@@ -543,18 +641,44 @@ class ForwardTestRecorder:
         """
         async with SessionFactory() as db:
             rows = await repo.open_setups(db)
+            trailing = await repo.settled_with_open_variants(db)
         for row in rows:
             key = row.setup_key
             if key in self._open or key in self._closed:
                 continue
+            primary = snapshot_from_row(row)
             self._open[key] = (
                 str(row.id),
-                snapshot_from_row(row),
+                primary,
                 position_from_row(row),
                 row.event_count,
             )
-        if rows:
-            logger.info("[forward-test] resumed %d open setup(s) after restart", len(rows))
+            variants = variants_from_row(row)
+            if variants:
+                self._variants[key] = variants
+                plans = variant_plans_from_row(row, primary)
+                if plans:
+                    self._plans[key] = plans
+        for row in trailing:
+            key = row.setup_key
+            if key in self._variant_only:
+                continue
+            variants = variants_from_row(row)
+            if any(position.is_open for position in variants.values()):
+                primary = snapshot_from_row(row)
+                self._closed.add(key)
+                self._variant_only[key] = (
+                    str(row.id),
+                    primary,
+                    variants,
+                    variant_plans_from_row(row, primary),
+                )
+        if rows or trailing:
+            logger.info(
+                "[forward-test] resumed %d open setup(s) and %d trailing variant set(s)",
+                len(rows),
+                len(self._variant_only),
+            )
         return len(rows)
 
     async def stop(self) -> None:
@@ -590,6 +714,80 @@ class ForwardTestRecorder:
         self.ticks += 1
         return writes
 
+    def conflict_for(self, symbol: str, mode: str, direction: str | None) -> str | None:
+        """Why a symbol already under observation blocks a new record.
+
+        One live hypothesis per symbol, whatever the mode or direction. The
+        detector's clock and the position's clock are independent — a situation
+        can end, re-fire minutes later with a new `first_seen`, and mint a
+        second row while the first position is still running — and the two were
+        never checked against each other. That produced exactly what it sounds
+        like: one price move recorded as several outcomes, and on one symbol a
+        long opened while a short was still open.
+
+        Neither is a sample. Two records on one symbol are one price series
+        counted twice, and a long and a short at once cannot both be right.
+        Neither is actionable either. So the first hypothesis holds the symbol
+        until it settles, and every later one is counted as a rejection instead
+        of a row.
+
+        The cost is deliberate and worth naming: the mode comparison now
+        happens across time rather than simultaneously, and the faster profile
+        reaches a symbol first more often — so SCALP will claim contested
+        symbols and INTRADAY/SWING will record fewer of them. `skipped_conflicts`
+        is what keeps that visible instead of silent.
+        """
+        for _, snap, _, _ in self._open.values():
+            if snap.symbol != symbol:
+                continue
+            if snap.mode == mode:
+                return "same_mode_open"
+            if direction is not None and snap.direction != direction:
+                return "opposite_direction_open"
+            return "symbol_already_open"
+        return None
+
+    def _swing_snapshot(self, frozen: SetupSnapshot) -> SetupSnapshot | None:
+        """The same detection re-planned against slow 4H/1H structure.
+
+        Reads only the structure the slow lane has already cached — no fetch,
+        no recompute — so the alternative hypothesis is frozen from the same
+        instant as the primary and inherits its no-lookahead guarantee.
+
+        `None` whenever slow structure offers no plan, which is most of the
+        time and is the honest answer: the fast event fired, and nothing on
+        the 4H said anything about it.
+        """
+        cache = getattr(self.scanner, "context_cache", None)
+        if cache is None:
+            return None
+        maps = cache.maps(frozen.symbol, _SWING_TIMEFRAMES)
+        if not maps:
+            return None
+        path = swing_plan(
+            frozen.direction,
+            frozen.reference_entry,
+            maps,
+            config=_SWING_PROFILE.path,
+        )
+        if path is None or path.verdict == "SKIP":
+            return None
+        if not is_finite_plan(path.entry, path.invalidation, path.target):
+            return None
+        low, high = entry_zone(
+            frozen.direction, path.entry, path.invalidation, _SWING_PROFILE.forward_test
+        )
+        return replace(
+            frozen,
+            entry_low=low,
+            entry_high=high,
+            reference_entry=path.entry,
+            initial_invalidation=path.invalidation,
+            target=path.target,
+            target_kind=path.target_kind,
+            potential_rr=path.rr,
+        )
+
     async def _capture(self, mode: str, now: float) -> int:
         snapshot = self.scanner.snapshot(mode)
         writes = 0
@@ -600,20 +798,49 @@ class ForwardTestRecorder:
             key = setup_key(situation)
             if key in self._open or key in self._closed:
                 continue
+            conflict = self.conflict_for(situation.symbol, situation.mode, situation.direction)
+            if conflict is not None:
+                # Counted and logged once per situation, not once per tick: a
+                # blocked setup stays qualified for as long as it lives, and a
+                # per-tick count would read as hundreds of rejections.
+                if key not in self._skipped:
+                    self._skipped.add(key)
+                    self.skipped_conflicts += 1
+                    logger.info(
+                        "[forward-test] skipped %s %s %s — %s",
+                        situation.mode,
+                        situation.symbol,
+                        situation.direction,
+                        conflict,
+                    )
+                continue
             frozen = snapshot_from(situation, now, profile_for(situation.mode).forward_test)
             if frozen is None:
                 continue
             profile = profile_for(situation.mode)
             config = profile.forward_test
-            frozen = with_flow(frozen, entry.metrics, entry.structural)
+            frozen = with_flow(frozen, entry.metrics, entry.structural, self.scanner.regime)
             position, events = open_position(frozen, now, entry.metrics.price, config)
             # The same hypothesis under alternative exit rules. Identical
             # detection, identical entry, identical price stream — the only
             # honest way to compare exits.
-            variants = {
-                variant.name: open_position(frozen, now, entry.metrics.price, variant.config)[0]
-                for variant in default_variants(config)
-            }
+            plans: dict[str, SetupSnapshot] = {}
+            variants: dict[str, PaperPosition] = {}
+            for variant in default_variants(config):
+                hypothesis = frozen
+                if variant.varies_plan:
+                    alternative = self._swing_snapshot(frozen)
+                    if alternative is None:
+                        # Slow structure had no plan here. Recording the fast
+                        # geometry under the swing variant's name would answer
+                        # the wrong question, so the alternative is simply
+                        # absent for this setup.
+                        continue
+                    hypothesis = alternative
+                    plans[variant.name] = alternative
+                variants[variant.name] = open_position(
+                    hypothesis, now, entry.metrics.price, variant.config
+                )[0]
 
             async with SessionFactory() as db:
                 setup_id = await repo.insert_setup(db, setup_values(frozen, position, key))
@@ -633,19 +860,38 @@ class ForwardTestRecorder:
                         position_from_row(existing),
                         existing.event_count,
                     )
+                    adopted = variants_from_row(existing)
+                    # A row written before variant state was stored comes back
+                    # without one. Starting its alternatives fresh here would
+                    # date them from the adoption rather than the detection, so
+                    # they are left off the row instead of faked.
+                    if adopted:
+                        self._variants[key] = adopted
+                        adopted_plans = variant_plans_from_row(existing, frozen)
+                        if adopted_plans:
+                            self._plans[key] = adopted_plans
                     continue
                 await repo.insert_events(db, [event_values(setup_id, e) for e in events])
             self._open[key] = (setup_id, frozen, position, len(events))
             self._variants[key] = variants
+            if plans:
+                self._plans[key] = plans
             self.captured += 1
             writes += 1
+            swing = plans.get("structural_swing")
             logger.info(
-                "[forward-test] captured %s %s %s @ %.6g (%.1fR)",
+                "[forward-test] captured %s %s %s @ %.6g (%.1fR) in a %s tape — swing %s",
                 frozen.mode,
                 frozen.symbol,
                 frozen.direction,
                 frozen.reference_entry,
                 frozen.potential_rr,
+                frozen.regime,
+                (
+                    f"{swing.potential_rr:.1f}R stop {swing.initial_invalidation:.6g}"
+                    if swing is not None
+                    else "none"
+                ),
             )
         return writes
 
@@ -660,9 +906,10 @@ class ForwardTestRecorder:
             advanced, events = advance_position(snapshot, position, price, now, config)
             # Alternatives settle on the same observation, always.
             alternatives = self._variants.get(key, {})
+            plans = self._plans.get(key, {})
             for name, variant_position in list(alternatives.items()):
                 moved, _ = advance_position(
-                    snapshot,
+                    plans.get(name, snapshot),
                     variant_position,
                     price,
                     now,
@@ -691,8 +938,21 @@ class ForwardTestRecorder:
             if advanced.is_settled:
                 del self._open[key]
                 self._variants.pop(key, None)
+                self._plans.pop(key, None)
                 self._closed.add(key)
                 self.settled += 1
+                if any(position.is_open for position in alternatives.values()):
+                    # The row is terminal; at least one alternative is not.
+                    # The whole set is carried over — settled ones included, so
+                    # the column is never rewritten with a subset. The swing
+                    # variant is the extreme case: days of holding against a
+                    # primary that resolved in minutes.
+                    self._variant_only[key] = (
+                        setup_id,
+                        snapshot,
+                        dict(alternatives),
+                        dict(plans),
+                    )
                 logger.info(
                     "[forward-test] settled %s %s → %s (%.2fR)",
                     snapshot.mode,
@@ -700,6 +960,39 @@ class ForwardTestRecorder:
                     advanced.status,
                     advanced.realized_r,
                 )
+        writes += await self._settle_variants(now)
+        return writes
+
+    async def _settle_variants(self, now: float) -> int:
+        """Advances alternatives whose primary already exited.
+
+        Nothing here can touch the primary's outcome: the only column written
+        is `variants`, and the row's own status, exit and R are long since
+        final.
+        """
+        writes = 0
+        for key, (setup_id, snapshot, variants, plans) in list(self._variant_only.items()):
+            price = self._price_for(snapshot.symbol)
+            if price is None:
+                continue
+            config = profile_for(snapshot.mode).forward_test
+            moved = {
+                name: advance_position(
+                    plans.get(name, snapshot), position, price, now, _variant_config(config, name)
+                )[0]
+                for name, position in variants.items()
+            }
+            if all(position == variants[name] for name, position in moved.items()):
+                continue
+            self._variant_only[key] = (setup_id, snapshot, moved, plans)
+            if any(position.is_settled for position in moved.values()):
+                async with SessionFactory() as db:
+                    await repo.update_lifecycle(
+                        db, setup_id, {"variants": variant_values(moved, plans)}
+                    )
+                writes += 1
+            if all(position.is_settled for position in moved.values()):
+                del self._variant_only[key]
         return writes
 
     def _price_for(self, symbol: str) -> float | None:
