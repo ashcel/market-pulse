@@ -58,6 +58,19 @@ is provenance-stamped and all stats segment by engine version, so:
   frozen gates, then a verdict) — see `research/phase2-spike.md` /
   `phase3-spike.md` for the pattern and `docs/decisions/` (EDRs) for the
   decision log.
+- Standing alternatives run as **arms** (`engine/smc/arms.py`): an axis is one
+  functionality, an arm is one way of doing it, and each axis carries the live
+  control plus **at most two** alternatives (`MAX_ARMS_PER_AXIS`, enforced at
+  import — every extra arm widens the Holm family and makes all of them harder
+  to resolve). `exit`/`plan` arms settle forward alongside the primary and are
+  compared paired; `detect` arms are predicates stamped at detection into
+  `arm_flags` and read as subsets, because an arm that changes *which* setups
+  exist has no paired observation to difference against. Gates are cumulative,
+  on **gross** R, Holm-corrected per run, and an arm below its floor gets no
+  verdict at all. `deploy/weekly-arms-report.sh` (cron, Mon 08:00 UTC) writes
+  `research/weekly/` and sends to Telegram; it must run **locally** — Postgres
+  is bound to `localhost:5435`. A PASS opens a decision, it never makes one.
+  Protocol: `research/arms-protocol.md`.
 
 ## Lovable integration
 
