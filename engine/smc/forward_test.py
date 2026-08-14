@@ -753,34 +753,11 @@ class Variant:
     varies_plan: bool = False
 
 
-#: The rules under test. `primary` is the one whose result is the record's
-#: headline; the rest ride alongside as evidence about the exit rule itself.
-def default_variants(primary: ForwardTestConfig) -> tuple[Variant, ...]:
-    """Alternatives worth measuring against `primary`.
-
-    * `no_trail` — hold the structural stop to target. The "just let it run"
-      hypothesis, stated precisely enough to be settled.
-    * `wide_trail` — engage later and follow further back, so a normal
-      retracement does not scratch a trade that reached 1R.
-    * `structural_swing` — the same detection re-planned against slow 4H/1H
-      structure (`smc.swing_plan`) and given days rather than hours to
-      resolve. The question it settles: is the fast lane better used as a
-      *trigger* for a structural hold than as a trade in its own right? Cost
-      is `round_trip_pct / risk_pct`, so a structurally wider stop starts with
-      an arithmetic advantage and has to earn the rest.
-    """
-    return (
-        Variant("no_trail", replace(primary, trailing_mode="NONE")),
-        Variant(
-            "wide_trail",
-            replace(primary, trailing_activation_r=1.5, trailing_distance_r=1.5),
-        ),
-        Variant(
-            "structural_swing",
-            replace(primary, entry_window_seconds=14_400.0, max_holding_seconds=259_200.0),
-            varies_plan=True,
-        ),
-    )
+#: Which alternatives actually run is `smc.arms.settlement_variants` — the
+#: pre-registered registry, which also carries each arm's hypothesis and its
+#: verdict gate. There is deliberately no default list here: two catalogues of
+#: "the rules under test" is one catalogue too many, and the one that drifts is
+#: always the one nothing reads.
 
 
 @dataclass(frozen=True, slots=True)

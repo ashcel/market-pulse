@@ -16,10 +16,10 @@ from types import SimpleNamespace
 import pytest
 from httpx import ASGITransport, AsyncClient
 from smc.context_alignment import Alignment
+from smc.arms import settlement_variants
 from smc.forward_test import (
     DEFAULT_FORWARD_TEST_CONFIG,
     advance_position,
-    default_variants,
     open_position,
 )
 from smc.market_context import MarketContext, TimeframeRead
@@ -688,7 +688,8 @@ def test_each_horizon_records_with_its_own_patience() -> None:
 
 @pytest.mark.anyio
 async def test_variant_outcomes_are_persisted_alongside_the_primary(db: AsyncSession) -> None:
-    from smc.forward_test import advance_position, default_variants
+    from smc.arms import settlement_variants
+    from smc.forward_test import advance_position
 
     snapshot = snapshot_from(situation(), T0, CFG)
     assert snapshot is not None
@@ -700,7 +701,7 @@ async def test_variant_outcomes_are_persisted_alongside_the_primary(db: AsyncSes
     # Fill, then run to target on every rule.
     alternatives = {
         variant.name: open_position(snapshot, T0, 100.0, variant.config)[0]
-        for variant in default_variants(CFG)
+        for variant in settlement_variants(CFG)
     }
     # 100.3 is inside the entry zone (100.0-100.385); 100.4 would miss it.
     for offset, price in ((30, 100.3), (120, 93.0)):
@@ -713,7 +714,7 @@ async def test_variant_outcomes_are_persisted_alongside_the_primary(db: AsyncSes
     row = await db.get(ForwardTestSetup, setup_id)
     assert row is not None
     assert row.variants is not None
-    assert set(row.variants) == {"no_trail", "wide_trail", "structural_swing"}
+    assert set(row.variants) == {v.name for v in settlement_variants(CFG)}
     assert row.variants["no_trail"]["status"] == "TARGET_HIT"
     # Costs are split out, not folded silently into the headline number.
     assert row.gross_r > row.realized_r
@@ -869,7 +870,7 @@ async def test_alternatives_keep_running_after_the_primary_exits(
     recorder._open[key] = (setup_id, snapshot, position, 0)
     recorder._variants[key] = {
         name: open_position(snapshot, T0, 100.0, variant.config)[0]
-        for name, variant in {v.name: v for v in default_variants(CFG)}.items()
+        for name, variant in {v.name: v for v in settlement_variants(CFG)}.items()
     }
     # Fill in the zone, run to +1.6R so the trail engages, then retrace enough
     # for the trailed primary to be stopped out while the others hold.
@@ -1169,13 +1170,16 @@ async def test_statistics_segment_by_the_tape_and_never_pool_pre_regime_rows(
 # ── plan-varying alternatives ────────────────────────────────────────────────
 
 
-def test_only_the_swing_variant_varies_the_plan() -> None:
-    """Exit-rule variants must keep the primary's geometry, or the comparison
-    stops being about exits."""
-    from smc.forward_test import default_variants
+def test_exit_arms_never_vary_the_plan() -> None:
+    """An exit arm that moved the geometry would stop being about exits, and
+    the axis it is registered on would be a lie."""
+    from smc.arms import EXIT_ARMS, PLAN_ARMS, settlement_variants
 
-    varying = {v.name for v in default_variants(CFG) if v.varies_plan}
-    assert varying == {"structural_swing"}
+    varying = {v.name for v in settlement_variants(CFG) if v.varies_plan}
+    assert varying.isdisjoint({a.name for a in EXIT_ARMS})
+    # …and every plan arm that runs must vary it, or it is a duplicate of the
+    # control wearing a different name.
+    assert varying == {a.name for a in PLAN_ARMS if a.active}
 
 
 def test_a_plan_varying_alternative_persists_its_own_plan() -> None:
@@ -1247,8 +1251,8 @@ def test_an_unreadable_plan_is_dropped_rather_than_guessed() -> None:
 def test_the_swing_variant_gets_days_not_hours() -> None:
     """A structural hold that inherited the scalp's 2h timeout would expire
     before its thesis resolved, and the comparison would measure the clock."""
-    from smc.forward_test import default_variants
+    from smc.arms import settlement_variants
 
-    swing = next(v for v in default_variants(CFG) if v.name == "structural_swing")
+    swing = next(v for v in settlement_variants(CFG) if v.name == "structural_swing")
     assert swing.config.max_holding_seconds > CFG.max_holding_seconds * 10
     assert swing.config.entry_window_seconds > CFG.entry_window_seconds

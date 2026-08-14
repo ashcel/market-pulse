@@ -57,7 +57,6 @@ from smc.forward_test import (
     PaperPosition,
     SetupSnapshot,
     advance_position,
-    default_variants,
     entry_zone,
     is_finite_plan,
     open_position,
@@ -65,6 +64,12 @@ from smc.forward_test import (
     position_from_state,
     position_state,
     unrealized_r,
+)
+from smc.arms import (
+    ARMS_VERSION,
+    arm_flag_values,
+    settlement_variants,
+    widened_plan,
 )
 from smc.market_context import MARKET_CONTEXT_VERSION
 from smc.market_regime import MarketRegime
@@ -312,7 +317,12 @@ def setup_values(snapshot: SetupSnapshot, position: PaperPosition, key: str) -> 
             "events": snapshot.events_version,
             "context": snapshot.context_version,
             "forward_test": snapshot.forward_test_version,
+            "arms": ARMS_VERSION,
         },
+        # Which detector arms would have taken this setup. Frozen at detection
+        # like everything else on this row, and read only by the weekly report
+        # — the live detector never consults it.
+        "arm_flags": arm_flag_values(snapshot),
         "active_stop": position.active_stop,
         "trailing_mode": position.trailing_mode,
         "last_price": position.last_price,
@@ -321,7 +331,7 @@ def setup_values(snapshot: SetupSnapshot, position: PaperPosition, key: str) -> 
 
 
 def _variant_config(primary: ForwardTestConfig, name: str) -> ForwardTestConfig:
-    for variant in default_variants(primary):
+    for variant in settlement_variants(primary):
         if variant.name == name:
             return variant.config
     return primary
@@ -788,6 +798,23 @@ class ForwardTestRecorder:
             potential_rr=path.rr,
         )
 
+    def _arm_plan(
+        self, name: str, frozen: SetupSnapshot, config: ForwardTestConfig
+    ) -> SetupSnapshot | None:
+        """The frozen hypothesis for one plan-varying arm, or `None` when the
+        arm has no alternative to offer on this setup.
+
+        Dispatch lives here rather than in `smc.arms` because `structural_swing`
+        needs the scanner's slow-lane cache, which is a recorder concern; the
+        registry stays free of runtime plumbing.
+        """
+        if name == "structural_swing":
+            return self._swing_snapshot(frozen)
+        if name == "wide_stop":
+            return widened_plan(frozen, config)
+        logger.warning("[forward-test] no plan builder for arm %s", name)
+        return None
+
     async def _capture(self, mode: str, now: float) -> int:
         snapshot = self.scanner.snapshot(mode)
         writes = 0
@@ -826,15 +853,16 @@ class ForwardTestRecorder:
             # honest way to compare exits.
             plans: dict[str, SetupSnapshot] = {}
             variants: dict[str, PaperPosition] = {}
-            for variant in default_variants(config):
+            for variant in settlement_variants(config):
                 hypothesis = frozen
                 if variant.varies_plan:
-                    alternative = self._swing_snapshot(frozen)
+                    alternative = self._arm_plan(variant.name, frozen, variant.config)
                     if alternative is None:
-                        # Slow structure had no plan here. Recording the fast
-                        # geometry under the swing variant's name would answer
-                        # the wrong question, so the alternative is simply
-                        # absent for this setup.
+                        # This arm had nothing to say about this setup — slow
+                        # structure offered no plan, or the control's stop
+                        # already cleared the floor. Recording the control's
+                        # own geometry under the arm's name would answer the
+                        # wrong question, so the arm is simply absent here.
                         continue
                     hypothesis = alternative
                     plans[variant.name] = alternative

@@ -133,6 +133,12 @@ class ForwardTestSetup(Base):
     )
     trailing_updates: Mapped[list[Any] | None] = mapped_column(ResearchJSON, nullable=True)
 
+    # Which detector arms (`smc.arms`) would have taken this setup, frozen at
+    # detection alongside everything else on this row. A detector arm changes
+    # *which* setups exist, so it cannot be settled forward the way an exit or
+    # plan arm is; it is stamped here and read as a subset by the weekly report.
+    arm_flags: Mapped[dict[str, Any] | None] = mapped_column(ResearchJSON, nullable=True)
+
     # ── outcome ──────────────────────────────────────────────────────────────
     settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     exit_price: Mapped[float | None] = mapped_column(Double, nullable=True)

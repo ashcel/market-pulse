@@ -17,6 +17,7 @@ from dataclasses import FrozenInstanceError, replace
 
 import pytest
 
+from smc.arms import settlement_variants
 from smc.forward_test import (
     DEFAULT_FORWARD_TEST_CONFIG,
     ForwardTestConfig,
@@ -24,7 +25,6 @@ from smc.forward_test import (
     advance_position,
     compute_stats,
     cost_in_r,
-    default_variants,
     entry_zone,
     is_finite_plan,
     open_position,
@@ -492,7 +492,7 @@ def test_variants_run_on_the_same_setup_and_the_same_prices() -> None:
     path = [(30, 100.0), (60, 97.0), (90, 99.05), (120, 94.0)]
     primary, _ = run(setup, path, CFG)
     results = {}
-    for variant in default_variants(CFG):
+    for variant in settlement_variants(CFG):
         position, _ = run(setup, path, variant.config)
         results[variant.name] = position
 
@@ -507,7 +507,7 @@ def test_a_looser_trail_survives_a_retracement_the_tight_one_does_not() -> None:
     setup = snapshot()
     path = [(30, 100.0), (60, 97.0), (90, 99.05)]
     tight, _ = run(setup, path, CFG)
-    wide, _ = run(setup, path, default_variants(CFG)[1].config)
+    wide, _ = run(setup, path, settlement_variants(CFG)[1].config)
     assert tight.status == "INVALIDATED"
     assert wide.status == "ACTIVE"
 
@@ -521,7 +521,7 @@ def test_a_variant_that_gives_back_more_is_recorded_as_such() -> None:
     # one is still in the trade and takes the full loss.
     path = [(30, 100.0), (60, 97.6), (90, 99.7), (120, 102.5)]
     tight, _ = run(setup, path, CFG)
-    loose, _ = run(setup, path, default_variants(CFG)[0].config)
+    loose, _ = run(setup, path, settlement_variants(CFG)[0].config)
     assert tight.realized_r > loose.realized_r
     assert loose.exit_reason == "invalidation"
 
