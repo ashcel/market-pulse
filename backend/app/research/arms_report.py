@@ -60,6 +60,12 @@ Verdict = Literal["PASS", "RETIRE", "FAIL", "INSUFFICIENT", "NO DATA"]
 MAKER_FEE_PCT = 0.02
 MAKER_SLIPPAGE_PCT = 0.01
 
+#: What the live model charges each leg (`smc.forward_test.ForwardTestConfig`).
+#: Restated here only to price a *scenario* against it; the live figure itself
+#: is always read back off the record rather than assumed.
+TAKER_FEE_PCT = 0.05
+TAKER_SLIPPAGE_PCT = 0.02
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Statistics
@@ -171,7 +177,7 @@ _ROWS_SQL = """
     SELECT id, mode, status, direction, combo, regime,
            detected_at, settled_at,
            entry_price, reference_entry, initial_invalidation,
-           gross_r, realized_r, cost_r,
+           gross_r, realized_r, cost_r, exit_reason,
            variants, arm_flags
       FROM forward_test_setups
      WHERE status = ANY(:settled)
@@ -179,6 +185,12 @@ _ROWS_SQL = """
        AND settled_at >= :since
      ORDER BY settled_at
 """
+
+#: Which exits actually cross the spread. A stop is a stop-market order and
+#: takes; a target is a resting limit at a price the book has to come to, and
+#: makes. This is why the flat "maker" scenario above is a fiction: it prices
+#: every stop-out as though it had been a resting order, which no stop is.
+_TAKER_EXITS: frozenset[str] = frozenset({"invalidation", "trailing_stop", "timeout"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,6 +206,7 @@ class Row:
     gross_r: float
     realized_r: float
     cost_r: float
+    exit_reason: str
     variants: dict[str, Any]
     arm_flags: dict[str, Any]
 
@@ -238,6 +251,7 @@ async def load_rows(since: datetime) -> list[Row]:
                 gross_r=r.gross_r,
                 realized_r=r.realized_r,
                 cost_r=r.cost_r,
+                exit_reason=r.exit_reason or "",
                 variants=r.variants or {},
                 arm_flags=r.arm_flags or {},
             )
@@ -408,6 +422,51 @@ def cost_scenario(rows: list[Row], label: str, round_trip_pct: float) -> CostSce
     return CostScenario(label, round_trip_pct, len(nets), st.mean(nets), st.mean(costs))
 
 
+def per_leg_scenario(rows: list[Row]) -> CostScenario | None:
+    """Net R with each leg charged for what it actually does.
+
+    The live model charges `2 * (taker_fee + slippage)` — both legs crossing
+    the spread. But the entry is a resting order in the entry zone: it fills
+    when price trades into it, and does not fill at all when price never
+    arrives, which is the whole reason `NO_FILL` exists as an outcome. An order
+    that waits to be hit is a maker, and charging it a taker fee plus adverse
+    slippage prices a crossing the model does not perform — the same class of
+    error `smc.forward_test` documents at length about settling exits at the
+    observed price rather than the resting order's own.
+
+    So: entry always maker; exit maker when the target's limit order was hit,
+    taker when a stop, a trail or a timeout closed it at market.
+
+    This is a **scenario, not a correction**. Changing what the recorder writes
+    would move `realized_r` on every future row and restart the net-R clock —
+    a generation bump, which is a decision and not a report's to take.
+    """
+    maker_leg = MAKER_FEE_PCT + MAKER_SLIPPAGE_PCT
+    taker_leg = TAKER_FEE_PCT + TAKER_SLIPPAGE_PCT
+
+    nets: list[float] = []
+    costs: list[float] = []
+    for row in rows:
+        entry = row.entry_price or 0.0
+        risk = abs(entry - row.initial_invalidation)
+        if risk <= 0 or entry <= 0:
+            continue
+        exit_leg = taker_leg if row.exit_reason in _TAKER_EXITS else maker_leg
+        cost = (entry * (maker_leg + exit_leg) / 100.0) / risk
+        costs.append(cost)
+        nets.append(row.gross_r - cost)
+
+    if not nets:
+        return None
+    return CostScenario(
+        "maker entry, real exit",
+        maker_leg + taker_leg,
+        len(nets),
+        st.mean(nets),
+        st.mean(costs),
+    )
+
+
 @dataclass
 class Report:
     generated_at: datetime
@@ -468,7 +527,17 @@ async def build_report(window_days: int = 7, history_days: int = 3650) -> Report
                 st.mean([r.cost_r for r in costed]),
             )
         )
-        maker = cost_scenario(costed, "maker", 2.0 * (MAKER_FEE_PCT + MAKER_SLIPPAGE_PCT))
+        # Ordered from the most defensible re-derivation to the least. The
+        # per-leg row is the one worth reading: it changes only the entry's
+        # pricing, and only to match what the entry model already does.
+        per_leg = per_leg_scenario(costed)
+        if per_leg:
+            scenarios.append(per_leg)
+        maker = cost_scenario(
+            costed,
+            "maker (both legs — unreachable)",
+            2.0 * (MAKER_FEE_PCT + MAKER_SLIPPAGE_PCT),
+        )
         if maker:
             scenarios.append(maker)
 

@@ -37,6 +37,7 @@ from app.research.arms_report import (
     costed_rows,
     holm,
     paired,
+    per_leg_scenario,
     render_markdown,
     render_telegram,
     unpaired,
@@ -297,6 +298,7 @@ def _row(**overrides: object) -> Row:
         gross_r=-1.0,
         realized_r=-1.2,
         cost_r=0.2,
+        exit_reason="invalidation",
         variants={},
         arm_flags={},
     )
@@ -320,6 +322,53 @@ def test_a_cheaper_round_trip_is_re_derived_not_re_run() -> None:
     # 0.06% of a 100.0 entry over a 1.0 stop = 0.06R.
     assert cheap.mean_cost == pytest.approx(0.06)
     assert cheap.mean_net == pytest.approx(0.44)
+
+
+def test_a_stopped_trade_still_pays_a_taker_exit() -> None:
+    """Entry 100 over a 1.0 stop: maker entry 0.03% + taker exit 0.07% = 0.10R."""
+    scenario = per_leg_scenario(costed_rows([_row(exit_reason="invalidation")]))
+    assert scenario is not None
+    assert scenario.mean_cost == pytest.approx(0.10)
+
+
+def test_a_target_hit_pays_two_maker_legs() -> None:
+    """A target is a resting limit the book had to come to."""
+    scenario = per_leg_scenario(costed_rows([_row(exit_reason="target")]))
+    assert scenario is not None
+    assert scenario.mean_cost == pytest.approx(0.06)
+
+
+def test_a_trailed_exit_is_a_stop_and_takes() -> None:
+    trailed = per_leg_scenario(costed_rows([_row(exit_reason="trailing_stop")]))
+    stopped = per_leg_scenario(costed_rows([_row(exit_reason="invalidation")]))
+    assert trailed is not None and stopped is not None
+    assert trailed.mean_cost == pytest.approx(stopped.mean_cost)
+
+
+def test_the_per_leg_scenario_is_never_dearer_than_the_live_taker_model() -> None:
+    """It only ever reprices the entry, and only downward — an order that
+    waits to be hit cannot cost more than one that crosses the spread."""
+    rows = costed_rows(
+        [_row(id=str(i), exit_reason=reason) for i, reason in enumerate(
+            ("invalidation", "target", "trailing_stop", "timeout")
+        )]
+    )
+    per_leg = per_leg_scenario(rows)
+    live = cost_scenario(rows, "taker", 0.14)
+    assert per_leg is not None and live is not None
+    assert per_leg.mean_cost < live.mean_cost
+
+
+def test_a_row_with_no_risk_is_skipped_rather_than_dividing_by_zero() -> None:
+    assert per_leg_scenario(costed_rows([_row(entry_price=99.0)])) is None
+
+
+def test_the_per_leg_scenario_shares_the_denominator_of_the_others() -> None:
+    rows = costed_rows([_row(), _row(id="2", cost_r=0.0), _row(id="3", entry_price=None)])
+    per_leg = per_leg_scenario(rows)
+    live = cost_scenario(rows, "taker", 0.14)
+    assert per_leg is not None and live is not None
+    assert per_leg.n == live.n == 1
 
 
 # ── rendering ────────────────────────────────────────────────────────────────

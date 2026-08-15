@@ -117,6 +117,49 @@ standing protocol (`research/arms-protocol.md`):
 (`displacement_only`, `htf_aligned`). An instrument arm therefore costs a slot,
 which is a decision for the owner and not something a report can take.
 
+## The entry leg is charged for a crossing it never makes
+
+Found while reviewing the same record, and larger than any filter yet
+demonstrated.
+
+`ForwardTestConfig.round_trip_cost_pct` is `2 * (taker_fee_pct +
+slippage_pct)` — both legs priced as though they crossed the spread. But the
+entry is a **resting order in the entry zone**: `advance_position` fills it when
+price trades into the zone, and settles the record `NO_FILL` when price never
+arrives. An order that waits to be hit is a maker, and it pays no adverse
+slippage, because there is no crossing to be adverse to.
+
+This is the same class of error `smc.forward_test` already documents at length
+about exits: *"Charging it a second time through the observation price is not
+conservatism, it is a bias."* The entry leg is charging it a first time for
+something that does not happen.
+
+Re-derived over the 244 settled rows carrying a cost (entry maker; exit maker
+on a target's limit, taker on a stop, trail or timeout):
+
+| assumption | mean cost | mean net |
+|---|---|---|
+| taker both legs (live) | 0.209R | -0.102R |
+| **maker entry, real exit** | **0.146R** | **-0.039R** |
+| maker both legs (unreachable — no stop is a maker fill) | 0.090R | +0.017R |
+
+**0.063R/trade**, against a gross edge of +0.107R. It does not turn the book
+positive, and net remains indistinguishable from zero (t=-0.25 on the wider
+244-row cut) — but it means roughly a third of the reported deficit is a
+pricing artifact rather than the strategy.
+
+Shipped as a **scenario only**, in `app/research/arms_report.py`. Changing what
+the recorder writes would move `realized_r` on every future row and restart the
+net-R clock — a `DETECTOR_GENERATION` bump, which is a decision and not a
+report's to take. The flat "maker" row is retained but relabelled *unreachable*,
+because it prices every stop-out as a resting order and no stop is one.
+
+**Open for the owner:** whether to bump to generation 6 and price the entry leg
+correctly at the source. Against: it restarts net-R comparability at exactly the
+moment the arms need sample. For: every week not fixed adds rows whose net R is
+known to be wrong by a measurable amount, and the arms are gated on **gross** R
+anyway — which this does not touch.
+
 ## One thing to check while collecting
 
 `htf_aligned` was registered 2026-08-14 on the hypothesis that HTF agreement
