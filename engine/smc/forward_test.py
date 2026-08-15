@@ -259,10 +259,46 @@ class SetupSnapshot:
     regime_energy_pct: float = 0.0
     regime_sample: int = 0
 
+    # ── what kind of instrument this was ─────────────────────────────────────
+    # The symbol's own properties at detection, as opposed to the setup's.
+    # Recorded because the first 264 settled setups put ~80% of their gross R
+    # into five symbols: whether an edge belongs to the pattern or to the
+    # handful of thin, freshly-listed tokens it kept finding is a question the
+    # record could not previously even ask. Inert, like every field above it —
+    # nothing here gates a detection.
+    #
+    # All are free at detection: they ride the same all-market ticker frame the
+    # windows come from, except `listing_age_days`, which is a dict lookup into
+    # a slowly-refreshed onboard-date map. None means the fact was unavailable,
+    # which is not the same claim as zero.
+    quote_volume_24h: float = 0.0
+    change_24h_pct: float = 0.0
+    trades_1m: float = 0.0
+    #: The symbol's baseline 1m range as a percentage — its own noise band.
+    volatility_1m_pct: float | None = None
+    #: Days since the perp onboarded. None when the map had no entry.
+    listing_age_days: float | None = None
+
     @property
     def risk(self) -> float:
         """Distance from the reference entry to the structural invalidation."""
         return abs(self.reference_entry - self.initial_invalidation)
+
+    @property
+    def stop_noise_ratio(self) -> float | None:
+        """How many of the symbol's own 1m noise bands the stop sits outside of.
+
+        A stop inside the band is a coin flip dressed as an invalidation, and
+        it is the cheapest available explanation for a book that pays 0.21R of
+        cost against a 0.09R gross edge. Derived rather than stored so it can
+        never disagree with the fields it comes from.
+        """
+        if not self.volatility_1m_pct or self.volatility_1m_pct <= 0:
+            return None
+        if self.reference_entry <= 0:
+            return None
+        stop_pct = self.risk / self.reference_entry * 100.0
+        return stop_pct / self.volatility_1m_pct
 
     @property
     def reward(self) -> float:

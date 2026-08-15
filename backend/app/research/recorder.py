@@ -48,6 +48,12 @@ import time
 from dataclasses import replace
 from datetime import datetime
 
+from smc.arms import (
+    ARMS_VERSION,
+    arm_flag_values,
+    settlement_variants,
+    widened_plan,
+)
 from smc.forward_test import (
     DEFAULT_FORWARD_TEST_CONFIG,
     FORWARD_TEST_VERSION,
@@ -65,12 +71,6 @@ from smc.forward_test import (
     position_state,
     unrealized_r,
 )
-from smc.arms import (
-    ARMS_VERSION,
-    arm_flag_values,
-    settlement_variants,
-    widened_plan,
-)
 from smc.market_context import MARKET_CONTEXT_VERSION
 from smc.market_regime import MarketRegime
 from smc.momentum import MOMENTUM_VERSION
@@ -84,6 +84,7 @@ from app.database import SessionFactory
 from app.momentum import config as momentum_cfg
 from app.momentum.scanner import MomentumScanner, get_scanner
 from app.research import repo
+from app.research.symbol_facts import ONBOARD_MAP, keep_fresh
 
 logger = logging.getLogger("research.recorder")
 
@@ -251,6 +252,13 @@ def with_flow(
         change_3m_pct=getattr(telemetry, "change_3m_pct", None),
         change_5m_pct=getattr(telemetry, "change_5m_pct", None),
         change_15m_pct=getattr(telemetry, "change_15m_pct", None),
+        # What kind of instrument this was. Same ticker frame as the windows
+        # above, plus one dict lookup — no fetch, so no lookahead.
+        quote_volume_24h=float(getattr(telemetry, "quote_volume_24h", 0.0) or 0.0),
+        change_24h_pct=float(getattr(telemetry, "change_24h_pct", 0.0) or 0.0),
+        trades_1m=float(getattr(telemetry, "trades_1m", 0.0) or 0.0),
+        volatility_1m_pct=getattr(telemetry, "volatility_1m_pct", None),
+        listing_age_days=ONBOARD_MAP.age_days(snapshot.symbol, snapshot.detected_at),
     )
 
 
@@ -304,6 +312,15 @@ def setup_values(snapshot: SetupSnapshot, position: PaperPosition, key: str) -> 
             "regime_breadth": snapshot.regime_breadth,
             "regime_energy_pct": snapshot.regime_energy_pct,
             "regime_sample": snapshot.regime_sample,
+            # The instrument, as distinct from the setup. `stop_noise_ratio` is
+            # derived from fields on this same row rather than measured, and is
+            # written out only so a SQL cut does not have to recompute it.
+            "quote_volume_24h": snapshot.quote_volume_24h,
+            "change_24h_pct": snapshot.change_24h_pct,
+            "trades_1m": snapshot.trades_1m,
+            "volatility_1m_pct": snapshot.volatility_1m_pct,
+            "listing_age_days": snapshot.listing_age_days,
+            "stop_noise_ratio": snapshot.stop_noise_ratio,
         },
         "strategy_version": STRATEGY_VERSION,
         # The exact detector configuration, so revisions never pool.
@@ -531,6 +548,14 @@ def snapshot_from_row(row: object) -> SetupSnapshot:
         regime_breadth=float(evidence.get("regime_breadth") or 0.0),
         regime_energy_pct=float(evidence.get("regime_energy_pct") or 0.0),
         regime_sample=int(evidence.get("regime_sample") or 0),
+        # Rows written before these shipped have no key here. They stay None /
+        # 0.0 rather than being back-filled from today's ticker, which would
+        # stamp a later instant's fact onto an earlier detection.
+        quote_volume_24h=float(evidence.get("quote_volume_24h") or 0.0),
+        change_24h_pct=float(evidence.get("change_24h_pct") or 0.0),
+        trades_1m=float(evidence.get("trades_1m") or 0.0),
+        volatility_1m_pct=evidence.get("volatility_1m_pct"),
+        listing_age_days=evidence.get("listing_age_days"),
         engine_version=row.engine_version,  # type: ignore[attr-defined]
         momentum_version=str(versions.get("momentum", "")),
         events_version=str(versions.get("events", "")),
@@ -622,6 +647,10 @@ class ForwardTestRecorder:
         # Situations a conflict kept out, so the block is counted once each.
         self._skipped: set[str] = set()
         self._task: asyncio.Task[None] | None = None
+        # The onboard-date refresh runs on its own task rather than inside the
+        # tick: the fetch is the only network call anywhere near the recorder,
+        # and a tick that stalls on it would delay settlement.
+        self._facts_task: asyncio.Task[None] | None = None
         self._stopping = False
         self.captured = 0
         self.settled = 0
@@ -640,6 +669,10 @@ class ForwardTestRecorder:
             return
         self._stopping = False
         self._task = asyncio.create_task(self._loop(), name="forward-test-recorder")
+        if self._facts_task is None or self._facts_task.done():
+            self._facts_task = asyncio.create_task(
+                keep_fresh(), name="forward-test-symbol-facts"
+            )
 
     async def resume(self) -> int:
         """Reloads hypotheses that were still open when the process stopped.
@@ -693,6 +726,12 @@ class ForwardTestRecorder:
 
     async def stop(self) -> None:
         self._stopping = True
+        facts = self._facts_task
+        self._facts_task = None
+        if facts is not None and not facts.done():
+            facts.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await facts
         task = self._task
         self._task = None
         if task is None or task.done():
