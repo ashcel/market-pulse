@@ -198,6 +198,34 @@ def _frozen(**telemetry: object):
     return with_flow(snapshot, _telemetry(**telemetry))
 
 
+def test_the_facts_are_read_off_the_real_telemetry_type() -> None:
+    """`with_flow` reads telemetry with `getattr(..., default)`, which degrades
+    silently: rename a field on `WindowMetrics` and every instrument fact
+    quietly becomes 0.0 while the record keeps filling with rows that look
+    complete. The duck-typed stand-in the other tests use cannot catch that, so
+    this one pins the real type."""
+    from smc.momentum import WindowMetrics
+
+    metrics = WindowMetrics(
+        symbol="TST",
+        ts=T0,
+        price=100.0,
+        quote_volume_24h=9_000_000.0,
+        change_24h_pct=-12.0,
+        trades_1m=17.0,
+        volatility_1m_pct=0.5,
+    )
+    snapshot = snapshot_from(situation(), T0)
+    assert snapshot is not None
+    frozen = with_flow(snapshot, metrics)
+
+    assert frozen.quote_volume_24h == 9_000_000.0
+    assert frozen.change_24h_pct == -12.0
+    assert frozen.trades_1m == 17.0
+    assert frozen.volatility_1m_pct == 0.5
+    assert frozen.stop_noise_ratio is not None
+
+
 def test_the_instrument_facts_ride_the_same_frame_as_the_windows() -> None:
     frozen = _frozen()
     assert frozen.quote_volume_24h == 12_500_000.0
