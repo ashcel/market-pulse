@@ -7,6 +7,7 @@ guarantee nobody prunes one at 2am.
 
 * `GET /research/forward-test`            — summary cards, stats, and the table.
 * `GET /research/forward-test/{id}`       — one setup with its full lifecycle.
+* `GET /research/versions`                — the cohorts, and what pools with what.
 
 Public, like the other research reads: derived market data, no user content.
 """
@@ -19,6 +20,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from smc.forward_test import compute_stats
+from smc.version_archive import ARCHIVE, VERSION_ARCHIVE_VERSION
+from smc.version_archive import LIVE as LIVE_RELEASE
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -35,7 +38,12 @@ from app.research.schemas import (
     ForwardTestSetupResponse,
     ForwardTestStatsResponse,
     ForwardTestSummaryResponse,
+    VersionArchiveData,
+    VersionArchiveEnvelope,
+    VersionPoolResponse,
+    VersionReleaseResponse,
 )
+from app.research.version_report import build_report as build_version_report
 
 router = APIRouter(prefix="/research", tags=["research"])
 
@@ -244,5 +252,68 @@ async def get_forward_test_setup(
                 )
                 for event in events
             ],
+        )
+    )
+
+
+@router.get(
+    "/versions",
+    response_model=VersionArchiveEnvelope,
+    summary="Every recorded detector cohort, what it changed, and what may be pooled with it",
+)
+async def get_version_archive(db: DbSession = None) -> VersionArchiveEnvelope:  # type: ignore[assignment]
+    """The archive joined to the record.
+
+    Exists so a client can filter by cohort without inventing the rule itself.
+    `/research/forward-test?generation=N` has always taken the filter; what was
+    missing is the list of values it accepts and — the part no dropdown can
+    infer — which of them may be shown as a single number. Generation 6 changed
+    only how the round trip is priced, so `gross_r` pools across it and
+    `realized_r` does not, and a UI that offered one "version" switch for both
+    would be wrong half the time.
+    """
+    report = await build_version_report(db)
+    by_generation = {c.generation: c for c in report.cohorts}
+    unstamped = by_generation.get(None)
+
+    releases = []
+    for release in ARCHIVE:
+        cohort = by_generation.get(release.generation)
+        releases.append(
+            VersionReleaseResponse(
+                generation=release.generation,
+                strategy_version=release.strategy_version,
+                forward_test_version=release.forward_test_version,
+                summary=release.summary,
+                opened=release.opened.isoformat(),
+                changed=list(release.changed),
+                note=release.note,
+                gross_comparable=release.gross_comparable,
+                net_comparable=release.net_comparable,
+                population_comparable=release.population_comparable,
+                detected=cohort.detected if cohort else 0,
+                filled=cohort.filled if cohort else 0,
+                settled=cohort.settled if cohort else 0,
+                first_detected_at=_epoch(cohort.first_seen) if cohort else None,
+                last_detected_at=_epoch(cohort.last_seen) if cohort else None,
+            )
+        )
+
+    return VersionArchiveEnvelope(
+        data=VersionArchiveData(
+            archive_version=VERSION_ARCHIVE_VERSION,
+            live_generation=LIVE_RELEASE.generation,
+            live_strategy_version=LIVE_RELEASE.strategy_version,
+            releases=releases,
+            pools=[
+                VersionPoolResponse(
+                    metric=pool.metric,
+                    generations=list(pool.generations),
+                    excluded=list(pool.excluded),
+                    n=pool.n,
+                )
+                for pool in report.pools
+            ],
+            unstamped=unstamped.detected if unstamped else 0,
         )
     )

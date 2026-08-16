@@ -79,6 +79,7 @@ from smc.scan_profiles import profile_for, profile_hash
 from smc.situation import PATH_GATED, Situation
 from smc.swing_plan import swing_plan
 from smc.version import ENGINE_VERSION, config_hash, git_sha
+from smc.version_archive import LIVE as LIVE_RELEASE
 
 from app.database import SessionFactory
 from app.momentum import config as momentum_cfg
@@ -99,42 +100,15 @@ _SWING_TIMEFRAMES = _SWING_PROFILE.structure_timeframes
 #: always be traced to both.
 STRATEGY_VERSION = f"discover-forward-test/{FORWARD_TEST_VERSION}"
 
-#: Detector generation. Bumped when a change alters what a recorded result
-#: *means*, so cohorts are never pooled:
+#: Detector generation, stamped on every row. Bumped when a change alters what
+#: a recorded result *means*, so cohorts are never pooled.
 #:
-#:   1 — original geometry (stops inside the noise band)
-#:   2 — volatility-floored stops
-#:   3 — costs deducted from realized R, per-horizon patience, SWING added
-#:   4 — one live hypothesis per symbol: a second setup on a symbol already
-#:       being observed is no longer recorded while the first is open (same
-#:       mode at all, any mode when the direction is opposite). Generation 3
-#:       recorded them, so its rows contain overlapping and sometimes
-#:       contradictory positions on one move — they are not an independent
-#:       sample and must not be pooled with these.
-#:   5 — two measurement fixes and one geometry fix, none of them tuned on an
-#:       outcome:
-#:         * exits fill at the resting order's price (stop or target) instead
-#:           of at the observation that revealed the crossing. Generation 4
-#:           charged its stops a mean 0.174R of sampling-rate slippage and
-#:           credited its targets 2.97R of overshoot — a bias whose size was
-#:           set by how often the recorder looked, not by the strategy.
-#:         * the stop's floor is enforced against the entry rather than the
-#:           pullback extreme, so risk can no longer land under the mode's own
-#:           floor (11 of 90 generation-4 rows did).
-#:         * a cost floor: the round trip may eat at most `max_cost_r` of risk.
-#:           Generation 4's gross edge was +17.2R and its fee bill 21.4R.
-#:       Its R is therefore not comparable with generation 4's on either side.
-#:   6 — cost priced per leg. The entry is a resting limit order and pays a
-#:       maker's fee with a maker's slippage; a target exit is the same on the
-#:       other side; a stop, trail or timeout crosses the spread and pays a
-#:       taker's. Generation 5 charged both legs as takers, which over its 244
-#:       costed rows overstated cost by 0.063R/trade against a gross edge of
-#:       +0.107R — roughly a third of the reported deficit was the pricing,
-#:       not the strategy. **Gross R is untouched**, which is why every arm
-#:       gate in `smc.arms` is written against gross and none of them restart
-#:       here; only `realized_r` and `cost_r` break comparability with
-#:       generation 5.
-DETECTOR_GENERATION = 6
+#: It is derived rather than written, because the interesting half of the fact —
+#: *what* each generation broke, and therefore which of them may still be
+#: averaged together — lives in `smc.version_archive` where it can be queried.
+#: Opening a cohort is one edit: append a `Release` there. The archive refuses
+#: to import if it does not describe the version being written.
+DETECTOR_GENERATION = LIVE_RELEASE.generation
 
 
 def setup_key(situation: Situation) -> str:

@@ -169,3 +169,57 @@ class ForwardTestDetailEnvelope(BaseModel):
     data: ForwardTestDetailData
     meta: None = None
     error: None = None
+
+
+# ── version archive ──────────────────────────────────────────────────────────
+#
+# What a client needs to build an honest cohort filter: which cohorts exist,
+# how much is in each, and — the part a dropdown cannot infer — which of them
+# may be shown as one number for the metric being looked at.
+
+
+class VersionReleaseResponse(BaseModel):
+    generation: int
+    strategy_version: str
+    forward_test_version: str
+    summary: str
+    opened: str
+    changed: list[str] = Field(default_factory=list)
+    note: str = ""
+    # Each stated against the generation immediately before this one.
+    gross_comparable: bool
+    net_comparable: bool
+    population_comparable: bool
+    # What the record actually holds under it. Zero is a legitimate answer for
+    # a release that shipped and has not written yet.
+    detected: int = 0
+    filled: int = 0
+    settled: int = 0
+    first_detected_at: float | None = None
+    last_detected_at: float | None = None
+
+
+class VersionPoolResponse(BaseModel):
+    """Which cohorts one metric may be averaged across, live cohort included."""
+
+    metric: str
+    generations: list[int] = Field(default_factory=list)
+    excluded: list[int] = Field(default_factory=list)
+    n: int = 0
+
+
+class VersionArchiveData(BaseModel):
+    archive_version: str
+    live_generation: int
+    live_strategy_version: str
+    releases: list[VersionReleaseResponse] = Field(default_factory=list)
+    pools: list[VersionPoolResponse] = Field(default_factory=list)
+    # Rows whose provenance stamp predates the field. Never folded into a
+    # cohort: a missing stamp is not a known value.
+    unstamped: int = 0
+
+
+class VersionArchiveEnvelope(BaseModel):
+    data: VersionArchiveData
+    meta: None = None
+    error: None = None
