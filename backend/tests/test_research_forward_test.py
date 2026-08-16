@@ -15,8 +15,8 @@ from types import SimpleNamespace
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from smc.context_alignment import Alignment
 from smc.arms import settlement_variants
+from smc.context_alignment import Alignment
 from smc.forward_test import (
     DEFAULT_FORWARD_TEST_CONFIG,
     advance_position,
@@ -745,12 +745,20 @@ async def test_costs_reach_the_database(db: AsyncSession) -> None:
 
 
 def test_the_generation_moved_for_the_capture_rule() -> None:
-    """Costs (3), one-position-per-symbol (4) and the fill/floor corrections
-    (5) each change what a recorded result means, so the cohorts must never be
-    averaged together."""
+    """Costs (3), one-position-per-symbol (4), the fill/floor corrections (5)
+    and per-leg cost pricing (6) each change what a recorded result means, so
+    the cohorts must never be averaged together."""
     from app.research.recorder import DETECTOR_GENERATION
 
-    assert DETECTOR_GENERATION == 5
+    assert DETECTOR_GENERATION == 6
+
+
+def test_the_strategy_version_moved_with_the_cost_model() -> None:
+    """Generation 6 changed how `realized_r` is computed, so it must also
+    segment the record — a cohort boundary nothing queries is not one."""
+    from app.research.recorder import STRATEGY_VERSION
+
+    assert STRATEGY_VERSION == "discover-forward-test/1.3.0"
 
 
 # ── one live hypothesis per symbol ───────────────────────────────────────────
@@ -1173,13 +1181,25 @@ async def test_statistics_segment_by_the_tape_and_never_pool_pre_regime_rows(
 def test_exit_arms_never_vary_the_plan() -> None:
     """An exit arm that moved the geometry would stop being about exits, and
     the axis it is registered on would be a lie."""
-    from smc.arms import EXIT_ARMS, PLAN_ARMS, settlement_variants
+    from smc.arms import EXIT_ARMS, settlement_variants
 
     varying = {v.name for v in settlement_variants(CFG) if v.varies_plan}
     assert varying.isdisjoint({a.name for a in EXIT_ARMS})
-    # …and every plan arm that runs must vary it, or it is a duplicate of the
-    # control wearing a different name.
-    assert varying == {a.name for a in PLAN_ARMS if a.active}
+
+
+def test_every_running_arm_differs_from_the_control_somehow() -> None:
+    """An arm that reproduces the control exactly is the control wearing a
+    different name: it would settle identically on every setup, contribute a
+    difference of exactly zero, and still cost a slot in the Holm family.
+
+    Differing by *geometry* (`varies_plan`) and differing by *config* are both
+    real differences — `short_hold` varies only the time stop, which is fixed at
+    detection and is why it sits on the plan axis rather than exit.
+    """
+    from smc.arms import settlement_variants
+
+    for variant in settlement_variants(CFG):
+        assert variant.varies_plan or variant.config != CFG, variant.name
 
 
 def test_a_plan_varying_alternative_persists_its_own_plan() -> None:
@@ -1248,11 +1268,27 @@ def test_an_unreadable_plan_is_dropped_rather_than_guessed() -> None:
     assert variant_plans_from_row(row, snapshot) == {}
 
 
-def test_the_swing_variant_gets_days_not_hours() -> None:
-    """A structural hold that inherited the scalp's 2h timeout would expire
-    before its thesis resolved, and the comparison would measure the clock."""
-    from smc.arms import settlement_variants
+def test_a_retired_arm_stops_running_but_stays_on_the_record() -> None:
+    """`structural_swing` was withdrawn 2026-08-15. It must settle nothing
+    further, and it must still be findable — deleting it would erase the fact
+    that the question was asked and how it ended."""
+    from smc.arms import arm_named, settlement_variants
 
-    swing = next(v for v in settlement_variants(CFG) if v.name == "structural_swing")
-    assert swing.config.max_holding_seconds > CFG.max_holding_seconds * 10
-    assert swing.config.entry_window_seconds > CFG.entry_window_seconds
+    assert "structural_swing" not in {v.name for v in settlement_variants(CFG)}
+    arm = arm_named("structural_swing")
+    assert arm is not None
+    assert not arm.active
+    assert "WITHDRAWN" in arm.retired
+
+
+def test_the_short_hold_arm_caps_the_hold_and_nothing_else() -> None:
+    """Shortening the wait for a fill as well would confound "the setup was
+    untradable" with "the trade was closed early"."""
+    from smc.arms import SHORT_HOLD_SECONDS, settlement_variants
+
+    arm = next(v for v in settlement_variants(CFG) if v.name == "short_hold")
+    assert arm.config.max_holding_seconds == SHORT_HOLD_SECONDS
+    assert arm.config.max_holding_seconds < CFG.max_holding_seconds
+    assert arm.config.entry_window_seconds == CFG.entry_window_seconds
+    assert arm.config.trailing_mode == CFG.trailing_mode
+    assert arm.config.trailing_activation_r == CFG.trailing_activation_r

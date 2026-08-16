@@ -87,6 +87,36 @@ nothing else. This is the single most important rule here.
 | `INSUFFICIENT` | under floor. No other number is reported. |
 | `NO DATA` | the arm never produced a settled pair. |
 
+### Withdrawal — the one exit that is not a verdict
+
+An arm may also be **withdrawn**: pulled from the registry while still under
+its floor, with no verdict claimed in either direction. This is not a result
+and must never be written up as one.
+
+It exists because a slot is a budget, not a promise. An arm that is accruing
+too slowly to reach its floor in any useful time, or whose premise a *separate*
+piece of evidence has made implausible, is spending observations that another
+question would use better. Withdrawing it is a decision about where to spend
+sample.
+
+Three rules keep it from becoming a way to bury inconvenient arms:
+
+1. **The `retired` note says WITHDRAWN, gives the date, states the accrual rate
+   and the reason, and says explicitly that no verdict was reached.** An arm
+   pulled while behind is a question left open.
+2. **No number from it is quoted anywhere as evidence.** It was under floor;
+   under floor there is no verdict, and that rule does not relax because the
+   arm is being pulled.
+3. **Re-registering it later is allowed**, starting from zero. The observations
+   it already had do not carry over — they were taken under a registration
+   whose gate is no longer the one being applied.
+
+Worked example: `structural_swing`, withdrawn 2026-08-15 at 6/150 (~3 pairs a
+day, so ~December to reach its floor) after `research/ic-2026-08-15.md`
+measured the score's information as gone by fifteen minutes — which makes a
+three-day hold on that trigger implausible enough that the slot buys more
+elsewhere. Its replacement, `short_hold`, argues the opposite case.
+
 ## Promotion
 
 **A `PASS` never changes anything by itself.** Promotion of an arm to control

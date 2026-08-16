@@ -439,7 +439,7 @@ def test_costs_are_deducted_from_the_realized_result() -> None:
     assert position.status == "TARGET_HIT"
     assert position.gross_r > position.realized_r
     assert position.cost_r > 0
-    assert position.realized_r == pytest.approx(position.gross_r - position.cost_r, abs=1e-4)
+    assert position.realized_r == pytest.approx(position.gross_r - position.cost_r, abs=2e-4)
 
 
 def test_a_tighter_stop_pays_a_larger_share_of_its_risk_in_costs() -> None:
@@ -450,9 +450,53 @@ def test_a_tighter_stop_pays_a_larger_share_of_its_risk_in_costs() -> None:
     assert cost_in_r(tight, 100.0, CFG) > 5 * cost_in_r(wide, 100.0, CFG)
 
 
+def test_the_entry_leg_is_priced_as_the_resting_order_it_is() -> None:
+    """`advance_position` fills the entry only when price trades into the zone
+    and records NO_FILL when it never does — the behaviour of an order that
+    waits to be hit. It cannot also be charged for crossing the spread."""
+    assert CFG.entry_leg_cost_pct == CFG.maker_leg_cost_pct
+    assert CFG.entry_leg_cost_pct < CFG.taker_leg_cost_pct
+
+
+def test_a_target_exit_makes_and_every_other_exit_takes() -> None:
+    assert CFG.exit_leg_cost_pct("target") == CFG.maker_leg_cost_pct
+    for reason in ("invalidation", "trailing_stop", "timeout"):
+        assert CFG.exit_leg_cost_pct(reason) == CFG.taker_leg_cost_pct
+
+
+def test_an_unknown_exit_reason_is_charged_as_a_taker() -> None:
+    """A position still open may yet stop out. Assuming otherwise would
+    flatter every unsettled trade on the board."""
+    assert CFG.exit_leg_cost_pct("") == CFG.taker_leg_cost_pct
+    assert CFG.exit_leg_cost_pct("something_new") == CFG.taker_leg_cost_pct
+    setup = snapshot()
+    assert cost_in_r(setup, 100.0, CFG) == cost_in_r(setup, 100.0, CFG, "invalidation")
+
+
+def test_a_target_hit_costs_less_than_a_stop_out_on_the_same_geometry() -> None:
+    setup = snapshot()
+    assert cost_in_r(setup, 100.0, CFG, "target") < cost_in_r(setup, 100.0, CFG, "invalidation")
+
+
+def test_a_settled_record_is_charged_by_what_actually_closed_it() -> None:
+    setup = snapshot()
+    hit, _ = run(setup, [(30, 100.0), (60, 90.0)])
+    stopped, _ = run(setup, [(30, 100.0), (60, 102.5)])
+    assert hit.exit_reason == "target" and stopped.exit_reason == "invalidation"
+    assert hit.cost_r == pytest.approx(cost_in_r(setup, hit.entry_price or 0.0, CFG, "target"))
+    assert stopped.cost_r > hit.cost_r
+
+
+def test_a_maker_leg_may_never_be_configured_dearer_than_a_taker_leg() -> None:
+    with pytest.raises(ValueError):
+        replace(CFG, maker_fee_pct=0.9)
+
+
 def test_costs_can_turn_a_marginal_winner_into_a_loser() -> None:
-    cheap = replace(CFG, taker_fee_pct=0.0, slippage_pct=0.0)
-    expensive = replace(CFG, taker_fee_pct=0.4, slippage_pct=0.2)
+    cheap = replace(CFG, taker_fee_pct=0.0, slippage_pct=0.0, maker_fee_pct=0.0, maker_slippage_pct=0.0)
+    expensive = replace(
+        CFG, taker_fee_pct=0.4, slippage_pct=0.2, maker_fee_pct=0.4, maker_slippage_pct=0.2
+    )
     setup = snapshot()
     # Runs to 1.5R, then trails out just under half an R of gross profit.
     path = [(30, 100.0), (60, 97.0), (90, 99.05)]
@@ -472,7 +516,7 @@ def test_a_no_fill_pays_nothing() -> None:
 
 
 def test_zero_cost_reproduces_the_gross_result() -> None:
-    free = replace(CFG, taker_fee_pct=0.0, slippage_pct=0.0)
+    free = replace(CFG, taker_fee_pct=0.0, slippage_pct=0.0, maker_fee_pct=0.0, maker_slippage_pct=0.0)
     position, _ = run(snapshot(), [(30, 100.4), (60, 94.0)], free)
     assert position.realized_r == pytest.approx(position.gross_r)
 

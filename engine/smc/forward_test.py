@@ -63,8 +63,8 @@ limit order would have received. Generation 4 paid a mean 0.174R past its stops
 target hits collected 2.97R of overshoot in the other direction. Neither number
 is a property of the strategy; both are properties of the sampling rate.
 
-The cost of actually crossing the spread is modelled once, explicitly, in
-`taker_fee_pct` + `slippage_pct`. Charging it a second time through the
+The cost of actually crossing the spread is modelled once, explicitly, per leg
+(see "Cost, priced per leg" below). Charging it a second time through the
 observation price is not conservatism, it is a bias whose size is set by how
 often the recorder happens to look.
 
@@ -72,6 +72,33 @@ The assumption this makes is stated plainly: the stop and target rest on the
 book and fill at their level. A true gap through a resting stop would fill
 worse, and this model will not show that. Prices come from the radar's ~1s
 tick stream, so the window in which a gap can hide is that tick.
+
+## Cost, priced per leg
+
+Each leg is charged for what it actually does, not for a symmetric round trip:
+
+* the **entry** is a resting limit inside the entry zone. It fills when price
+  trades into it, and settles `NO_FILL` when price never arrives — which is
+  the whole reason that outcome exists. An order that waits to be hit is a
+  maker, and it pays no adverse slippage, because there is no crossing to be
+  adverse to.
+* a **target** exit is the same thing on the other side: a resting limit the
+  book has to come to. Maker.
+* a **stop, trail or timeout** exit closes at market. Taker, both fee and
+  slippage.
+
+This is the same class of error described above about settling at the observed
+price, applied to a leg that never crosses at all. Re-derived over the 244
+settled rows of generation 5 it was worth **0.063R/trade** against a gross edge
+of +0.107R — roughly a third of the reported deficit was a pricing artifact
+rather than the strategy.
+
+Generation 6 charges it correctly at the source. `realized_r` therefore is not
+comparable across that boundary and `FORWARD_TEST_VERSION` segments it; gross R
+is untouched, which is why every arm gate is written against gross.
+
+An unknown exit reason is charged as a **taker**, so an open position marked to
+market is never flattered by an assumption its settlement may not earn.
 """
 
 from __future__ import annotations
@@ -81,7 +108,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, fields, replace
 from typing import Any, Literal
 
-FORWARD_TEST_VERSION = "1.2.0"
+FORWARD_TEST_VERSION = "1.3.0"
 
 Direction = Literal["bullish", "bearish"]
 
@@ -111,6 +138,13 @@ EventType = Literal[
 ]
 
 TrailingMode = Literal["NONE", "R_MULTIPLE"]
+
+#: Exit reasons that filled a **resting limit order** and therefore made the
+#: spread rather than crossed it. Deliberately an allow-list: anything not
+#: named here — including an empty reason on a position still open — is priced
+#: as a taker, so a missing value can never make a trade look cheaper than it
+#: was.
+MAKER_EXITS: frozenset[str] = frozenset({"target"})
 
 _EPS = 1e-9
 
@@ -145,8 +179,17 @@ class ForwardTestConfig:
     # trip is ~10% of a 1% scalp stop and ~2% of a 5% swing stop, so omitting
     # it does not merely shift results — it shifts them differently per
     # horizon, which is exactly the comparison this dataset exists to make.
+    #
+    # Charged per leg for what that leg actually does — see "Cost, priced per
+    # leg" in the module docstring. A resting order that waits to be hit makes
+    # the spread; only a stop, a trail or a timeout crosses it.
     taker_fee_pct: float = 0.05
     slippage_pct: float = 0.02
+    maker_fee_pct: float = 0.02
+    # Not zero: a resting order still queues, and the level it sits on is not
+    # always the level it fills at. But it is not a taker's either, and pricing
+    # it as one was the bias generation 6 exists to remove.
+    maker_slippage_pct: float = 0.01
 
     # Trailing. NONE keeps the structural stop for the whole trade.
     trailing_mode: TrailingMode = "R_MULTIPLE"
@@ -162,13 +205,39 @@ class ForwardTestConfig:
             raise ValueError("windows must be positive")
         if self.trailing_distance_r <= 0:
             raise ValueError("trailing_distance_r must be positive")
-        if self.taker_fee_pct < 0 or self.slippage_pct < 0:
+        if min(self.taker_fee_pct, self.slippage_pct) < 0:
             raise ValueError("costs cannot be negative")
+        if min(self.maker_fee_pct, self.maker_slippage_pct) < 0:
+            raise ValueError("costs cannot be negative")
+        if self.maker_leg_cost_pct > self.taker_leg_cost_pct:
+            raise ValueError("a maker leg cannot cost more than a taker leg")
 
     @property
-    def round_trip_cost_pct(self) -> float:
-        """Entry + exit, fee + slippage, as a percentage of price."""
-        return 2.0 * (self.taker_fee_pct + self.slippage_pct)
+    def maker_leg_cost_pct(self) -> float:
+        """One leg filled as a resting limit order, as a percentage of price."""
+        return self.maker_fee_pct + self.maker_slippage_pct
+
+    @property
+    def taker_leg_cost_pct(self) -> float:
+        """One leg that crosses the spread, as a percentage of price."""
+        return self.taker_fee_pct + self.slippage_pct
+
+    @property
+    def entry_leg_cost_pct(self) -> float:
+        """The entry leg. Always a maker: `advance_position` fills it only when
+        price trades into the zone, and records `NO_FILL` when it never does —
+        which is exactly the behaviour of an order that waits to be hit."""
+        return self.maker_leg_cost_pct
+
+    def exit_leg_cost_pct(self, exit_reason: str = "") -> float:
+        """The exit leg, priced by what closed the trade. Unknown reasons are
+        charged as takers — see `MAKER_EXITS`."""
+        return self.maker_leg_cost_pct if exit_reason in MAKER_EXITS else self.taker_leg_cost_pct
+
+    def round_trip_cost_pct(self, exit_reason: str = "") -> float:
+        """Both legs, as a percentage of price. With no exit reason this is the
+        worst case the trade can still take — maker in, taker out."""
+        return self.entry_leg_cost_pct + self.exit_leg_cost_pct(exit_reason)
 
 
 DEFAULT_FORWARD_TEST_CONFIG = ForwardTestConfig()
@@ -480,17 +549,27 @@ def unrealized_r(
     return round(gross - cost_in_r(snapshot, entry, config), 4)
 
 
-def cost_in_r(snapshot: SetupSnapshot, entry: float, config: ForwardTestConfig) -> float:
+def cost_in_r(
+    snapshot: SetupSnapshot,
+    entry: float,
+    config: ForwardTestConfig,
+    exit_reason: str = "",
+) -> float:
     """The round trip expressed in R for this particular trade.
 
     Cost is a share of price; R is a share of the stop distance. The narrower
     the stop, the larger the same fee looms — which is precisely why a scalp
     and a swing cannot be compared on gross R.
+
+    `exit_reason` selects the exit leg's pricing. Omitting it charges a taker
+    exit, which is the right default for a position that has not settled yet:
+    it may still stop out, and a mark that assumed otherwise would flatter
+    every open trade on the board.
     """
     risk = abs(entry - snapshot.initial_invalidation)
     if risk <= _EPS or entry <= _EPS:
         return 0.0
-    return (entry * config.round_trip_cost_pct / 100.0) / risk
+    return (entry * config.round_trip_cost_pct(exit_reason) / 100.0) / risk
 
 
 def _in_zone(snapshot: SetupSnapshot, price: float) -> bool:
@@ -680,10 +759,14 @@ def advance_position(
     # Target first, then the stop in force, then the clock. A single price
     # cannot be on both sides of the entry, so this order never has to break a
     # tie — see the module docstring.
-    cost_r = cost_in_r(snapshot, entry, config)
+    #
+    # Cost is resolved per branch rather than once up front, because the exit
+    # leg's price depends on which order actually closed the trade.
 
     if _beyond_target(snapshot, price):
-        # Fills at the target, not at the observation that revealed it.
+        # Fills at the target, not at the observation that revealed it — and
+        # the target is a resting limit, so this leg makes the spread.
+        cost_r = cost_in_r(snapshot, entry, config, "target")
         fill = snapshot.target
         gross = _r_multiple(snapshot, entry, fill)
         events.append(
@@ -710,6 +793,10 @@ def advance_position(
 
     if _beyond_stop(snapshot, working.active_stop, price):
         trailed_out = working.trailing_active
+        # A stop closes at market on both branches, so both take.
+        cost_r = cost_in_r(
+            snapshot, entry, config, "trailing_stop" if trailed_out else "invalidation"
+        )
         fill = working.active_stop
         gross = _r_multiple(snapshot, entry, fill)
         events.append(
@@ -740,6 +827,8 @@ def advance_position(
         )
 
     if working.entered_at is not None and now - working.entered_at >= config.max_holding_seconds:
+        # Closed at the market when the clock ran out. Taker.
+        cost_r = cost_in_r(snapshot, entry, config, "timeout")
         events.append(
             LifecycleEvent(type="EXPIRED", ts=now, price=price, detail={"reason": "timeout"})
         )

@@ -44,10 +44,17 @@ from smc.forward_test import (
     is_finite_plan,
 )
 
-#: Bumped whenever an arm is added, retired or has its gate changed. Stamped on
-#: every row so a report can never pool observations taken under two different
-#: registries — the mistake that makes a weekly cadence dangerous.
-ARMS_VERSION = "1.0.0"
+#: Bumped whenever an arm is added, retired or has its gate changed, and stamped
+#: on every row so any observation can be traced to the registry it was taken
+#: under.
+#:
+#: It is deliberately **not** a pooling boundary. Arms are read by name, and an
+#: arm whose own definition and gate did not change is the same experiment
+#: before and after a bump — segmenting it would throw away sample to record
+#: that a *different* arm was edited. What must never pool is one arm's
+#: observations across a change to that arm, and the mechanism for that is a
+#: new name, not a new version.
+ARMS_VERSION = "1.1.0"
 
 Axis = Literal["exit", "plan", "detect"]
 
@@ -159,19 +166,46 @@ def _exit_variants(primary: ForwardTestConfig) -> dict[str, ForwardTestConfig]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Axis: plan — where entry, invalidation and target are drawn
+# Axis: plan — what is fixed about the trade at detection
 # ─────────────────────────────────────────────────────────────────────────────
 #
-# The diagnosed problem this axis exists for: the control's mean stop is 0.79%
-# of price (SCALP) against a 0.14% round trip, so cost is 26% of the stop before
-# the detector has said anything. Both arms attack that ratio, from opposite
-# ends — one by re-planning against slow structure, one by refusing to plan a
-# stop the fees can eat.
+# The line between this axis and `exit`, stated once because `short_hold` sits
+# right on it: an **exit** arm reacts to price after the fill (trail on, off,
+# wider), a **plan** arm is decided at `detected_at` and does not move. A time
+# stop is a plan parameter by that test — "this thesis is void if it has not
+# worked within fifteen minutes" is declared before the trade exists and is
+# never revised by what price does — even though it happens to be enforced at
+# the end of the trade.
+#
+# Two diagnosed problems, one axis, because both are answered by redrawing the
+# plan rather than by changing what is detected:
+#
+#   * cost. The control's mean stop is 0.79% of price (SCALP) against a round
+#     trip that was 0.14% and is 0.10% since generation 6 — still ~13% of the
+#     stop before the detector has said anything. `wide_stop` refuses to plan a
+#     stop the fees can eat.
+#   * horizon. The score's information is measured, and it is short: IC +0.16 at
+#     1m, +0.15 at 5m, indistinguishable from zero at 15m and beyond
+#     (`research/ic-2026-08-15.md`, n=292, and the same shape in the
+#     cross-sectional read). The control holds a filled setup for up to two
+#     hours. `short_hold` tests whether the tail of that hold is uncompensated.
+#
+# `structural_swing` argued the opposite of `short_hold` and was withdrawn
+# unjudged when the IC decay made its premise implausible — see its `retired`
+# note. Retired arms stay here; deleting one would erase the fact that the
+# question was asked.
 
 #: The floor a `wide_stop` arm holds the invalidation to, as a percent of entry.
 #: Chosen so the round trip is under a tenth of the stop: at a 0.14% round trip,
 #: 1.5% of price puts cost at ~0.09R instead of ~0.21R.
 WIDE_STOP_MIN_RISK_PCT = 1.5
+
+#: How long `short_hold` gives a filled setup, in seconds. Set from the measured
+#: decay of the score's information rather than from taste: the IC is +0.16 at
+#: 1m and +0.15 at 5m, and indistinguishable from zero from 15m out
+#: (`research/ic-2026-08-15.md`). Fifteen minutes is the first horizon at which
+#: the score knows nothing, so it is the last one worth holding to.
+SHORT_HOLD_SECONDS = 900.0
 
 PLAN_ARMS: tuple[Arm, ...] = (
     Arm(
@@ -186,6 +220,34 @@ PLAN_ARMS: tuple[Arm, ...] = (
         # events — so the floor is lower, and the report will simply keep
         # saying INSUFFICIENT until it is met. That is the correct output.
         gate=Gate(min_settled=150),
+        retired=(
+            "2026-08-15 WITHDRAWN — not judged. At 6/150 after two days it was "
+            "accruing ~3 pairs a day and would not have reached its floor before "
+            "December. It is withdrawn rather than failed: no verdict was "
+            "reached and none is claimed. The reason for withdrawing it now "
+            "instead of letting it run is that the score's measured IC decay "
+            "(+0.16 at 1m, zero from 15m out, research/ic-2026-08-15.md) makes "
+            "its premise — that a fast trigger is worth holding for up to three "
+            "days — implausible enough that the slot buys more elsewhere. That "
+            "is a judgement about where to spend observations, not evidence "
+            "against the hypothesis, and re-registering it later is allowed."
+        ),
+    ),
+    Arm(
+        name="short_hold",
+        axis="plan",
+        hypothesis=(
+            "The plan outlives the information it was drawn from. The score's "
+            "IC is +0.16 at one minute and gone by fifteen, yet a filled setup "
+            f"is held for up to two hours; capping the hold at "
+            f"{int(SHORT_HOLD_SECONDS / 60)} minutes keeps the part of the move "
+            "the score actually predicted and stops paying noise and fees for "
+            "the part it does not."
+        ),
+        registered="2026-08-15",
+        # Offered on every fill, like the exit arms, so it accrues at the
+        # control's own rate and 400 pairs is roughly a fortnight.
+        gate=Gate(min_settled=400),
     ),
     Arm(
         name="wide_stop",
@@ -355,6 +417,14 @@ def settlement_variants(primary: ForwardTestConfig) -> tuple[Variant, ...]:
                     ),
                     varies_plan=True,
                 )
+            )
+        elif arm.name == "short_hold":
+            # Config-only: the geometry is the control's, and the entry window
+            # is the control's too. Shortening the wait for a fill *and* the
+            # hold would confound "the setup was untradable" with "the trade
+            # was closed early", and only one of those is the question.
+            variants.append(
+                Variant(arm.name, replace(primary, max_holding_seconds=SHORT_HOLD_SECONDS))
             )
         elif arm.name == "wide_stop":
             # Same horizon as the control — the only thing that varies is where

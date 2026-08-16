@@ -90,9 +90,16 @@ class PathConfig:
     min_risk_pct: float = 0.35
     # …and a *cost* floor. A round trip costs this much of price, and it may
     # eat at most `max_cost_r` of the risk — which sets a minimum stop width of
-    # `round_trip_cost_pct / max_cost_r` outright. Keep the cost in step with
-    # `ForwardTestConfig`: it is the same round trip, stated where the geometry
-    # is decided rather than where it is settled.
+    # `round_trip_cost_pct / max_cost_r` outright.
+    #
+    # Deliberately **not** tracking `ForwardTestConfig` since generation 6.
+    # That model now prices the entry as the maker it is, taking the worst-case
+    # round trip to 0.10; matching it here would *lower* the floor and admit
+    # tighter stops. This number gates which setups exist at all, so loosening
+    # it is a detection change with its own blast radius — and the whole
+    # diagnosis (0.79% mean stop against a round trip that is 26% of it) says
+    # the floor is too low already, not too high. It stays at the conservative
+    # figure until a `plan` arm says otherwise.
     round_trip_cost_pct: float = 0.14
     max_cost_r: float = 0.25
     # Below this the path is not worth the risk; between the two it is thin.

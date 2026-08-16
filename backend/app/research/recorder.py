@@ -124,7 +124,17 @@ STRATEGY_VERSION = f"discover-forward-test/{FORWARD_TEST_VERSION}"
 #:         * a cost floor: the round trip may eat at most `max_cost_r` of risk.
 #:           Generation 4's gross edge was +17.2R and its fee bill 21.4R.
 #:       Its R is therefore not comparable with generation 4's on either side.
-DETECTOR_GENERATION = 5
+#:   6 — cost priced per leg. The entry is a resting limit order and pays a
+#:       maker's fee with a maker's slippage; a target exit is the same on the
+#:       other side; a stop, trail or timeout crosses the spread and pays a
+#:       taker's. Generation 5 charged both legs as takers, which over its 244
+#:       costed rows overstated cost by 0.063R/trade against a gross edge of
+#:       +0.107R — roughly a third of the reported deficit was the pricing,
+#:       not the strategy. **Gross R is untouched**, which is why every arm
+#:       gate in `smc.arms` is written against gross and none of them restart
+#:       here; only `realized_r` and `cost_r` break comparability with
+#:       generation 5.
+DETECTOR_GENERATION = 6
 
 
 def setup_key(situation: Situation) -> str:

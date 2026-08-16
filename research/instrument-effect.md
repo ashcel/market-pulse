@@ -148,17 +148,29 @@ positive, and net remains indistinguishable from zero (t=-0.25 on the wider
 244-row cut) — but it means roughly a third of the reported deficit is a
 pricing artifact rather than the strategy.
 
-Shipped as a **scenario only**, in `app/research/arms_report.py`. Changing what
-the recorder writes would move `realized_r` on every future row and restart the
-net-R clock — a `DETECTOR_GENERATION` bump, which is a decision and not a
-report's to take. The flat "maker" row is retained but relabelled *unreachable*,
-because it prices every stop-out as a resting order and no stop is one.
+Shipped first as a **scenario only**, in `app/research/arms_report.py`, because
+changing what the recorder writes moves `realized_r` on every future row and
+restarts the net-R clock.
 
-**Open for the owner:** whether to bump to generation 6 and price the entry leg
-correctly at the source. Against: it restarts net-R comparability at exactly the
-moment the arms need sample. For: every week not fixed adds rows whose net R is
-known to be wrong by a measurable amount, and the arms are gated on **gross** R
-anyway — which this does not touch.
+**Closed 2026-08-15: generation 6 prices it at the source.** `ForwardTestConfig`
+now charges each leg for what it does — maker on the entry (a resting order in
+the zone), maker on a target exit (a resting limit the book must come to), taker
+on a stop, trail or timeout (market orders). An unknown exit reason is charged as
+a taker, so an open position marked to market is never flattered.
+`FORWARD_TEST_VERSION` moved to 1.3.0 and `DETECTOR_GENERATION` to 6.
+
+The decision, stated: **gross R is untouched, and every arm gate in
+`smc.arms` is written against gross** — so the arms lose no sample to this. Only
+`realized_r`/`cost_r` break comparability with generation 5, and the weekly
+report's cost scenarios are now restricted to one `strategy_version` so the two
+can never be pooled into a mean no cost model ever produced. The old pricing is
+retained in the report as `taker both legs (generation 5 pricing)` so the size
+of the correction stays visible.
+
+`structural_path.PathConfig.round_trip_cost_pct` deliberately did **not** follow
+it down to 0.10. That number gates which setups exist at all; lowering it would
+admit tighter stops, and the standing diagnosis says the floor is already too
+low, not too high.
 
 ## One thing to check while collecting
 

@@ -36,12 +36,13 @@ from app.research.arms_report import (
     cost_scenario,
     costed_rows,
     holm,
+    legacy_taker_scenario,
     paired,
-    per_leg_scenario,
     render_markdown,
     render_telegram,
     unpaired,
 )
+from app.research.recorder import STRATEGY_VERSION
 
 T0 = 1_700_000_000.0
 
@@ -299,6 +300,7 @@ def _row(**overrides: object) -> Row:
         realized_r=-1.2,
         cost_r=0.2,
         exit_reason="invalidation",
+        strategy_version=STRATEGY_VERSION,
         variants={},
         arm_flags={},
     )
@@ -324,51 +326,37 @@ def test_a_cheaper_round_trip_is_re_derived_not_re_run() -> None:
     assert cheap.mean_net == pytest.approx(0.44)
 
 
-def test_a_stopped_trade_still_pays_a_taker_exit() -> None:
-    """Entry 100 over a 1.0 stop: maker entry 0.03% + taker exit 0.07% = 0.10R."""
-    scenario = per_leg_scenario(costed_rows([_row(exit_reason="invalidation")]))
+def test_a_row_from_another_generation_is_kept_out_of_the_cost_scenarios() -> None:
+    """The live column reads `realized_r` straight off the row, and generation
+    6 changed how that number is computed. Pooling the two would report a mean
+    net R no single cost model ever produced."""
+    rows = [_row(), _row(id="2", strategy_version="discover-forward-test/1.2.0")]
+    assert [r.id for r in costed_rows(rows)] == ["1"]
+
+
+def test_the_legacy_scenario_prices_both_legs_as_takers() -> None:
+    """What generation 5 charged: 2 * (0.05 + 0.02) = 0.14% of a 100.0 entry
+    over a 1.0 stop."""
+    scenario = legacy_taker_scenario(costed_rows([_row()]))
     assert scenario is not None
-    assert scenario.mean_cost == pytest.approx(0.10)
+    assert scenario.mean_cost == pytest.approx(0.14)
 
 
-def test_a_target_hit_pays_two_maker_legs() -> None:
-    """A target is a resting limit the book had to come to."""
-    scenario = per_leg_scenario(costed_rows([_row(exit_reason="target")]))
-    assert scenario is not None
-    assert scenario.mean_cost == pytest.approx(0.06)
+def test_the_legacy_scenario_is_dearer_than_every_live_exit() -> None:
+    """The correction only ever reprices downward — an order that waits to be
+    hit cannot cost more than one that crosses the spread."""
+    legacy = legacy_taker_scenario(costed_rows([_row()]))
+    assert legacy is not None
+    for reason in ("invalidation", "target", "trailing_stop", "timeout"):
+        assert CFG.round_trip_cost_pct(reason) < legacy.round_trip_pct, reason
 
 
-def test_a_trailed_exit_is_a_stop_and_takes() -> None:
-    trailed = per_leg_scenario(costed_rows([_row(exit_reason="trailing_stop")]))
-    stopped = per_leg_scenario(costed_rows([_row(exit_reason="invalidation")]))
-    assert trailed is not None and stopped is not None
-    assert trailed.mean_cost == pytest.approx(stopped.mean_cost)
-
-
-def test_the_per_leg_scenario_is_never_dearer_than_the_live_taker_model() -> None:
-    """It only ever reprices the entry, and only downward — an order that
-    waits to be hit cannot cost more than one that crosses the spread."""
-    rows = costed_rows(
-        [_row(id=str(i), exit_reason=reason) for i, reason in enumerate(
-            ("invalidation", "target", "trailing_stop", "timeout")
-        )]
-    )
-    per_leg = per_leg_scenario(rows)
-    live = cost_scenario(rows, "taker", 0.14)
-    assert per_leg is not None and live is not None
-    assert per_leg.mean_cost < live.mean_cost
-
-
-def test_a_row_with_no_risk_is_skipped_rather_than_dividing_by_zero() -> None:
-    assert per_leg_scenario(costed_rows([_row(entry_price=99.0)])) is None
-
-
-def test_the_per_leg_scenario_shares_the_denominator_of_the_others() -> None:
+def test_the_legacy_scenario_shares_the_denominator_of_the_others() -> None:
     rows = costed_rows([_row(), _row(id="2", cost_r=0.0), _row(id="3", entry_price=None)])
-    per_leg = per_leg_scenario(rows)
+    legacy = legacy_taker_scenario(rows)
     live = cost_scenario(rows, "taker", 0.14)
-    assert per_leg is not None and live is not None
-    assert per_leg.n == live.n == 1
+    assert legacy is not None and live is not None
+    assert legacy.n == live.n == 1
 
 
 # ── rendering ────────────────────────────────────────────────────────────────
