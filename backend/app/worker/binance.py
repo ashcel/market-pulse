@@ -204,8 +204,28 @@ async def fetch_klines(
     end_time: int | None = None,
 ) -> list[Candle]:
     interval = BINANCE_INTERVALS.get(timeframe)
+    if interval is None:
+        return []
+    return await fetch_klines_interval(symbol, interval, limit, market, end_time)
+
+
+async def fetch_klines_interval(
+    symbol: str,
+    interval: str,
+    limit: int = 200,
+    market: MarketType = "spot",
+    end_time: int | None = None,
+) -> list[Candle]:
+    """Klines at a raw Binance interval string.
+
+    `fetch_klines` covers the timeframes the product reasons in. Research asks
+    for intervals that are deliberately *not* in `TokenTimeframe` — a 1m bar is
+    the resolution the momentum radar works at but not a horizon anything is
+    planned on, and adding "1M" to that alias table would read as a month in a
+    codebase where "1D"/"1W" mean what they say.
+    """
     exchange_symbol, price_scale = resolve_exchange_symbol(symbol, market)
-    if exchange_symbol == "USDT" or interval is None:
+    if exchange_symbol == "USDT" or not interval:
         return []
 
     limit = min(1000, max(1, int(limit)))

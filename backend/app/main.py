@@ -17,6 +17,7 @@ from app.execution.execute_router import router as execute_router
 from app.execution.executions_read_router import router as executions_read_router
 from app.execution.permits_router import router as permits_router
 from app.execution.router import router as execution_router
+from app.listings.router import router as listings_router
 from app.market.router import router as market_router
 from app.momentum.router import router as momentum_router
 from app.momentum.scanner import start_momentum_radar, stop_momentum_radar
@@ -110,6 +111,7 @@ async def health() -> HealthResponse:
 
 
 v1_router.include_router(auth_router)
+v1_router.include_router(listings_router)
 v1_router.include_router(market_router)
 v1_router.include_router(momentum_router)
 v1_router.include_router(research_router)

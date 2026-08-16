@@ -17,10 +17,12 @@ from arq.cron import CronJob
 
 from app.config import settings
 from app.database import SessionFactory
+from app.listings.sources import close_http_client as close_listings_client
 
 from .binance import close_http_client
 from .binance_review_sync_pass import run_binance_review_sync_pass
 from .forward_return_pass import run_forward_return_pass
+from .listings_pass import run_listings_pass
 from .passes import run_once
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -54,8 +56,22 @@ async def forward_return_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) ->
         return await run_forward_return_pass(db)
 
 
+async def listings_tick(ctx: dict[Any, Any], *args: Any, **kwargs: Any) -> str:  # noqa: ARG001
+    """New-listing screener sweep.
+
+    Every 15 minutes, offset off the :00/:05 marks so it never contends with
+    the forward-test pass for the shared Binance weight budget. Faster than
+    hourly because the thing it watches — a scheduled listing — is an event
+    with a deadline, and a 15-minute resolution is what makes the "lists in
+    under an hour" alert worth having.
+    """
+    async with SessionFactory() as db:
+        return await run_listings_pass(db)
+
+
 async def shutdown(_ctx: dict[Any, Any]) -> None:
     await close_http_client()
+    await close_listings_client()
 
 
 class WorkerSettings:
@@ -80,6 +96,12 @@ class WorkerSettings:
             minute={34},
             run_at_startup=False,
             timeout=600,
+        ),
+        cron(
+            listings_tick,
+            minute={7, 22, 37, 52},
+            run_at_startup=True,
+            timeout=900,
         ),
     ]
     on_shutdown = shutdown

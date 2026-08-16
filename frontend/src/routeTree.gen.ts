@@ -26,7 +26,9 @@ import { Route as EventsRouteImport } from './routes/events'
 import { Route as DiscoverRouteImport } from './routes/discover'
 import { Route as AlertsRouteImport } from './routes/alerts'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ListingsIndexRouteImport } from './routes/listings.index'
 import { Route as TokenSymbolRouteImport } from './routes/token.$symbol'
+import { Route as ListingsSymbolRouteImport } from './routes/listings.$symbol'
 import { Route as ApiWatchlistRouteImport } from './routes/api/watchlist'
 import { Route as ApiTradesRouteImport } from './routes/api/trades'
 import { Route as ApiTrackTokenRouteImport } from './routes/api/track-token'
@@ -40,6 +42,7 @@ import { Route as ApiExternalContextRouteImport } from './routes/api/external-co
 import { Route as ApiEvidenceRouteImport } from './routes/api/evidence'
 import { Route as ApiEconomicEventsRouteImport } from './routes/api/economic-events'
 import { Route as ApiAuthRouteImport } from './routes/api/auth'
+import { Route as ApiListingsIndexRouteImport } from './routes/api/listings.index'
 import { Route as ApiTradesIdRouteImport } from './routes/api/trades.$id'
 import { Route as ApiReviewAnalyticsRouteImport } from './routes/api/review.analytics'
 import { Route as ApiReviewIdRouteImport } from './routes/api/review.$id'
@@ -48,6 +51,7 @@ import { Route as ApiRallyWatcherScanRouteImport } from './routes/api/rally-watc
 import { Route as ApiPatternsReaccumulationRouteImport } from './routes/api/patterns.reaccumulation'
 import { Route as ApiMomentumStreamRouteImport } from './routes/api/momentum.stream'
 import { Route as ApiMomentumScanRouteImport } from './routes/api/momentum.scan'
+import { Route as ApiListingsSymbolRouteImport } from './routes/api/listings.$symbol'
 import { Route as ApiExecutionPermitRouteImport } from './routes/api/execution.permit'
 import { Route as ApiExecutionExecutionsRouteImport } from './routes/api/execution.executions'
 import { Route as ApiExecutionExecuteRouteImport } from './routes/api/execution.execute'
@@ -144,9 +148,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ListingsIndexRoute = ListingsIndexRouteImport.update({
+  id: '/listings/',
+  path: '/listings/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TokenSymbolRoute = TokenSymbolRouteImport.update({
   id: '/token/$symbol',
   path: '/token/$symbol',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ListingsSymbolRoute = ListingsSymbolRouteImport.update({
+  id: '/listings/$symbol',
+  path: '/listings/$symbol',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiWatchlistRoute = ApiWatchlistRouteImport.update({
@@ -214,6 +228,11 @@ const ApiAuthRoute = ApiAuthRouteImport.update({
   path: '/api/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiListingsIndexRoute = ApiListingsIndexRouteImport.update({
+  id: '/api/listings/',
+  path: '/api/listings/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTradesIdRoute = ApiTradesIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -253,6 +272,11 @@ const ApiMomentumStreamRoute = ApiMomentumStreamRouteImport.update({
 const ApiMomentumScanRoute = ApiMomentumScanRouteImport.update({
   id: '/api/momentum/scan',
   path: '/api/momentum/scan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiListingsSymbolRoute = ApiListingsSymbolRouteImport.update({
+  id: '/api/listings/$symbol',
+  path: '/api/listings/$symbol',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiExecutionPermitRoute = ApiExecutionPermitRouteImport.update({
@@ -339,7 +363,9 @@ export interface FileRoutesByFullPath {
   '/api/track-token': typeof ApiTrackTokenRoute
   '/api/trades': typeof ApiTradesRouteWithChildren
   '/api/watchlist': typeof ApiWatchlistRoute
+  '/listings/$symbol': typeof ListingsSymbolRoute
   '/token/$symbol': typeof TokenSymbolRoute
+  '/listings/': typeof ListingsIndexRoute
   '/api/binance-review/api-key': typeof ApiBinanceReviewApiKeyRoute
   '/api/binance-review/sync': typeof ApiBinanceReviewSyncRoute
   '/api/binance-review/trades': typeof ApiBinanceReviewTradesRoute
@@ -347,6 +373,7 @@ export interface FileRoutesByFullPath {
   '/api/execution/execute': typeof ApiExecutionExecuteRoute
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
+  '/api/listings/$symbol': typeof ApiListingsSymbolRoute
   '/api/momentum/scan': typeof ApiMomentumScanRoute
   '/api/momentum/stream': typeof ApiMomentumStreamRoute
   '/api/patterns/reaccumulation': typeof ApiPatternsReaccumulationRoute
@@ -355,6 +382,7 @@ export interface FileRoutesByFullPath {
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
+  '/api/listings/': typeof ApiListingsIndexRoute
   '/api/ai/chat/completions': typeof ApiAiChatCompletionsRoute
   '/api/execution/permit/$id': typeof ApiExecutionPermitIdRoute
   '/api/momentum/timeline/$symbol': typeof ApiMomentumTimelineSymbolRoute
@@ -390,7 +418,9 @@ export interface FileRoutesByTo {
   '/api/track-token': typeof ApiTrackTokenRoute
   '/api/trades': typeof ApiTradesRouteWithChildren
   '/api/watchlist': typeof ApiWatchlistRoute
+  '/listings/$symbol': typeof ListingsSymbolRoute
   '/token/$symbol': typeof TokenSymbolRoute
+  '/listings': typeof ListingsIndexRoute
   '/api/binance-review/api-key': typeof ApiBinanceReviewApiKeyRoute
   '/api/binance-review/sync': typeof ApiBinanceReviewSyncRoute
   '/api/binance-review/trades': typeof ApiBinanceReviewTradesRoute
@@ -398,6 +428,7 @@ export interface FileRoutesByTo {
   '/api/execution/execute': typeof ApiExecutionExecuteRoute
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
+  '/api/listings/$symbol': typeof ApiListingsSymbolRoute
   '/api/momentum/scan': typeof ApiMomentumScanRoute
   '/api/momentum/stream': typeof ApiMomentumStreamRoute
   '/api/patterns/reaccumulation': typeof ApiPatternsReaccumulationRoute
@@ -406,6 +437,7 @@ export interface FileRoutesByTo {
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
+  '/api/listings': typeof ApiListingsIndexRoute
   '/api/ai/chat/completions': typeof ApiAiChatCompletionsRoute
   '/api/execution/permit/$id': typeof ApiExecutionPermitIdRoute
   '/api/momentum/timeline/$symbol': typeof ApiMomentumTimelineSymbolRoute
@@ -442,7 +474,9 @@ export interface FileRoutesById {
   '/api/track-token': typeof ApiTrackTokenRoute
   '/api/trades': typeof ApiTradesRouteWithChildren
   '/api/watchlist': typeof ApiWatchlistRoute
+  '/listings/$symbol': typeof ListingsSymbolRoute
   '/token/$symbol': typeof TokenSymbolRoute
+  '/listings/': typeof ListingsIndexRoute
   '/api/binance-review/api-key': typeof ApiBinanceReviewApiKeyRoute
   '/api/binance-review/sync': typeof ApiBinanceReviewSyncRoute
   '/api/binance-review/trades': typeof ApiBinanceReviewTradesRoute
@@ -450,6 +484,7 @@ export interface FileRoutesById {
   '/api/execution/execute': typeof ApiExecutionExecuteRoute
   '/api/execution/executions': typeof ApiExecutionExecutionsRoute
   '/api/execution/permit': typeof ApiExecutionPermitRouteWithChildren
+  '/api/listings/$symbol': typeof ApiListingsSymbolRoute
   '/api/momentum/scan': typeof ApiMomentumScanRoute
   '/api/momentum/stream': typeof ApiMomentumStreamRoute
   '/api/patterns/reaccumulation': typeof ApiPatternsReaccumulationRoute
@@ -458,6 +493,7 @@ export interface FileRoutesById {
   '/api/review/$id': typeof ApiReviewIdRoute
   '/api/review/analytics': typeof ApiReviewAnalyticsRoute
   '/api/trades/$id': typeof ApiTradesIdRoute
+  '/api/listings/': typeof ApiListingsIndexRoute
   '/api/ai/chat/completions': typeof ApiAiChatCompletionsRoute
   '/api/execution/permit/$id': typeof ApiExecutionPermitIdRoute
   '/api/momentum/timeline/$symbol': typeof ApiMomentumTimelineSymbolRoute
@@ -495,7 +531,9 @@ export interface FileRouteTypes {
     | '/api/track-token'
     | '/api/trades'
     | '/api/watchlist'
+    | '/listings/$symbol'
     | '/token/$symbol'
+    | '/listings/'
     | '/api/binance-review/api-key'
     | '/api/binance-review/sync'
     | '/api/binance-review/trades'
@@ -503,6 +541,7 @@ export interface FileRouteTypes {
     | '/api/execution/execute'
     | '/api/execution/executions'
     | '/api/execution/permit'
+    | '/api/listings/$symbol'
     | '/api/momentum/scan'
     | '/api/momentum/stream'
     | '/api/patterns/reaccumulation'
@@ -511,6 +550,7 @@ export interface FileRouteTypes {
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
+    | '/api/listings/'
     | '/api/ai/chat/completions'
     | '/api/execution/permit/$id'
     | '/api/momentum/timeline/$symbol'
@@ -546,7 +586,9 @@ export interface FileRouteTypes {
     | '/api/track-token'
     | '/api/trades'
     | '/api/watchlist'
+    | '/listings/$symbol'
     | '/token/$symbol'
+    | '/listings'
     | '/api/binance-review/api-key'
     | '/api/binance-review/sync'
     | '/api/binance-review/trades'
@@ -554,6 +596,7 @@ export interface FileRouteTypes {
     | '/api/execution/execute'
     | '/api/execution/executions'
     | '/api/execution/permit'
+    | '/api/listings/$symbol'
     | '/api/momentum/scan'
     | '/api/momentum/stream'
     | '/api/patterns/reaccumulation'
@@ -562,6 +605,7 @@ export interface FileRouteTypes {
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
+    | '/api/listings'
     | '/api/ai/chat/completions'
     | '/api/execution/permit/$id'
     | '/api/momentum/timeline/$symbol'
@@ -597,7 +641,9 @@ export interface FileRouteTypes {
     | '/api/track-token'
     | '/api/trades'
     | '/api/watchlist'
+    | '/listings/$symbol'
     | '/token/$symbol'
+    | '/listings/'
     | '/api/binance-review/api-key'
     | '/api/binance-review/sync'
     | '/api/binance-review/trades'
@@ -605,6 +651,7 @@ export interface FileRouteTypes {
     | '/api/execution/execute'
     | '/api/execution/executions'
     | '/api/execution/permit'
+    | '/api/listings/$symbol'
     | '/api/momentum/scan'
     | '/api/momentum/stream'
     | '/api/patterns/reaccumulation'
@@ -613,6 +660,7 @@ export interface FileRouteTypes {
     | '/api/review/$id'
     | '/api/review/analytics'
     | '/api/trades/$id'
+    | '/api/listings/'
     | '/api/ai/chat/completions'
     | '/api/execution/permit/$id'
     | '/api/momentum/timeline/$symbol'
@@ -649,7 +697,9 @@ export interface RootRouteChildren {
   ApiTrackTokenRoute: typeof ApiTrackTokenRoute
   ApiTradesRoute: typeof ApiTradesRouteWithChildren
   ApiWatchlistRoute: typeof ApiWatchlistRoute
+  ListingsSymbolRoute: typeof ListingsSymbolRoute
   TokenSymbolRoute: typeof TokenSymbolRoute
+  ListingsIndexRoute: typeof ListingsIndexRoute
   ApiBinanceReviewApiKeyRoute: typeof ApiBinanceReviewApiKeyRoute
   ApiBinanceReviewSyncRoute: typeof ApiBinanceReviewSyncRoute
   ApiBinanceReviewTradesRoute: typeof ApiBinanceReviewTradesRoute
@@ -657,6 +707,7 @@ export interface RootRouteChildren {
   ApiExecutionExecuteRoute: typeof ApiExecutionExecuteRoute
   ApiExecutionExecutionsRoute: typeof ApiExecutionExecutionsRoute
   ApiExecutionPermitRoute: typeof ApiExecutionPermitRouteWithChildren
+  ApiListingsSymbolRoute: typeof ApiListingsSymbolRoute
   ApiMomentumScanRoute: typeof ApiMomentumScanRoute
   ApiMomentumStreamRoute: typeof ApiMomentumStreamRoute
   ApiPatternsReaccumulationRoute: typeof ApiPatternsReaccumulationRoute
@@ -664,6 +715,7 @@ export interface RootRouteChildren {
   ApiResearchForwardTestRoute: typeof ApiResearchForwardTestRoute
   ApiReviewIdRoute: typeof ApiReviewIdRoute
   ApiReviewAnalyticsRoute: typeof ApiReviewAnalyticsRoute
+  ApiListingsIndexRoute: typeof ApiListingsIndexRoute
   ApiAiChatCompletionsRoute: typeof ApiAiChatCompletionsRoute
   ApiMomentumTimelineSymbolRoute: typeof ApiMomentumTimelineSymbolRoute
 }
@@ -789,11 +841,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/listings/': {
+      id: '/listings/'
+      path: '/listings'
+      fullPath: '/listings/'
+      preLoaderRoute: typeof ListingsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/token/$symbol': {
       id: '/token/$symbol'
       path: '/token/$symbol'
       fullPath: '/token/$symbol'
       preLoaderRoute: typeof TokenSymbolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/listings/$symbol': {
+      id: '/listings/$symbol'
+      path: '/listings/$symbol'
+      fullPath: '/listings/$symbol'
+      preLoaderRoute: typeof ListingsSymbolRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/watchlist': {
@@ -887,6 +953,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/listings/': {
+      id: '/api/listings/'
+      path: '/api/listings'
+      fullPath: '/api/listings/'
+      preLoaderRoute: typeof ApiListingsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/trades/$id': {
       id: '/api/trades/$id'
       path: '/$id'
@@ -941,6 +1014,13 @@ declare module '@tanstack/react-router' {
       path: '/api/momentum/scan'
       fullPath: '/api/momentum/scan'
       preLoaderRoute: typeof ApiMomentumScanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/listings/$symbol': {
+      id: '/api/listings/$symbol'
+      path: '/api/listings/$symbol'
+      fullPath: '/api/listings/$symbol'
+      preLoaderRoute: typeof ApiListingsSymbolRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/execution/permit': {
@@ -1070,7 +1150,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiTrackTokenRoute: ApiTrackTokenRoute,
   ApiTradesRoute: ApiTradesRouteWithChildren,
   ApiWatchlistRoute: ApiWatchlistRoute,
+  ListingsSymbolRoute: ListingsSymbolRoute,
   TokenSymbolRoute: TokenSymbolRoute,
+  ListingsIndexRoute: ListingsIndexRoute,
   ApiBinanceReviewApiKeyRoute: ApiBinanceReviewApiKeyRoute,
   ApiBinanceReviewSyncRoute: ApiBinanceReviewSyncRoute,
   ApiBinanceReviewTradesRoute: ApiBinanceReviewTradesRoute,
@@ -1078,6 +1160,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiExecutionExecuteRoute: ApiExecutionExecuteRoute,
   ApiExecutionExecutionsRoute: ApiExecutionExecutionsRoute,
   ApiExecutionPermitRoute: ApiExecutionPermitRouteWithChildren,
+  ApiListingsSymbolRoute: ApiListingsSymbolRoute,
   ApiMomentumScanRoute: ApiMomentumScanRoute,
   ApiMomentumStreamRoute: ApiMomentumStreamRoute,
   ApiPatternsReaccumulationRoute: ApiPatternsReaccumulationRoute,
@@ -1085,6 +1168,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiResearchForwardTestRoute: ApiResearchForwardTestRoute,
   ApiReviewIdRoute: ApiReviewIdRoute,
   ApiReviewAnalyticsRoute: ApiReviewAnalyticsRoute,
+  ApiListingsIndexRoute: ApiListingsIndexRoute,
   ApiAiChatCompletionsRoute: ApiAiChatCompletionsRoute,
   ApiMomentumTimelineSymbolRoute: ApiMomentumTimelineSymbolRoute,
 }

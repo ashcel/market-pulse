@@ -15,12 +15,16 @@ describe("visibleNavGroups", () => {
       "/",
       "/markets",
       "/discover",
+      // The listing screener is part of the public market plane: its API
+      // carries no session dependency, so an anonymous visitor sees it.
+      "/listings",
       "/news",
       "/events",
       "/regime",
       "/rotation",
       "/rankings",
       "/technical",
+      "/forward-test",
     ]);
   });
 

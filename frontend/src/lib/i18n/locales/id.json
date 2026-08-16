@@ -33,7 +33,8 @@
       "alerts": "Notifikasi",
       "settings": "Pengaturan",
       "signIn": "Masuk",
-      "forwardTest": "Forward test"
+      "forwardTest": "Forward test",
+      "listings": "Listing Baru"
     }
   },
   "sidebar": {
@@ -1853,6 +1854,173 @@
     },
     "reaccumulation": {
       "title": "Pantauan Reaccumulation"
+    }
+  },
+  "listings": {
+    "title": "Listing Baru",
+    "subtitle": "Token yang akan segera listing di Binance dan yang baru mulai diperdagangkan — disaring dari likuiditas, aliran order, sebaran holder, dan tekanan unlock.",
+    "sectionUpcoming": "Segera listing",
+    "sectionTrading": "Baru listing",
+    "sortAria": "Urutkan listing",
+    "sort": {
+      "time": "Waktu listing",
+      "score": "Skor",
+      "change": "Sejak launch"
+    },
+    "counts": "{{upcoming}} akan datang · {{trading}} berjalan",
+    "listsIn": "listing dalam {{time}}",
+    "listedAgo": "listing {{time}} lalu",
+    "price": "Harga",
+    "in24h": "24j",
+    "liquidity": "Likuiditas",
+    "top10": "Top 10",
+    "warnings_one": "{{count}} tanda risiko",
+    "warnings_other": "{{count}} tanda risiko",
+    "sinceLaunch": "sejak launch",
+    "noLaunchAnchor": "Belum ada harga launch",
+    "anchorApprox": "perkiraan",
+    "notScored": "Belum diskor",
+    "coverage": "{{pct}}% bukti",
+    "scoreAria": "Skor screener {{score}} dari 100, grade {{grade}}",
+    "empty": "Belum ada listing terlacak. Screener menulis tiap 15 menit.",
+    "loadFailed": "Gagal memuat screener. Coba sebentar lagi.",
+    "disclaimer": "Ini screener, bukan sinyal trading. Skor menilai seberapa layak sebuah listing diperhatikan — bukan perintah beli, jual, atau ukuran posisi. Listing baru berisiko tinggi secara bawaan.",
+    "grade": {
+      "PRIORITY": "Prioritas",
+      "WATCH": "Pantau",
+      "THIN": "Tipis",
+      "SKIP": "Lewati"
+    },
+    "venue": {
+      "alpha": "Alpha",
+      "spot": "Spot",
+      "futures": "Perp"
+    },
+    "flag": {
+      "airdrop": "Airdrop",
+      "tge": "TGE",
+      "hot": "Hot",
+      "seed": "Seed tag"
+    },
+    "component": {
+      "liquidity": "Likuiditas",
+      "flow": "Aliran taker",
+      "distribution": "Sebaran holder",
+      "supply": "Unlock suplai",
+      "venue": "Tangga venue",
+      "social": "Sosial"
+    },
+    "anchorSource": {
+      "kline_open": "Menit pertama diperdagangkan di Binance",
+      "pool_open": "Jam pertama di pool DEX",
+      "first_observed": "Harga pertama yang kami amati"
+    },
+    "rejected": {
+      "generic": "Screener menyaring token ini sebelum diberi skor.",
+      "liquidity_below_floor": "Likuiditas di bawah batas minimum — memberi skor pada likuiditas debu justru menyesatkan.",
+      "volume_below_floor": "Volume 24 jam di bawah batas minimum screener.",
+      "no_price_feed": "Belum ada feed harga untuk token ini.",
+      "no_market_data": "Tidak ada data likuiditas atau volume untuk token ini.",
+      "no_scoreable_inputs": "Tidak ada komponen dengan data yang bisa dipakai."
+    },
+    "holders": {
+      "title": "Peta holder",
+      "subtitle": "Wallet terbesar di {{symbol}}. Luas gelembung = porsi suplai.",
+      "top10": "Top 10",
+      "largest": "Terbesar",
+      "pooled": "Di pool",
+      "burned": "Dibakar",
+      "hint": "Arahkan atau fokus ke gelembung untuk melihat wallet-nya.",
+      "notCounted": "tidak dihitung sebagai holder",
+      "mapAria": "Peta gelembung holder {{symbol}}: {{count}} wallet, top 10 memegang {{top10}} persen",
+      "kind": {
+        "wallet": "Wallet",
+        "contract": "Kontrak",
+        "team": "Tim / vesting",
+        "exchange": "Exchange",
+        "pool": "Pool likuiditas",
+        "burn": "Dibakar"
+      },
+      "unavailable": {
+        "generic": "Distribusi holder tidak tersedia untuk token ini.",
+        "no_indexer_key_for_chain": "Belum ada indeks holder untuk chain ini, jadi konsentrasi tidak bisa diukur. Screener membuang komponen holder daripada menganggap suplai tersebar rata.",
+        "indexer_plan_lacks_chain": "Indeks holder yang dikonfigurasi tidak mencakup chain ini.",
+        "chain_not_covered": "Belum ada indeks holder untuk chain ini.",
+        "no_contract_address": "Tidak ada alamat kontrak tercatat untuk token ini.",
+        "no_holder_rows": "Indeks holder tidak mengembalikan data untuk token ini.",
+        "solana_rpc_unavailable": "Node Solana tidak menjawab tepat waktu. Dicoba lagi pada pass berikutnya.",
+        "blockscout_unavailable": "Block explorer tidak menjawab tepat waktu. Dicoba lagi pada pass berikutnya.",
+        "provider_error": "Indeks holder gagal. Dicoba lagi pada pass berikutnya.",
+        "zero_supply": "Suplai terbaca nol, konsentrasi tidak bisa dihitung."
+      }
+    },
+    "social": {
+      "title": "Denyut sosial",
+      "subtitle": "Postingan terbaru tentang {{symbol}}, ditimbang popularitas.",
+      "sentiment": "Sentimen",
+      "posts": "Post 24j",
+      "velocity": "Kecepatan",
+      "spam": "Hasil farming",
+      "followers": "pengikut",
+      "likes": "suka",
+      "reposts": "repost",
+      "open": "Buka",
+      "minutesAgo": "{{count}}m lalu",
+      "hoursAgo": "{{count}}j lalu",
+      "daysAgo": "{{count}}h lalu",
+      "tone": {
+        "bullish": "Positif",
+        "bearish": "Negatif",
+        "neutral": "Campuran"
+      },
+      "farmedWarning": "Sebagian besar post terlihat hasil farming atau salin-tempel. Baca ramainya sebagai promosi, bukan keyakinan.",
+      "unavailable": {
+        "generic": "Belum ada data sosial untuk token ini.",
+        "not_collected": "Belum ada data sosial untuk token ini.",
+        "no_x_bearer_token": "Pengumpulan sosial belum dikonfigurasi, jadi sentimen sengaja tidak ditampilkan daripada menunjukkan skor netral yang terlihat seperti ketidakpedulian nyata.",
+        "no_recent_posts": "Tidak ada post tentang token ini dalam 48 jam terakhir.",
+        "x_rate_limited": "API sosial sedang kena rate limit. Dicoba lagi pada pass berikutnya.",
+        "x_unauthorized": "API sosial menolak kredensial yang dikonfigurasi.",
+        "x_request_failed": "API sosial tidak menjawab. Dicoba lagi pada pass berikutnya.",
+        "x_bad_payload": "API sosial mengembalikan respons yang tidak terbaca."
+      }
+    },
+    "ai": {
+      "title": "Bacaan AI",
+      "subtitle": "Menarasikan bukti di atas — tidak pernah membuat skornya.",
+      "run": "Analisis",
+      "rerun": "Ulangi",
+      "running": "Membaca…",
+      "gathering": "Mengumpulkan paket bukti…",
+      "noProvider": "Tambahkan API key AI di Pengaturan untuk mengaktifkan ini.",
+      "failed": "Analisis gagal: {{error}}",
+      "source": "Dijawab oleh {{model}}"
+    },
+    "detail": {
+      "back": "Semua listing",
+      "notFound": "Belum ada catatan screener untuk {{symbol}}.",
+      "verdict": "Bacaan screener",
+      "verdictHint": "Peringkat perhatian, bukan rekomendasi.",
+      "screenedOut": "Disaring sebelum diskor",
+      "weight": "bobot",
+      "scoreVersion": "Screener {{version}}",
+      "priceTitle": "Harga sejak launch",
+      "current": "Sekarang",
+      "launch": "Saat launch",
+      "range": "Rentang sejak launch",
+      "chartAria": "Harga sejak launch, dengan harga launch sebagai garis putus-putus",
+      "chartCaption": "{{count}} pengamatan sejak screener mulai melacak token ini.",
+      "marketTitle": "Bentuk pasar",
+      "marketCap": "Kapitalisasi",
+      "fdv": "FDV",
+      "fdvMultiple": "{{multiple}}x kapitalisasi",
+      "volume24h": "Volume 24j",
+      "float": "Beredar",
+      "floatHint": "dari total suplai",
+      "holders": "Holder",
+      "chain": "Chain: {{chain}}",
+      "listsIn": "Listing dalam {{time}} di Binance {{venue}}",
+      "listedAgo": "Listing {{time}} lalu di Binance {{venue}}"
     }
   }
 }

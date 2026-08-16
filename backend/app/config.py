@@ -21,6 +21,15 @@ class Config(BaseSettings):
     COINGECKO_API_KEY: str = ""
     COINMARKETCAP_API_KEY: str = ""
     COINMARKETCAL_API_KEY: str = ""
+    # New-listing screener. Both are optional and independently degradable:
+    # without the X token the social pulse reports "uncollected" instead of a
+    # neutral score, and without an indexer key the holder bubble map is
+    # unavailable on chains no keyless provider covers (notably BSC).
+    X_BEARER_TOKEN: str = ""
+    ETHERSCAN_API_KEY: str = ""
+    # `hermes send --to telegram:<target>` destination for followed-token
+    # listing alerts. Empty disables delivery; the alert is still recorded.
+    LISTING_ALERT_TELEGRAM_TARGET: str = ""
 
 
 settings = Config()

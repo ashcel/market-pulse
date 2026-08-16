@@ -33,7 +33,8 @@
       "alerts": "Alerts",
       "settings": "Settings",
       "signIn": "Sign in",
-      "forwardTest": "Forward test"
+      "forwardTest": "Forward test",
+      "listings": "New Listings"
     }
   },
   "sidebar": {
@@ -1853,6 +1854,173 @@
     },
     "reaccumulation": {
       "title": "Reaccumulation Watch"
+    }
+  },
+  "listings": {
+    "title": "New Listings",
+    "subtitle": "What Binance is about to list, and what just started trading — screened on liquidity, flow, holder spread and unlock overhang.",
+    "sectionUpcoming": "Listing soon",
+    "sectionTrading": "Recently listed",
+    "sortAria": "Sort listings",
+    "sort": {
+      "time": "Time to list",
+      "score": "Score",
+      "change": "Since launch"
+    },
+    "counts": "{{upcoming}} upcoming · {{trading}} trading",
+    "listsIn": "lists in {{time}}",
+    "listedAgo": "listed {{time}} ago",
+    "price": "Price",
+    "in24h": "24h",
+    "liquidity": "Liquidity",
+    "top10": "Top 10",
+    "warnings_one": "{{count}} risk flag",
+    "warnings_other": "{{count}} risk flags",
+    "sinceLaunch": "since launch",
+    "noLaunchAnchor": "No launch price yet",
+    "anchorApprox": "approx.",
+    "notScored": "Not scored yet",
+    "coverage": "{{pct}}% evidence",
+    "scoreAria": "Screener score {{score}} out of 100, grade {{grade}}",
+    "empty": "No listings tracked yet. The screener writes every 15 minutes.",
+    "loadFailed": "Could not load the screener. Try again shortly.",
+    "disclaimer": "This is a screener, not a trade signal. The score ranks how much attention a listing deserves — it never says buy, sell, or how much. New listings are high-risk by construction.",
+    "grade": {
+      "PRIORITY": "Priority",
+      "WATCH": "Watch",
+      "THIN": "Thin",
+      "SKIP": "Skip"
+    },
+    "venue": {
+      "alpha": "Alpha",
+      "spot": "Spot",
+      "futures": "Perp"
+    },
+    "flag": {
+      "airdrop": "Airdrop",
+      "tge": "TGE",
+      "hot": "Hot",
+      "seed": "Seed tag"
+    },
+    "component": {
+      "liquidity": "Liquidity",
+      "flow": "Taker flow",
+      "distribution": "Holder spread",
+      "supply": "Supply unlock",
+      "venue": "Venue ladder",
+      "social": "Social"
+    },
+    "anchorSource": {
+      "kline_open": "First traded minute on Binance",
+      "pool_open": "First hour in the DEX pool",
+      "first_observed": "First price we observed"
+    },
+    "rejected": {
+      "generic": "The screener gated this token out before scoring it.",
+      "liquidity_below_floor": "Liquidity is below the floor the screener will rank at all — a score on dust would be misleading.",
+      "volume_below_floor": "24h volume is below the floor the screener will rank at all.",
+      "no_price_feed": "No live price feed for this token yet.",
+      "no_market_data": "No liquidity or volume data available for this token.",
+      "no_scoreable_inputs": "No component had usable data."
+    },
+    "holders": {
+      "title": "Holder map",
+      "subtitle": "Top wallets in {{symbol}}. Bubble area is share of supply.",
+      "top10": "Top 10",
+      "largest": "Largest",
+      "pooled": "In pools",
+      "burned": "Burned",
+      "hint": "Hover or focus a bubble for the wallet behind it.",
+      "notCounted": "not counted as a holder",
+      "mapAria": "Holder bubble map for {{symbol}}: {{count}} wallets, top 10 hold {{top10}} percent",
+      "kind": {
+        "wallet": "Wallet",
+        "contract": "Contract",
+        "team": "Team / vesting",
+        "exchange": "Exchange",
+        "pool": "Liquidity pool",
+        "burn": "Burned"
+      },
+      "unavailable": {
+        "generic": "Holder distribution is not available for this token.",
+        "no_indexer_key_for_chain": "No holder index covers this chain yet, so concentration cannot be measured. The screener drops the holder component rather than assuming the supply is well spread.",
+        "indexer_plan_lacks_chain": "The configured holder index does not cover this chain.",
+        "chain_not_covered": "No holder index covers this chain yet.",
+        "no_contract_address": "No contract address on record for this token.",
+        "no_holder_rows": "The holder index returned no rows for this token.",
+        "solana_rpc_unavailable": "The Solana node did not answer in time. This retries on the next pass.",
+        "blockscout_unavailable": "The block explorer did not answer in time. This retries on the next pass.",
+        "provider_error": "The holder index failed. This retries on the next pass.",
+        "zero_supply": "Supply reads as zero, so concentration cannot be computed."
+      }
+    },
+    "social": {
+      "title": "Social pulse",
+      "subtitle": "Recent, popularity-weighted posts about {{symbol}}.",
+      "sentiment": "Sentiment",
+      "posts": "Posts 24h",
+      "velocity": "Velocity",
+      "spam": "Farmed",
+      "followers": "followers",
+      "likes": "likes",
+      "reposts": "reposts",
+      "open": "Open",
+      "minutesAgo": "{{count}}m ago",
+      "hoursAgo": "{{count}}h ago",
+      "daysAgo": "{{count}}d ago",
+      "tone": {
+        "bullish": "Positive",
+        "bearish": "Negative",
+        "neutral": "Mixed"
+      },
+      "farmedWarning": "Most collected posts look farmed or copy-pasted. Read the buzz as promotion, not conviction.",
+      "unavailable": {
+        "generic": "No social data collected for this token yet.",
+        "not_collected": "No social data collected for this token yet.",
+        "no_x_bearer_token": "Social collection is not configured, so no sentiment is shown rather than a neutral score that would look like real indifference.",
+        "no_recent_posts": "No posts about this token in the last 48 hours.",
+        "x_rate_limited": "The social API is rate-limited right now. This retries on the next pass.",
+        "x_unauthorized": "The social API rejected the configured credentials.",
+        "x_request_failed": "The social API did not answer. This retries on the next pass.",
+        "x_bad_payload": "The social API returned an unreadable response."
+      }
+    },
+    "ai": {
+      "title": "AI read",
+      "subtitle": "Narrates the evidence above — it never produces the score.",
+      "run": "Analyse",
+      "rerun": "Re-run",
+      "running": "Reading…",
+      "gathering": "Gathering the evidence pack…",
+      "noProvider": "Add an AI provider key in Settings to enable this.",
+      "failed": "The analysis failed: {{error}}",
+      "source": "Answered by {{model}}"
+    },
+    "detail": {
+      "back": "All listings",
+      "notFound": "No screener record for {{symbol}} yet.",
+      "verdict": "Screener read",
+      "verdictHint": "Attention ranking, not a recommendation.",
+      "screenedOut": "Gated out before scoring",
+      "weight": "weight",
+      "scoreVersion": "Screener {{version}}",
+      "priceTitle": "Price since launch",
+      "current": "Now",
+      "launch": "At launch",
+      "range": "Range since launch",
+      "chartAria": "Price since launch, with the launch price as a dashed baseline",
+      "chartCaption": "{{count}} observations since the screener started tracking this token.",
+      "marketTitle": "Market shape",
+      "marketCap": "Market cap",
+      "fdv": "FDV",
+      "fdvMultiple": "{{multiple}}x market cap",
+      "volume24h": "Volume 24h",
+      "float": "Circulating",
+      "floatHint": "of total supply",
+      "holders": "Holders",
+      "chain": "Chain: {{chain}}",
+      "listsIn": "Lists in {{time}} on Binance {{venue}}",
+      "listedAgo": "Listed {{time}} ago on Binance {{venue}}"
     }
   }
 }

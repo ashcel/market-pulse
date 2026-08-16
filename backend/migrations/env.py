@@ -27,6 +27,11 @@ from app.forward_test.models import (  # noqa: F401
     ShadowSignalRow,
     VerdictHold,
 )
+from app.listings.models import (  # noqa: F401
+    ListingAlert,
+    TokenListing,
+    TokenListingPricePoint,
+)
 from app.market.models import Signal, Token  # noqa: F401
 from app.research.models import ForwardTestEvent, ForwardTestSetup  # noqa: F401
 from app.review.models import TradeReview  # noqa: F401

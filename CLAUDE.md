@@ -174,6 +174,45 @@ by `routes/api/momentum.*.ts`; `?mode=SCALP|INTRADAY` selects the horizon.
 Thresholds are env-overridable per field with `MOMENTUM_*`, `MOMENTUM_EVENT_*`
 and `MOMENTUM_CONTEXT_*`.
 
+### 5. New-listing screener (`/listings`)
+
+`backend/app/listings/` + the pure `engine/smc/listing_{calendar,score,social}.py`
+and `holder_map.py`. Answers "what is Binance about to list, and is any of it
+worth a look?" — a **screener, never a signal**: the score ranks attention, and
+carries no direction, entry or size. Own `LISTING_SCORE_VERSION` (1.0.0), no
+`ENGINE_VERSION` involvement, no forward-test record.
+
+Four Tier-1 feeds return the whole universe in one call each (Binance Alpha
+token list, spot `get-products` newListing/Seed/Launchpad tags, futures
+`exchangeInfo.onboardDate`, CMS catalog 48 announcements — the *calendar*,
+whose exact launch time is only in the article body). Per-token reads
+(DexScreener flow, holder index, X social) are Tier 2: a bounded rotating
+cohort per pass, with anything listing inside 48h jumping the queue.
+`app/worker/listings_pass.py` runs it on arq cron at `:07/:22/:37/:52`.
+
+Three rules hold the plane honest:
+
+- **`launch_price` is write-once** (`repo.set_launch_price`), sourced in order
+  from a Binance kline open, the DEX pool's first hourly bar, then first
+  observation. Everything since-launch is anchored to it, so a drifting anchor
+  would make the whole column a lie.
+- **Rows are never deleted.** A token that vanishes upstream is flagged
+  `inactive`; its row, price series and alerts stay, because measuring whether
+  a high score at listing predicts anything requires keeping the losers.
+- **Missing input is never a good input.** Each score component returns None
+  when its feed is absent and the composite renormalizes, publishing
+  `coverage`; a thin-coverage score can never grade PRIORITY. Chains with no
+  keyless holder index (notably BSC) report the bubble map as unavailable
+  rather than implying well-spread supply. Same for social without
+  `X_BEARER_TOKEN`.
+
+Optional env: `X_BEARER_TOKEN` (social pulse), `ETHERSCAN_API_KEY` (holder map
+on chains Blockscout/Solana RPC do not cover), `LISTING_ALERT_TELEGRAM_TARGET`
+(followed-token alerts via the `hermes` CLI, deduped in `token_listing_alerts`).
+Served at `/api/v1/listings{,/{symbol},/{symbol}/brief,/alerts/recent}`, proxied
+by `routes/api/listings*.ts`. `/{symbol}/brief` is the deterministic evidence
+pack the browser's BYOK analyst narrates — it never originates the score.
+
 Other structure:
 
 - `src/components/ui/` — shadcn/ui primitives; `src/components/iq/` — app components.
