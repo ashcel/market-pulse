@@ -527,31 +527,53 @@ def test_negative_costs_are_rejected() -> None:
 
 
 # ── exit-rule variants ───────────────────────────────────────────────────────
+#
+# These exercise the settlement engine's response to a trailing config, so they
+# build the configs they need with `replace` rather than reading them out of
+# `smc.arms`. They used to index into `settlement_variants()`, which coupled
+# the engine's own tests to which arms happened to be registered — retiring the
+# exit axis on 2026-08-18 broke all three without anything in the engine
+# changing. The engine knows nothing about axes; neither should its tests.
+
+NO_TRAIL = replace(CFG, trailing_mode="NONE")
+WIDE_TRAIL = replace(CFG, trailing_activation_r=1.5, trailing_distance_r=1.5)
 
 
-def test_variants_run_on_the_same_setup_and_the_same_prices() -> None:
-    """The controlled experiment: identical detection and entry, different
-    exit rules, settled forward together."""
+def test_the_same_setup_and_prices_settle_differently_under_different_exit_rules() -> None:
+    """The controlled experiment the whole variant machinery exists for:
+    identical detection and entry, different exit rules, settled forward
+    together against one price path."""
     setup = snapshot()
     path = [(30, 100.0), (60, 97.0), (90, 99.05), (120, 94.0)]
     primary, _ = run(setup, path, CFG)
-    results = {}
-    for variant in settlement_variants(CFG):
-        position, _ = run(setup, path, variant.config)
-        results[variant.name] = position
+    held, _ = run(setup, path, NO_TRAIL)
 
     # The primary trails out early; holding the structural stop reaches target.
     assert primary.status == "INVALIDATED"
     assert primary.exit_reason == "trailing_stop"
-    assert results["no_trail"].status == "TARGET_HIT"
-    assert results["no_trail"].realized_r > primary.realized_r
+    assert held.status == "TARGET_HIT"
+    assert held.realized_r > primary.realized_r
+
+
+def test_every_registered_variant_settles_independently_on_one_path() -> None:
+    """Whatever the registry currently holds, each variant gets its own
+    position off the same frozen snapshot and the same prices. Asserted over
+    the registry as it is, so it keeps holding as arms come and go."""
+    setup = snapshot()
+    path = [(30, 100.0), (60, 97.0), (90, 99.05), (120, 94.0)]
+    variants = settlement_variants(CFG)
+    assert variants, "the registry should always offer at least one variant"
+    results = {v.name: run(setup, path, v.config)[0] for v in variants}
+    assert len(results) == len(variants)
+    for position in results.values():
+        assert position.entered_at is not None
 
 
 def test_a_looser_trail_survives_a_retracement_the_tight_one_does_not() -> None:
     setup = snapshot()
     path = [(30, 100.0), (60, 97.0), (90, 99.05)]
     tight, _ = run(setup, path, CFG)
-    wide, _ = run(setup, path, settlement_variants(CFG)[1].config)
+    wide, _ = run(setup, path, WIDE_TRAIL)
     assert tight.status == "INVALIDATED"
     assert wide.status == "ACTIVE"
 
@@ -565,7 +587,7 @@ def test_a_variant_that_gives_back_more_is_recorded_as_such() -> None:
     # one is still in the trade and takes the full loss.
     path = [(30, 100.0), (60, 97.6), (90, 99.7), (120, 102.5)]
     tight, _ = run(setup, path, CFG)
-    loose, _ = run(setup, path, settlement_variants(CFG)[0].config)
+    loose, _ = run(setup, path, NO_TRAIL)
     assert tight.realized_r > loose.realized_r
     assert loose.exit_reason == "invalidation"
 

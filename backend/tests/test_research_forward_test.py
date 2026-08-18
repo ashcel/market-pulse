@@ -15,7 +15,6 @@ from types import SimpleNamespace
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from smc.arms import settlement_variants
 from smc.context_alignment import Alignment
 from smc.forward_test import (
     DEFAULT_FORWARD_TEST_CONFIG,
@@ -715,7 +714,13 @@ async def test_variant_outcomes_are_persisted_alongside_the_primary(db: AsyncSes
     assert row is not None
     assert row.variants is not None
     assert set(row.variants) == {v.name for v in settlement_variants(CFG)}
-    assert row.variants["no_trail"]["status"] == "TARGET_HIT"
+    # Whichever arms are registered, each one persists a settled outcome of its
+    # own. Naming a specific arm here would tie the persistence test to the
+    # registry's current contents, which is what broke it when the exit axis
+    # was retired on 2026-08-18.
+    assert row.variants
+    for outcome in row.variants.values():
+        assert outcome["status"] == "TARGET_HIT"
     # Costs are split out, not folded silently into the headline number.
     assert row.gross_r > row.realized_r
     assert row.cost_r > 0
@@ -853,9 +858,16 @@ def test_an_empty_variant_set_never_erases_the_stored_one() -> None:
 async def test_alternatives_keep_running_after_the_primary_exits(
     db: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`no_trail` holds to the target and outlives a trailed exit by design.
-    Freezing it when the primary settles would score the comparison in the
-    primary's favour — which is exactly what it exists to measure."""
+    """An alternative that holds to the target outlives a trailed exit by
+    design. Freezing it when the primary settles would score the comparison in
+    the primary's favour — which is exactly what it exists to measure.
+
+    The alternative is built here rather than taken from `settlement_variants`:
+    this is a property of the recorder, and it has to keep holding whatever the
+    registry happens to contain. It was written against the `no_trail` arm and
+    broke when that arm was retired on 2026-08-18, without the recorder
+    changing at all.
+    """
     import contextlib
 
     from app.research import recorder as recorder_module
@@ -867,6 +879,15 @@ async def test_alternatives_keep_running_after_the_primary_exits(
 
     monkeypatch.setattr(recorder_module, "SessionFactory", session)
 
+    # The recorder resolves each alternative's config by name out of the
+    # registry, so the injected one has to be resolvable the same way.
+    held_config = replace(CFG, trailing_mode="NONE")
+    monkeypatch.setattr(
+        recorder_module,
+        "_variant_config",
+        lambda primary, name: held_config if name == "held" else primary,
+    )
+
     snapshot = snapshot_from(situation(), T0, CFG)
     assert snapshot is not None
     position, _ = open_position(snapshot, T0, 100.0, CFG)
@@ -876,10 +897,7 @@ async def test_alternatives_keep_running_after_the_primary_exits(
 
     recorder = ForwardTestRecorder()
     recorder._open[key] = (setup_id, snapshot, position, 0)
-    recorder._variants[key] = {
-        name: open_position(snapshot, T0, 100.0, variant.config)[0]
-        for name, variant in {v.name: v for v in settlement_variants(CFG)}.items()
-    }
+    recorder._variants[key] = {"held": open_position(snapshot, T0, 100.0, held_config)[0]}
     # Fill in the zone, run to +1.6R so the trail engages, then retrace enough
     # for the trailed primary to be stopped out while the others hold.
     monkeypatch.setattr(recorder, "_price_for", lambda _symbol: 100.2)
@@ -899,8 +917,8 @@ async def test_alternatives_keep_running_after_the_primary_exits(
     row = await db.get(ForwardTestSetup, setup_id)
     assert row is not None
     assert row.variants is not None
-    assert row.variants["no_trail"]["status"] == "TARGET_HIT"
-    assert row.variants["no_trail"]["realized_r"] > 0
+    assert row.variants["held"]["status"] == "TARGET_HIT"
+    assert row.variants["held"]["realized_r"] > 0
     assert row.status == "INVALIDATED", "the primary's own outcome is untouched"
 
 

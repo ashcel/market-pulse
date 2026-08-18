@@ -127,9 +127,16 @@ def test_detector_arms_never_reach_settlement() -> None:
 def test_registering_a_fourth_arm_on_an_axis_is_refused() -> None:
     from smc import arms as arms_module
 
+    # Enough extras to blow the budget whatever the axis currently holds. The
+    # earlier version added a single arm to `exit`, which only tripped while
+    # that axis happened to be full — retiring both exit arms on 2026-08-18
+    # silently turned this into a test that asserted nothing.
     crowded = (
         *arms_module.ARMS,
-        Arm("extra", "exit", "one too many", "2026-08-14", Gate(min_settled=1)),
+        *(
+            Arm(f"extra{i}", "exit", "one too many", "2026-08-14", Gate(min_settled=1))
+            for i in range(arms_module.MAX_ARMS_PER_AXIS)
+        ),
     )
     original = arms_module.ARMS
     try:
@@ -138,6 +145,42 @@ def test_registering_a_fourth_arm_on_an_axis_is_refused() -> None:
             arms_module._validate()
     finally:
         arms_module.ARMS = original
+
+
+# ── retirement ───────────────────────────────────────────────────────────────
+
+
+def test_a_retired_arm_stops_being_opened_on_new_setups() -> None:
+    """Retirement's whole job. `settlement_variants` is what the recorder calls
+    when a setup fills, so an arm missing from it accrues nothing further."""
+    opened = {v.name for v in settlement_variants(CFG)}
+    for arm in ARMS:
+        if arm.retired:
+            assert arm.name not in opened, f"{arm.name} is retired but still opened"
+
+
+def test_a_retired_arm_still_resolves_to_its_own_config() -> None:
+    """…and retirement's trap. A position already open when its arm is pulled
+    has to finish under that arm's rules; resolving it to the control instead
+    would settle a `no_trail` variant with trailing switched on and store the
+    result under the arm's name. Positions outlive registry edits — MINIMAX was
+    mid-flight with both exit arms when they were retired on 2026-08-18.
+    """
+    from app.research.recorder import _variant_config
+
+    held = arm_named("no_trail")
+    assert held is not None and held.retired, "this test is about a retired arm"
+    assert _variant_config(CFG, "no_trail").trailing_mode == "NONE"
+    assert CFG.trailing_mode != "NONE", "otherwise the assertion above proves nothing"
+
+
+def test_an_unknown_variant_name_still_falls_back_to_the_control() -> None:
+    """A name from neither the live registry nor its history is a corrupt or
+    hand-edited row. It settles under the control rather than crashing the
+    recorder — the research question is not worth the tick."""
+    from app.research.recorder import _variant_config
+
+    assert _variant_config(CFG, "never_registered") == CFG
 
 
 # ── the wide_stop plan arm ───────────────────────────────────────────────────

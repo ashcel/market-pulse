@@ -332,7 +332,16 @@ def setup_values(snapshot: SetupSnapshot, position: PaperPosition, key: str) -> 
 
 
 def _variant_config(primary: ForwardTestConfig, name: str) -> ForwardTestConfig:
-    for variant in settlement_variants(primary):
+    """The config an already-open alternative must keep being settled under.
+
+    Retired arms are included on purpose. A position opened under an arm has to
+    finish under that arm's rules even after the arm is pulled — resolving a
+    retired name to `primary` instead would quietly settle, say, a `no_trail`
+    variant with trailing switched on and store the result under the arm's
+    name. Retirement stops new variants being opened; `settlement_variants()`
+    with its default does that filtering, one caller up.
+    """
+    for variant in settlement_variants(primary, active_only=False):
         if variant.name == name:
             return variant.config
     return primary

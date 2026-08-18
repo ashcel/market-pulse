@@ -54,7 +54,7 @@ from smc.forward_test import (
 #: that a *different* arm was edited. What must never pool is one arm's
 #: observations across a change to that arm, and the mechanism for that is a
 #: new name, not a new version.
-ARMS_VERSION = "1.1.0"
+ARMS_VERSION = "1.2.0"
 
 Axis = Literal["exit", "plan", "detect"]
 
@@ -132,7 +132,14 @@ class Arm:
 # The standing evidence (2026-08-14, n=202 filled): 52% of fills reach 1R, only
 # 5% reach target, trailed exits average +0.66R and stopped exits average
 # -1.31R. The exit rule is therefore doing nearly all of the work, which is why
-# this axis is full.
+# this axis was the first one filled.
+#
+# Both alternatives are now judged and pulled (2026-08-18), so the axis is
+# empty and the trailing control stands. That is a resolved axis, not an
+# abandoned one: two ways of not-trailing and of trailing-later were asked
+# about, both were answered, and the control beat each. Registering a third
+# exit arm is allowed and cheap — the budget is free again — but it should
+# carry a hypothesis these two did not already test.
 
 EXIT_ARMS: tuple[Arm, ...] = (
     Arm(
@@ -144,6 +151,14 @@ EXIT_ARMS: tuple[Arm, ...] = (
         ),
         registered="2026-08-13",
         gate=Gate(min_settled=400),
+        retired=(
+            "2026-08-18 FAIL — 470 paired, -0.077R gross against the control, "
+            "Holm p=0.471, gross 95% CI [-0.219, +0.064]. The floor was met and "
+            "the arm did not clear its +0.05R edge; the interval contains zero, "
+            "so this is 'no effect found', not 'trailing proven better'. Only 5% "
+            "of fills ever reach target, which is the mechanism: holding the "
+            "structural stop mostly buys a full -1R instead of a scratch."
+        ),
     ),
     Arm(
         name="wide_trail",
@@ -154,6 +169,14 @@ EXIT_ARMS: tuple[Arm, ...] = (
         ),
         registered="2026-08-13",
         gate=Gate(min_settled=400),
+        retired=(
+            "2026-08-18 RETIRE — 471 paired, -0.096R gross against the control, "
+            "Holm p=0.016, gross 95% CI [-0.159, -0.033]. The interval excludes "
+            "zero on the wrong side: this arm is beaten by the control, which is "
+            "a stronger result than no_trail's and the one worth keeping. "
+            "Giving the retracement more room does not save trades that reached "
+            "1R; it gives back the part of the move the tighter trail banked."
+        ),
     ),
 )
 
@@ -260,6 +283,24 @@ PLAN_ARMS: tuple[Arm, ...] = (
         ),
         registered="2026-08-14",
         gate=Gate(min_settled=400),
+        retired=(
+            "2026-08-18 WITHDRAWN — not judged, and no verdict is claimed: at "
+            "253/400 it was below its floor, where the protocol says there is "
+            "no verdict at all. Its standing numbers were -0.134R gross against "
+            "the control, gross 95% CI [-0.274, +0.005], Holm p=0.297.\n\n"
+            "Withdrawn now rather than left to run because an independent cut "
+            "makes its premise implausible. Grouping generation 5+6 SCALP rows "
+            "by stop width, the band above 1.20% — where this arm forces every "
+            "setup — runs +0.014R gross, against +0.167R for 0.56-0.80% and "
+            "+0.148R for 0.80-1.20%. The arm's own trend and that cut point the "
+            "same way, and neither says the control's floor is too tight.\n\n"
+            "The reading that survives is that the record has a stop-width "
+            "sweet spot around 0.56-1.20%, which is roughly where the cost "
+            "floor already puts things — so the axis is better tested from a "
+            "hypothesis about *which* setups earn a wide stop than by widening "
+            "all of them. Re-registering is allowed if such a hypothesis "
+            "arrives."
+        ),
     ),
 )
 
@@ -390,21 +431,31 @@ def arm_named(name: str) -> Arm | None:
     return None
 
 
-def settlement_variants(primary: ForwardTestConfig) -> tuple[Variant, ...]:
+def settlement_variants(
+    primary: ForwardTestConfig, *, active_only: bool = True
+) -> tuple[Variant, ...]:
     """Every arm that runs a real paper position, as `Variant`s.
 
     Replaces `smc.forward_test.default_variants` as the recorder's source. The
     settlement engine is untouched: it still advances a frozen snapshot under a
     frozen config and knows nothing about axes.
+
+    `active_only=False` includes retired arms, and exists for exactly one
+    caller: settling a position that was **already open** when its arm was
+    retired. Retirement stops new observations being opened, and must not
+    change the rules of one already running — a `no_trail` position that
+    finished under the control's trailing config would be recorded as a
+    `no_trail` result while being nothing of the kind. Everything that decides
+    what to open new uses the default.
     """
     exits = _exit_variants(primary)
     variants: list[Variant] = [
         Variant(arm.name, exits[arm.name])
         for arm in EXIT_ARMS
-        if arm.active and arm.name in exits
+        if (arm.active or not active_only) and arm.name in exits
     ]
     for arm in PLAN_ARMS:
-        if not arm.active:
+        if active_only and not arm.active:
             continue
         if arm.name == "structural_swing":
             variants.append(
