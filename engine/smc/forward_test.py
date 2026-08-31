@@ -108,7 +108,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, fields, replace
 from typing import Any, Literal
 
-FORWARD_TEST_VERSION = "1.3.0"
+FORWARD_TEST_VERSION = "1.4.0"
 
 Direction = Literal["bullish", "bearish"]
 
@@ -130,6 +130,7 @@ EventType = Literal[
     "SETUP_CONFIRMED",
     "ENTRY_ZONE_TOUCHED",
     "ENTRY_FILLED",
+    "PARTIAL_EXIT",
     "TRAIL_ACTIVATED",
     "TRAIL_UPDATED",
     "TARGET_HIT",
@@ -197,6 +198,8 @@ class ForwardTestConfig:
     trailing_activation_r: float = 1.0
     # …and thereafter keep the stop this many R behind the best price.
     trailing_distance_r: float = 1.0
+    # Partial-exit ladder for the `partial_lock` exit arm. None = no partials.
+    partial_exit_config: PartialExitConfig | None = None
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.entry_zone_risk_frac < 1.0:
@@ -211,6 +214,8 @@ class ForwardTestConfig:
             raise ValueError("costs cannot be negative")
         if self.maker_leg_cost_pct > self.taker_leg_cost_pct:
             raise ValueError("a maker leg cannot cost more than a taker leg")
+        if self.partial_exit_config is not None and not isinstance(self.partial_exit_config, PartialExitConfig):
+            raise ValueError("partial_exit_config must be a PartialExitConfig instance")
 
     @property
     def maker_leg_cost_pct(self) -> float:
@@ -241,6 +246,39 @@ class ForwardTestConfig:
 
 
 DEFAULT_FORWARD_TEST_CONFIG = ForwardTestConfig()
+
+
+@dataclass(frozen=True, slots=True)
+class PartialExitConfig:
+    """Partial take-profit ladder for an exit arm.
+
+    Each step is (threshold_R, size_fraction). When price reaches threshold_R
+    (first-touch-wins), `size_fraction` of the position is locked at that R and
+    the stop moves to breakeven for the residual. The residual continues under
+    the engine's normal trailing rule.
+
+    This is a frozen config carried by the `partial_lock` arm. The engine
+    settlement logic reads it; detection does not.
+    """
+
+    steps: tuple[tuple[float, float], ...] = ((0.5, 0.5), (1.0, 0.3))
+
+    def __post_init__(self) -> None:
+        if not self.steps:
+            raise ValueError("partial exit ladder must have at least one step")
+        for threshold, size in self.steps:
+            if threshold <= 0:
+                raise ValueError("threshold_R must be positive")
+            if not 0.0 < size < 1.0:
+                raise ValueError("size_fraction must be in (0, 1)")
+        total_size = sum(size for _, size in self.steps)
+        if total_size >= 1.0:
+            raise ValueError(
+                f"total exit fraction {total_size} must be < 1.0 (residual must remain)"
+            )
+
+
+DEFAULT_PARTIAL_EXIT_CONFIG = PartialExitConfig()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -456,6 +494,15 @@ class PaperPosition:
     best_price: float | None = None
     worst_price: float | None = None
 
+    # Partial-exit tracking. Each entry is (locked_r, size_fraction) for a
+    # partial that has been triggered. Empty when no partials have fired.
+    partial_exits: tuple[tuple[float, float], ...] = ()
+    # Residual size still running under trailing after partials. Starts at 1.0,
+    # decreases as partials trigger.
+    residual_size: float = 1.0
+    # Whether the stop has been moved to breakeven by a partial.
+    stop_at_breakeven: bool = False
+
     settled_at: float | None = None
     exit_price: float | None = None
     exit_reason: str = ""
@@ -570,6 +617,89 @@ def cost_in_r(
     if risk <= _EPS or entry <= _EPS:
         return 0.0
     return (entry * config.round_trip_cost_pct(exit_reason) / 100.0) / risk
+
+
+def _check_partial_exits(
+    snapshot: SetupSnapshot,
+    working: PaperPosition,
+    entry: float,
+    price: float,
+    now: float,
+    config: ForwardTestConfig,
+) -> tuple[PaperPosition, list[LifecycleEvent]]:
+    """Check if any partial exit threshold has been reached. If so, lock
+    profit for that slice and update residual_size + stop.
+
+    Returns updated working + partial exit events.
+    """
+    if config.partial_exit_config is None:
+        return working, []
+
+    events: list[LifecycleEvent] = []
+    long = snapshot.direction == "bullish"
+
+    for threshold_r, size_frac in config.partial_exit_config.steps:
+        # Skip already-triggered steps
+        if any(
+            abs(locked_r - threshold_r) < _EPS
+            for locked_r, _ in working.partial_exits
+        ):
+            continue
+
+        # Price reached threshold?
+        reached = (
+            price >= entry + threshold_r * (entry - snapshot.initial_invalidation)
+            if long
+            else price <= entry - threshold_r * (snapshot.initial_invalidation - entry)
+        )
+        if not reached:
+            continue
+
+        # Lock partial
+        locked_r = threshold_r
+        new_partial_exits = (*working.partial_exits, (locked_r, size_frac))
+        new_residual = round(working.residual_size - size_frac, 4)
+
+        working = replace(
+            working,
+            partial_exits=new_partial_exits,
+            residual_size=new_residual,
+            stop_at_breakeven=True,
+            # Move stop to breakeven for the residual
+            active_stop=entry,
+        )
+        events.append(
+            LifecycleEvent(
+                type="PARTIAL_EXIT",
+                ts=now,
+                price=price,
+                detail={
+                    "threshold_r": threshold_r,
+                    "size_frac": size_frac,
+                    "locked_r": locked_r,
+                    "residual_size": new_residual,
+                },
+            )
+        )
+
+    return working, events
+
+
+def _compute_partial_realized(
+    working: PaperPosition,
+    exit_r: float,
+    cost_r: float,
+) -> float:
+    """Compute realized R when partial exits have been triggered.
+
+    Each locked partial contributes locked_r * size_frac. The residual
+    contributes residual_size * exit_r. Cost is deducted once.
+    """
+    if not working.partial_exits:
+        return round(exit_r - cost_r, 4)
+    locked = sum(locked_r * size_frac for locked_r, size_frac in working.partial_exits)
+    residual = working.residual_size * exit_r
+    return round(locked + residual - cost_r, 4)
 
 
 def _in_zone(snapshot: SetupSnapshot, price: float) -> bool:
@@ -756,6 +886,11 @@ def advance_position(
                 LifecycleEvent(type="TRAIL_UPDATED", ts=now, price=price, detail={"stop": trailed})
             )
 
+    # Partial exits: check thresholds and lock profit. Runs after trailing so
+    # that a trailing stop that already locked profit is respected first.
+    working, partial_events = _check_partial_exits(snapshot, working, entry, price, now, config)
+    events.extend(partial_events)
+
     # Target first, then the stop in force, then the clock. A single price
     # cannot be on both sides of the entry, so this order never has to break a
     # tie — see the module docstring.
@@ -812,6 +947,7 @@ def advance_position(
                 },
             )
         )
+        realized_r = _compute_partial_realized(working, gross, cost_r)
         return (
             replace(
                 working,
@@ -821,7 +957,7 @@ def advance_position(
                 exit_reason="trailing_stop" if trailed_out else "invalidation",
                 gross_r=round(gross, 4),
                 cost_r=round(cost_r, 4),
-                realized_r=round(gross - cost_r, 4),
+                realized_r=realized_r,
             ),
             events,
         )
@@ -832,6 +968,7 @@ def advance_position(
         events.append(
             LifecycleEvent(type="EXPIRED", ts=now, price=price, detail={"reason": "timeout"})
         )
+        realized_r = _compute_partial_realized(working, r_now, cost_r)
         return (
             replace(
                 working,
@@ -841,7 +978,7 @@ def advance_position(
                 exit_reason="timeout",
                 gross_r=round(r_now, 4),
                 cost_r=round(cost_r, 4),
-                realized_r=round(r_now - cost_r, 4),
+                realized_r=realized_r,
             ),
             events,
         )
@@ -1036,6 +1173,12 @@ class ForwardTestStats:
     total_r: float
     average_mfe_r: float
     average_mae_r: float
+    # `average_r` is net; these two are what it nets *from* — what the setup
+    # itself was worth before the round trip, and what the round trip took off
+    # it. Same denominator as `average_mfe_r`/`average_mae_r` (settled, minus
+    # `NO_FILL`), so `average_gross_r - average_cost_r == average_r`.
+    average_gross_r: float = 0.0
+    average_cost_r: float = 0.0
 
 
 def _median(values: list[float]) -> float:
@@ -1048,11 +1191,14 @@ def _median(values: list[float]) -> float:
     return (ordered[middle - 1] + ordered[middle]) / 2.0
 
 
-def compute_stats(rows: list[tuple[str, float, float, float]]) -> ForwardTestStats:
-    """Aggregates `(status, realized_r, mfe_r, mae_r)` rows.
+def compute_stats(rows: list[tuple[Any, ...]]) -> ForwardTestStats:
+    """Aggregates `(status, realized_r, mfe_r, mae_r[, gross_r, cost_r])` rows.
 
     Takes tuples rather than records so the same function serves the in-memory
     recorder and a database read model without either one importing the other.
+    The gross/cost pair is optional and read positionally (index 4, 5) so
+    existing 4-tuple callers — the in-memory recorder, the older tests — keep
+    working; they just report a zero cost split.
     """
     total = len(rows)
     open_count = sum(1 for status, *_ in rows if status in OPEN_STATUSES)
@@ -1099,6 +1245,12 @@ def compute_stats(rows: list[tuple[str, float, float, float]]) -> ForwardTestSta
         total_r=round(sum(returns), 4),
         average_mfe_r=round((sum(row[2] for row in settled) / len(settled)) if settled else 0.0, 4),
         average_mae_r=round((sum(row[3] for row in settled) / len(settled)) if settled else 0.0, 4),
+        average_gross_r=round(
+            (sum(row[4] for row in settled if len(row) > 4) / len(settled)) if settled else 0.0, 4
+        ),
+        average_cost_r=round(
+            (sum(row[5] for row in settled if len(row) > 5) / len(settled)) if settled else 0.0, 4
+        ),
     )
 
 

@@ -193,7 +193,12 @@ def select_zone_candidates(candidates: list[BaseZoneCandidate]) -> list[BaseZone
     return _select_zones(candidates)
 
 
-def _select_zones[Z: (BaseZone, BaseZoneCandidate)](zones: list[Z]) -> list[Z]:
+from typing import TypeVar
+
+Z = TypeVar("Z", "BaseZone", "BaseZoneCandidate")
+
+
+def _select_zones(zones: list[Z]) -> list[Z]:
     """Most recent zones win; overlapping same-kind duplicates and overflow are dropped."""
     picked: list[Z] = []
     for zone in sorted(zones, key=lambda z: z.end_time, reverse=True):

@@ -245,6 +245,25 @@ ARCHIVE: tuple[Release, ...] = (
             "gate keeps its sample; only `realized_r` and `cost_r` restart."
         ),
     ),
+    Release(
+        generation=7,
+        forward_test_version="1.4.0",
+        opened=date(2026, 8, 31),
+        summary="Partial-exit ladder arm pre-registered.",
+        changed=(
+            "pre-registered partial_lock exit arm: 50% at +0.5R, 30% at +1R, residual stop to breakeven",
+        ),
+        gross_comparable=True,
+        net_comparable=False,
+        population_comparable=True,
+        note=(
+            "Partial exit is a settlement-semantics change: realized_r now "
+            "reflects locked partials plus residual, not a single exit. "
+            "Gross and population pool across this boundary; realized_r and "
+            "cost_r restart. Arm is pre-registered only — engine logic is "
+            "stubbed until the arm clears its gate."
+        ),
+    ),
 )
 
 #: The generation being written right now. `recorder.DETECTOR_GENERATION` is

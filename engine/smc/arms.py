@@ -37,6 +37,7 @@ from dataclasses import dataclass, replace
 from typing import Literal
 
 from smc.forward_test import (
+    DEFAULT_PARTIAL_EXIT_CONFIG,
     ForwardTestConfig,
     SetupSnapshot,
     Variant,
@@ -54,7 +55,7 @@ from smc.forward_test import (
 #: that a *different* arm was edited. What must never pool is one arm's
 #: observations across a change to that arm, and the mechanism for that is a
 #: new name, not a new version.
-ARMS_VERSION = "1.2.0"
+ARMS_VERSION = "1.3.0"
 
 Axis = Literal["exit", "plan", "detect"]
 
@@ -143,6 +144,20 @@ class Arm:
 
 EXIT_ARMS: tuple[Arm, ...] = (
     Arm(
+        name="partial_lock",
+        axis="exit",
+        hypothesis=(
+            "Partial take-profit ladder (50%@+0.5R, 30%@+1.0R, stop→BE) turns "
+            "the INVALIDATED cohort's avg realized from -0.39 to positive by "
+            "locking profit at the first favorable excursion instead of running "
+            "stops into 1m noise. Pre-registered measure-first: MFE-bounded "
+            "reconstruction over 973 invalid setups showed +202R total; "
+            "htf_aligned=true AND rr>=4.0 subset showed +13.72R total."
+        ),
+        registered="2026-08-31",
+        gate=Gate(min_settled=600, min_gross_edge_r=0.10, alpha=0.05),
+    ),
+    Arm(
         name="no_trail",
         axis="exit",
         hypothesis=(
@@ -183,6 +198,10 @@ EXIT_ARMS: tuple[Arm, ...] = (
 
 def _exit_variants(primary: ForwardTestConfig) -> dict[str, ForwardTestConfig]:
     return {
+        "partial_lock": replace(
+            primary,
+            partial_exit_config=DEFAULT_PARTIAL_EXIT_CONFIG,
+        ),
         "no_trail": replace(primary, trailing_mode="NONE"),
         "wide_trail": replace(primary, trailing_activation_r=1.5, trailing_distance_r=1.5),
     }
